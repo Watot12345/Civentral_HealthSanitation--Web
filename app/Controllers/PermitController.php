@@ -3,7 +3,6 @@
 
 require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Models/Permit.php';
-require_once __DIR__ . '/../../includes/data-mask.php';
 
 class PermitController extends BaseController
 {

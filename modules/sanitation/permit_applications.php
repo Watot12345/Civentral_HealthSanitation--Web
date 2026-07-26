@@ -126,13 +126,13 @@ $title = 'Permit Applications';
         </div>
 
         <!-- Empty state -->
-        <div id="emptyState" class="hidden flex-col items-center justify-center py-14 text-center">
-            <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+        <div id="emptyState" class="hidden flex-col items-center justify-center py-14 text-center w-full">
+            <div id="emptyIcon" class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3 mx-auto">
                 <i class="fa-solid fa-file-circle-xmark text-slate-400"></i>
             </div>
-            <p class="text-sm font-semibold text-slate-600">No permits match your filters</p>
-            <p class="text-xs text-slate-400 mt-1">Try adjusting your search or clearing filters</p>
-            <button onclick="resetFilters()" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear all filters</button>
+            <p id="emptyTitle" class="text-sm font-semibold text-slate-600">No permits match your filters</p>
+            <p id="emptySubtitle" class="text-xs text-slate-400 mt-1">Try adjusting your search or clearing filters</p>
+            <button id="emptyResetBtn" onclick="resetFilters()" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear all filters</button>
         </div>
 
         <!-- Pagination -->
@@ -390,10 +390,9 @@ $title = 'Permit Applications';
 </div>
 
 <!-- ============================================================ -->
-<!-- TOAST & MODAL SYSTEM                                         -->
+<!-- TOAST SYSTEM                                                 -->
 <!-- ============================================================ -->
 <?php include_once __DIR__ . '/../../includes/toast.php'; ?>
-<script src="../../assets/js/modal-system.js"></script>
 
 <!-- ============================================================ -->
 <!-- JAVASCRIPT - API-Driven Application                         -->
@@ -633,10 +632,33 @@ async function loadPermits(page = 1) {
 function renderTable(permits) {
     const tbody = document.getElementById('permitTableBody');
     const emptyState = document.getElementById('emptyState');
+    const emptyIcon = document.getElementById('emptyIcon');
+    const emptyTitle = document.getElementById('emptyTitle');
+    const emptySubtitle = document.getElementById('emptySubtitle');
+    const emptyResetBtn = document.getElementById('emptyResetBtn');
+    const search = document.getElementById('searchPermit').value;
+    const status = document.getElementById('filterStatus').value;
+    const type = document.getElementById('filterType').value;
+
+    const hasActiveFilters = search || status || type;
 
     if (permits.length === 0) {
         tbody.innerHTML = '';
         emptyState.classList.remove('hidden');
+
+        if (hasActiveFilters) {
+            // User searched/filtered but no results found
+            emptyIcon.innerHTML = '<i class="fa-solid fa-file-circle-xmark text-slate-400"></i>';
+            emptyTitle.textContent = 'No permits match your filters';
+            emptySubtitle.textContent = 'Try adjusting your search or clearing filters';
+            emptyResetBtn.classList.remove('hidden');
+        } else {
+            // No data in the system at all
+            emptyIcon.innerHTML = '<i class="fa-solid fa-inbox text-slate-400"></i>';
+            emptyTitle.textContent = 'No applications found';
+            emptySubtitle.textContent = 'There are no permit applications yet. Click "New Application" to add one.';
+            emptyResetBtn.classList.add('hidden');
+        }
         return;
     }
 

@@ -452,3 +452,61 @@ create table public.permits (
     )
   )
 ) TABLESPACE pg_default;
+
+create table public.inspections (
+  id serial not null,
+  inspection_id character varying(20) not null,
+  permit_id integer not null,
+  inspector_id integer not null,
+  scheduled_date date not null,
+  scheduled_time time without time zone not null,
+  conducted_date timestamp with time zone null,
+  findings json null,
+  overall_status text null default 'partially_compliant'::text,
+  recommendations text null,
+  attachments json null,
+  status text null default 'scheduled'::text,
+  completed_at timestamp with time zone null,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  constraint inspections_pkey primary key (id),
+  constraint inspections_inspection_id_key unique (inspection_id),
+  constraint inspections_inspector_id_fkey foreign KEY (inspector_id) references employees (id),
+  constraint inspections_permit_id_fkey foreign KEY (permit_id) references permits (id) on delete CASCADE,
+  constraint inspections_overall_status_check check (
+    (
+      overall_status = any (
+        array[
+          'compliant'::text,
+          'partially_compliant'::text,
+          'non_compliant'::text
+        ]
+      )
+    )
+  ),
+  constraint inspections_status_check check (
+    (
+      status = any (
+        array[
+          'scheduled'::text,
+          'completed'::text,
+          'cancelled'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_inspections_permit_id on public.inspections using btree (permit_id) TABLESPACE pg_default;
+
+create index IF not exists idx_inspections_inspector_id on public.inspections using btree (inspector_id) TABLESPACE pg_default;
+
+create index IF not exists idx_inspections_scheduled_date on public.inspections using btree (scheduled_date) TABLESPACE pg_default;
+
+create index IF not exists idx_inspections_status on public.inspections using btree (status) TABLESPACE pg_default;
+
+create index IF not exists idx_inspections_overall_status on public.inspections using btree (overall_status) TABLESPACE pg_default;
+
+create trigger handle_inspections_updated_at BEFORE
+update on inspections for EACH row
+execute FUNCTION handle_updated_at ();

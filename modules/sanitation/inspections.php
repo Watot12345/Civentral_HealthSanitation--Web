@@ -9,203 +9,45 @@
 // ============================================================
 
 // ============================================================
-// 1. PHP BACKEND - Fetch Data
+// 1. PHP BACKEND - live data only (no static arrays)
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 
-// Sample Inspectors Data
-$inspectors = [
-    ['id' => 1, 'name' => 'Juan Dela Cruz', 'specialty' => 'Food Safety'],
-    ['id' => 2, 'name' => 'Maria Santos', 'specialty' => 'Environmental Health'],
-    ['id' => 3, 'name' => 'Ana Reyes', 'specialty' => 'Building Safety'],
-    ['id' => 4, 'name' => 'Carlos Lim', 'specialty' => 'General Sanitation'],
-];
-
-// Sample Permits Data (for dropdown reference)
-$permits = [
-    ['id' => 1, 'permit_id' => 'SP-1040', 'applicant' => 'ABC Restaurant', 'business_type' => 'Food Establishment'],
-    ['id' => 2, 'permit_id' => 'SP-1041', 'applicant' => 'Green Market Stall', 'business_type' => 'Market Vendor'],
-    ['id' => 3, 'permit_id' => 'SP-1042', 'applicant' => 'Fresh Bakes Co.', 'business_type' => 'Bakery'],
-    ['id' => 4, 'permit_id' => 'SP-1043', 'applicant' => 'City Gym', 'business_type' => 'Recreational Facility'],
-    ['id' => 5, 'permit_id' => 'SP-1044', 'applicant' => 'Mega Mart', 'business_type' => 'Retail Store'],
-    ['id' => 6, 'permit_id' => 'SP-1045', 'applicant' => 'Sunrise Pharmacy', 'business_type' => 'Pharmacy'],
-];
-
-// Sample Inspections Data
-$inspections = [
-    [
-        'id' => 1,
-        'inspection_id' => 'INS-001',
-        'permit_id' => 1,
-        'permit_number' => 'SP-1040',
-        'applicant' => 'ABC Restaurant',
-        'business_type' => 'Food Establishment',
-        'address' => '123 Rizal St., Barangay San Jose',
-        'inspector_id' => 1,
-        'inspector_name' => 'Juan Dela Cruz',
-        'scheduled_date' => '2026-07-20',
-        'scheduled_time' => '09:00 AM',
-        'conducted_date' => '2026-07-20',
-        'conducted_time' => '09:30 AM',
-        'status' => 'completed',
-        'findings' => [
-            ['category' => 'Food Storage', 'status' => 'compliant', 'notes' => 'Proper temperature maintained'],
-            ['category' => 'Sanitation', 'status' => 'compliant', 'notes' => 'All areas clean'],
-            ['category' => 'Waste Disposal', 'status' => 'partially_compliant', 'notes' => 'Need proper segregation'],
-        ],
-        'overall_status' => 'partially_compliant',
-        'recommendations' => 'Implement waste segregation system within 7 days',
-        'follow_up_date' => '2026-07-27',
-        'attachments' => ['inspection_photo_1.jpg', 'inspection_photo_2.jpg'],
-        'notes' => 'Establishment generally compliant. Minor issues found.',
-        'created_at' => '2026-07-15 08:00:00'
-    ],
-    [
-        'id' => 2,
-        'inspection_id' => 'INS-002',
-        'permit_id' => 2,
-        'permit_number' => 'SP-1041',
-        'applicant' => 'Green Market Stall',
-        'business_type' => 'Market Vendor',
-        'address' => '456 Mabini Ave., Barangay Poblacion',
-        'inspector_id' => 2,
-        'inspector_name' => 'Maria Santos',
-        'scheduled_date' => '2026-07-22',
-        'scheduled_time' => '10:00 AM',
-        'conducted_date' => null,
-        'conducted_time' => null,
-        'status' => 'scheduled',
-        'findings' => [],
-        'overall_status' => null,
-        'recommendations' => '',
-        'follow_up_date' => null,
-        'attachments' => [],
-        'notes' => 'Initial inspection scheduled',
-        'created_at' => '2026-07-16 09:30:00'
-    ],
-    [
-        'id' => 3,
-        'inspection_id' => 'INS-003',
-        'permit_id' => 4,
-        'permit_number' => 'SP-1043',
-        'applicant' => 'City Gym',
-        'business_type' => 'Recreational Facility',
-        'address' => '101 Luna St., Barangay San Roque',
-        'inspector_id' => 3,
-        'inspector_name' => 'Ana Reyes',
-        'scheduled_date' => '2026-07-18',
-        'scheduled_time' => '02:00 PM',
-        'conducted_date' => '2026-07-18',
-        'conducted_time' => '02:30 PM',
-        'status' => 'completed',
-        'findings' => [
-            ['category' => 'Building Safety', 'status' => 'non_compliant', 'notes' => 'Fire exits blocked'],
-            ['category' => 'Sanitation', 'status' => 'non_compliant', 'notes' => 'Bathroom facilities unsanitary'],
-            ['category' => 'Equipment Safety', 'status' => 'non_compliant', 'notes' => 'Expired safety equipment'],
-        ],
-        'overall_status' => 'non_compliant',
-        'recommendations' => 'Immediate corrective action required. Clear fire exits, sanitize bathrooms, replace safety equipment.',
-        'follow_up_date' => '2026-07-25',
-        'attachments' => ['violation_photo_1.jpg', 'violation_photo_2.jpg'],
-        'notes' => 'Multiple violations found. Follow-up inspection required.',
-        'created_at' => '2026-07-16 14:15:00'
-    ],
-    [
-        'id' => 4,
-        'inspection_id' => 'INS-004',
-        'permit_id' => 3,
-        'permit_number' => 'SP-1042',
-        'applicant' => 'Fresh Bakes Co.',
-        'business_type' => 'Bakery',
-        'address' => '789 Bonifacio Rd., Barangay Riverside',
-        'inspector_id' => 1,
-        'inspector_name' => 'Juan Dela Cruz',
-        'scheduled_date' => '2026-07-25',
-        'scheduled_time' => '11:00 AM',
-        'conducted_date' => null,
-        'conducted_time' => null,
-        'status' => 'scheduled',
-        'findings' => [],
-        'overall_status' => null,
-        'recommendations' => '',
-        'follow_up_date' => null,
-        'attachments' => [],
-        'notes' => 'Follow-up inspection for waste segregation',
-        'created_at' => '2026-07-17 10:00:00'
-    ],
-    [
-        'id' => 5,
-        'inspection_id' => 'INS-005',
-        'permit_id' => 5,
-        'permit_number' => 'SP-1044',
-        'applicant' => 'Mega Mart',
-        'business_type' => 'Retail Store',
-        'address' => '202 Santos St., Barangay Sta. Cruz',
-        'inspector_id' => 4,
-        'inspector_name' => 'Carlos Lim',
-        'scheduled_date' => '2026-07-15',
-        'scheduled_time' => '08:30 AM',
-        'conducted_date' => '2026-07-15',
-        'conducted_time' => '09:00 AM',
-        'status' => 'completed',
-        'findings' => [
-            ['category' => 'Sanitation', 'status' => 'compliant', 'notes' => 'All areas clean and organized'],
-            ['category' => 'Waste Disposal', 'status' => 'compliant', 'notes' => 'Proper waste segregation observed'],
-            ['category' => 'Storage', 'status' => 'compliant', 'notes' => 'Stock properly arranged'],
-        ],
-        'overall_status' => 'compliant',
-        'recommendations' => 'Continue maintaining current sanitation standards',
-        'follow_up_date' => null,
-        'attachments' => ['inspection_report.pdf'],
-        'notes' => 'Fully compliant establishment',
-        'created_at' => '2026-07-14 16:30:00'
-    ],
-    [
-        'id' => 6,
-        'inspection_id' => 'INS-006',
-        'permit_id' => 6,
-        'permit_number' => 'SP-1045',
-        'applicant' => 'Sunrise Pharmacy',
-        'business_type' => 'Pharmacy',
-        'address' => '303 Rizal St., Barangay San Jose',
-        'inspector_id' => 2,
-        'inspector_name' => 'Maria Santos',
-        'scheduled_date' => '2026-07-19',
-        'scheduled_time' => '10:30 AM',
-        'conducted_date' => null,
-        'conducted_time' => null,
-        'status' => 'cancelled',
-        'findings' => [],
-        'overall_status' => null,
-        'recommendations' => '',
-        'follow_up_date' => null,
-        'attachments' => [],
-        'notes' => 'Cancelled - applicant requested reschedule',
-        'created_at' => '2026-07-16 08:45:00'
-    ],
-];
-
-// Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$limit = 5;
-$offset = ($page - 1) * $limit;
-$totalInspections = count($inspections);
-$totalPages = ceil($totalInspections / $limit);
-$paginatedInspections = array_slice($inspections, $offset, $limit);
+// These two model requires assume this view lives two levels under the
+// project root (same depth as your other module views). Adjust the path
+// if your Views folder sits somewhere else.
+require_once __DIR__ . '/../../app/Models/Permit.php';
+require_once __DIR__ . '/../../app/Models/Employee.php';
 
 $title = 'Inspections';
 
-// Stats
-$totalScheduled = count(array_filter($inspections, fn($i) => $i['status'] === 'scheduled'));
-$totalCompleted = count(array_filter($inspections, fn($i) => $i['status'] === 'completed'));
-$totalCancelled = count(array_filter($inspections, fn($i) => $i['status'] === 'cancelled'));
-$totalFollowUps = count(array_filter($inspections, fn($i) => $i['follow_up_date'] && $i['status'] !== 'cancelled'));
-$totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_status'] === 'non_compliant'));
+// Permits for the "Schedule Inspection" dropdown. Only permits that are
+// actually approved/active make sense to inspect — adjust the filter key
+// below to match whatever status field/value your Permit model uses.
+$permits = [];
+try {
+    $permitModel = new Permit();
+    $permits = $permitModel->all();
+} catch (\Throwable $e) {
+    error_log('Inspections view: failed to load permits - ' . $e->getMessage());
+}
+
+// Employees for the Inspector dropdown/filter. TODO: if your employees
+// table has a role/department column that distinguishes inspectors,
+// filter for it here (e.g. array_filter by $e['department'] === 'Sanitation')
+// instead of listing every employee.
+$inspectors = [];
+try {
+    $employeeModel = new Employee();
+    $inspectors = $employeeModel->all();
+} catch (\Throwable $e) {
+    error_log('Inspections view: failed to load employees - ' . $e->getMessage());
+}
 ?>
 
 <!-- ============================================================ -->
-<!-- 2. HTML + PHP EMBEDDED + Tailwind CSS                       -->
+<!-- 2. HTML + Tailwind CSS                                      -->
 <!-- ============================================================ -->
 
 <div class="flex-1 px-6 pt-[26px] pb-20 mb-10 flex flex-col min-h-0 overflow-hidden">
@@ -225,109 +67,109 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
     </div>
 
     <!-- ============================================================ -->
-<!-- MODERN KPI CARDS - Updated to match design               -->
-<!-- ============================================================ -->
-<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-    <!-- Card 1: Total Inspections -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                    <i class="fa-solid fa-clipboard-list text-lg"></i>
+    <!-- KPI CARDS - values populated via loadStats() -->
+    <!-- ============================================================ -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <!-- Card 1: Total Inspections -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                        <i class="fa-solid fa-clipboard-list text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-slate-900" id="statTotal">—</p>
+                        <p class="text-xs font-medium text-slate-500">Total Inspections</p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-2xl font-black text-slate-900"><?php echo $totalInspections; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Total Inspections</p>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">📋 All inspections</span>
+                    <span class="text-[10px] text-slate-400"><span id="statTotalCompletedInline">—</span> completed</span>
                 </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">📋 All inspections</span>
-                <span class="text-[10px] text-slate-400"><?php echo $totalCompleted; ?> completed</span>
             </div>
         </div>
-    </div>
 
-    <!-- Card 2: Scheduled -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                    <i class="fa-solid fa-calendar-check text-lg"></i>
+        <!-- Card 2: Scheduled -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                        <i class="fa-solid fa-calendar-check text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-blue-600" id="statScheduled">—</p>
+                        <p class="text-xs font-medium text-slate-500">Scheduled</p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-2xl font-black text-blue-600"><?php echo $totalScheduled; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Scheduled</p>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">📅 Upcoming</span>
+                    <span class="text-[10px] text-slate-400">Awaiting conduct</span>
                 </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">📅 Upcoming</span>
-                <span class="text-[10px] text-slate-400">Awaiting conduct</span>
             </div>
         </div>
-    </div>
 
-    <!-- Card 3: Completed -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-emerald-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
-                    <i class="fa-solid fa-check-circle text-lg"></i>
+        <!-- Card 3: Completed -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-emerald-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
+                        <i class="fa-solid fa-check-circle text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-emerald-600" id="statCompleted">—</p>
+                        <p class="text-xs font-medium text-slate-500">Completed</p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-2xl font-black text-emerald-600"><?php echo $totalCompleted; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Completed</p>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅ Done</span>
+                    <span class="text-[10px] text-slate-400">Successfully finished</span>
                 </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅ Done</span>
-                <span class="text-[10px] text-slate-400">Successfully finished</span>
             </div>
         </div>
-    </div>
 
-    <!-- Card 4: Follow-ups -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-200">
-                    <i class="fa-solid fa-arrow-rotate-right text-lg"></i>
+        <!-- Card 4: Follow-ups -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-200">
+                        <i class="fa-solid fa-arrow-rotate-right text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-amber-600" id="statFollowUps">—</p>
+                        <p class="text-xs font-medium text-slate-500">Follow-ups</p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-2xl font-black text-amber-600"><?php echo $totalFollowUps; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Follow-ups</p>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">🔄 Pending</span>
+                    <span class="text-[10px] text-slate-400">Needs re-inspection</span>
                 </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">🔄 Pending</span>
-                <span class="text-[10px] text-slate-400">Needs re-inspection</span>
             </div>
         </div>
-    </div>
 
-    <!-- Card 5: Non-Compliant -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-rose-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-rose-200">
-                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+        <!-- Card 5: Non-Compliant -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-rose-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-rose-200">
+                        <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-rose-600" id="statNonCompliant">—</p>
+                        <p class="text-xs font-medium text-slate-500">Non-Compliant</p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-2xl font-black text-rose-600"><?php echo $totalNonCompliant; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Non-Compliant</p>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold">🚨 Violations</span>
+                    <span class="text-[10px] text-slate-400">Immediate action</span>
                 </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold">🚨 Violations</span>
-                <span class="text-[10px] text-slate-400">Immediate action</span>
             </div>
         </div>
     </div>
-</div>
 
     <!-- Search & Filter -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
@@ -355,7 +197,9 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
                 <select id="filterInspector" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Inspectors</option>
                     <?php foreach ($inspectors as $i): ?>
-                        <option value="<?php echo $i['name']; ?>"><?php echo $i['name']; ?></option>
+                        <option value="<?php echo htmlspecialchars($i['full_name'] ?? ('Inspector #' . $i['id'])); ?>">
+                            <?php echo htmlspecialchars($i['full_name'] ?? ('Inspector #' . $i['id'])); ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
                 <button onclick="resetFilters()" title="Reset filters"
@@ -382,78 +226,11 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
                     </tr>
                 </thead>
                 <tbody id="inspectionTableBody">
-                    <?php foreach ($paginatedInspections as $inspection): ?>
-                    <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors inspection-row"
-                        data-applicant="<?php echo strtolower($inspection['applicant']); ?>"
-                        data-inspector="<?php echo strtolower($inspection['inspector_name']); ?>"
-                        data-status="<?php echo $inspection['status']; ?>"
-                        data-result="<?php echo $inspection['overall_status'] ?? ''; ?>">
-                        <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo $inspection['inspection_id']; ?></td>
-                        <td class="px-4 py-3">
-                            <div>
-                                <p class="font-semibold text-slate-800 text-sm"><?php echo $inspection['applicant']; ?></p>
-                                <p class="text-xs text-slate-400"><?php echo $inspection['permit_number']; ?> • <?php echo $inspection['business_type']; ?></p>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs"><?php echo $inspection['inspector_name']; ?></td>
-                        <td class="px-4 py-3 text-slate-600 text-xs">
-                            <?php echo date('M d, Y', strtotime($inspection['scheduled_date'])); ?>
-                            <br><span class="text-[10px] text-slate-400"><?php echo $inspection['scheduled_time']; ?></span>
-                        </td>
-                        <td class="px-4 py-3">
-                            <?php
-                                $statusColors = [
-                                    'scheduled' => 'bg-blue-100 text-blue-700',
-                                    'completed' => 'bg-emerald-100 text-emerald-700',
-                                    'cancelled' => 'bg-slate-100 text-slate-500'
-                                ];
-                            ?>
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo $statusColors[$inspection['status']] ?? $statusColors['scheduled']; ?>">
-                                <?php echo ucfirst($inspection['status']); ?>
-                            </span>
-                        </td>
-                        <td class="px-4 py-3">
-                            <?php if ($inspection['overall_status']): ?>
-                                <?php
-                                    $resultColors = [
-                                        'compliant' => 'bg-emerald-100 text-emerald-700',
-                                        'partially_compliant' => 'bg-amber-100 text-amber-700',
-                                        'non_compliant' => 'bg-rose-100 text-rose-700'
-                                    ];
-                                ?>
-                                <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo $resultColors[$inspection['overall_status']] ?? $resultColors['partially_compliant']; ?>">
-                                    <?php echo str_replace('_', ' ', ucfirst($inspection['overall_status'])); ?>
-                                </span>
-                            <?php else: ?>
-                                <span class="text-xs text-slate-400">—</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center justify-center gap-1">
-                                <button onclick="viewInspection(<?php echo $inspection['id']; ?>)"
-                                        class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
-                                    <i class="fa-solid fa-eye text-sm"></i>
-                                </button>
-                                <?php if ($inspection['status'] === 'scheduled'): ?>
-                                    <button onclick="conductInspection(<?php echo $inspection['id']; ?>)"
-                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Conduct">
-                                        <i class="fa-solid fa-clipboard-check text-sm"></i>
-                                    </button>
-                                <?php endif; ?>
-                                <?php if ($inspection['follow_up_date'] && $inspection['status'] !== 'cancelled'): ?>
-                                    <button onclick="viewFollowUp(<?php echo $inspection['id']; ?>)"
-                                            class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Follow-up">
-                                        <i class="fa-solid fa-arrow-rotate-right text-sm"></i>
-                                    </button>
-                                <?php endif; ?>
-                                <button onclick="editInspection(<?php echo $inspection['id']; ?>)"
-                                        class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
-                                    <i class="fa-solid fa-pen text-sm"></i>
-                                </button>
-                            </div>
+                    <tr>
+                        <td colspan="7" class="px-4 py-10 text-center text-slate-400 text-sm">
+                            <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading inspections...
                         </td>
                     </tr>
-                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
@@ -463,36 +240,15 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
             <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
                 <i class="fa-solid fa-clipboard-list text-slate-400"></i>
             </div>
-            <p class="text-sm font-semibold text-slate-600">No inspections match your filters</p>
-            <p class="text-xs text-slate-400 mt-1">Try adjusting your search or clearing filters</p>
-            <button onclick="resetFilters()" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear all filters</button>
+            <p class="text-sm font-semibold text-slate-600" id="emptyStateTitle">No inspections match your filters</p>
+            <p class="text-xs text-slate-400 mt-1" id="emptyStateSubtitle">Try adjusting your search or clearing filters</p>
+            <button onclick="resetFilters()" id="emptyStateClearBtn" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear all filters</button>
         </div>
 
         <!-- Pagination -->
         <div class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
-            <p class="text-xs text-slate-500">
-                Showing <span class="font-semibold text-slate-700"><?php echo $offset + 1; ?></span> to
-                <span class="font-semibold text-slate-700"><?php echo min($offset + $limit, $totalInspections); ?></span> of
-                <span class="font-semibold text-slate-700"><?php echo $totalInspections; ?></span> inspections
-            </p>
-            <div class="flex gap-1">
-                <button onclick="changePage(<?php echo $page - 1; ?>)"
-                        class="px-3 py-1.5 rounded-lg text-sm <?php echo $page <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
-                        <?php echo $page <= 1 ? 'disabled' : ''; ?>>
-                    <i class="fa-solid fa-chevron-left text-xs"></i>
-                </button>
-                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <button onclick="changePage(<?php echo $i; ?>)"
-                            class="px-3 py-1.5 rounded-lg text-sm font-medium <?php echo $i === $page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>">
-                        <?php echo $i; ?>
-                    </button>
-                <?php endfor; ?>
-                <button onclick="changePage(<?php echo $page + 1; ?>)"
-                        class="px-3 py-1.5 rounded-lg text-sm <?php echo $page >= $totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
-                        <?php echo $page >= $totalPages ? 'disabled' : ''; ?>>
-                    <i class="fa-solid fa-chevron-right text-xs"></i>
-                </button>
-            </div>
+            <p class="text-xs text-slate-500" id="paginationSummary">Loading…</p>
+            <div class="flex gap-1" id="paginationControls"></div>
         </div>
     </div>
 </div>
@@ -517,7 +273,9 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
                 <select id="insp_permit" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="">Select Permit</option>
                     <?php foreach ($permits as $p): ?>
-                        <option value="<?php echo $p['id']; ?>"><?php echo $p['permit_id']; ?> - <?php echo $p['applicant']; ?> (<?php echo $p['business_type']; ?>)</option>
+                        <option value="<?php echo (int)$p['id']; ?>">
+                            <?php echo htmlspecialchars(($p['permit_id'] ?? '') . ' - ' . ($p['applicant'] ?? '') . ' (' . ($p['business_type'] ?? '') . ')'); ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -526,7 +284,9 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
                 <select id="insp_inspector" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="">Select Inspector</option>
                     <?php foreach ($inspectors as $i): ?>
-                        <option value="<?php echo $i['id']; ?>"><?php echo $i['name']; ?> (<?php echo $i['specialty']; ?>)</option>
+                        <option value="<?php echo (int)$i['id']; ?>">
+                            <?php echo htmlspecialchars($i['full_name'] ?? ('Inspector #' . $i['id'])); ?>
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -549,7 +309,7 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
                         class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
                     Cancel
                 </button>
-                <button type="submit"
+                <button type="submit" id="scheduleSubmitBtn"
                         class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
                     <i class="fa-solid fa-calendar-plus mr-1.5"></i> Schedule
                 </button>
@@ -576,41 +336,20 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
             <input type="hidden" id="conduct_inspection_id">
             <div class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
                 <div>
-                    <p id="conductApplicant" class="font-semibold text-slate-800 text-sm">ABC Restaurant</p>
-                    <p id="conductPermit" class="text-xs text-slate-400">SP-1040</p>
-                    <p id="conductAddress" class="text-xs text-slate-400">123 Rizal St.</p>
+                    <p id="conductApplicant" class="font-semibold text-slate-800 text-sm">—</p>
+                    <p id="conductPermit" class="text-xs text-slate-400">—</p>
+                    <p id="conductAddress" class="text-xs text-slate-400">—</p>
                 </div>
             </div>
-            
+
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Findings</label>
-                <div class="space-y-3" id="findingsContainer">
-                    <div class="finding-item p-3 bg-slate-50 rounded-lg border border-slate-200">
-                        <div class="grid grid-cols-3 gap-2">
-                            <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-1">Category</label>
-                                <input type="text" class="finding-category w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="e.g. Sanitation" value="Sanitation">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-1">Status</label>
-                                <select class="finding-status w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                                    <option value="compliant">Compliant</option>
-                                    <option value="partially_compliant">Partially Compliant</option>
-                                    <option value="non_compliant">Non-Compliant</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-1">Notes</label>
-                                <input type="text" class="finding-notes w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Details...">
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <div class="space-y-3" id="findingsContainer"></div>
                 <button type="button" onclick="addFinding()" class="mt-2 text-xs font-semibold text-brand-medium hover:text-brand-dark transition">
                     <i class="fa-solid fa-plus mr-1"></i> Add Finding
                 </button>
             </div>
-            
+
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Overall Status</label>
                 <select id="conduct_overall" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
@@ -626,6 +365,7 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Follow-up Date (if needed)</label>
                 <input type="date" id="conduct_follow_up" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <p class="text-[11px] text-slate-400 mt-1">Requires the <code>follow_up_date</code> column migration — see notes.</p>
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
@@ -637,7 +377,7 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
                         class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
                     Cancel
                 </button>
-                <button type="submit"
+                <button type="submit" id="conductSubmitBtn"
                         class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
                     <i class="fa-solid fa-check mr-1.5"></i> Submit Report
                 </button>
@@ -672,11 +412,17 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
 </div>
 
 <!-- ============================================================ -->
-<!-- JAVASCRIPT                                                   -->
+<!-- JAVASCRIPT - everything below talks to api/inspections.php  -->
 <!-- ============================================================ -->
 <script>
-    const INSPECTIONS = <?php echo json_encode(array_column($inspections, null, 'id'), JSON_PRETTY_PRINT); ?>;
+    // Adjust this to the actual path of your API endpoint relative to this page.
+    const API_URL = '../../api/inspections.php';
+    const PAGE_LIMIT = 5;
+
+    let currentPage = 1;
+    let lastTotalPages = 1;
     let conductInspectionId = null;
+    let searchDebounceTimer = null;
 
     // ============================================================
     // MODAL FUNCTIONS
@@ -693,256 +439,454 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
         document.body.classList.remove('overflow-hidden');
     }
 
-    // Close modal on backdrop click
     document.querySelectorAll('.fixed.inset-0').forEach(modal => {
         modal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-                this.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            }
+            if (e.target === this) closeModal(this.id);
         });
     });
 
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => closeModal(modal.id));
+        }
+    });
+
     // ============================================================
-    // FINDINGS MANAGEMENT
+    // STATS (KPI cards)
     // ============================================================
-    let findingCount = 1;
+    async function loadStats() {
+        try {
+            const res = await fetch(`${API_URL}?stats=true`);
+            const json = await res.json();
+            if (!json.success) return;
+            const d = json.data;
+            document.getElementById('statTotal').textContent = d.total ?? 0;
+            document.getElementById('statTotalCompletedInline').textContent = d.completed ?? 0;
+            document.getElementById('statScheduled').textContent = d.scheduled ?? 0;
+            document.getElementById('statCompleted').textContent = d.completed ?? 0;
+            document.getElementById('statFollowUps').textContent = d.follow_ups ?? 0;
+            document.getElementById('statNonCompliant').textContent = d.non_compliant ?? 0;
+        } catch (e) {
+            console.error('Failed to load stats', e);
+        }
+    }
+
+    // ============================================================
+    // TABLE LOADING (server-side pagination + filtering)
+    // ============================================================
+    function buildQueryParams(page) {
+        const params = new URLSearchParams({ page, limit: PAGE_LIMIT });
+        const q = document.getElementById('searchInspection').value.trim();
+        const status = document.getElementById('filterStatus').value;
+        const result = document.getElementById('filterResult').value;
+        const inspector = document.getElementById('filterInspector').value;
+        if (q) params.set('q', q);
+        if (status) params.set('status', status);
+        if (result) params.set('result', result);
+        if (inspector) params.set('inspector', inspector);
+        return params;
+    }
+
+    function hasActiveFilters() {
+        return !!(
+            document.getElementById('searchInspection').value.trim() ||
+            document.getElementById('filterStatus').value ||
+            document.getElementById('filterResult').value ||
+            document.getElementById('filterInspector').value
+        );
+    }
+
+    async function loadInspections(page = 1) {
+        currentPage = page;
+        const tbody = document.getElementById('inspectionTableBody');
+        tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading inspections...</td></tr>`;
+
+        try {
+            const params = buildQueryParams(page);
+            const res = await fetch(`${API_URL}?${params.toString()}`);
+            const json = await res.json();
+
+            if (!json.success) {
+                showToast(json.message || 'Failed to load inspections', 'danger');
+                tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-10 text-center text-rose-500 text-sm">Failed to load inspections</td></tr>`;
+                return;
+            }
+
+            renderTable(json.data, hasActiveFilters());
+            lastTotalPages = json.total_pages || 1;
+            renderPagination(json.page || page, lastTotalPages, json.total || 0, json.limit || PAGE_LIMIT);
+        } catch (e) {
+            console.error(e);
+            showToast('Network error loading inspections', 'danger');
+        }
+    }
+
+    const statusColors = {
+        scheduled: 'bg-blue-100 text-blue-700',
+        completed: 'bg-emerald-100 text-emerald-700',
+        cancelled: 'bg-slate-100 text-slate-500'
+    };
+    const resultColors = {
+        compliant: 'bg-emerald-100 text-emerald-700',
+        partially_compliant: 'bg-amber-100 text-amber-700',
+        non_compliant: 'bg-rose-100 text-rose-700'
+    };
+
+    function renderTable(rows, filtersActive = false) {
+        const tbody = document.getElementById('inspectionTableBody');
+        const emptyState = document.getElementById('emptyState');
+        const emptyTitle = document.getElementById('emptyStateTitle');
+        const emptySubtitle = document.getElementById('emptyStateSubtitle');
+        const emptyClearBtn = document.getElementById('emptyStateClearBtn');
+
+        if (!rows || rows.length === 0) {
+            tbody.innerHTML = '';
+            if (filtersActive) {
+                emptyTitle.textContent = 'No inspections match your filters';
+                emptySubtitle.textContent = 'Try adjusting your search or clearing filters';
+                emptyClearBtn.style.display = 'inline-block';
+            } else {
+                emptyTitle.textContent = 'No inspections yet';
+                emptySubtitle.textContent = 'Schedule your first inspection to get started';
+                emptyClearBtn.style.display = 'none';
+            }
+            emptyState.style.display = 'flex';
+            return;
+        }
+        emptyState.style.display = 'none';
+
+        tbody.innerHTML = rows.map(i => {
+            const needsFollowUp = i.status === 'completed' &&
+                (i.overall_status === 'non_compliant' || i.overall_status === 'partially_compliant');
+
+            return `
+            <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors">
+                <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${escapeHtml(i.inspection_id)}</td>
+                <td class="px-4 py-3">
+                    <div>
+                        <p class="font-semibold text-slate-800 text-sm">${escapeHtml(i.applicant)}</p>
+                        <p class="text-xs text-slate-400">${escapeHtml(i.permit_number)} • ${escapeHtml(i.business_type)}</p>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-slate-600 text-xs">${escapeHtml(i.inspector_name)}</td>
+                <td class="px-4 py-3 text-slate-600 text-xs">
+                    ${formatDate(i.scheduled_date)}
+                    <br><span class="text-[10px] text-slate-400">${escapeHtml(i.scheduled_time || '')}</span>
+                </td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[i.status] || statusColors.scheduled}">
+                        ${capitalize(i.status)}
+                    </span>
+                </td>
+                <td class="px-4 py-3">
+                    ${i.overall_status ? `
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${resultColors[i.overall_status] || resultColors.partially_compliant}">
+                            ${i.overall_status.replace('_', ' ').toUpperCase()}
+                        </span>
+                    ` : '<span class="text-xs text-slate-400">—</span>'}
+                </td>
+                <td class="px-4 py-3">
+                    <div class="flex items-center justify-center gap-1">
+                        <button onclick="viewInspection(${i.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                            <i class="fa-solid fa-eye text-sm"></i>
+                        </button>
+                        ${i.status === 'scheduled' ? `
+                        <button onclick="conductInspection(${i.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Conduct">
+                            <i class="fa-solid fa-clipboard-check text-sm"></i>
+                        </button>` : ''}
+                        ${needsFollowUp ? `
+                        <button onclick="scheduleFollowUp(${i.id})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Follow-up">
+                            <i class="fa-solid fa-arrow-rotate-right text-sm"></i>
+                        </button>` : ''}
+                        <button onclick="editInspection(${i.id})" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
+                            <i class="fa-solid fa-pen text-sm"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderPagination(page, totalPages, total, limit) {
+        const summary = document.getElementById('paginationSummary');
+        const controls = document.getElementById('paginationControls');
+
+        if (total === 0) {
+            summary.textContent = 'No inspections found';
+            controls.innerHTML = '';
+            return;
+        }
+
+        const start = (page - 1) * limit + 1;
+        const end = Math.min(page * limit, total);
+        summary.innerHTML = `Showing <span class="font-semibold text-slate-700">${start}</span> to <span class="font-semibold text-slate-700">${end}</span> of <span class="font-semibold text-slate-700">${total}</span> inspections`;
+
+        let html = `<button onclick="changePage(${page - 1})" class="px-3 py-1.5 rounded-lg text-sm ${page <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}" ${page <= 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left text-xs"></i></button>`;
+        for (let p = 1; p <= totalPages; p++) {
+            html += `<button onclick="changePage(${p})" class="px-3 py-1.5 rounded-lg text-sm font-medium ${p === page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}">${p}</button>`;
+        }
+        html += `<button onclick="changePage(${page + 1})" class="px-3 py-1.5 rounded-lg text-sm ${page >= totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}" ${page >= totalPages ? 'disabled' : ''}><i class="fa-solid fa-chevron-right text-xs"></i></button>`;
+        controls.innerHTML = html;
+    }
+
+    function changePage(page) {
+        if (page < 1 || page > lastTotalPages) return;
+        loadInspections(page);
+    }
+
+    // ============================================================
+    // SEARCH & FILTER -> re-query the API (server-side, not client-side)
+    // ============================================================
+    document.getElementById('searchInspection').addEventListener('input', () => {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => loadInspections(1), 350);
+    });
+    ['filterStatus', 'filterResult', 'filterInspector'].forEach(id => {
+        document.getElementById(id).addEventListener('change', () => loadInspections(1));
+    });
+
+    function resetFilters() {
+        document.getElementById('searchInspection').value = '';
+        document.getElementById('filterStatus').value = '';
+        document.getElementById('filterResult').value = '';
+        document.getElementById('filterInspector').value = '';
+        loadInspections(1);
+    }
+
+    // ============================================================
+    // FINDINGS MANAGEMENT (conduct modal)
+    // ============================================================
+    function findingRowHtml(category = '', status = 'compliant', notes = '') {
+        return `
+            <div class="finding-item p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Category</label>
+                        <input type="text" class="finding-category w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="e.g. Sanitation" value="${escapeHtml(category)}">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Status</label>
+                        <select class="finding-status w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <option value="compliant" ${status === 'compliant' ? 'selected' : ''}>Compliant</option>
+                            <option value="partially_compliant" ${status === 'partially_compliant' ? 'selected' : ''}>Partially Compliant</option>
+                            <option value="non_compliant" ${status === 'non_compliant' ? 'selected' : ''}>Non-Compliant</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Notes</label>
+                        <input type="text" class="finding-notes w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Details..." value="${escapeHtml(notes)}">
+                    </div>
+                </div>
+                <button type="button" onclick="this.parentElement.remove()" class="mt-1 text-xs text-rose-500 hover:text-rose-700 transition">
+                    <i class="fa-solid fa-trash-can mr-1"></i> Remove
+                </button>
+            </div>`;
+    }
 
     function addFinding() {
-        const container = document.getElementById('findingsContainer');
-        const newItem = document.createElement('div');
-        newItem.className = 'finding-item p-3 bg-slate-50 rounded-lg border border-slate-200';
-        newItem.innerHTML = `
-            <div class="grid grid-cols-3 gap-2">
-                <div>
-                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Category</label>
-                    <input type="text" class="finding-category w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="e.g. Sanitation">
-                </div>
-                <div>
-                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Status</label>
-                    <select class="finding-status w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <option value="compliant">Compliant</option>
-                        <option value="partially_compliant">Partially Compliant</option>
-                        <option value="non_compliant">Non-Compliant</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Notes</label>
-                    <input type="text" class="finding-notes w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Details...">
-                </div>
-            </div>
-            <button type="button" onclick="this.parentElement.remove()" class="mt-1 text-xs text-rose-500 hover:text-rose-700 transition">
-                <i class="fa-solid fa-trash-can mr-1"></i> Remove
-            </button>
-        `;
-        container.appendChild(newItem);
+        document.getElementById('findingsContainer').insertAdjacentHTML('beforeend', findingRowHtml());
     }
 
     // ============================================================
     // VIEW INSPECTION
     // ============================================================
-    function viewInspection(id) {
+    async function viewInspection(id) {
         openModal('viewInspectionModal');
-        const i = INSPECTIONS[id];
-        if (!i) return;
+        const content = document.getElementById('inspectionDetailsContent');
+        content.innerHTML = `<div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...</div>`;
 
-        setTimeout(() => {
-            const statusColors = {
-                scheduled: 'bg-blue-100 text-blue-700',
-                completed: 'bg-emerald-100 text-emerald-700',
-                cancelled: 'bg-slate-100 text-slate-500'
-            };
-            const resultColors = {
-                compliant: 'bg-emerald-100 text-emerald-700',
-                partially_compliant: 'bg-amber-100 text-amber-700',
-                non_compliant: 'bg-rose-100 text-rose-700'
-            };
+        try {
+            const res = await fetch(`${API_URL}?id=${id}`);
+            const json = await res.json();
+            if (!json.success) {
+                content.innerHTML = `<p class="text-sm text-rose-500 text-center py-6">${escapeHtml(json.message || 'Inspection not found')}</p>`;
+                return;
+            }
+            renderInspectionDetails(json.data);
+        } catch (e) {
+            content.innerHTML = `<p class="text-sm text-rose-500 text-center py-6">Failed to load inspection</p>`;
+        }
+    }
 
-            const findingsHtml = i.findings && i.findings.length > 0 ? i.findings.map(f => `
-                <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
+    function renderInspectionDetails(i) {
+        const findingsHtml = (i.findings && i.findings.length > 0) ? i.findings.map(f => `
+            <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
+                <div>
+                    <p class="font-semibold text-slate-800 text-sm">${escapeHtml(f.category)}</p>
+                    <p class="text-xs text-slate-500">${escapeHtml(f.notes || 'No notes')}</p>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${resultColors[f.status] || resultColors.partially_compliant}">
+                    ${f.status.replace('_', ' ').toUpperCase()}
+                </span>
+            </div>
+        `).join('') : '<p class="text-xs text-slate-400">No findings recorded</p>';
+
+        const needsFollowUp = i.status === 'completed' &&
+            (i.overall_status === 'non_compliant' || i.overall_status === 'partially_compliant');
+
+        document.getElementById('inspectionDetailsContent').innerHTML = `
+            <div class="space-y-4">
+                <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
+                    <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">
+                        ${escapeHtml((i.applicant || '?').charAt(0))}
+                    </div>
                     <div>
-                        <p class="font-semibold text-slate-800 text-sm">${f.category}</p>
-                        <p class="text-xs text-slate-500">${f.notes || 'No notes'}</p>
-                    </div>
-                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${f.status === 'compliant' ? 'bg-emerald-100 text-emerald-700' : f.status === 'partially_compliant' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}">
-                        ${f.status.replace('_', ' ').toUpperCase()}
-                    </span>
-                </div>
-            `).join('') : '<p class="text-xs text-slate-400">No findings recorded</p>';
-
-            document.getElementById('inspectionDetailsContent').innerHTML = `
-                <div class="space-y-4">
-                    <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
-                        <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">
-                            ${i.applicant.charAt(0)}
-                        </div>
-                        <div>
-                            <h4 class="text-lg font-bold text-slate-900">${i.applicant}</h4>
-                            <p class="text-sm text-slate-500">${i.inspection_id} • ${i.permit_number}</p>
-                            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[i.status] || statusColors.scheduled}">
-                                ${i.status.toUpperCase()}
-                            </span>
-                            ${i.overall_status ? `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ml-1 ${resultColors[i.overall_status] || resultColors.partially_compliant}">${i.overall_status.replace('_', ' ').toUpperCase()}</span>` : ''}
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><p class="text-xs text-slate-400 font-semibold">Inspector</p><p class="text-sm text-slate-800">${i.inspector_name}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Business Type</p><p class="text-sm text-slate-800">${i.business_type}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Scheduled Date</p><p class="text-sm text-slate-800">${new Date(i.scheduled_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} at ${i.scheduled_time}</p></div>
-                        ${i.conducted_date ? `<div><p class="text-xs text-slate-400 font-semibold">Conducted Date</p><p class="text-sm text-slate-800">${new Date(i.conducted_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} at ${i.conducted_time || 'N/A'}</p></div>` : ''}
-                        ${i.follow_up_date ? `<div><p class="text-xs text-slate-400 font-semibold">Follow-up Date</p><p class="text-sm text-slate-800">${new Date(i.follow_up_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p></div>` : ''}
-                    </div>
-                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <h5 class="text-sm font-bold text-slate-700 mb-2">📋 Findings</h5>
-                        <div class="space-y-2">${findingsHtml}</div>
-                    </div>
-                    ${i.recommendations ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">Recommendations</h5><p class="text-sm text-slate-800">${i.recommendations}</p></div>` : ''}
-                    ${i.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${i.notes}</p></div>` : ''}
-                    <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
-                        <button onclick="closeModal('viewInspectionModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                        ${i.status === 'scheduled' ? `<button onclick="closeModal('viewInspectionModal'); conductInspection(${i.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-clipboard-check mr-1.5"></i> Conduct</button>` : ''}
-                        ${i.follow_up_date && i.status !== 'cancelled' ? `<button onclick="closeModal('viewInspectionModal'); scheduleFollowUp(${i.id})" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-semibold"><i class="fa-solid fa-arrow-rotate-right mr-1.5"></i> Follow-up</button>` : ''}
+                        <h4 class="text-lg font-bold text-slate-900">${escapeHtml(i.applicant)}</h4>
+                        <p class="text-sm text-slate-500">${escapeHtml(i.inspection_id)} • ${escapeHtml(i.permit_number)}</p>
+                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[i.status] || statusColors.scheduled}">
+                            ${i.status.toUpperCase()}
+                        </span>
+                        ${i.overall_status ? `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ml-1 ${resultColors[i.overall_status] || resultColors.partially_compliant}">${i.overall_status.replace('_', ' ').toUpperCase()}</span>` : ''}
                     </div>
                 </div>
-            `;
-        }, 300);
+                <div class="grid grid-cols-2 gap-4">
+                    <div><p class="text-xs text-slate-400 font-semibold">Inspector</p><p class="text-sm text-slate-800">${escapeHtml(i.inspector_name)}</p></div>
+                    <div><p class="text-xs text-slate-400 font-semibold">Business Type</p><p class="text-sm text-slate-800">${escapeHtml(i.business_type)}</p></div>
+                    <div><p class="text-xs text-slate-400 font-semibold">Scheduled Date</p><p class="text-sm text-slate-800">${formatDate(i.scheduled_date)} at ${escapeHtml(i.scheduled_time || '')}</p></div>
+                    ${i.conducted_date ? `<div><p class="text-xs text-slate-400 font-semibold">Conducted Date</p><p class="text-sm text-slate-800">${formatDateTime(i.conducted_date)}</p></div>` : ''}
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <h5 class="text-sm font-bold text-slate-700 mb-2">📋 Findings</h5>
+                    <div class="space-y-2">${findingsHtml}</div>
+                </div>
+                ${i.recommendations ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">Recommendations</h5><p class="text-sm text-slate-800">${escapeHtml(i.recommendations)}</p></div>` : ''}
+                ${i.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${escapeHtml(i.notes)}</p></div>` : ''}
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                    <button onclick="closeModal('viewInspectionModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
+                    ${i.status === 'scheduled' ? `<button onclick="closeModal('viewInspectionModal'); conductInspection(${i.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-clipboard-check mr-1.5"></i> Conduct</button>` : ''}
+                    ${needsFollowUp ? `<button onclick="closeModal('viewInspectionModal'); scheduleFollowUp(${i.id})" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-semibold"><i class="fa-solid fa-arrow-rotate-right mr-1.5"></i> Follow-up</button>` : ''}
+                </div>
+            </div>
+        `;
     }
 
     // ============================================================
-    // SCHEDULE INSPECTION
+    // SCHEDULE INSPECTION -> POST create
     // ============================================================
-    function saveScheduledInspection(event) {
+    async function saveScheduledInspection(event) {
         event.preventDefault();
-        showToast('Inspection scheduled successfully!', 'success');
-        closeModal('scheduleInspectionModal');
+        const btn = document.getElementById('scheduleSubmitBtn');
+        btn.disabled = true;
+
+        const payload = {
+            permit_id: document.getElementById('insp_permit').value,
+            inspector_id: document.getElementById('insp_inspector').value,
+            scheduled_date: document.getElementById('insp_date').value,
+            scheduled_time: document.getElementById('insp_time').value,
+            notes: document.getElementById('insp_notes').value
+        };
+
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (!json.success) {
+                showToast(json.message || 'Failed to schedule inspection', 'danger');
+                return;
+            }
+            showToast('Inspection scheduled successfully!', 'success');
+            closeModal('scheduleInspectionModal');
+            document.getElementById('scheduleInspectionForm').reset();
+            loadStats();
+            loadInspections(1);
+        } catch (e) {
+            showToast('Network error scheduling inspection', 'danger');
+        } finally {
+            btn.disabled = false;
+        }
     }
 
     // ============================================================
-    // CONDUCT INSPECTION
+    // CONDUCT INSPECTION -> POST ?id=X&action=conduct
     // ============================================================
-    function conductInspection(id) {
-        const i = INSPECTIONS[id];
-        if (!i) return;
-        
+    async function conductInspection(id) {
         conductInspectionId = id;
-        document.getElementById('conduct_inspection_id').value = id;
-        document.getElementById('conductApplicant').textContent = i.applicant;
-        document.getElementById('conductPermit').textContent = i.permit_number;
-        document.getElementById('conductAddress').textContent = i.address;
+        openModal('conductInspectionModal');
+
+        document.getElementById('conductApplicant').textContent = 'Loading…';
+        document.getElementById('conductPermit').textContent = '';
+        document.getElementById('conductAddress').textContent = '';
+        document.getElementById('findingsContainer').innerHTML = findingRowHtml('Sanitation');
         document.getElementById('conduct_overall').value = 'partially_compliant';
         document.getElementById('conduct_recommendations').value = '';
         document.getElementById('conduct_follow_up').value = '';
         document.getElementById('conduct_notes').value = '';
-        
-        // Reset findings
-        const container = document.getElementById('findingsContainer');
-        container.innerHTML = `
-            <div class="finding-item p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <div class="grid grid-cols-3 gap-2">
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Category</label>
-                        <input type="text" class="finding-category w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="e.g. Sanitation">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Status</label>
-                        <select class="finding-status w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                            <option value="compliant">Compliant</option>
-                            <option value="partially_compliant">Partially Compliant</option>
-                            <option value="non_compliant">Non-Compliant</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Notes</label>
-                        <input type="text" class="finding-notes w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Details...">
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        openModal('conductInspectionModal');
+
+        try {
+            const res = await fetch(`${API_URL}?id=${id}`);
+            const json = await res.json();
+            if (!json.success) {
+                showToast(json.message || 'Inspection not found', 'danger');
+                closeModal('conductInspectionModal');
+                return;
+            }
+            const i = json.data;
+            document.getElementById('conduct_inspection_id').value = i.id;
+            document.getElementById('conductApplicant').textContent = i.applicant;
+            document.getElementById('conductPermit').textContent = i.permit_number;
+            document.getElementById('conductAddress').textContent = i.address || '';
+        } catch (e) {
+            showToast('Failed to load inspection details', 'danger');
+        }
     }
 
-    function saveConductedInspection(event) {
+    async function saveConductedInspection(event) {
         event.preventDefault();
         const id = conductInspectionId;
-        const i = INSPECTIONS[id];
-        if (!i) return;
-        
-        // Collect findings
+        if (!id) return;
+        const btn = document.getElementById('conductSubmitBtn');
+        btn.disabled = true;
+
         const findings = [];
         document.querySelectorAll('.finding-item').forEach(item => {
             const category = item.querySelector('.finding-category')?.value || '';
             const status = item.querySelector('.finding-status')?.value || 'compliant';
             const notes = item.querySelector('.finding-notes')?.value || '';
-            if (category) {
-                findings.push({ category, status, notes });
-            }
+            if (category) findings.push({ category, status, notes });
         });
-        
-        i.findings = findings;
-        i.overall_status = document.getElementById('conduct_overall').value;
-        i.recommendations = document.getElementById('conduct_recommendations').value;
-        i.follow_up_date = document.getElementById('conduct_follow_up').value || null;
-        i.notes = document.getElementById('conduct_notes').value;
-        i.status = 'completed';
-        i.conducted_date = new Date().toISOString().split('T')[0];
-        i.conducted_time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        
-        updateInspectionRow(i);
-        closeModal('conductInspectionModal');
-        showToast('Inspection #' + i.inspection_id + ' completed successfully!', 'success');
-    }
 
-    function updateInspectionRow(i) {
-        const rows = document.querySelectorAll('.inspection-row');
-        rows.forEach(row => {
-            const applicant = row.querySelector('.font-semibold.text-slate-800.text-sm')?.textContent;
-            if (applicant === i.applicant) {
-                const statusBadge = row.querySelector('.px-2.py-1.rounded-full:first-of-type');
-                const statusColors = {
-                    scheduled: 'bg-blue-100 text-blue-700',
-                    completed: 'bg-emerald-100 text-emerald-700',
-                    cancelled: 'bg-slate-100 text-slate-500'
-                };
-                statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[i.status] || statusColors.scheduled}`;
-                statusBadge.textContent = i.status.charAt(0).toUpperCase() + i.status.slice(1);
-                
-                // Update result badge
-                const resultBadge = row.querySelector('.px-2.py-1.rounded-full:last-of-type');
-                if (i.overall_status && resultBadge) {
-                    const resultColors = {
-                        compliant: 'bg-emerald-100 text-emerald-700',
-                        partially_compliant: 'bg-amber-100 text-amber-700',
-                        non_compliant: 'bg-rose-100 text-rose-700'
-                    };
-                    resultBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${resultColors[i.overall_status] || resultColors.partially_compliant}`;
-                    resultBadge.textContent = i.overall_status.replace('_', ' ').toUpperCase();
-                }
+        const payload = {
+            findings,
+            overall_status: document.getElementById('conduct_overall').value,
+            recommendations: document.getElementById('conduct_recommendations').value,
+            follow_up_date: document.getElementById('conduct_follow_up').value || null,
+            notes: document.getElementById('conduct_notes').value
+        };
+
+        try {
+            const res = await fetch(`${API_URL}?id=${id}&action=conduct`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (!json.success) {
+                showToast(json.message || 'Failed to submit inspection report', 'danger');
+                return;
             }
-        });
+            showToast(json.message || 'Inspection completed successfully!', 'success');
+            closeModal('conductInspectionModal');
+            loadStats();
+            loadInspections(currentPage);
+        } catch (e) {
+            showToast('Network error submitting report', 'danger');
+        } finally {
+            btn.disabled = false;
+        }
     }
 
     // ============================================================
-    // FOLLOW-UP
+    // FOLLOW-UP / EDIT (placeholders - wire up once those flows exist)
     // ============================================================
-    function viewFollowUp(id) {
-        scheduleFollowUp(id);
-    }
-
     function scheduleFollowUp(id) {
-        const i = INSPECTIONS[id];
-        if (!i) return;
-        
-        // For demo, just show a toast
-        showToast('Follow-up scheduled for ' + new Date(i.follow_up_date).toLocaleDateString(), 'info');
+        showToast('Follow-up scheduling UI coming soon (inspection #' + id + ')', 'info');
     }
 
-    // ============================================================
-    // EDIT INSPECTION
-    // ============================================================
     function editInspection(id) {
-        showToast('Edit inspection ID: ' + id + ' (Edit modal coming soon)', 'info');
+        showToast('Edit inspection ID: ' + id + ' (edit modal coming soon)', 'info');
     }
 
     // ============================================================
@@ -959,75 +903,33 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
             warning: 'bg-amber-600'
         };
         toast.className = 'fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2 ' + (colors[type] || colors.success);
-        toast.querySelector('i').className = 'fa-solid fa-circle-check';
         document.getElementById('toastMessage').textContent = message;
         toast.classList.remove('hidden');
-
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
     }
 
     // ============================================================
-    // SEARCH & FILTER
+    // HELPERS
     // ============================================================
-    document.getElementById('searchInspection').addEventListener('input', filterInspections);
-    document.getElementById('filterStatus').addEventListener('change', filterInspections);
-    document.getElementById('filterResult').addEventListener('change', filterInspections);
-    document.getElementById('filterInspector').addEventListener('change', filterInspections);
-
-    function filterInspections() {
-        const search = document.getElementById('searchInspection').value.toLowerCase();
-        const status = document.getElementById('filterStatus').value;
-        const result = document.getElementById('filterResult').value;
-        const inspector = document.getElementById('filterInspector').value.toLowerCase();
-        let visibleCount = 0;
-
-        document.querySelectorAll('.inspection-row').forEach(row => {
-            const applicant = row.dataset.applicant;
-            const rowInspector = row.dataset.inspector;
-            const rowStatus = row.dataset.status;
-            const rowResult = row.dataset.result;
-
-            const matchesSearch = applicant.includes(search) || rowInspector.includes(search);
-            const matchesStatus = !status || rowStatus === status;
-            const matchesResult = !result || rowResult === result;
-            const matchesInspector = !inspector || rowInspector.includes(inspector);
-            const isVisible = matchesSearch && matchesStatus && matchesResult && matchesInspector;
-
-            row.style.display = isVisible ? '' : 'none';
-            if (isVisible) visibleCount++;
-        });
-
-        document.getElementById('emptyState').style.display = visibleCount === 0 ? 'flex' : 'none';
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
     }
-
-    function resetFilters() {
-        document.getElementById('searchInspection').value = '';
-        document.getElementById('filterStatus').value = '';
-        document.getElementById('filterResult').value = '';
-        document.getElementById('filterInspector').value = '';
-        document.querySelectorAll('.inspection-row').forEach(row => row.style.display = '');
-        document.getElementById('emptyState').style.display = 'none';
+    function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+    function formatDate(d) {
+        if (!d) return '—';
+        return new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
     }
-
-    function changePage(page) {
-        if (page < 1 || page > <?php echo $totalPages; ?>) return;
-        window.location.href = '?page=' + page;
+    function formatDateTime(d) {
+        if (!d) return '—';
+        return new Date(d).toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
-
-    // ESC to close modals
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            });
-        }
-    });
 
     // ============================================================
-    // SET DEFAULT DATE
+    // INIT
     // ============================================================
     document.addEventListener('DOMContentLoaded', function() {
         const dateInput = document.getElementById('insp_date');
@@ -1036,6 +938,8 @@ $totalNonCompliant = count(array_filter($inspections, fn($i) => $i['overall_stat
             tomorrow.setDate(tomorrow.getDate() + 1);
             dateInput.value = tomorrow.toISOString().split('T')[0];
         }
+        loadStats();
+        loadInspections(1);
     });
 </script>
 
