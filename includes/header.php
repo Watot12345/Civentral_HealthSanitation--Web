@@ -1,10 +1,6 @@
 <?php
 
-// Check if user is logged in
-if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
-    header('Location: login.php');
-    exit;
-}
+
 
 // Get user data from session
 $fullName = $_SESSION['full_name'] ?? 'Joshua Sierra';
