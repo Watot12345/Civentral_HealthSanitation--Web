@@ -338,8 +338,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                     <div class="space-y-1.5 text-xs">
                         <div class="flex justify-between">
                             <span class="text-slate-500">Doctor / Staff</span>
-                            <!-- FIXED: Added maskable class -->
-                            <span class="text-slate-800 font-medium maskable" data-real="<?php echo htmlspecialchars($c['doctor_name']); ?>" data-masked="<?php echo htmlspecialchars(maskName($c['doctor_name'])); ?>"><?php echo htmlspecialchars(maskName($c['doctor_name'])); ?></span>
+                            <span class="text-slate-800 font-medium"><?php echo htmlspecialchars($c['doctor_name']); ?></span>
                         </div>
                         <div class="flex justify-between"><span class="text-slate-500">Date & Time</span><span class="text-slate-800"><?php echo date('M d, Y', strtotime($c['date'])) . ' ' . date('h:i A', strtotime($c['time'])); ?></span></div>
                         <div class="flex justify-between"><span class="text-slate-500">ICD-10 Code</span><span class="text-slate-800 font-mono font-bold"><?php echo htmlspecialchars($c['icd_code']); ?></span></div>
@@ -475,7 +474,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                     </div>
                 </div>
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
-                    <div><p class="text-slate-400 font-semibold uppercase">Attending Doctor / Staff</p><p class="text-slate-800 font-bold mt-0.5 maskable" data-real="${c.doctor_name}" data-masked="${maskPatientName(c.doctor_name)}">${maskPatientName(c.doctor_name)}</p></div>
+                    <div><p class="text-slate-400 font-semibold uppercase">Attending Doctor / Staff</p><p class="text-slate-800 font-bold mt-0.5">${c.doctor_name}</p></div>
                     <div><p class="text-slate-400 font-semibold uppercase">Date & Time</p><p class="text-slate-800 font-semibold mt-0.5">${c.date} ${c.time}</p></div>
                     <div><p class="text-slate-400 font-semibold uppercase">ICD-10 Code</p><p class="text-slate-800 font-mono font-bold mt-0.5">${c.icd_code || 'N/A'}</p></div>
                     <div><p class="text-slate-400 font-semibold uppercase">Follow-up Date</p><p class="text-slate-800 font-semibold mt-0.5">${c.follow_up_date || c.follow_up || 'None scheduled'}</p></div>

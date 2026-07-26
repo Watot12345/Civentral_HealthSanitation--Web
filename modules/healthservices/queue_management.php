@@ -7,7 +7,7 @@
 // ============================================================
 
 session_start();
-require_once __DIR__ . '/../../app/Models/Triage.php';
+require_once __DIR__ . '/../../app/Models/TriageQueue.php';
 require_once __DIR__ . '/../../app/Models/Patient.php';
 ?>
 <!DOCTYPE html>
@@ -24,11 +24,10 @@ require_once __DIR__ . '/../../app/Models/Patient.php';
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen">
 <?php
 
-// Fetch all triage records
-$triageModel = new Triage();
+// Fetch all triage queue records
+$triageModel = new TriageQueue();
 $patientModel = new Patient();
 $rawPatients = [];
-
 try {
     $rawPatients = $patientModel->all();
 } catch (Throwable $e) {
@@ -94,7 +93,7 @@ function buildDisplayEntry(array $t, array $patientsMap, array $serviceConfig, s
     $patientId = $t['patient_id'] ?? null;
     $patient = $patientsMap[$patientId] ?? null;
 
-    $patientCode = $patient['patient_id'] ?? ('P-' . $patientId);
+    $patientCode = $t['queue_number'] ?? $patient['patient_id'] ?? ('P-' . $patientId);
     $arrivalTime = isset($t['created_at']) ? strtotime($t['created_at']) : time();
 
     $rawService = $t['service_type'] ?? $t['department'] ?? $patient['service_type'] ?? $patient['department'] ?? $defaultServiceKey;
@@ -114,12 +113,12 @@ function buildDisplayEntry(array $t, array $patientsMap, array $serviceConfig, s
     ];
 }
 
-// Filter only waiting (pending) patients
+// Filter only waiting/in-triage patients
 $waitingPatients = [];
 foreach ($rawTriage as $t) {
-    $dbStatus = strtolower($t['status'] ?? 'pending');
-    if ($dbStatus !== 'pending') continue; // Only show waiting patients
-    $waitingPatients[] = buildDisplayEntry($t, $patientsMap, $serviceConfig, 'general', false);
+    $dbStatus = strtolower($t['status'] ?? 'waiting');
+    if ($dbStatus === 'completed' || $dbStatus === 'cancelled') continue; // Only show waiting patients
+    $waitingPatients[] = buildDisplayEntry($t, $patientsMap, $serviceConfig, 'general', $dbStatus === 'in_triage');
 }
 
 // Sort: critical first, then high, medium, low, and within same priority by arrival time

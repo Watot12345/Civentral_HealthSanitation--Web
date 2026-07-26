@@ -161,8 +161,11 @@ class TriageQueueController extends BaseController
                 ];
             }
 
-            // Get first patient (earliest check-in)
-            $nextPatient = $this->enrichQueueItem($waiting[0]);
+            // Get first patient (earliest check-in) and mark as called
+            $next = $waiting[0];
+            $this->queueModel->updateStatus($next['id'], 'in_triage');
+            $updated = $this->queueModel->find($next['id']) ?? $next;
+            $nextPatient = $this->enrichQueueItem($updated);
 
             return [
                 'success' => true,

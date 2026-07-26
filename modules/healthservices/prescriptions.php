@@ -979,7 +979,7 @@
                     </div>
                 </td>
                 <td class="px-4 py-3 text-slate-600 text-xs">
-                    <span class="maskable" data-real="${doctorName}" data-masked="${maskName(doctorName)}">${doctorName}</span>
+                    <span>${doctorName}</span>
                 </td>
                 <td class="px-4 py-3">
                     <div class="space-y-0.5">
@@ -1233,7 +1233,7 @@
                             <p class="text-sm text-slate-500">
                                 <span class="maskable font-mono" data-real="${rxId}" data-masked="${maskId(rxId)}">${rxId}</span>
                                 &nbsp;•&nbsp;
-                                <span class="maskable" data-real="${doctorName}" data-masked="${maskName(doctorName)}">${doctorName}</span>
+                                <span>${doctorName}</span>
                             </p>
                             <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[p.status] || statusColors.pending}">
                                 ${(p.status || 'pending').toUpperCase()}
@@ -1248,14 +1248,14 @@
                         <div>
                             <p class="text-xs text-slate-400 font-semibold">Doctor</p>
                             <p class="text-sm text-slate-800">
-                                <span class="maskable" data-real="${doctorName}" data-masked="${maskName(doctorName)}">${doctorName}</span>
+                                <span>${doctorName}</span>
                             </p>
                         </div>
                         ${p.dispensed_by_name ? `
                         <div>
                             <p class="text-xs text-slate-400 font-semibold">Dispensed By</p>
                             <p class="text-sm text-slate-800">
-                                <span class="maskable" data-real="${escapeHtml(p.dispensed_by_name)}" data-masked="${maskName(p.dispensed_by_name)}">${escapeHtml(p.dispensed_by_name)}</span>
+                                <span>${escapeHtml(p.dispensed_by_name)}</span>
                             </p>
                         </div>` : ''}
                         ${p.dispensed_at_formatted ? `
