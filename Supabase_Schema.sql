@@ -412,3 +412,43 @@ create table public.triage_queue (
     )
   )
 ) TABLESPACE pg_default;
+
+create table public.permits (
+  id serial not null,
+  permit_id character varying(20) not null,
+  applicant character varying(100) not null,
+  business_name character varying(100) null,
+  business_type character varying(50) not null,
+  address text not null,
+  owner_name character varying(100) not null,
+  contact character varying(20) not null,
+  email character varying(100) null,
+  fee numeric(10, 2) not null,
+  paid boolean null default false,
+  payment_method character varying(50) null,
+  payment_reference character varying(100) null,
+  status text null default 'pending'::text,
+  inspector_id integer null,
+  inspection_date date null,
+  approved_date date null,
+  expiry_date date null,
+  notes text null,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  constraint permits_pkey primary key (id),
+  constraint permits_permit_id_key unique (permit_id),
+  constraint permits_inspector_id_fkey foreign KEY (inspector_id) references employees (id),
+  constraint permits_status_check check (
+    (
+      status = any (
+        array[
+          'pending'::text,
+          'under_review'::text,
+          'approved'::text,
+          'rejected'::text,
+          'expired'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
