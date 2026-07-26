@@ -1,11 +1,5 @@
 <?php
-$scriptSegments = explode('/', trim($_SERVER['PHP_SELF'], '/'));
-$projectRoot = isset($scriptSegments[0]) ? '/' . $scriptSegments[0] : '';
-function site_url($path) {
-    global $projectRoot;
-    $clean = preg_replace('#^(?:\./|\.\./)+#', '', $path);
-    return $projectRoot . '/' . ltrim($clean, '/');
-}
+require_once __DIR__ . '/../config/paths.php';
 
 // Get current page for active state
 $currentPage = basename($_SERVER['PHP_SELF']);
@@ -115,37 +109,37 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
         </button>
         <div id="healthCenterDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
           
-          <a href="<?= site_url('../modules/healthservices/patients.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'patients.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/healthservices/patients.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'patients.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-users text-[10px] opacity-50"></i> 
             <span>Patient Management</span>
           </a>
 
-          <a href="<?= site_url('../modules/healthservices/consultations.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'consultations.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/healthservices/consultations.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'consultations.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-stethoscope text-[10px] opacity-50"></i> 
             <span>Consultations</span>
           </a>
 
-          <a href="<?= site_url('../modules/healthservices/medical_records.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'medical_records.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/healthservices/medical_records.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'medical_records.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-folder text-[10px] opacity-50"></i> 
             <span>Medical Records</span>
           </a>
 
-          <a href="<?= site_url('../modules/healthservices/appointments.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'appointments.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/healthservices/appointments.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'appointments.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-calendar-check text-[10px] opacity-50"></i> 
             <span>Appointments</span>
           </a>
 
-          <a href="<?= site_url('../modules/healthservices/triage.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'triage.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/healthservices/triage.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'triage.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-heart-pulse text-[10px] opacity-50"></i> 
             <span>Triage</span>
           </a>
 
-          <a href="<?= site_url('../modules/healthservices/prescriptions.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'prescriptions.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/healthservices/prescriptions.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'prescriptions.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-prescription-bottle text-[10px] opacity-50"></i> 
             <span>Prescriptions</span>
           </a>
 
-          <a href="<?= site_url('../modules/healthservices/referrals.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'referrals.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/healthservices/referrals.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'referrals.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-arrow-right-arrow-left text-[10px] opacity-50"></i> 
             <span>Referrals</span>
           </a>
@@ -168,32 +162,32 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
         </button>
         <div id="sanitationDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
           
-          <a href="<?= site_url('../modules/sanitation/permit_applications.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'permit_applications.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/sanitation/permit_applications.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'permit_applications.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-file-pen text-[10px] opacity-50"></i> 
             <span>Permit Applications</span>
           </a>
           
-          <a href="<?= site_url('../modules/sanitation/inspections.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'inspections.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/sanitation/inspections.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'inspections.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-search text-[10px] opacity-50"></i> 
             <span>Inspections</span>
           </a>
           
-          <a href="<?= site_url('../modules/sanitation/permit_records.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'permit_records.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/sanitation/permit_records.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'permit_records.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-folder text-[10px] opacity-50"></i> 
             <span>Permit Records</span>
           </a>
           
-          <a href="<?= site_url('../modules/sanitation/payments.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'payments.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/sanitation/payments.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'payments.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-money-bill-wave text-[10px] opacity-50"></i> 
             <span>Payments</span>
           </a>
           
-          <a href="<?= site_url('../modules/sanitation/documents.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'documents.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/sanitation/documents.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'documents.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-file text-[10px] opacity-50"></i> 
             <span>Documents</span>
           </a>
           
-          <a href="<?= site_url('../modules/sanitation/renewals.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'renewals.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/sanitation/renewals.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'renewals.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-rotate text-[10px] opacity-50"></i> 
             <span>Renewals</span>
           </a>
@@ -216,27 +210,27 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
         </button>
         <div id="immunizationDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
           
-          <a href="<?= site_url('../modules/immunization/child_records.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'child_records.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/immunization/child_records.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'child_records.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-child text-[10px] opacity-50"></i> 
             <span>Child Records</span>
           </a>
           
-          <a href="<?= site_url('../modules/immunization/vaccination_tracking.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'vaccination_tracking.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/immunization/vaccination_tracking.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'vaccination_tracking.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-vial text-[10px] opacity-50"></i> 
             <span>Vaccination Tracking</span>
           </a>
           
-          <a href="<?= site_url('../modules/immunization/growth_charts.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'growth_charts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/immunization/growth_charts.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'growth_charts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-chart-line text-[10px] opacity-50"></i> 
             <span>Growth Charts</span>
           </a>
           
-          <a href="<?= site_url('../modules/immunization/vaccine_inventory.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'vaccine_inventory.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/immunization/vaccine_inventory.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'vaccine_inventory.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-boxes text-[10px] opacity-50"></i> 
             <span>Vaccine Inventory</span>
           </a>
           
-          <a href="<?= site_url('../modules/immunization/nutrition_assessment.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'nutrition_assessment.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/immunization/nutrition_assessment.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'nutrition_assessment.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-apple-alt text-[10px] opacity-50"></i> 
             <span>Nutrition Assessment</span>
           </a>
@@ -259,27 +253,27 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
         </button>
         <div id="wastewaterDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
           
-          <a href="<?= site_url('../modules/services/septic_tanks.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'septic_tanks.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/services/septic_tanks.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'septic_tanks.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-water text-[10px] opacity-50"></i> 
             <span>Septic Tank Registry</span>
           </a>
           
-          <a href="<?= site_url('../modules/services/maintenance.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'maintenance.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/services/maintenance.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'maintenance.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-wrench text-[10px] opacity-50"></i> 
             <span>Maintenance & Desludging</span>
           </a>
           
-          <a href="<?= site_url('../modules/services/service_requests.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'service_requests.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/services/service_requests.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'service_requests.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-tools text-[10px] opacity-50"></i> 
             <span>Service Requests</span>
           </a>
           
-          <a href="<?= site_url('../modules/services/providers.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'providers.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/services/providers.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'providers.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-user-cog text-[10px] opacity-50"></i> 
             <span>Service Providers</span>
           </a>
           
-          <a href="<?= site_url('../modules/services/wastewater_billing.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'wastewater_billing.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/services/wastewater_billing.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'wastewater_billing.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-file-invoice text-[10px] opacity-50"></i> 
             <span>Billing</span>
           </a>
@@ -302,32 +296,32 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
         </button>
         <div id="surveillanceDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
           
-          <a href="<?= site_url('../modules/surveillence/case_reports.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'case_reports.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/surveillence/case_reports.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'case_reports.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-file-medical text-[10px] opacity-50"></i> 
             <span>Case Reports</span>
           </a>
           
-          <a href="<?= site_url('../modules/surveillence/mapping.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'mapping.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/surveillence/mapping.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'mapping.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-map text-[10px] opacity-50"></i> 
             <span>Mapping & Clustering</span>
           </a>
           
-          <a href="<?= site_url('../modules/surveillence/outbreak_detection.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'outbreak_detection.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/surveillence/outbreak_detection.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'outbreak_detection.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-triangle-exclamation text-[10px] opacity-50"></i> 
             <span>Outbreak Detection</span>
           </a>
           
-          <a href="<?= site_url('../modules/surveillence/alerts.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'alerts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/surveillence/alerts.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'alerts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-bell text-[10px] opacity-50"></i> 
             <span>Real-time Alerts</span>
           </a>
           
-          <a href="<?= site_url('../modules/surveillence/contact_tracing.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'contact_tracing.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/surveillence/contact_tracing.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'contact_tracing.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-people-arrows text-[10px] opacity-50"></i> 
             <span>Contact Tracing</span>
           </a>
           
-          <a href="<?= site_url('../modules/surveillence/response_management.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'response_management.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/surveillence/response_management.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'response_management.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-phone-alt text-[10px] opacity-50"></i> 
             <span>Response Management</span>
           </a>

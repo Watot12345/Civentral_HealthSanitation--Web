@@ -1,6 +1,5 @@
 <?php
-
-
+require_once __DIR__ . '/../config/paths.php';
 
 // Get user data from session
 $fullName = $_SESSION['full_name'] ?? 'Joshua Sierra';
@@ -21,8 +20,6 @@ foreach ($nameParts as $part) {
 }
 $initials = substr($initials, 0, 2); // Get first 2 initials
 
-$assetBasePath = str_repeat('../', substr_count(trim(dirname($_SERVER['PHP_SELF']), '/'), '/'));
-
 // ------------------------------------------------------------
 // Minimal header flag.
 // Any page that sets $minimalHeader = true; BEFORE including this
@@ -38,7 +35,7 @@ $minimalHeader = $minimalHeader ?? false;
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Civentral</title>
-  <link rel="icon" type="image/png" href="<?= $assetBasePath; ?>assets/images/logo.png">
+  <link rel="icon" type="image/png" href="<?= site_url('assets/images/logo.png'); ?>">
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
@@ -62,7 +59,7 @@ $minimalHeader = $minimalHeader ?? false;
   </style>
   
   <!-- Your custom styles -->
-  <link rel="stylesheet" href="<?= $assetBasePath; ?>assets/css/dashb-style.css">
+  <link rel="stylesheet" href="<?= site_url('assets/css/dashb-style.css'); ?>">
 </head>
 <?php if (!$minimalHeader) include_once __DIR__ . '/data-mask.php'; ?>
 <body class="bg-white font-sans antialiased text-slate-800 min-h-screen flex flex-col">
@@ -70,7 +67,7 @@ $minimalHeader = $minimalHeader ?? false;
   <header class="bg-white border-b border-slate-200 h-20 px-6 flex items-center justify-between sticky top-0 z-40 shadow-xs shrink-0">
     <div class="flex items-center space-x-4 text-brand-dark">
         <div class="shrink-0 flex items-center justify-center">
-          <img src="<?= $assetBasePath; ?>assets/images/logo.png" alt="Logo" class="h-16 w-auto object-contain">
+          <img src="<?= site_url('assets/images/logo.png'); ?>" alt="Logo" class="h-16 w-auto object-contain">
         </div>
     <div class="flex flex-col">
       <span class="text-base font-black tracking-[0.15em] uppercase leading-none">CIVENTRAL</span>
