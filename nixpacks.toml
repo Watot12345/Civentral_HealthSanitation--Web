@@ -1,5 +1,8 @@
 [phases.setup]
-nixPkgs = ["php83"]
+nixPkgs = [
+  "php83",
+  "nodejs_22"
+]
 
 [start]
-cmd = "php -S 0.0.0.0:8080 -t ."
+cmd = "php -S 0.0.0.0:${PORT:-8080} -t ."
