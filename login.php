@@ -315,7 +315,7 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                 btnText.textContent = '✓  Success!';
 
                 setTimeout(function() {
-                    window.location.href = '/capstone/pages/dashboard.php';
+                    window.location.href = 'pages/dashboard.php';
                 }, 1500);
 
             } else {
