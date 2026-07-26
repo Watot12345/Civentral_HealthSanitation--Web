@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // If user is already logged in, redirect to dashboard
 if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
-    header('Location: /capstone/pages/dashboard.php');
+    header('Location: pages/dashboard.php');
     exit;
 }
 ?>
