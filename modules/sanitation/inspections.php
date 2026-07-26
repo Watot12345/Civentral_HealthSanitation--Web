@@ -336,9 +336,9 @@ try {
             <input type="hidden" id="conduct_inspection_id">
             <div class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
                 <div>
-                    <p id="conductApplicant" class="font-semibold text-slate-800 text-sm">—</p>
+                    <p id="conductApplicant" class="font-semibold text-slate-800 text-sm maskable">—</p>
                     <p id="conductPermit" class="text-xs text-slate-400">—</p>
-                    <p id="conductAddress" class="text-xs text-slate-400">—</p>
+                    <p id="conductAddress" class="text-xs text-slate-400 maskable">—</p>
                 </div>
             </div>
 
@@ -405,10 +405,73 @@ try {
     </div>
 </div>
 
-<!-- Toast notification -->
-<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
-    <i class="fa-solid fa-circle-check"></i>
-    <span id="toastMessage"></span>
+<!-- ============================================================ -->
+<!-- EDIT INSPECTION MODAL                                        -->
+<!-- ============================================================ -->
+<div id="editInspectionModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-pen text-brand-medium"></i>
+                Edit Inspection
+            </h3>
+            <button onclick="closeModal('editInspectionModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="editInspectionForm" class="p-6 space-y-4">
+            <input type="hidden" id="edit_inspection_id">
+            <div class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
+                <div>
+                    <p id="editApplicant" class="font-semibold text-slate-800 text-sm maskable">—</p>
+                    <p id="editPermit" class="text-xs text-slate-400">—</p>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Inspector</label>
+                <select id="edit_inspector" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="">Select Inspector</option>
+                    <?php foreach ($inspectors as $i): ?>
+                        <option value="<?php echo (int)$i['id']; ?>">
+                            <?php echo htmlspecialchars($i['full_name'] ?? ('Inspector #' . $i['id'])); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label>
+                    <input type="date" id="edit_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Time</label>
+                    <input type="time" id="edit_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label>
+                <select id="edit_status" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="scheduled">Scheduled</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
+                <textarea id="edit_notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></textarea>
+            </div>
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onclick="closeModal('editInspectionModal')"
+                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                    Cancel
+                </button>
+                <button type="submit" id="editSubmitBtn"
+                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                    <i class="fa-solid fa-floppy-disk mr-1.5"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <!-- ============================================================ -->
@@ -425,31 +488,11 @@ try {
     let searchDebounceTimer = null;
 
     // ============================================================
-    // MODAL FUNCTIONS
+    // MODAL FUNCTIONS - delegate to ModalSystem (handles masking,
+    // backdrop click, and Escape globally already)
     // ============================================================
-    function openModal(id) {
-        document.getElementById(id).classList.remove('hidden');
-        document.getElementById(id).classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-    }
-
-    function closeModal(id) {
-        document.getElementById(id).classList.add('hidden');
-        document.getElementById(id).classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
-    }
-
-    document.querySelectorAll('.fixed.inset-0').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) closeModal(this.id);
-        });
-    });
-
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => closeModal(modal.id));
-        }
-    });
+    function openModal(id) { ModalSystem.open(id); }
+    function closeModal(id) { ModalSystem.close(id); }
 
     // ============================================================
     // STATS (KPI cards)
@@ -564,7 +607,7 @@ try {
                 <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${escapeHtml(i.inspection_id)}</td>
                 <td class="px-4 py-3">
                     <div>
-                        <p class="font-semibold text-slate-800 text-sm">${escapeHtml(i.applicant)}</p>
+                        <p class="font-semibold text-slate-800 text-sm maskable">${escapeHtml(i.applicant)}</p>
                         <p class="text-xs text-slate-400">${escapeHtml(i.permit_number)} • ${escapeHtml(i.business_type)}</p>
                     </div>
                 </td>
@@ -703,6 +746,7 @@ try {
                 return;
             }
             renderInspectionDetails(json.data);
+            ModalSystem.refreshMasking('viewInspectionModal');
         } catch (e) {
             content.innerHTML = `<p class="text-sm text-rose-500 text-center py-6">Failed to load inspection</p>`;
         }
@@ -731,7 +775,7 @@ try {
                         ${escapeHtml((i.applicant || '?').charAt(0))}
                     </div>
                     <div>
-                        <h4 class="text-lg font-bold text-slate-900">${escapeHtml(i.applicant)}</h4>
+                        <h4 class="text-lg font-bold text-slate-900 maskable">${escapeHtml(i.applicant)}</h4>
                         <p class="text-sm text-slate-500">${escapeHtml(i.inspection_id)} • ${escapeHtml(i.permit_number)}</p>
                         <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[i.status] || statusColors.scheduled}">
                             ${i.status.toUpperCase()}
@@ -828,6 +872,13 @@ try {
             document.getElementById('conductApplicant').textContent = i.applicant;
             document.getElementById('conductPermit').textContent = i.permit_number;
             document.getElementById('conductAddress').textContent = i.address || '';
+            // Clear stale masking cache from placeholder text, then reapply on real data
+            ['conductApplicant', 'conductAddress'].forEach(elId => {
+                const el = document.getElementById(elId);
+                el.removeAttribute('data-real');
+                el.removeAttribute('data-masked');
+            });
+            ModalSystem.refreshMasking('conductInspectionModal');
         } catch (e) {
             showToast('Failed to load inspection details', 'danger');
         }
@@ -879,34 +930,106 @@ try {
     }
 
     // ============================================================
-    // FOLLOW-UP / EDIT (placeholders - wire up once those flows exist)
+    // EDIT INSPECTION -> PUT/PATCH ?id=X (controller's update())
+    // ============================================================
+    let editInspectionId = null;
+    let editFormValidation = null;
+
+    async function editInspection(id) {
+        editInspectionId = id;
+        ModalSystem.open('editInspectionModal');
+
+        document.getElementById('editApplicant').textContent = 'Loading…';
+        document.getElementById('editPermit').textContent = '';
+        ['editApplicant'].forEach(elId => {
+            const el = document.getElementById(elId);
+            el.removeAttribute('data-real');
+            el.removeAttribute('data-masked');
+        });
+
+        try {
+            const res = await fetch(`${API_URL}?id=${id}`);
+            const json = await res.json();
+            if (!json.success) {
+                showToast(json.message || 'Inspection not found', 'danger');
+                ModalSystem.close('editInspectionModal');
+                return;
+            }
+            const i = json.data;
+            document.getElementById('edit_inspection_id').value = i.id;
+            document.getElementById('editApplicant').textContent = i.applicant;
+            document.getElementById('editPermit').textContent = i.permit_number + ' • ' + i.business_type;
+            document.getElementById('edit_inspector').value = i.inspector_id || '';
+            document.getElementById('edit_date').value = i.scheduled_date || '';
+            document.getElementById('edit_time').value = (i.scheduled_time || '').slice(0, 5);
+            document.getElementById('edit_status').value = i.status || 'scheduled';
+            document.getElementById('edit_notes').value = i.notes || '';
+
+            document.getElementById('editApplicant').removeAttribute('data-real');
+            document.getElementById('editApplicant').removeAttribute('data-masked');
+            ModalSystem.refreshMasking('editInspectionModal');
+
+            // Fields were set programmatically (no input/change event fired).
+            // ModalSystem.validateForm resets the form ~100ms after the modal
+            // opens, so re-validate slightly after that to unlock Save.
+            setTimeout(() => { if (editFormValidation) editFormValidation.isValid(); }, 150);
+        } catch (e) {
+            showToast('Failed to load inspection details', 'danger');
+            ModalSystem.close('editInspectionModal');
+        }
+    }
+
+    async function saveEditedInspection(event, helpers) {
+        const id = editInspectionId;
+        if (!id) return;
+        const btn = document.getElementById('editSubmitBtn');
+        btn.disabled = true;
+
+        const payload = {
+            inspector_id: document.getElementById('edit_inspector').value,
+            scheduled_date: document.getElementById('edit_date').value,
+            scheduled_time: document.getElementById('edit_time').value,
+            status: document.getElementById('edit_status').value,
+            notes: document.getElementById('edit_notes').value
+        };
+
+        try {
+            const res = await fetch(`${API_URL}?id=${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (!json.success) {
+                showToast(json.message || 'Failed to update inspection', 'danger');
+                return;
+            }
+            showToast('Inspection updated successfully!', 'success');
+            ModalSystem.close('editInspectionModal');
+            loadStats();
+            loadInspections(currentPage);
+        } catch (e) {
+            showToast('Network error updating inspection', 'danger');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // ============================================================
+    // FOLLOW-UP (placeholder - wire up once that flow exists)
     // ============================================================
     function scheduleFollowUp(id) {
         showToast('Follow-up scheduling UI coming soon (inspection #' + id + ')', 'info');
     }
 
-    function editInspection(id) {
-        showToast('Edit inspection ID: ' + id + ' (edit modal coming soon)', 'info');
-    }
-
     // ============================================================
-    // TOAST NOTIFICATIONS
+    // TOAST NOTIFICATIONS - proxies to the shared ModalSystem.toast
+    // (kept as showToast() so existing call sites don't need to change)
     // ============================================================
-    let toastTimer = null;
-
     function showToast(message, type = 'success') {
-        const toast = document.getElementById('toast');
-        const colors = {
-            success: 'bg-brand-dark',
-            danger: 'bg-rose-600',
-            info: 'bg-blue-600',
-            warning: 'bg-amber-600'
-        };
-        toast.className = 'fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2 ' + (colors[type] || colors.success);
-        document.getElementById('toastMessage').textContent = message;
-        toast.classList.remove('hidden');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
+        const map = { danger: 'error', success: 'success', info: 'info', warning: 'warning' };
+        const fn = map[type] || 'success';
+        ModalSystem.toast[fn](message);
     }
 
     // ============================================================
@@ -940,6 +1063,17 @@ try {
         }
         loadStats();
         loadInspections(1);
+
+        editFormValidation = ModalSystem.validateForm('editInspectionModal', {
+            fields: {
+                'edit_inspector': { label: 'Inspector' },
+                'edit_date': { label: 'Date' },
+                'edit_time': { label: 'Time' },
+                'edit_status': { label: 'Status' }
+            },
+            submitButtonId: 'editSubmitBtn',
+            onSubmit: saveEditedInspection
+        });
     });
 </script>
 
