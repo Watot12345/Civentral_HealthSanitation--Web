@@ -1,14 +1,7 @@
 <?php
 session_start();
-$sessionId = session_id();
 
-// Redirect to include session ID if not present
-if (!isset($_GET['session']) || $_GET['session'] !== $sessionId) {
-    $url = $_SERVER['REQUEST_URI'];
-    $separator = (strpos($url, '?') === false) ? '?' : '&';
-    header('Location: ' . $url . $separator . 'session=' . $sessionId);
-    exit;
-}
+
  include '../includes/header.php';
  include '../includes/sidebar.php'; 
 ?>
