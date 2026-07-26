@@ -28,9 +28,8 @@ class Prescription
 
     public function create(array $data): array
     {
-        if (empty($data['prescription_id'])) {
-            $data['prescription_id'] = $this->generatePrescriptionId();
-        }
+        // The DB trigger generate_prescription_id_trigger auto-populates prescription_id on INSERT.
+        // Only set it manually as a safety fallback if somehow not set after insert.
         if (empty($data['status'])) {
             $data['status'] = 'pending';
         }
@@ -38,7 +37,11 @@ class Prescription
         if (isset($data['medications']) && is_array($data['medications'])) {
             $data['medications'] = json_encode($data['medications']);
         }
-        return $this->db->insert($this->table, $data);
+        // Remove prescription_id from data — let the DB trigger handle it
+        unset($data['prescription_id']);
+        
+        $result = $this->db->insert($this->table, $data);
+        return is_array($result) ? $result : [];
     }
 
     public function updateById(string|int $id, array $data): array
@@ -63,22 +66,10 @@ class Prescription
 
     public function generatePrescriptionId(): string
     {
-        try {
-            $all = $this->all(['limit' => 1000]);
-            $maxNum = 0;
-            foreach ($all as $p) {
-                if (!empty($p['prescription_id']) && preg_match('/RX-(\d+)/i', $p['prescription_id'], $matches)) {
-                    $num = (int)$matches[1];
-                    if ($num > $maxNum) {
-                        $maxNum = $num;
-                    }
-                }
-            }
-            $nextNum = $maxNum + 1;
-            return 'RX-' . str_pad((string)$nextNum, 3, '0', STR_PAD_LEFT);
-        } catch (\Throwable $e) {
-            return 'RX-' . date('YmdHis') . '-' . rand(100, 999);
-        }
+        // The DB trigger generate_prescription_id_trigger handles this automatically on INSERT.
+        // This PHP fallback is only used when the trigger is unavailable.
+        // Use a timestamp + random suffix to avoid scanning the whole table.
+        return 'RX-' . date('ymd') . '-' . strtoupper(substr(uniqid(), -4));
     }
 
     public function dispense(string $id, int $employeeId): array

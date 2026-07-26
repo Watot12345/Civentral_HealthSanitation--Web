@@ -36,7 +36,11 @@ try {
 
     switch ($method) {
         case 'GET':
-            if ($id) {
+            if ($action === 'queue-stats') {
+                $controller->queueStats();
+            } elseif ($action === 'call-next') {
+                $controller->callNext();
+            } elseif ($id) {
                 $controller->show($id);
             } else {
                 $controller->index();

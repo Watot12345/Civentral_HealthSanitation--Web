@@ -25,10 +25,14 @@ try {
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $parts = explode('/', trim($path, '/'));
     
-    // Get referral ID from URL
+    // Get referral ID — scan parts in reverse for a numeric segment
+    // Works for both /api/referrals.php/42 and /capstone/api/referrals.php/42
     $id = null;
-    if (count($parts) >= 3 && is_numeric(end($parts))) {
-        $id = end($parts);
+    foreach (array_reverse($parts) as $part) {
+        if (is_numeric($part)) {
+            $id = $part;
+            break;
+        }
     }
     if (!$id && isset($_GET['id']) && is_numeric($_GET['id'])) {
         $id = $_GET['id'];

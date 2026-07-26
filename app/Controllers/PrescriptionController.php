@@ -425,26 +425,27 @@ class PrescriptionController extends BaseController
             if ($patient) {
                 $prescription['patient_name'] = trim(($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? ''));
                 $prescription['patient_avatar'] = $this->generateAvatar($patient['first_name'] ?? '', $patient['last_name'] ?? '');
+            } else {
+                $prescription['patient_name'] = 'Unknown';
+                $prescription['patient_avatar'] = '??';
             }
         }
         
-        // Get doctor/employee name
+        // Get doctor/employee name — employees table only has full_name (no first/last split)
         if (isset($prescription['employee_id']) && !isset($prescription['doctor_name'])) {
             $employee = $this->employeeModel->find($prescription['employee_id']);
             if ($employee) {
-                $fullName = trim(($employee['first_name'] ?? '') . ' ' . ($employee['last_name'] ?? ''));
-                $prescription['doctor_name'] = !empty($fullName) ? $fullName : ($employee['username'] ?? 'Unknown');
+                $prescription['doctor_name'] = $employee['full_name'] ?? 'Unknown';
             } else {
                 $prescription['doctor_name'] = 'Unknown';
             }
         }
         
-        // Get dispensed by name
-        if (isset($prescription['dispensed_by']) && !isset($prescription['dispensed_by_name'])) {
+        // Get dispensed by name — same, use full_name
+        if (isset($prescription['dispensed_by']) && $prescription['dispensed_by'] && !isset($prescription['dispensed_by_name'])) {
             $dispenser = $this->employeeModel->find($prescription['dispensed_by']);
             if ($dispenser) {
-                $fullName = trim(($dispenser['first_name'] ?? '') . ' ' . ($dispenser['last_name'] ?? ''));
-                $prescription['dispensed_by_name'] = !empty($fullName) ? $fullName : ($dispenser['username'] ?? 'Unknown');
+                $prescription['dispensed_by_name'] = $dispenser['full_name'] ?? 'Unknown';
             }
         }
         
@@ -454,7 +455,7 @@ class PrescriptionController extends BaseController
         }
         
         // Format dispensed_at
-        if (isset($prescription['dispensed_at']) && !isset($prescription['dispensed_at_formatted'])) {
+        if (isset($prescription['dispensed_at']) && $prescription['dispensed_at'] && !isset($prescription['dispensed_at_formatted'])) {
             $prescription['dispensed_at_formatted'] = $this->formatDateTime($prescription['dispensed_at']);
         }
         
@@ -522,23 +523,21 @@ class PrescriptionController extends BaseController
                 }
             }
             
-            // Enrich doctor
+            // Enrich doctor — employees table uses full_name (no first/last split)
             if (isset($prescription['employee_id']) && !isset($prescription['doctor_name'])) {
                 $employee = $employees[$prescription['employee_id']] ?? null;
                 if ($employee) {
-                    $fullName = trim(($employee['first_name'] ?? '') . ' ' . ($employee['last_name'] ?? ''));
-                    $prescription['doctor_name'] = !empty($fullName) ? $fullName : ($employee['username'] ?? 'Unknown');
+                    $prescription['doctor_name'] = $employee['full_name'] ?? 'Unknown';
                 } else {
                     $prescription['doctor_name'] = 'Unknown';
                 }
             }
             
-            // Enrich dispenser
-            if (isset($prescription['dispensed_by']) && !isset($prescription['dispensed_by_name'])) {
+            // Enrich dispenser — same, use full_name
+            if (isset($prescription['dispensed_by']) && $prescription['dispensed_by'] && !isset($prescription['dispensed_by_name'])) {
                 $dispenser = $dispensers[$prescription['dispensed_by']] ?? null;
                 if ($dispenser) {
-                    $fullName = trim(($dispenser['first_name'] ?? '') . ' ' . ($dispenser['last_name'] ?? ''));
-                    $prescription['dispensed_by_name'] = !empty($fullName) ? $fullName : ($dispenser['username'] ?? 'Unknown');
+                    $prescription['dispensed_by_name'] = $dispenser['full_name'] ?? 'Unknown';
                 }
             }
             

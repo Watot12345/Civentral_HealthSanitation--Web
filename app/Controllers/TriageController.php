@@ -20,35 +20,35 @@ class TriageController extends BaseController
     }
 
     public function index(): void
-{
-    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-    $limit = isset($_GET['limit']) ? max(1, (int)$_GET['limit']) : 1000;
+    {
+        $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+        $limit = isset($_GET['limit']) ? max(1, (int)$_GET['limit']) : 1000;
 
-    $rawTriage = $this->triageModel->all(['order' => 'created_at.desc']);
-    $patientsMap = $this->getPatientsMap();
-    $employeesMap = $this->getEmployeesMap();
+        $rawTriage = $this->triageModel->all(['order' => 'created_at.desc']);
+        $patientsMap = $this->getPatientsMap();
+        $employeesMap = $this->getEmployeesMap();
 
-    $triageList = array_map(function ($t) use ($patientsMap, $employeesMap) {
-        return $this->enrichTriage($t, $patientsMap, $employeesMap);
-    }, $rawTriage);
+        $triageList = array_map(function ($t) use ($patientsMap, $employeesMap) {
+            return $this->enrichTriage($t, $patientsMap, $employeesMap);
+        }, $rawTriage);
 
-    $total = count($triageList);
-    $totalPages = max(1, (int)ceil($total / $limit));
-    if ($page > $totalPages) $page = $totalPages;
-    $offset = ($page - 1) * $limit;
-    $paginated = array_slice($triageList, $offset, $limit);
+        $total = count($triageList);
+        $totalPages = max(1, (int)ceil($total / $limit));
+        if ($page > $totalPages) $page = $totalPages;
+        $offset = ($page - 1) * $limit;
+        $paginated = array_slice($triageList, $offset, $limit);
 
-    $this->handle(function() use ($paginated, $total, $page, $totalPages, $limit) {
-        return [
-            'success' => true,
-            'data' => $paginated,
-            'total' => $total,
-            'page' => $page,
-            'total_pages' => $totalPages,
-            'limit' => $limit
-        ];
-    });
-}
+        $this->handle(function() use ($paginated, $total, $page, $totalPages, $limit) {
+            return [
+                'success' => true,
+                'data' => $paginated,
+                'total' => $total,
+                'page' => $page,
+                'total_pages' => $totalPages,
+                'limit' => $limit
+            ];
+        });
+    }
 
     public function show(string|int $id): void
     {
@@ -190,6 +190,107 @@ class TriageController extends BaseController
         });
     }
 
+    /**
+     * Get queue statistics
+     */
+    public function queueStats(): void
+    {
+        $this->handle(function() {
+            $rawTriage = $this->triageModel->all(['order' => 'created_at.asc']);
+            $patientsMap = $this->getPatientsMap();
+            $employeesMap = $this->getEmployeesMap();
+
+            $enriched = array_map(function ($t) use ($patientsMap, $employeesMap) {
+                return $this->enrichTriage($t, $patientsMap, $employeesMap);
+            }, $rawTriage);
+
+            // Separate by status
+            $waiting = array_values(array_filter($enriched, fn($t) => $t['status'] === 'waiting'));
+            $inTriage = array_values(array_filter($enriched, fn($t) => $t['status'] === 'in_triage'));
+            $completed = array_values(array_filter($enriched, fn($t) => $t['status'] === 'sent_to_doctor' || $t['status'] === 'completed'));
+            $cancelled = array_values(array_filter($enriched, fn($t) => $t['status'] === 'cancelled'));
+
+            // Sort waiting by priority (critical first, then high, medium, low)
+            $priorityOrder = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
+            usort($waiting, function($a, $b) use ($priorityOrder) {
+                return ($priorityOrder[$a['priority']] ?? 99) - ($priorityOrder[$b['priority']] ?? 99);
+            });
+
+            // Re-assign queue numbers
+            $queueNum = 1;
+            foreach ($waiting as &$w) {
+                $w['queue_number'] = $queueNum++;
+            }
+
+            return [
+                'success' => true,
+                'data' => [
+                    'waiting' => $waiting,
+                    'in_triage' => $inTriage,
+                    'completed' => $completed,
+                    'cancelled' => $cancelled,
+                    'stats' => [
+                        'total_waiting' => count($waiting),
+                        'total_in_triage' => count($inTriage),
+                        'total_completed' => count($completed),
+                        'total_cancelled' => count($cancelled),
+                        'total' => count($enriched),
+                        'critical_count' => count(array_filter($waiting, fn($t) => $t['priority'] === 'critical')),
+                        'high_count' => count(array_filter($waiting, fn($t) => $t['priority'] === 'high')),
+                        'medium_count' => count(array_filter($waiting, fn($t) => $t['priority'] === 'medium')),
+                        'low_count' => count(array_filter($waiting, fn($t) => $t['priority'] === 'low')),
+                    ]
+                ]
+            ];
+        });
+    }
+
+    /**
+     * Call next patient - moves the highest priority waiting patient to "triaged" status
+     */
+    public function callNext(): void
+    {
+        $this->handle(function() {
+            $rawTriage = $this->triageModel->all();
+            
+            // Find waiting patients
+            $waiting = array_values(array_filter($rawTriage, fn($t) => ($t['status'] ?? 'pending') === 'pending'));
+            
+            if (empty($waiting)) {
+                return [
+                    'success' => false,
+                    'message' => 'No patients waiting in queue',
+                    'code' => 404
+                ];
+            }
+
+            // Sort by priority (critical first)
+            $priorityOrder = ['critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3];
+            usort($waiting, function($a, $b) use ($priorityOrder) {
+                $pa = $priorityOrder[$a['priority'] ?? 'medium'] ?? 99;
+                $pb = $priorityOrder[$b['priority'] ?? 'medium'] ?? 99;
+                if ($pa === $pb) {
+                    // Earlier created_at first
+                    return strtotime($a['created_at'] ?? 'now') - strtotime($b['created_at'] ?? 'now');
+                }
+                return $pa - $pb;
+            });
+
+            $nextPatient = $waiting[0];
+            $this->triageModel->updateStatus($nextPatient['id'], 'triaged');
+
+            $patientsMap = $this->getPatientsMap();
+            $employeesMap = $this->getEmployeesMap();
+            $enriched = $this->enrichTriage($nextPatient, $patientsMap, $employeesMap);
+
+            return [
+                'success' => true,
+                'message' => 'Called next patient: ' . ($enriched['patient_name'] ?? 'Unknown'),
+                'data' => $enriched
+            ];
+        });
+    }
+
     private function prepareDbData(array $data): array
     {
         $dbData = [];
@@ -197,7 +298,7 @@ class TriageController extends BaseController
         if (isset($data['triage_id'])) $dbData['triage_id'] = trim((string)$data['triage_id']);
         if (isset($data['patient_id'])) $dbData['patient_id'] = (int)$data['patient_id'];
         if (isset($data['nurse_id'])) $dbData['nurse_id'] = (int)$data['nurse_id'];
-        else $dbData['nurse_id'] = 1; // Default nurse ID if omitted
+        else $dbData['nurse_id'] = 1;
 
         if (isset($data['blood_pressure'])) $dbData['blood_pressure'] = trim((string)$data['blood_pressure']);
         if (isset($data['heart_rate']) && $data['heart_rate'] !== '') $dbData['heart_rate'] = (int)$data['heart_rate'];
@@ -206,11 +307,11 @@ class TriageController extends BaseController
         if (isset($data['oxygen_saturation']) && $data['oxygen_saturation'] !== '') $dbData['oxygen_saturation'] = (int)$data['oxygen_saturation'];
         if (isset($data['weight']) && $data['weight'] !== '') $dbData['weight'] = (float)$data['weight'];
         if (isset($data['height']) && $data['height'] !== '') $dbData['height'] = (float)$data['height'];
-if (isset($data['blood_sugar']) && $data['blood_sugar'] !== '') $dbData['blood_sugar'] = (float)$data['blood_sugar'];
-if (isset($data['blood_sugar_type'])) $dbData['blood_sugar_type'] = trim((string)$data['blood_sugar_type']);
-if (isset($data['gcs_eye'])) $dbData['gcs_eye'] = (int)$data['gcs_eye'];
-if (isset($data['gcs_verbal'])) $dbData['gcs_verbal'] = (int)$data['gcs_verbal'];
-if (isset($data['gcs_motor'])) $dbData['gcs_motor'] = (int)$data['gcs_motor'];
+        if (isset($data['blood_sugar']) && $data['blood_sugar'] !== '') $dbData['blood_sugar'] = (float)$data['blood_sugar'];
+        if (isset($data['blood_sugar_type'])) $dbData['blood_sugar_type'] = trim((string)$data['blood_sugar_type']);
+        if (isset($data['gcs_eye'])) $dbData['gcs_eye'] = (int)$data['gcs_eye'];
+        if (isset($data['gcs_verbal'])) $dbData['gcs_verbal'] = (int)$data['gcs_verbal'];
+        if (isset($data['gcs_motor'])) $dbData['gcs_motor'] = (int)$data['gcs_motor'];
 
         if (isset($data['symptoms'])) {
             $dbData['symptoms'] = is_array($data['symptoms']) ? implode(', ', $data['symptoms']) : trim((string)$data['symptoms']);
@@ -288,7 +389,6 @@ if (isset($data['gcs_motor'])) $dbData['gcs_motor'] = (int)$data['gcs_motor'];
                 $triage['age'] = $patient['age'] ?? 'N/A';
             }
 
-            // Generate avatar initials
             $parts = explode(' ', $patientName);
             $initials = '';
             foreach ($parts as $p) {
@@ -321,6 +421,16 @@ if (isset($data['gcs_motor'])) $dbData['gcs_motor'] = (int)$data['gcs_motor'];
         }
 
         $triage['chief_complaint'] = $triage['notes'] ?? '';
+
+        // Map DB status to frontend status
+        $dbStatus = strtolower($triage['status'] ?? 'pending');
+        $statusMap = [
+            'pending' => 'waiting',
+            'triaged' => 'in_triage',
+            'consulted' => 'sent_to_doctor',
+            'cancelled' => 'cancelled'
+        ];
+        $triage['status'] = $statusMap[$dbStatus] ?? 'in_triage';
 
         return $triage;
     }

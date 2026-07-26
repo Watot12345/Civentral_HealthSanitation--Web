@@ -25,14 +25,19 @@ try {
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $parts = explode('/', trim($path, '/'));
     
-    // Get prescription ID from URL if exists (e.g. /api/prescriptions.php/123)
+    // Get prescription ID from URL — scan all path parts for a trailing numeric segment
+    // e.g. /capstone/api/prescriptions.php/42  →  parts = [capstone, api, prescriptions.php, 42]
+    // e.g. /api/prescriptions.php/42           →  parts = [api, prescriptions.php, 42]
     $prescriptionId = null;
-    if (count($parts) >= 3 && is_numeric($parts[2])) {
-        $prescriptionId = $parts[2];
+    foreach (array_reverse($parts) as $part) {
+        if (is_numeric($part)) {
+            $prescriptionId = $part;
+            break;
+        }
     }
     
-    // Also support ?id=...
-    if (!$prescriptionId && isset($_GET['id'])) {
+    // Also support ?id=... query param as fallback
+    if (!$prescriptionId && isset($_GET['id']) && is_numeric($_GET['id'])) {
         $prescriptionId = $_GET['id'];
     }
     

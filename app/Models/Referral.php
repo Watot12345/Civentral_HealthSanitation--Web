@@ -63,22 +63,8 @@ class Referral
 
     public function generateReferralId(): string
     {
-        try {
-            $all = $this->all(['limit' => 1000]);
-            $maxNum = 0;
-            foreach ($all as $r) {
-                if (!empty($r['referral_id']) && preg_match('/REF-(\d+)/i', $r['referral_id'], $matches)) {
-                    $num = (int)$matches[1];
-                    if ($num > $maxNum) {
-                        $maxNum = $num;
-                    }
-                }
-            }
-            $nextNum = $maxNum + 1;
-            return 'REF-' . str_pad((string)$nextNum, 3, '0', STR_PAD_LEFT);
-        } catch (Throwable $e) {
-            return 'REF-' . date('YmdHis') . '-' . rand(100, 999);
-        }
+        // Use timestamp + random suffix — fast fallback if DB trigger not present
+        return 'REF-' . date('ymd') . '-' . strtoupper(substr(uniqid(), -4));
     }
 }
 ?>

@@ -1,6 +1,7 @@
 # Node.js dependencies
 node_modules/
 .env
+capstone
 # npm logs
 npm-debug.log*
 yarn-debug.log*

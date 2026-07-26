@@ -493,7 +493,13 @@
             </form>
         </div>
     </div>
+<style>#emptyState.hidden {
+    display: none !important;
+}
 
+#prescriptionTableBody:empty {
+    display: none;
+}</style>
     <!-- ============================================================ -->
     <!-- JAVASCRIPT - Client-side pagination (NO PAGE RELOAD!)       -->
     <!-- ============================================================ -->
@@ -521,18 +527,30 @@
         // ============================================================
         // INITIALIZATION
         // ============================================================
-        document.addEventListener('DOMContentLoaded', function() {
-            updateStats();
-            renderTable();
-            populatePatientSelects();
-            populateDoctorSelects();
-            loadDrugs();
-            
-            const dateInput = document.getElementById('rx_date');
-            if (dateInput) {
-                dateInput.value = new Date().toISOString().split('T')[0];
-            }
-        });
+       document.addEventListener('DOMContentLoaded', function() {
+    // Hide empty state initially
+    const emptyState = document.getElementById('emptyState');
+    if (emptyState) {
+        emptyState.classList.add('hidden');
+        emptyState.style.display = 'none';
+    }
+
+    // Re-enrich the PHP-embedded data with local patients/doctors lookups
+    // This guarantees correct names even before any API call
+    allPrescriptions = allPrescriptions.map(p => enrichLocally(p));
+    filteredPrescriptions = [...allPrescriptions];
+    
+    updateStats();
+    renderTable();
+    populatePatientSelects();
+    populateDoctorSelects();
+    loadDrugs();
+    
+    const dateInput = document.getElementById('rx_date');
+    if (dateInput) {
+        dateInput.value = new Date().toISOString().split('T')[0];
+    }
+});
 
         // ============================================================
         // LOAD DRUGS FROM API
@@ -755,7 +773,7 @@
                 doctors.forEach(d => {
                     const option = document.createElement('option');
                     option.value = d.id;
-                    option.textContent = `${d.first_name} ${d.last_name}`;
+                    option.textContent = d.full_name || `${d.first_name || ''} ${d.last_name || ''}`.trim() || `Employee #${d.id}`;
                     select.appendChild(option);
                 });
             }
@@ -764,8 +782,9 @@
                 editSelect.innerHTML = '<option value="">Select Doctor</option>';
                 doctors.forEach(d => {
                     const option = document.createElement('option');
-                    option.value = `${d.first_name} ${d.last_name}`;
-                    option.textContent = `${d.first_name} ${d.last_name}`;
+                    const name = d.full_name || `${d.first_name || ''} ${d.last_name || ''}`.trim() || `Employee #${d.id}`;
+                    option.value = name;
+                    option.textContent = name;
                     editSelect.appendChild(option);
                 });
             }
@@ -869,141 +888,151 @@
         // TABLE RENDERING (Client-side pagination - NO PAGE RELOAD!)
         // ============================================================
         function renderTable() {
-            const tbody = document.getElementById('prescriptionTableBody');
-            const emptyState = document.getElementById('emptyState');
+    const tbody = document.getElementById('prescriptionTableBody');
+    const emptyState = document.getElementById('emptyState');
+    const tableElement = tbody.closest('table');
+    const paginationDiv = document.querySelector('.px-4.py-3.border-t'); // Pagination section
+    
+    const totalItems = filteredPrescriptions.length;
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
+    
+    if (currentPage < 1) currentPage = 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+    
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
+    const pageData = filteredPrescriptions.slice(startIndex, endIndex);
+    
+    // Hide both states first
+    if (emptyState) emptyState.classList.add('hidden');
+    if (tableElement) tableElement.classList.remove('hidden');
+    if (paginationDiv) paginationDiv.classList.remove('hidden');
+    
+    if (totalItems === 0) {
+        // Show empty state, hide table
+        if (emptyState) {
+            emptyState.classList.remove('hidden');
+            emptyState.style.display = 'flex';
+        }
+        if (tableElement) tableElement.classList.add('hidden');
+        if (paginationDiv) paginationDiv.classList.add('hidden');
+        
+        // Clear tbody
+        tbody.innerHTML = '';
+        
+        // Update empty state message based on whether filters are active
+        const searchValue = document.getElementById('searchPrescription')?.value || '';
+        const statusValue = document.getElementById('filterStatus')?.value || '';
+        
+        if (searchValue || statusValue) {
+            emptyState.innerHTML = `
+                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                    <i class="fa-solid fa-filter-circle-xmark text-slate-400"></i>
+                </div>
+                <p class="text-sm font-semibold text-slate-600">No prescriptions match your filters</p>
+                <p class="text-xs text-slate-400 mt-1">Try adjusting your search or clearing filters</p>
+                <button onclick="resetFilters()" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear all filters</button>
+            `;
+        } else {
+            emptyState.innerHTML = `
+                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                    <i class="fa-solid fa-prescription text-slate-400"></i>
+                </div>
+                <p class="text-sm font-semibold text-slate-600">No prescriptions found</p>
+                <p class="text-xs text-slate-400 mt-1">Click "New Prescription" to create one</p>
+            `;
+        }
+        
+    } else {
+        // Show table, hide empty state
+        if (emptyState) {
+            emptyState.classList.add('hidden');
+            emptyState.style.display = 'none';
+        }
+        if (tableElement) tableElement.classList.remove('hidden');
+        if (paginationDiv) paginationDiv.classList.remove('hidden');
+        
+        // Render table rows
+        tbody.innerHTML = pageData.map(p => {
+            let medications = Array.isArray(p.medications) ? p.medications : [];
+            const rxId = p.prescription_id || 'N/A';
+            const patientName = p.patient_name || 'Unknown';
+            const patientAvatar = p.patient_avatar || '??';
+            const doctorName = p.doctor_name || 'Unknown';
             
-            const totalItems = filteredPrescriptions.length;
-            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
-            
-            if (currentPage < 1) currentPage = 1;
-            if (currentPage > totalPages) currentPage = totalPages;
-            
-            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-            const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
-            const pageData = filteredPrescriptions.slice(startIndex, endIndex);
-            
-            if (pageData.length === 0) {
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-slate-400">
-                            <i class="fa-solid fa-prescription text-3xl block mb-2"></i>
-                            <p class="text-sm">No prescriptions found</p>
-                            <p class="text-xs text-slate-400 mt-1">Click "New Prescription" to create one</p>
-                        </td>
-                    </tr>
-                `;
-                emptyState.style.display = 'flex';
-            } else {
-                emptyState.style.display = 'none';
-                
-                tbody.innerHTML = pageData.map(p => {
-                    let medications = Array.isArray(p.medications) ? p.medications : [];
-                    
-                    return `
-                    <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors">
-                        <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${p.prescription_id || 'N/A'}</td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
-                                    ${p.patient_avatar || '??'}
-                                </div>
-                                <div>
-                                    <p class="font-semibold text-slate-800 text-sm">${p.patient_name || 'Unknown'}</p>
-                                    <p class="text-xs text-slate-400">${medications.length} medications</p>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs">${p.doctor_name || 'Unknown'}</td>
-                        <td class="px-4 py-3">
-                            <div class="space-y-0.5">
-                                ${medications.slice(0, 2).map(med => `
-                                    <span class="inline-block px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-700">
-                                        ${med.name || 'Unknown'} ${med.dosage || ''}
-                                    </span>
-                                `).join('')}
-                                ${medications.length > 2 ? `<span class="text-[10px] text-slate-400">+${medications.length - 2} more</span>` : ''}
-                            </div>
-                        </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs">${formatDate(p.date)}</td>
-                        <td class="px-4 py-3">
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold ${getStatusClasses(p.status)}">
-                                ${(p.status || 'pending').charAt(0).toUpperCase() + (p.status || 'pending').slice(1)}
+            return `
+            <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors">
+                <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">
+                    <span class="maskable" data-real="${rxId}" data-masked="${maskId(rxId)}">${rxId}</span>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
+                            <span class="maskable" data-real="${patientAvatar}" data-masked="??">${patientAvatar}</span>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-800 text-sm">
+                                <span class="maskable" data-real="${patientName}" data-masked="${maskName(patientName)}">${patientName}</span>
+                            </p>
+                            <p class="text-xs text-slate-400">${medications.length} medication${medications.length !== 1 ? 's' : ''}</p>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-slate-600 text-xs">
+                    <span class="maskable" data-real="${doctorName}" data-masked="${maskName(doctorName)}">${doctorName}</span>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="space-y-0.5">
+                        ${medications.slice(0, 2).map(med => `
+                            <span class="inline-block px-2 py-0.5 bg-slate-100 rounded text-[10px] text-slate-700">
+                                ${med.name || 'Unknown'} ${med.dosage || ''}
                             </span>
-                        </td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center justify-center gap-1">
-                                <button onclick="viewPrescription(${p.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition"><i class="fa-solid fa-eye text-sm"></i></button>
-                                ${p.status === 'pending' ? `<button onclick="dispensePrescription(${p.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"><i class="fa-solid fa-check text-sm"></i></button>` : ''}
-                                <button onclick="editPrescription(${p.id})" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition"><i class="fa-solid fa-pen text-sm"></i></button>
-                                <button onclick="deletePrescription(${p.id})" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition"><i class="fa-solid fa-trash-can text-sm"></i></button>
-                            </div>
-                        </td>
-                    </tr>
-                `}).join('');
-            }
+                        `).join('')}
+                        ${medications.length > 2 ? `<span class="text-[10px] text-slate-400">+${medications.length - 2} more</span>` : ''}
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-slate-600 text-xs">${formatDate(p.date)}</td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-1 rounded-full text-xs font-semibold ${getStatusClasses(p.status)}">
+                        ${(p.status || 'pending').charAt(0).toUpperCase() + (p.status || 'pending').slice(1)}
+                    </span>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="flex items-center justify-center gap-1">
+                        <button onclick="viewPrescription(${p.id})" title="View" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition"><i class="fa-solid fa-eye text-sm"></i></button>
+                        ${p.status === 'pending' ? `<button onclick="dispensePrescription(${p.id})" title="Dispense" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"><i class="fa-solid fa-check text-sm"></i></button>` : ''}
+                        <button onclick="editPrescription(${p.id})" title="Edit" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition"><i class="fa-solid fa-pen text-sm"></i></button>
+                        <button onclick="deletePrescription(${p.id})" title="Cancel" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition"><i class="fa-solid fa-trash-can text-sm"></i></button>
+                    </div>
+                </td>
+            </tr>
+        `}).join('');
 
-            if (totalItems === 0) {
-                document.getElementById('showingStart').textContent = 0;
-                document.getElementById('showingEnd').textContent = 0;
-                document.getElementById('showingTotal').textContent = 0;
-            } else {
-                document.getElementById('showingStart').textContent = startIndex + 1;
-                document.getElementById('showingEnd').textContent = endIndex;
-                document.getElementById('showingTotal').textContent = totalItems;
-            }
-
-            renderPagination(totalItems, totalPages);
+        // Re-apply data masking to newly rendered rows
+        if (typeof window.applyMaskingToNewContent === 'function') {
+            window.applyMaskingToNewContent();
+        } else if (typeof ModalSystem !== 'undefined') {
+            // Trigger masking on the tbody
+            setTimeout(() => {
+                const tableContainer = document.querySelector('.bg-white.rounded-xl.shadow-xs.border');
+                if (tableContainer) ModalSystem.applyMaskingToModal(tableContainer);
+            }, 50);
         }
+    }
 
-        function renderPagination(totalItems, totalPages) {
-            const container = document.getElementById('paginationControls');
-            
-            if (totalItems === 0) {
-                container.innerHTML = '<span class="text-xs text-slate-400">No records</span>';
-                return;
-            }
+    // Update pagination info
+    if (totalItems === 0) {
+        document.getElementById('showingStart').textContent = 0;
+        document.getElementById('showingEnd').textContent = 0;
+        document.getElementById('showingTotal').textContent = 0;
+    } else {
+        document.getElementById('showingStart').textContent = startIndex + 1;
+        document.getElementById('showingEnd').textContent = endIndex;
+        document.getElementById('showingTotal').textContent = totalItems;
+    }
 
-            let html = '';
-            
-            // PREV button with text
-            html += `
-                <button onclick="changePage(${currentPage - 1})"
-                        class="px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 ${currentPage <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}"
-                        ${currentPage <= 1 ? 'disabled' : ''}>
-                    <i class="fa-solid fa-chevron-left text-xs"></i>
-                    <span>Prev</span>
-                </button>
-            `;
-
-            // Page numbers
-            for (let i = 1; i <= totalPages; i++) {
-                if (i === 1 || i === totalPages || Math.abs(i - currentPage) <= 1) {
-                    html += `
-                        <button onclick="changePage(${i})"
-                                class="px-3 py-1.5 rounded-lg text-sm font-medium ${i === currentPage ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}">
-                            ${i}
-                        </button>
-                    `;
-                } else if (i === 2 || i === totalPages - 1) {
-                    html += `<span class="text-slate-400 text-xs px-1">...</span>`;
-                }
-            }
-
-            // NEXT button with text
-            html += `
-                <button onclick="changePage(${currentPage + 1})"
-                        class="px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 ${currentPage >= totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}"
-                        ${currentPage >= totalPages ? 'disabled' : ''}>
-                    <span>Next</span>
-                    <i class="fa-solid fa-chevron-right text-xs"></i>
-                </button>
-                <span class="text-xs text-slate-400 ml-2">
-                    Page ${currentPage} of ${totalPages} (${totalItems} items)
-                </span>
-            `;
-
-            container.innerHTML = html;
-        }
+    renderPagination(totalItems, totalPages);
+}
 
         // ============================================================
         // CHANGE PAGE - NO PAGE RELOAD!
@@ -1015,6 +1044,68 @@
             if (page < 1 || page > totalPages) return;
             currentPage = page;
             renderTable();
+        }
+
+        // ============================================================
+        // RENDER PAGINATION - Generates page buttons
+        // ============================================================
+        function renderPagination(totalItems, totalPages) {
+            const container = document.getElementById('paginationControls');
+            if (!container) return;
+
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const btnBase = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors';
+            const btnActive = `${btnBase} bg-brand-dark text-white shadow-sm`;
+            const btnInactive = `${btnBase} bg-white border border-slate-200 text-slate-600 hover:bg-slate-50`;
+            const btnDisabled = `${btnBase} bg-white border border-slate-200 text-slate-300 cursor-not-allowed`;
+
+            let html = '';
+
+            // Prev button
+            html += `<button onclick="changePage(${currentPage - 1})"
+                        class="${currentPage === 1 ? btnDisabled : btnInactive}"
+                        ${currentPage === 1 ? 'disabled' : ''}>
+                        <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                    </button>`;
+
+            // Page number buttons — show at most 5 pages around current
+            const delta = 2;
+            const rangeStart = Math.max(1, currentPage - delta);
+            const rangeEnd   = Math.min(totalPages, currentPage + delta);
+
+            if (rangeStart > 1) {
+                html += `<button onclick="changePage(1)" class="${btnInactive}">1</button>`;
+                if (rangeStart > 2) {
+                    html += `<span class="px-1 py-1.5 text-xs text-slate-400">…</span>`;
+                }
+            }
+
+            for (let p = rangeStart; p <= rangeEnd; p++) {
+                html += `<button onclick="changePage(${p})"
+                            class="${p === currentPage ? btnActive : btnInactive}">
+                            ${p}
+                         </button>`;
+            }
+
+            if (rangeEnd < totalPages) {
+                if (rangeEnd < totalPages - 1) {
+                    html += `<span class="px-1 py-1.5 text-xs text-slate-400">…</span>`;
+                }
+                html += `<button onclick="changePage(${totalPages})" class="${btnInactive}">${totalPages}</button>`;
+            }
+
+            // Next button
+            html += `<button onclick="changePage(${currentPage + 1})"
+                        class="${currentPage === totalPages ? btnDisabled : btnInactive}"
+                        ${currentPage === totalPages ? 'disabled' : ''}>
+                        <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>`;
+
+            container.innerHTML = html;
         }
 
         // ============================================================
@@ -1040,13 +1131,15 @@
         document.getElementById('filterStatus').addEventListener('change', filterPrescriptions);
 
         function filterPrescriptions() {
-            const search = document.getElementById('searchPrescription').value.toLowerCase();
+            const search = document.getElementById('searchPrescription').value.toLowerCase().trim();
             const status = document.getElementById('filterStatus').value;
             
             filteredPrescriptions = allPrescriptions.filter(p => {
                 const matchesSearch = !search || 
                     (p.patient_name || '').toLowerCase().includes(search) ||
                     (p.prescription_id || '').toLowerCase().includes(search) ||
+                    String(p.id || '').includes(search) ||
+                    (p.doctor_name || '').toLowerCase().includes(search) ||
                     (p.medications || []).some(m => (m.name || '').toLowerCase().includes(search));
                 
                 const matchesStatus = !status || (p.status || '') === status;
@@ -1072,67 +1165,123 @@
         async function viewPrescription(id) {
             ModalSystem.open('viewPrescriptionModal');
             
+            // Use local data immediately for instant render (no Unknown flash)
+            const localP = allPrescriptions.find(p => p.id === id);
+            if (localP) {
+                renderViewModal(localP);
+            }
+            
+            // Then fetch fresh from API to get dispensed_by_name / dispensed_at
             try {
                 const response = await fetch(`${API_URL}/${id}`);
                 const data = await response.json();
                 
-                if (!data.success) {
-                    ModalSystem.toast.error(data.message || 'Failed to load prescription');
-                    return;
+                if (data.success && data.data) {
+                    // Merge API data with local enriched data — keep local names if API returns Unknown
+                    const apiP = data.data;
+                    const merged = Object.assign({}, localP || {}, apiP);
+                    // Prefer local enriched names if API returned Unknown/empty
+                    if (localP) {
+                        if (!apiP.patient_name || apiP.patient_name === 'Unknown') merged.patient_name = localP.patient_name;
+                        if (!apiP.patient_avatar || apiP.patient_avatar === '??') merged.patient_avatar = localP.patient_avatar;
+                        if (!apiP.doctor_name || apiP.doctor_name === 'Unknown') merged.doctor_name = localP.doctor_name;
+                    }
+                    renderViewModal(merged);
                 }
-
-                const p = data.data;
-                const statusColors = {
-                    dispensed: 'bg-emerald-100 text-emerald-700',
-                    pending: 'bg-amber-100 text-amber-700',
-                    cancelled: 'bg-slate-100 text-slate-500'
-                };
-
-                const medsHtml = (p.medications || []).map(m => `
-                    <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
-                        <div>
-                            <p class="font-semibold text-slate-800 text-sm">${m.name}</p>
-                            <p class="text-xs text-slate-500">${m.dosage} • ${m.frequency} • ${m.duration}</p>
-                        </div>
-                        <span class="text-xs font-semibold text-brand-dark">Qty: ${m.quantity}</span>
-                    </div>
-                `).join('');
-
-                document.getElementById('prescriptionDetailsContent').innerHTML = `
-                    <div class="space-y-4">
-                        <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
-                            <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-lg flex-shrink-0">
-                                ${p.patient_avatar || '??'}
-                            </div>
-                            <div>
-                                <h4 class="text-lg font-bold text-slate-900">${p.patient_name || 'Unknown'}</h4>
-                                <p class="text-sm text-slate-500">${p.prescription_id || 'N/A'} • ${p.doctor_name || 'Unknown'}</p>
-                                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[p.status] || statusColors.pending}">
-                                    ${(p.status || 'pending').toUpperCase()}
-                                </span>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><p class="text-xs text-slate-400 font-semibold">Date</p><p class="text-sm text-slate-800">${formatDate(p.date)}</p></div>
-                            <div><p class="text-xs text-slate-400 font-semibold">Doctor</p><p class="text-sm text-slate-800">${p.doctor_name || 'Unknown'}</p></div>
-                            ${p.dispensed_by_name ? `<div><p class="text-xs text-slate-400 font-semibold">Dispensed By</p><p class="text-sm text-slate-800">${p.dispensed_by_name}</p></div>` : ''}
-                            ${p.dispensed_at_formatted ? `<div><p class="text-xs text-slate-400 font-semibold">Dispensed At</p><p class="text-sm text-slate-800">${p.dispensed_at_formatted}</p></div>` : ''}
-                        </div>
-                        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                            <h5 class="text-sm font-bold text-slate-700 mb-2">💊 Medications</h5>
-                            <div class="space-y-2">${medsHtml}</div>
-                        </div>
-                        ${p.notes ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${p.notes}</p></div>` : ''}
-                        <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
-                            <button onclick="ModalSystem.close('viewPrescriptionModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                            ${p.status === 'pending' ? `<button onclick="ModalSystem.close('viewPrescriptionModal'); dispensePrescription(${p.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-check mr-1.5"></i> Dispense</button>` : ''}
-                        </div>
-                    </div>
-                `;
             } catch (error) {
-                console.error('Error viewing prescription:', error);
-                ModalSystem.toast.error('Failed to load prescription details');
+                // Local data already rendered above — just log
+                console.warn('Could not refresh prescription from API:', error);
             }
+        }
+
+        function renderViewModal(p) {
+            const statusColors = {
+                dispensed: 'bg-emerald-100 text-emerald-700',
+                pending: 'bg-amber-100 text-amber-700',
+                cancelled: 'bg-slate-100 text-slate-500'
+            };
+
+            const medications = Array.isArray(p.medications)
+                ? p.medications
+                : (typeof p.medications === 'string' ? JSON.parse(p.medications || '[]') : []);
+
+            const medsHtml = medications.map(m => `
+                <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
+                    <div>
+                        <p class="font-semibold text-slate-800 text-sm">${escapeHtml(m.name || 'Unknown')}</p>
+                        <p class="text-xs text-slate-500">${escapeHtml(m.dosage || '')} • ${escapeHtml(m.frequency || '')} • ${escapeHtml(m.duration || '')}</p>
+                    </div>
+                    <span class="text-xs font-semibold text-brand-dark">Qty: ${m.quantity || '-'}</span>
+                </div>
+            `).join('') || '<p class="text-xs text-slate-400">No medications listed</p>';
+
+            const patientName = p.patient_name || 'Unknown';
+            const patientAvatar = p.patient_avatar || '??';
+            const doctorName = p.doctor_name || 'Unknown';
+            const rxId = p.prescription_id || 'N/A';
+
+            document.getElementById('prescriptionDetailsContent').innerHTML = `
+                <div class="space-y-4">
+                    <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
+                        <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-lg flex-shrink-0">
+                            <span class="maskable" data-real="${patientAvatar}" data-masked="??">${patientAvatar}</span>
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-bold text-slate-900">
+                                <span class="maskable" data-real="${patientName}" data-masked="${maskName(patientName)}">${patientName}</span>
+                            </h4>
+                            <p class="text-sm text-slate-500">
+                                <span class="maskable font-mono" data-real="${rxId}" data-masked="${maskId(rxId)}">${rxId}</span>
+                                &nbsp;•&nbsp;
+                                <span class="maskable" data-real="${doctorName}" data-masked="${maskName(doctorName)}">${doctorName}</span>
+                            </p>
+                            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[p.status] || statusColors.pending}">
+                                ${(p.status || 'pending').toUpperCase()}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs text-slate-400 font-semibold">Date</p>
+                            <p class="text-sm text-slate-800">${formatDate(p.date)}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-semibold">Doctor</p>
+                            <p class="text-sm text-slate-800">
+                                <span class="maskable" data-real="${doctorName}" data-masked="${maskName(doctorName)}">${doctorName}</span>
+                            </p>
+                        </div>
+                        ${p.dispensed_by_name ? `
+                        <div>
+                            <p class="text-xs text-slate-400 font-semibold">Dispensed By</p>
+                            <p class="text-sm text-slate-800">
+                                <span class="maskable" data-real="${escapeHtml(p.dispensed_by_name)}" data-masked="${maskName(p.dispensed_by_name)}">${escapeHtml(p.dispensed_by_name)}</span>
+                            </p>
+                        </div>` : ''}
+                        ${p.dispensed_at_formatted ? `
+                        <div>
+                            <p class="text-xs text-slate-400 font-semibold">Dispensed At</p>
+                            <p class="text-sm text-slate-800">${escapeHtml(p.dispensed_at_formatted)}</p>
+                        </div>` : ''}
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <h5 class="text-sm font-bold text-slate-700 mb-2">💊 Medications (${medications.length})</h5>
+                        <div class="space-y-2">${medsHtml}</div>
+                    </div>
+                    ${p.notes ? `
+                    <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border">
+                        <h5 class="text-sm font-bold text-slate-700 mb-2">📋 Notes</h5>
+                        <p class="text-sm text-slate-800">${escapeHtml(p.notes)}</p>
+                    </div>` : ''}
+                    <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                        <button onclick="ModalSystem.close('viewPrescriptionModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
+                        ${p.status === 'pending' ? `<button onclick="ModalSystem.close('viewPrescriptionModal'); dispensePrescription(${p.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-check mr-1.5"></i> Dispense</button>` : ''}
+                    </div>
+                </div>
+            `;
+
+            // Apply data masking to the newly rendered modal content
+            ModalSystem.applyMaskingToModal('viewPrescriptionModal');
         }
 
         // ============================================================
@@ -1209,6 +1358,9 @@
                     renderMedicationList();
                     ModalSystem.close('newPrescriptionModal');
                     document.getElementById('newPrescriptionForm').reset();
+                    // Restore today's date after reset
+                    const dateInput = document.getElementById('rx_date');
+                    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
                     // Reload data from API - NO PAGE RELOAD!
                     await loadInitialData();
                 } else {
@@ -1224,6 +1376,16 @@
         // EDIT PRESCRIPTION
         // ============================================================
         async function editPrescription(id) {
+            // Use local data first for instant, correct render
+            const localP = allPrescriptions.find(p => p.id === id);
+            
+            if (localP) {
+                populateEditForm(localP);
+                ModalSystem.open('editPrescriptionModal');
+                return;
+            }
+            
+            // Fallback to API if not in local cache
             try {
                 const response = await fetch(`${API_URL}/${id}`);
                 const data = await response.json();
@@ -1232,16 +1394,7 @@
                     ModalSystem.toast.error(data.message || 'Failed to load prescription');
                     return;
                 }
-
-                const p = data.data;
-                
-                document.getElementById('edit_rx_id').value = p.id;
-                document.getElementById('edit_rx_patient').value = p.patient_name || 'Unknown';
-                document.getElementById('edit_rx_doctor').value = p.doctor_name || '';
-                document.getElementById('edit_rx_date').value = p.date || '';
-                document.getElementById('edit_rx_status').value = p.status || 'pending';
-                document.getElementById('edit_rx_notes').value = p.notes || '';
-
+                populateEditForm(data.data);
                 ModalSystem.open('editPrescriptionModal');
             } catch (error) {
                 console.error('Error loading prescription for edit:', error);
@@ -1249,12 +1402,40 @@
             }
         }
 
+        function populateEditForm(p) {
+            document.getElementById('edit_rx_id').value = p.id;
+            // Use enriched patient name from local data — never rely on API for this
+            document.getElementById('edit_rx_patient').value = p.patient_name && p.patient_name !== 'Unknown'
+                ? p.patient_name
+                : 'Unknown Patient';
+
+            // Set doctor select — match by full_name
+            const doctorSelect = document.getElementById('edit_rx_doctor');
+            const doctorName = p.doctor_name || '';
+            // Try to find matching option
+            let matched = false;
+            Array.from(doctorSelect.options).forEach(opt => {
+                if (opt.value === doctorName || opt.textContent.trim() === doctorName) {
+                    doctorSelect.value = opt.value;
+                    matched = true;
+                }
+            });
+            if (!matched) doctorSelect.value = '';
+
+            document.getElementById('edit_rx_date').value = p.date || '';
+            document.getElementById('edit_rx_status').value = p.status || 'pending';
+            document.getElementById('edit_rx_notes').value = p.notes || '';
+        }
+
         async function saveEditedPrescription(event) {
             event.preventDefault();
             const id = document.getElementById('edit_rx_id').value;
             
             const data = {
-                employee_id: doctors.find(d => `${d.first_name} ${d.last_name}` === document.getElementById('edit_rx_doctor').value)?.id,
+                employee_id: doctors.find(d => {
+                    const name = d.full_name || `${d.first_name || ''} ${d.last_name || ''}`.trim();
+                    return name === document.getElementById('edit_rx_doctor').value;
+                })?.id,
                 date: document.getElementById('edit_rx_date').value,
                 status: document.getElementById('edit_rx_status').value,
                 notes: document.getElementById('edit_rx_notes').value
@@ -1321,6 +1502,7 @@
         function formatDate(dateStr) {
             if (!dateStr) return 'N/A';
             const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return dateStr;
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         }
 
@@ -1331,6 +1513,29 @@
                 case 'cancelled': return 'bg-slate-100 text-slate-500';
                 default: return 'bg-slate-100 text-slate-500';
             }
+        }
+
+        // Data masking helpers — mirrors PHP maskName / maskId
+        function maskName(name) {
+            if (!name) return '';
+            return name.split(' ').map(part => {
+                if (!part) return '';
+                return part.charAt(0).toUpperCase() + '*'.repeat(Math.max(0, part.length - 1));
+            }).join(' ');
+        }
+
+        function maskId(id) {
+            if (!id) return '';
+            const s = String(id);
+            if (s.length <= 2) return s;
+            return s.substring(0, 2) + '*'.repeat(s.length - 2);
+        }
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            const div = document.createElement('div');
+            div.textContent = String(str);
+            return div.innerHTML;
         }
 
         // ============================================================
@@ -1345,14 +1550,14 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('API Response:', data);
                     
                     if (data.success) {
-                        allPrescriptions = data.data || [];
+                        // Re-enrich from local patients/doctors data
+                        // in case the API enrichment returns Unknown
+                        const rawPrescriptions = data.data || [];
+                        allPrescriptions = rawPrescriptions.map(p => enrichLocally(p));
                         filteredPrescriptions = [...allPrescriptions];
                         currentPage = 1;
-                        
-                        console.log(`Loaded ${allPrescriptions.length} prescriptions total`);
                         
                         updateStats();
                         renderTable();
@@ -1373,6 +1578,33 @@
                 console.error('Error loading initial data:', error);
                 ModalSystem.toast.error('Failed to load data');
             }
+        }
+
+        // Enrich a prescription using the local patients/doctors arrays
+        function enrichLocally(p) {
+            // Patient name
+            if (!p.patient_name || p.patient_name === 'Unknown') {
+                const pat = patients.find(pt => pt.id == p.patient_id);
+                if (pat) {
+                    p.patient_name = `${pat.first_name || ''} ${pat.last_name || ''}`.trim() || 'Unknown';
+                    const f = (pat.first_name || '').charAt(0).toUpperCase();
+                    const l = (pat.last_name || '').charAt(0).toUpperCase();
+                    p.patient_avatar = (f + l) || '??';
+                }
+            }
+            // Doctor name
+            if (!p.doctor_name || p.doctor_name === 'Unknown') {
+                const doc = doctors.find(d => d.id == p.employee_id);
+                if (doc) {
+                    p.doctor_name = doc.full_name || `${doc.first_name || ''} ${doc.last_name || ''}`.trim() || 'Unknown';
+                }
+            }
+            // Medications
+            if (typeof p.medications === 'string') {
+                try { p.medications = JSON.parse(p.medications); } catch(e) { p.medications = []; }
+            }
+            if (!Array.isArray(p.medications)) p.medications = [];
+            return p;
         }
 
         // ============================================================

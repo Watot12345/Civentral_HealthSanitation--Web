@@ -28,6 +28,15 @@ foreach ($nameParts as $part) {
 $initials = substr($initials, 0, 2); // Get first 2 initials
 
 $assetBasePath = str_repeat('../', substr_count(trim(dirname($_SERVER['PHP_SELF']), '/'), '/'));
+
+// ------------------------------------------------------------
+// Minimal header flag.
+// Any page that sets $minimalHeader = true; BEFORE including this
+// file (e.g. queue-display.php, since it's shown on a public TV/monitor)
+// will hide the admin profile block, notification bell, and the
+// data-mask toggle. Every other page is unaffected.
+// ------------------------------------------------------------
+$minimalHeader = $minimalHeader ?? false;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -61,7 +70,7 @@ $assetBasePath = str_repeat('../', substr_count(trim(dirname($_SERVER['PHP_SELF'
   <!-- Your custom styles -->
   <link rel="stylesheet" href="<?= $assetBasePath; ?>assets/css/dashb-style.css">
 </head>
-<?php include_once __DIR__ . '/data-mask.php'; ?>
+<?php if (!$minimalHeader) include_once __DIR__ . '/data-mask.php'; ?>
 <body class="bg-white font-sans antialiased text-slate-800 min-h-screen flex flex-col">
 
   <header class="bg-white border-b border-slate-200 h-20 px-6 flex items-center justify-between sticky top-0 z-40 shadow-xs shrink-0">
@@ -75,6 +84,7 @@ $assetBasePath = str_repeat('../', substr_count(trim(dirname($_SERVER['PHP_SELF'
     </div>
   </div>
 
+    <?php if (!$minimalHeader): ?>
     <div class="flex items-center space-x-3">
       
       <div class="hidden md:flex items-center space-x-2 text-slate-500 font-mono text-xs font-semibold">
@@ -110,6 +120,7 @@ $assetBasePath = str_repeat('../', substr_count(trim(dirname($_SERVER['PHP_SELF'
         </div>
       </div>
     </div>
+    <?php endif; ?>
   </header>
 
   <div class="flex-1 flex relative">
