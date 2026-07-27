@@ -9,150 +9,18 @@
 // ============================================================
 
 // ============================================================
-// 1. PHP BACKEND - Fetch Data
+// 1. PHP BACKEND - Initialize
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 
-// Sample Permits Data (for payment processing)
-$permits = [
-    ['id' => 1, 'permit_id' => 'SP-1040', 'applicant' => 'ABC Restaurant', 'fee' => 1500.00, 'status' => 'pending'],
-    ['id' => 2, 'permit_id' => 'SP-1042', 'applicant' => 'Fresh Bakes Co.', 'fee' => 1200.00, 'status' => 'pending'],
-    ['id' => 3, 'permit_id' => 'SP-1045', 'applicant' => 'Sunrise Pharmacy', 'fee' => 1800.00, 'status' => 'under_review'],
-    ['id' => 4, 'permit_id' => 'SP-1047', 'applicant' => 'Tech Hub Inc.', 'fee' => 2500.00, 'status' => 'pending'],
-    ['id' => 5, 'permit_id' => 'SP-1048', 'applicant' => 'Sunset View Hotel', 'fee' => 3000.00, 'status' => 'approved'],
-];
-
-// Sample Fee Structure
-$feeStructure = [
-    ['category' => 'Food Establishment', 'base_fee' => 1500.00, 'inspection_fee' => 500.00, 'total' => 2000.00],
-    ['category' => 'Market Vendor', 'base_fee' => 800.00, 'inspection_fee' => 300.00, 'total' => 1100.00],
-    ['category' => 'Bakery', 'base_fee' => 1200.00, 'inspection_fee' => 400.00, 'total' => 1600.00],
-    ['category' => 'Recreational Facility', 'base_fee' => 2000.00, 'inspection_fee' => 600.00, 'total' => 2600.00],
-    ['category' => 'Retail Store', 'base_fee' => 1000.00, 'inspection_fee' => 350.00, 'total' => 1350.00],
-    ['category' => 'Pharmacy', 'base_fee' => 1800.00, 'inspection_fee' => 500.00, 'total' => 2300.00],
-    ['category' => 'Agricultural', 'base_fee' => 900.00, 'inspection_fee' => 300.00, 'total' => 1200.00],
-    ['category' => 'Office/Commercial', 'base_fee' => 2500.00, 'inspection_fee' => 700.00, 'total' => 3200.00],
-    ['category' => 'Hotel/Lodging', 'base_fee' => 3000.00, 'inspection_fee' => 800.00, 'total' => 3800.00],
-];
-
-// Payment Methods
-$paymentMethods = [
-    ['id' => 'cash', 'name' => 'Cash', 'icon' => 'fa-money-bill-wave', 'color' => 'emerald'],
-    ['id' => 'gcash', 'name' => 'GCash', 'icon' => 'fa-mobile-screen', 'color' => 'blue'],
-    ['id' => 'visa', 'name' => 'Visa/Mastercard', 'icon' => 'fa-credit-card', 'color' => 'purple'],
-    ['id' => 'bank_transfer', 'name' => 'Bank Transfer', 'icon' => 'fa-building-columns', 'color' => 'amber'],
-    ['id' => 'over_the_counter', 'name' => 'Over-the-Counter', 'icon' => 'fa-store', 'color' => 'slate'],
-];
-
-// Sample Payment History
-$paymentHistory = [
-    [
-        'id' => 1,
-        'payment_id' => 'PAY-001',
-        'permit_id' => 'SP-1040',
-        'applicant' => 'ABC Restaurant',
-        'amount' => 1500.00,
-        'method' => 'gcash',
-        'reference' => 'GCH-20260717-001',
-        'status' => 'completed',
-        'date' => '2026-07-17 10:30:00',
-        'receipt' => 'RCP-001.pdf'
-    ],
-    [
-        'id' => 2,
-        'payment_id' => 'PAY-002',
-        'permit_id' => 'SP-1041',
-        'applicant' => 'Green Market Stall',
-        'amount' => 800.00,
-        'method' => 'cash',
-        'reference' => 'CSH-20260716-001',
-        'status' => 'completed',
-        'date' => '2026-07-16 09:15:00',
-        'receipt' => 'RCP-002.pdf'
-    ],
-    [
-        'id' => 3,
-        'payment_id' => 'PAY-003',
-        'permit_id' => 'SP-1043',
-        'applicant' => 'City Gym',
-        'amount' => 2000.00,
-        'method' => 'bank_transfer',
-        'reference' => 'BTR-20260715-001',
-        'status' => 'completed',
-        'date' => '2026-07-15 14:20:00',
-        'receipt' => 'RCP-003.pdf'
-    ],
-    [
-        'id' => 4,
-        'payment_id' => 'PAY-004',
-        'permit_id' => 'SP-1044',
-        'applicant' => 'Mega Mart',
-        'amount' => 1000.00,
-        'method' => 'visa',
-        'reference' => 'VIS-20260714-001',
-        'status' => 'completed',
-        'date' => '2026-07-14 11:45:00',
-        'receipt' => 'RCP-004.pdf'
-    ],
-    [
-        'id' => 5,
-        'payment_id' => 'PAY-005',
-        'permit_id' => 'SP-1046',
-        'applicant' => 'Green Valley Farm',
-        'amount' => 900.00,
-        'method' => 'bank_transfer',
-        'reference' => 'BTR-20260713-001',
-        'status' => 'completed',
-        'date' => '2026-07-13 08:30:00',
-        'receipt' => 'RCP-005.pdf'
-    ],
-    [
-        'id' => 6,
-        'payment_id' => 'PAY-006',
-        'permit_id' => 'SP-1042',
-        'applicant' => 'Fresh Bakes Co.',
-        'amount' => 1200.00,
-        'method' => 'cash',
-        'reference' => 'CSH-20260718-001',
-        'status' => 'pending',
-        'date' => '2026-07-18 16:00:00',
-        'receipt' => null
-    ],
-    [
-        'id' => 7,
-        'payment_id' => 'PAY-007',
-        'permit_id' => 'SP-1047',
-        'applicant' => 'Tech Hub Inc.',
-        'amount' => 2500.00,
-        'method' => 'gcash',
-        'reference' => 'GCH-20260719-001',
-        'status' => 'failed',
-        'date' => '2026-07-19 13:20:00',
-        'receipt' => null
-    ],
-];
-
-// Stats
-$totalPayments = count($paymentHistory);
-$totalCompleted = count(array_filter($paymentHistory, fn($p) => $p['status'] === 'completed'));
-$totalPending = count(array_filter($paymentHistory, fn($p) => $p['status'] === 'pending'));
-$totalFailed = count(array_filter($paymentHistory, fn($p) => $p['status'] === 'failed'));
-$totalRevenue = array_sum(array_column(array_filter($paymentHistory, fn($p) => $p['status'] === 'completed'), 'amount'));
-$pendingPermits = count(array_filter($permits, fn($p) => $p['status'] === 'pending'));
-
-// Pagination
+$title = 'Payments';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 5;
-$offset = ($page - 1) * $limit;
-$totalPages = ceil($totalPayments / $limit);
-$paginatedPayments = array_slice($paymentHistory, $offset, $limit);
-
-$title = 'Payments';
 ?>
 
 <!-- ============================================================ -->
-<!-- 2. HTML + PHP EMBEDDED + Tailwind CSS                       -->
+<!-- 2. HTML + Tailwind CSS                                      -->
 <!-- ============================================================ -->
 
 <div class="flex-1 px-6 pt-[26px] pb-20 mb-10 flex flex-col min-h-0 overflow-hidden">
@@ -164,7 +32,7 @@ $title = 'Payments';
             <p class="text-sm text-slate-500 mt-0.5">Fee structure, payment processing & history</p>
         </div>
         <div class="flex gap-3">
-            <button onclick="openModal('processPaymentModal')"
+            <button onclick="openProcessPaymentModal()"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-credit-card text-xs"></i> Process Payment
             </button>
@@ -172,7 +40,7 @@ $title = 'Payments';
     </div>
 
     <!-- ============================================================ -->
-    <!-- MODERN KPI CARDS - Updated to match design               -->
+    <!-- MODERN KPI CARDS                                           -->
     <!-- ============================================================ -->
     <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <!-- Card 1: Total Payments -->
@@ -184,13 +52,13 @@ $title = 'Payments';
                         <i class="fa-solid fa-credit-card text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-slate-900"><?php echo $totalPayments; ?></p>
+                        <p class="text-2xl font-black text-slate-900" id="statTotal">0</p>
                         <p class="text-xs font-medium text-slate-500">Total Payments</p>
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
                     <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">💳 All payments</span>
-                    <span class="text-[10px] text-slate-400"><?php echo $totalCompleted; ?> completed</span>
+                    <span class="text-[10px] text-slate-400"><span id="statCompletedMini">0</span> completed</span>
                 </div>
             </div>
         </div>
@@ -204,7 +72,7 @@ $title = 'Payments';
                         <i class="fa-solid fa-check-circle text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-emerald-600"><?php echo $totalCompleted; ?></p>
+                        <p class="text-2xl font-black text-emerald-600" id="statCompleted">0</p>
                         <p class="text-xs font-medium text-slate-500">Completed</p>
                     </div>
                 </div>
@@ -224,7 +92,7 @@ $title = 'Payments';
                         <i class="fa-solid fa-clock text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-amber-600"><?php echo $totalPending; ?></p>
+                        <p class="text-2xl font-black text-amber-600" id="statPending">0</p>
                         <p class="text-xs font-medium text-slate-500">Pending</p>
                     </div>
                 </div>
@@ -244,7 +112,7 @@ $title = 'Payments';
                         <i class="fa-solid fa-circle-xmark text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-rose-600"><?php echo $totalFailed; ?></p>
+                        <p class="text-2xl font-black text-rose-600" id="statFailed">0</p>
                         <p class="text-xs font-medium text-slate-500">Failed</p>
                     </div>
                 </div>
@@ -264,7 +132,7 @@ $title = 'Payments';
                         <i class="fa-solid fa-coins text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-brand-dark">₱<?php echo number_format($totalRevenue, 0); ?></p>
+                        <p class="text-2xl font-black text-brand-dark" id="statRevenue">₱0</p>
                         <p class="text-xs font-medium text-slate-500">Total Revenue</p>
                     </div>
                 </div>
@@ -277,18 +145,16 @@ $title = 'Payments';
     </div>
 
     <!-- Pending Permits Alert -->
-    <?php if ($pendingPermits > 0): ?>
-    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+    <div id="pendingAlert" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
             <i class="fa-solid fa-triangle-exclamation text-amber-500 text-lg"></i>
-            <span class="text-sm text-amber-700"><span class="font-bold"><?php echo $pendingPermits; ?></span> permits require payment</span>
+            <span class="text-sm text-amber-700"><span class="font-bold" id="pendingCount">0</span> permits require payment</span>
         </div>
-        <button onclick="document.getElementById('filterStatus').value='pending'; filterPayments();" 
+        <button onclick="document.getElementById('filterStatus').value='pending'; loadPayments(1);" 
                 class="text-xs font-semibold text-amber-700 hover:text-amber-900 underline">
             View pending
         </button>
     </div>
-    <?php endif; ?>
 
     <!-- Fee Structure Section -->
     <div class="bg-white rounded-xl shadow-xs border border-slate-200 mb-6 overflow-hidden">
@@ -296,7 +162,7 @@ $title = 'Payments';
             <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
                 <i class="fa-solid fa-table-list text-brand-medium"></i> Fee Structure
             </h4>
-            <button onclick="openModal('feeStructureModal')" class="text-xs font-semibold text-brand-medium hover:text-brand-dark transition">
+            <button onclick="openFeeStructureModal()" class="text-xs font-semibold text-brand-medium hover:text-brand-dark transition">
                 <i class="fa-solid fa-pen mr-1"></i> Edit
             </button>
         </div>
@@ -310,23 +176,14 @@ $title = 'Payments';
                         <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <?php foreach (array_slice($feeStructure, 0, 5) as $fee): ?>
-                    <tr class="border-b border-slate-100">
-                        <td class="px-4 py-2 text-slate-700 text-xs"><?php echo $fee['category']; ?></td>
-                        <td class="px-4 py-2 text-right text-xs font-medium text-slate-700">₱<?php echo number_format($fee['base_fee'], 2); ?></td>
-                        <td class="px-4 py-2 text-right text-xs font-medium text-slate-700">₱<?php echo number_format($fee['inspection_fee'], 2); ?></td>
-                        <td class="px-4 py-2 text-right text-xs font-bold text-brand-dark">₱<?php echo number_format($fee['total'], 2); ?></td>
-                    </tr>
-                    <?php endforeach; ?>
+                <tbody id="feeStructureTableBody">
+                    <tr><td colspan="4" class="text-center py-4 text-slate-400 text-xs">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
-        <?php if (count($feeStructure) > 5): ?>
-        <div class="px-4 py-2 text-center text-xs text-slate-400 border-t border-slate-200">
-            <button onclick="openModal('feeStructureModal')" class="text-brand-medium hover:text-brand-dark">View all <?php echo count($feeStructure); ?> categories</button>
+        <div id="feeStructureMoreLink" class="hidden px-4 py-2 text-center text-xs text-slate-400 border-t border-slate-200">
+            <button onclick="openFeeStructureModal()" class="text-brand-medium hover:text-brand-dark">View all categories</button>
         </div>
-        <?php endif; ?>
     </div>
 
     <!-- Search & Filter -->
@@ -345,12 +202,13 @@ $title = 'Payments';
                     <option value="completed">Completed</option>
                     <option value="pending">Pending</option>
                     <option value="failed">Failed</option>
+                    <option value="refunded">Refunded</option>
                 </select>
                 <select id="filterMethod" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Methods</option>
                     <option value="cash">Cash</option>
                     <option value="gcash">GCash</option>
-                    <option value="visa">Visa/Mastercard</option>
+                    <option value="paymaya">PayMaya</option>
                     <option value="bank_transfer">Bank Transfer</option>
                     <option value="over_the_counter">Over-the-Counter</option>
                 </select>
@@ -379,88 +237,10 @@ $title = 'Payments';
                     </tr>
                 </thead>
                 <tbody id="paymentTableBody">
-                    <?php foreach ($paginatedPayments as $payment): ?>
-                    <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors payment-row"
-                        data-applicant="<?php echo strtolower($payment['applicant']); ?>"
-                        data-status="<?php echo $payment['status']; ?>"
-                        data-method="<?php echo $payment['method']; ?>"
-                        data-reference="<?php echo strtolower($payment['reference'] ?? ''); ?>"
-                        data-id="<?php echo $payment['permit_id']; ?>">
-                        <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo $payment['payment_id']; ?></td>
-                        <td class="px-4 py-3">
-                            <div>
-                                <p class="font-semibold text-slate-800 text-sm"><?php echo $payment['applicant']; ?></p>
-                                <p class="text-xs text-slate-400"><?php echo $payment['permit_id']; ?></p>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="text-sm font-bold text-slate-800">₱<?php echo number_format($payment['amount'], 2); ?></span>
-                        </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs">
-                            <?php
-                                $methodIcons = [
-                                    'cash' => 'fa-money-bill-wave',
-                                    'gcash' => 'fa-mobile-screen',
-                                    'visa' => 'fa-credit-card',
-                                    'bank_transfer' => 'fa-building-columns',
-                                    'over_the_counter' => 'fa-store'
-                                ];
-                                $methodColors = [
-                                    'cash' => 'text-emerald-600',
-                                    'gcash' => 'text-blue-600',
-                                    'visa' => 'text-purple-600',
-                                    'bank_transfer' => 'text-amber-600',
-                                    'over_the_counter' => 'text-slate-600'
-                                ];
-                            ?>
-                            <i class="fa-solid <?php echo $methodIcons[$payment['method']] ?? 'fa-credit-card'; ?> <?php echo $methodColors[$payment['method']] ?? ''; ?> mr-1"></i>
-                            <?php 
-                                $methodNames = [
-                                    'cash' => 'Cash',
-                                    'gcash' => 'GCash',
-                                    'visa' => 'Visa/Mastercard',
-                                    'bank_transfer' => 'Bank Transfer',
-                                    'over_the_counter' => 'OTC'
-                                ];
-                                echo $methodNames[$payment['method']] ?? $payment['method']; 
-                            ?>
-                        </td>
-                        <td class="px-4 py-3 text-slate-500 text-xs font-mono"><?php echo $payment['reference'] ?? '—'; ?></td>
-                        <td class="px-4 py-3">
-                            <?php
-                                $statusColors = [
-                                    'completed' => 'bg-emerald-100 text-emerald-700',
-                                    'pending' => 'bg-amber-100 text-amber-700',
-                                    'failed' => 'bg-rose-100 text-rose-700'
-                                ];
-                            ?>
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo $statusColors[$payment['status']] ?? $statusColors['pending']; ?>">
-                                <?php echo ucfirst($payment['status']); ?>
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-slate-500 text-xs"><?php echo date('M d, Y h:i A', strtotime($payment['date'])); ?></td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center justify-center gap-1">
-                                <button onclick="viewPayment(<?php echo $payment['id']; ?>)"
-                                        class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
-                                    <i class="fa-solid fa-eye text-sm"></i>
-                                </button>
-                                <?php if ($payment['receipt']): ?>
-                                    <button onclick="downloadReceipt('<?php echo $payment['receipt']; ?>')"
-                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Receipt">
-                                        <i class="fa-solid fa-receipt text-sm"></i>
-                                    </button>
-                                <?php endif; ?>
-                                <?php if ($payment['status'] === 'pending'): ?>
-                                    <button onclick="completePayment(<?php echo $payment['id']; ?>)"
-                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Complete">
-                                        <i class="fa-solid fa-check text-sm"></i>
-                                    </button>
-                                <?php endif; ?>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
+                    <tr><td colspan="8" class="text-center py-10">
+                        <div class="w-10 h-10 border-4 border-brand-light border-t-brand-dark rounded-full animate-spin mx-auto mb-3"></div>
+                        <p class="text-sm text-slate-500">Loading payments...</p>
+                    </td></tr>
                 </tbody>
             </table>
         </div>
@@ -470,42 +250,21 @@ $title = 'Payments';
             <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
                 <i class="fa-solid fa-credit-card text-slate-400"></i>
             </div>
-            <p class="text-sm font-semibold text-slate-600">No payments match your filters</p>
-            <p class="text-xs text-slate-400 mt-1">Try adjusting your search or clearing filters</p>
-            <button onclick="resetFilters()" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear all filters</button>
+            <p class="text-sm font-semibold text-slate-600" id="emptyStateTitle">No payments match your filters</p>
+            <p class="text-xs text-slate-400 mt-1" id="emptyStateSubtitle">Try adjusting your search or clearing filters</p>
+            <button onclick="resetFilters()" id="emptyStateClearBtn" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear all filters</button>
         </div>
 
         <!-- Pagination -->
         <div class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
-            <p class="text-xs text-slate-500">
-                Showing <span class="font-semibold text-slate-700"><?php echo $offset + 1; ?></span> to
-                <span class="font-semibold text-slate-700"><?php echo min($offset + $limit, $totalPayments); ?></span> of
-                <span class="font-semibold text-slate-700"><?php echo $totalPayments; ?></span> payments
-            </p>
-            <div class="flex gap-1">
-                <button onclick="changePage(<?php echo $page - 1; ?>)"
-                        class="px-3 py-1.5 rounded-lg text-sm <?php echo $page <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
-                        <?php echo $page <= 1 ? 'disabled' : ''; ?>>
-                    <i class="fa-solid fa-chevron-left text-xs"></i>
-                </button>
-                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <button onclick="changePage(<?php echo $i; ?>)"
-                            class="px-3 py-1.5 rounded-lg text-sm font-medium <?php echo $i === $page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>">
-                        <?php echo $i; ?>
-                    </button>
-                <?php endfor; ?>
-                <button onclick="changePage(<?php echo $page + 1; ?>)"
-                        class="px-3 py-1.5 rounded-lg text-sm <?php echo $page >= $totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
-                        <?php echo $page >= $totalPages ? 'disabled' : ''; ?>>
-                    <i class="fa-solid fa-chevron-right text-xs"></i>
-                </button>
-            </div>
+            <p class="text-xs text-slate-500" id="paginationInfo">Loading...</p>
+            <div class="flex gap-1" id="paginationButtons"></div>
         </div>
     </div>
 </div>
 
 <!-- ============================================================ -->
-<!-- PROCESS PAYMENT MODAL - Enhanced with modern payment methods -->
+<!-- PROCESS PAYMENT MODAL                                        -->
 <!-- ============================================================ -->
 <div id="processPaymentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -522,85 +281,49 @@ $title = 'Payments';
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Permit / Applicant</label>
                 <select id="payment_permit" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">Select Permit</option>
-                    <?php foreach ($permits as $p): ?>
-                        <option value="<?php echo $p['id']; ?>" data-fee="<?php echo $p['fee']; ?>">
-                            <?php echo $p['permit_id']; ?> - <?php echo $p['applicant']; ?> (₱<?php echo number_format($p['fee'], 2); ?>)
-                        </option>
-                    <?php endforeach; ?>
+                    <option value="">Loading permits...</option>
                 </select>
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Amount</label>
-                <input type="number" id="payment_amount" required step="0.01" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="payment_amount" required step="0.01" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none maskable">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Method</label>
                 <div class="grid grid-cols-2 gap-2 mt-1" id="paymentMethods">
-                    <?php foreach ($paymentMethods as $method): 
-                        $methodIcons = [
-                            'cash' => 'fa-money-bill-wave',
-                            'gcash' => 'fa-mobile-screen',
-                            'visa' => 'fa-credit-card',
-                            'bank_transfer' => 'fa-building-columns',
-                            'over_the_counter' => 'fa-store'
-                        ];
-                        $methodColors = [
-                            'cash' => 'border-emerald-200 hover:bg-emerald-50',
-                            'gcash' => 'border-blue-200 hover:bg-blue-50',
-                            'visa' => 'border-purple-200 hover:bg-purple-50',
-                            'bank_transfer' => 'border-amber-200 hover:bg-amber-50',
-                            'over_the_counter' => 'border-slate-200 hover:bg-slate-50'
-                        ];
-                        $methodTextColors = [
-                            'cash' => 'text-emerald-600',
-                            'gcash' => 'text-blue-600',
-                            'visa' => 'text-purple-600',
-                            'bank_transfer' => 'text-amber-600',
-                            'over_the_counter' => 'text-slate-600'
-                        ];
-                    ?>
-                    <label class="flex items-center gap-2 p-2 border rounded-lg cursor-pointer transition <?php echo $methodColors[$method['id']] ?? ''; ?> has-[:checked]:ring-2 has-[:checked]:ring-brand-medium has-[:checked]:border-brand-medium">
-                        <input type="radio" name="payment_method_radio" value="<?php echo $method['id']; ?>" 
-                               class="w-4 h-4 text-brand-dark focus:ring-brand-medium" 
-                               <?php echo $method['id'] === 'cash' ? 'checked' : ''; ?>>
-                        <i class="fa-solid <?php echo $methodIcons[$method['id']] ?? 'fa-credit-card'; ?> <?php echo $methodTextColors[$method['id']] ?? ''; ?>"></i>
-                        <span class="text-sm font-medium text-slate-700"><?php echo $method['name']; ?></span>
+                    <label class="flex items-center gap-2 p-2 border border-emerald-200 rounded-lg cursor-pointer transition hover:bg-emerald-50 has-[:checked]:ring-2 has-[:checked]:ring-brand-medium has-[:checked]:border-brand-medium">
+                        <input type="radio" name="payment_method_radio" value="cash" class="w-4 h-4 text-brand-dark focus:ring-brand-medium" checked>
+                        <i class="fa-solid fa-money-bill-wave text-emerald-600"></i>
+                        <span class="text-sm font-medium text-slate-700">Cash</span>
                     </label>
-                    <?php endforeach; ?>
+                    <label class="flex items-center gap-2 p-2 border border-blue-200 rounded-lg cursor-pointer transition hover:bg-blue-50 has-[:checked]:ring-2 has-[:checked]:ring-brand-medium has-[:checked]:border-brand-medium">
+                        <input type="radio" name="payment_method_radio" value="gcash" class="w-4 h-4 text-brand-dark focus:ring-brand-medium">
+                        <i class="fa-solid fa-mobile-screen text-blue-600"></i>
+                        <span class="text-sm font-medium text-slate-700">GCash</span>
+                    </label>
+                    <label class="flex items-center gap-2 p-2 border border-green-200 rounded-lg cursor-pointer transition hover:bg-green-50 has-[:checked]:ring-2 has-[:checked]:ring-brand-medium has-[:checked]:border-brand-medium">
+                        <input type="radio" name="payment_method_radio" value="paymaya" class="w-4 h-4 text-brand-dark focus:ring-brand-medium">
+                        <i class="fa-solid fa-mobile-screen text-green-600"></i>
+                        <span class="text-sm font-medium text-slate-700">PayMaya</span>
+                    </label>
+                    <label class="flex items-center gap-2 p-2 border border-amber-200 rounded-lg cursor-pointer transition hover:bg-amber-50 has-[:checked]:ring-2 has-[:checked]:ring-brand-medium has-[:checked]:border-brand-medium">
+                        <input type="radio" name="payment_method_radio" value="bank_transfer" class="w-4 h-4 text-brand-dark focus:ring-brand-medium">
+                        <i class="fa-solid fa-building-columns text-amber-600"></i>
+                        <span class="text-sm font-medium text-slate-700">Bank Transfer</span>
+                    </label>
+                    <label class="flex items-center gap-2 p-2 border border-slate-200 rounded-lg cursor-pointer transition hover:bg-slate-50 has-[:checked]:ring-2 has-[:checked]:ring-brand-medium has-[:checked]:border-brand-medium">
+                        <input type="radio" name="payment_method_radio" value="over_the_counter" class="w-4 h-4 text-brand-dark focus:ring-brand-medium">
+                        <i class="fa-solid fa-store text-slate-600"></i>
+                        <span class="text-sm font-medium text-slate-700">OTC</span>
+                    </label>
                 </div>
                 <input type="hidden" id="payment_method" value="cash">
             </div>
-            <div id="cardDetailsSection" class="hidden p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                <h5 class="text-xs font-bold text-purple-700 uppercase tracking-wide mb-2">💳 Card Details</h5>
-                <div class="space-y-2">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-600">Card Number</label>
-                        <input type="text" id="card_number" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="**** **** **** ****">
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600">Expiry</label>
-                            <input type="text" id="card_expiry" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="MM/YY">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600">CVV</label>
-                            <input type="text" id="card_cvv" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="***">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div id="gcashDetailsSection" class="hidden p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <h5 class="text-xs font-bold text-blue-700 uppercase tracking-wide mb-2">📱 GCash Details</h5>
-                <div class="space-y-2">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-600">GCash Number</label>
-                        <input type="text" id="gcash_number" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="09XX XXX XXXX">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-600">Reference Number</label>
-                        <input type="text" id="payment_reference" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Enter reference number">
-                    </div>
+            <div id="referenceSection" class="hidden p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <h5 class="text-xs font-bold text-blue-700 uppercase tracking-wide mb-2">📱 Payment Details</h5>
+                <div>
+                    <label class="block text-xs font-medium text-slate-600">Reference Number</label>
+                    <input type="text" id="payment_reference" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none maskable" placeholder="Enter reference number">
                 </div>
             </div>
             <div>
@@ -655,7 +378,388 @@ $title = 'Payments';
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <div class="p-6">
+        <div class="p-6" id="feeStructureModalContent">
+            <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JAVASCRIPT - Full API Integration                           -->
+<!-- ============================================================ -->
+<script>
+// ============================================================
+// API CLIENTS - query-string based (matches api/inspections.php
+// and the fixed api/payments.php router - no PATH_INFO required)
+// ============================================================
+class PaymentApi {
+    constructor(baseUrl = '../../api/payments.php') {
+        this.baseUrl = baseUrl;
+        this.token = localStorage.getItem('auth_token');
+    }
+
+    async request(params = {}, options = {}) {
+        const query = new URLSearchParams(params).toString();
+        const url = query ? `${this.baseUrl}?${query}` : this.baseUrl;
+        const config = {
+            headers: {
+                'Content-Type': 'application/json',
+                ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+            },
+            ...options,
+        };
+        const response = await fetch(url, config);
+        const data = await response.json();
+        if (!response.ok || data.success === false) throw new Error(data.message || 'API request failed');
+        return data;
+    }
+
+    async getPayments(filters = {}) {
+        const params = {};
+        Object.entries(filters).forEach(([key, value]) => { if (value) params[key] = value; });
+        return this.request(params);
+    }
+
+    async getPayment(id) { return this.request({ id }); }
+
+    async createPayment(data) {
+        return this.request({}, { method: 'POST', body: JSON.stringify(data) });
+    }
+
+    async completePayment(id) {
+        return this.request({ id, action: 'complete' }, { method: 'POST' });
+    }
+
+    async getStats() { return this.request({ stats: 'true' }); }
+    async getFeeStructure() { return this.request({ fee_structure: 'true' }); }
+}
+
+class PermitApi {
+    constructor(baseUrl = '../../api/permits.php') {
+        this.baseUrl = baseUrl;
+        this.token = localStorage.getItem('auth_token');
+    }
+
+    async request(params = {}, options = {}) {
+        const query = new URLSearchParams(params).toString();
+        const url = query ? `${this.baseUrl}?${query}` : this.baseUrl;
+        const config = {
+            headers: {
+                'Content-Type': 'application/json',
+                ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+            },
+            ...options,
+        };
+        const response = await fetch(url, config);
+        const data = await response.json();
+        if (!response.ok || data.success === false) throw new Error(data.message || 'API request failed');
+        return data;
+    }
+
+    async getPermits(filters = {}) {
+        const params = {};
+        Object.entries(filters).forEach(([key, value]) => { if (value) params[key] = value; });
+        return this.request(params);
+    }
+}
+
+const paymentApi = new PaymentApi();
+const permitApi = new PermitApi();
+
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+let currentPage = <?php echo $page; ?>;
+let currentLimit = <?php echo $limit; ?>;
+let totalPages = 1;
+
+// ============================================================
+// LOAD PAYMENTS
+// ============================================================
+async function loadPayments(page = currentPage) {
+    try {
+        const filters = {
+            page: page,
+            limit: currentLimit,
+            status: document.getElementById('filterStatus').value,
+            method: document.getElementById('filterMethod').value,
+            search: document.getElementById('searchPayment').value,
+        };
+
+        const result = await paymentApi.getPayments(filters);
+        totalPages = result.total_pages || 1;
+        currentPage = page;
+        
+        renderPaymentTable(result.data, hasActiveFilters());
+        updatePagination(result.page, result.total_pages, result.total);
+    } catch (error) {
+        console.error('Failed to load payments:', error);
+        document.getElementById('paymentTableBody').innerHTML = 
+            '<tr><td colspan="8" class="text-center py-10 text-rose-500">Failed to load payments: ' + error.message + '</td></tr>';
+    }
+}
+
+function hasActiveFilters() {
+    return !!(
+        document.getElementById('searchPayment').value.trim() ||
+        document.getElementById('filterStatus').value ||
+        document.getElementById('filterMethod').value
+    );
+}
+
+// ============================================================
+// LOAD STATISTICS
+// ============================================================
+async function loadStats() {
+    try {
+        const result = await paymentApi.getStats();
+        const stats = result.data;
+        
+        document.getElementById('statTotal').textContent = stats.total || 0;
+        document.getElementById('statCompleted').textContent = stats.completed || 0;
+        document.getElementById('statCompletedMini').textContent = stats.completed || 0;
+        document.getElementById('statPending').textContent = stats.pending || 0;
+        document.getElementById('statFailed').textContent = stats.failed || 0;
+        document.getElementById('statRevenue').textContent = '₱' + (stats.total_revenue || 0).toLocaleString('en-PH', {
+            minimumFractionDigits: 2, maximumFractionDigits: 2
+        });
+        
+        if (stats.pending_permits > 0) {
+            document.getElementById('pendingAlert').classList.remove('hidden');
+            document.getElementById('pendingCount').textContent = stats.pending_permits;
+        } else {
+            document.getElementById('pendingAlert').classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Failed to load stats:', error);
+    }
+}
+
+// ============================================================
+// LOAD FEE STRUCTURE
+// ============================================================
+async function loadFeeStructure() {
+    try {
+        const result = await paymentApi.getFeeStructure();
+        const fees = result.data;
+        
+        const tbody = document.getElementById('feeStructureTableBody');
+        tbody.innerHTML = fees.slice(0, 5).map(fee => `
+            <tr class="border-b border-slate-100">
+                <td class="px-4 py-2 text-slate-700 text-xs">${fee.category}</td>
+                <td class="px-4 py-2 text-right text-xs font-medium text-slate-700">₱${parseFloat(fee.base_fee).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+                <td class="px-4 py-2 text-right text-xs font-medium text-slate-700">₱${parseFloat(fee.inspection_fee).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+                <td class="px-4 py-2 text-right text-xs font-bold text-brand-dark">₱${parseFloat(fee.total).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+            </tr>
+        `).join('');
+        
+        if (fees.length > 5) {
+            document.getElementById('feeStructureMoreLink').classList.remove('hidden');
+        }
+        
+        window.feeStructureData = fees;
+    } catch (error) {
+        document.getElementById('feeStructureTableBody').innerHTML = 
+            '<tr><td colspan="4" class="text-center py-4 text-rose-500 text-xs">Failed to load fee structure</td></tr>';
+    }
+}
+
+// ============================================================
+// LOAD PERMITS FOR DROPDOWN
+// ============================================================
+async function loadPermitsForDropdown() {
+    try {
+        // NOTE: dropped the 'pending,under_review' comma-list status filter -
+        // your permits index likely does exact-match filtering (like
+        // InspectionController's paginated()), so a comma list would silently
+        // return zero rows. Pulling a larger unfiltered page instead.
+        const result = await permitApi.getPermits({ limit: 100 });
+        
+        const select = document.getElementById('payment_permit');
+        select.innerHTML = '<option value="">Select Permit</option>';
+        
+        result.data.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.dataset.fee = p.fee || 0;
+            option.textContent = `${p.permit_id} - ${p.applicant} (₱${parseFloat(p.fee || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})})`;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Failed to load permits:', error);
+    }
+}
+
+// ============================================================
+// RENDER PAYMENT TABLE
+// ============================================================
+function renderPaymentTable(payments, filtersActive = false) {
+    const tbody = document.getElementById('paymentTableBody');
+    const emptyState = document.getElementById('emptyState');
+    const emptyTitle = document.getElementById('emptyStateTitle');
+    const emptySubtitle = document.getElementById('emptyStateSubtitle');
+    const emptyClearBtn = document.getElementById('emptyStateClearBtn');
+    
+    if (!payments || payments.length === 0) {
+        tbody.innerHTML = '';
+        if (filtersActive) {
+            emptyTitle.textContent = 'No payments match your filters';
+            emptySubtitle.textContent = 'Try adjusting your search or clearing filters';
+            emptyClearBtn.style.display = 'inline-block';
+        } else {
+            emptyTitle.textContent = 'No payments yet';
+            emptySubtitle.textContent = 'Processed payments will show up here';
+            emptyClearBtn.style.display = 'none';
+        }
+        emptyState.classList.remove('hidden');
+        emptyState.classList.add('flex');
+        return;
+    }
+    
+    emptyState.classList.add('hidden');
+    emptyState.classList.remove('flex');
+    
+    const statusColors = {
+        completed: 'bg-emerald-100 text-emerald-700',
+        pending: 'bg-amber-100 text-amber-700',
+        failed: 'bg-rose-100 text-rose-700',
+        refunded: 'bg-purple-100 text-purple-700'
+    };
+    
+    const methodIcons = {
+        cash: 'fa-money-bill-wave',
+        gcash: 'fa-mobile-screen',
+        paymaya: 'fa-mobile-screen',
+        bank_transfer: 'fa-building-columns',
+        over_the_counter: 'fa-store'
+    };
+    
+    const methodColors = {
+        cash: 'text-emerald-600',
+        gcash: 'text-blue-600',
+        paymaya: 'text-green-600',
+        bank_transfer: 'text-amber-600',
+        over_the_counter: 'text-slate-600'
+    };
+    
+    const methodNames = {
+        cash: 'Cash',
+        gcash: 'GCash',
+        paymaya: 'PayMaya',
+        bank_transfer: 'Bank Transfer',
+        over_the_counter: 'OTC'
+    };
+
+    tbody.innerHTML = payments.map(payment => {
+        const permitInfo = payment.permits || {};
+        const applicant = permitInfo.applicant || 'Unknown';
+        const permitId = permitInfo.permit_id || '—';
+        
+        return `
+        <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors payment-row"
+            data-id="${payment.id}">
+            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${payment.payment_id}</td>
+            <td class="px-4 py-3">
+                <div>
+                    <p class="font-semibold text-slate-800 text-sm maskable">${applicant}</p>
+                    <p class="text-xs text-slate-400 maskable">${permitId}</p>
+                </div>
+            </td>
+            <td class="px-4 py-3">
+                <span class="text-sm font-bold text-slate-800 maskable">₱${parseFloat(payment.amount).toLocaleString('en-PH', {minimumFractionDigits: 2})}</span>
+            </td>
+            <td class="px-4 py-3 text-slate-600 text-xs">
+                <i class="fa-solid ${methodIcons[payment.method] || 'fa-credit-card'} ${methodColors[payment.method] || ''} mr-1"></i>
+                ${methodNames[payment.method] || payment.method}
+            </td>
+            <td class="px-4 py-3 text-slate-500 text-xs font-mono maskable">${payment.reference_number || '—'}</td>
+            <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[payment.status] || statusColors.pending}">
+                    ${payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                </span>
+            </td>
+            <td class="px-4 py-3 text-slate-500 text-xs">${new Date(payment.created_at).toLocaleString()}</td>
+            <td class="px-4 py-3">
+                <div class="flex items-center justify-center gap-1">
+                    <button onclick="viewPayment(${payment.id})"
+                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                        <i class="fa-solid fa-eye text-sm"></i>
+                    </button>
+                    ${payment.receipt_path ? `
+                        <button onclick="downloadReceipt('${payment.receipt_path}')"
+                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Receipt">
+                            <i class="fa-solid fa-receipt text-sm"></i>
+                        </button>
+                    ` : ''}
+                    ${payment.status === 'pending' ? `
+                        <button onclick="completePayment(${payment.id})"
+                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Complete">
+                            <i class="fa-solid fa-check text-sm"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+// ============================================================
+// UPDATE PAGINATION
+// ============================================================
+function updatePagination(page, totalPagesCount, total) {
+    const start = (page - 1) * currentLimit + 1;
+    const end = Math.min(page * currentLimit, total);
+    
+    document.getElementById('paginationInfo').textContent = `Showing ${start} to ${end} of ${total} payments`;
+    
+    let html = '';
+    html += `<button onclick="changePage(${page - 1})" class="px-3 py-1.5 rounded-lg text-sm ${page <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}" ${page <= 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left text-xs"></i></button>`;
+    
+    for (let i = 1; i <= totalPagesCount; i++) {
+        html += `<button onclick="changePage(${i})" class="px-3 py-1.5 rounded-lg text-sm font-medium ${i === page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}">${i}</button>`;
+    }
+    
+    html += `<button onclick="changePage(${page + 1})" class="px-3 py-1.5 rounded-lg text-sm ${page >= totalPagesCount ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}" ${page >= totalPagesCount ? 'disabled' : ''}><i class="fa-solid fa-chevron-right text-xs"></i></button>`;
+    
+    document.getElementById('paginationButtons').innerHTML = html;
+}
+
+// ============================================================
+// MODAL FUNCTIONS (using ModalSystem with fallback)
+// ============================================================
+function openModal(id) {
+    if (typeof ModalSystem !== 'undefined') {
+        ModalSystem.open(id);
+    } else {
+        document.getElementById(id).classList.remove('hidden');
+        document.getElementById(id).classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+    }
+}
+
+function closeModal(id) {
+    if (typeof ModalSystem !== 'undefined') {
+        ModalSystem.close(id);
+    } else {
+        document.getElementById(id).classList.add('hidden');
+        document.getElementById(id).classList.remove('flex');
+        document.body.classList.remove('overflow-hidden');
+    }
+}
+
+async function openProcessPaymentModal() {
+    await loadPermitsForDropdown();
+    openModal('processPaymentModal');
+}
+
+async function openFeeStructureModal() {
+    openModal('feeStructureModal');
+    const content = document.getElementById('feeStructureModalContent');
+    
+    if (window.feeStructureData) {
+        content.innerHTML = `
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead class="bg-slate-50 border-b border-slate-200">
@@ -667,288 +771,216 @@ $title = 'Payments';
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($feeStructure as $fee): ?>
-                        <tr class="border-b border-slate-100">
-                            <td class="px-4 py-2 text-slate-700 text-xs"><?php echo $fee['category']; ?></td>
-                            <td class="px-4 py-2 text-right text-xs font-medium text-slate-700">₱<?php echo number_format($fee['base_fee'], 2); ?></td>
-                            <td class="px-4 py-2 text-right text-xs font-medium text-slate-700">₱<?php echo number_format($fee['inspection_fee'], 2); ?></td>
-                            <td class="px-4 py-2 text-right text-xs font-bold text-brand-dark">₱<?php echo number_format($fee['total'], 2); ?></td>
-                        </tr>
-                        <?php endforeach; ?>
+                        ${window.feeStructureData.map(fee => `
+                            <tr class="border-b border-slate-100">
+                                <td class="px-4 py-2 text-slate-700 text-xs">${fee.category}</td>
+                                <td class="px-4 py-2 text-right text-xs font-medium text-slate-700">₱${parseFloat(fee.base_fee).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+                                <td class="px-4 py-2 text-right text-xs font-medium text-slate-700">₱${parseFloat(fee.inspection_fee).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+                                <td class="px-4 py-2 text-right text-xs font-bold text-brand-dark">₱${parseFloat(fee.total).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+                            </tr>
+                        `).join('')}
                     </tbody>
                 </table>
             </div>
-            <p class="text-[10px] text-slate-400 mt-4">
-                <i class="fa-solid fa-info-circle mr-1"></i>
-                Fees are based on Ordinance No. 0386 (Section 137). Subject to change.
-            </p>
-        </div>
-    </div>
-</div>
-
-<!-- Toast notification -->
-<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
-    <i class="fa-solid fa-circle-check"></i>
-    <span id="toastMessage"></span>
-</div>
-
-<!-- ============================================================ -->
-<!-- JAVASCRIPT                                                   -->
-<!-- ============================================================ -->
-<script>
-    const PAYMENTS = <?php echo json_encode(array_column($paymentHistory, null, 'id'), JSON_PRETTY_PRINT); ?>;
-    const PERMITS_DATA = <?php echo json_encode($permits, JSON_PRETTY_PRINT); ?>;
-
-    // ============================================================
-    // MODAL FUNCTIONS
-    // ============================================================
-    function openModal(id) {
-        document.getElementById(id).classList.remove('hidden');
-        document.getElementById(id).classList.add('flex');
-        document.body.classList.add('overflow-hidden');
+            <p class="text-[10px] text-slate-400 mt-4"><i class="fa-solid fa-info-circle mr-1"></i>Fees are based on Ordinance No. 0386 (Section 137). Subject to change.</p>
+        `;
     }
+}
 
-    function closeModal(id) {
-        document.getElementById(id).classList.add('hidden');
-        document.getElementById(id).classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
-    }
-
-    // Close modal on backdrop click
-    document.querySelectorAll('.fixed.inset-0').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-                this.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            }
-        });
-    });
-
-    // ============================================================
-    // PAYMENT METHOD TOGGLE
-    // ============================================================
-    document.querySelectorAll('input[name="payment_method_radio"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            document.getElementById('payment_method').value = this.value;
-            
-            // Hide all sections
-            document.getElementById('cardDetailsSection').classList.add('hidden');
-            document.getElementById('gcashDetailsSection').classList.add('hidden');
-            
-            // Show relevant section
-            if (this.value === 'visa') {
-                document.getElementById('cardDetailsSection').classList.remove('hidden');
-            } else if (this.value === 'gcash') {
-                document.getElementById('gcashDetailsSection').classList.remove('hidden');
-            }
-        });
-    });
-
-    // ============================================================
-    // AUTO-FILL AMOUNT ON PERMIT SELECT
-    // ============================================================
-    document.getElementById('payment_permit').addEventListener('change', function() {
-        const selected = this.options[this.selectedIndex];
-        const fee = selected.dataset.fee || 0;
-        document.getElementById('payment_amount').value = fee;
-    });
-
-    // ============================================================
-    // PROCESS PAYMENT
-    // ============================================================
-    function savePayment(event) {
-        event.preventDefault();
-        const method = document.getElementById('payment_method').value;
-        const methodNames = {
-            cash: 'Cash',
-            gcash: 'GCash',
-            visa: 'Visa/Mastercard',
-            bank_transfer: 'Bank Transfer',
-            over_the_counter: 'Over-the-Counter'
-        };
-        showToast('✅ Payment processed successfully via ' + methodNames[method] + '!', 'success');
-        closeModal('processPaymentModal');
-    }
-
-    // ============================================================
-    // VIEW PAYMENT
-    // ============================================================
-    function viewPayment(id) {
-        openModal('viewPaymentModal');
-        const p = PAYMENTS[id];
-        if (!p) return;
-
-        setTimeout(() => {
-            const statusColors = {
-                completed: 'bg-emerald-100 text-emerald-700',
-                pending: 'bg-amber-100 text-amber-700',
-                failed: 'bg-rose-100 text-rose-700'
-            };
-            
-            const methodNames = {
-                cash: 'Cash',
-                gcash: 'GCash',
-                visa: 'Visa/Mastercard',
-                bank_transfer: 'Bank Transfer',
-                over_the_counter: 'Over-the-Counter'
-            };
-
-            document.getElementById('paymentDetailsContent').innerHTML = `
-                <div class="space-y-4">
-                    <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
-                        <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-2xl flex-shrink-0">
-                            ${p.applicant.charAt(0)}
-                        </div>
-                        <div>
-                            <h4 class="text-lg font-bold text-slate-900">${p.applicant}</h4>
-                            <p class="text-sm text-slate-500">${p.payment_id} • ${p.permit_id}</p>
-                            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[p.status] || statusColors.pending}">
-                                ${p.status.toUpperCase()}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><p class="text-xs text-slate-400 font-semibold">Amount</p><p class="text-sm font-bold text-slate-800">₱${Number(p.amount).toFixed(2)}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Method</p><p class="text-sm text-slate-800">${methodNames[p.method] || p.method}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Reference</p><p class="text-sm text-slate-800 font-mono">${p.reference || '—'}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Date</p><p class="text-sm text-slate-800">${new Date(p.date).toLocaleString()}</p></div>
-                    </div>
-                    ${p.receipt ? `
-                        <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border text-center">
-                            <i class="fa-solid fa-receipt text-2xl text-brand-medium block mb-2"></i>
-                            <p class="text-sm font-semibold text-slate-700">Receipt Generated</p>
-                            <p class="text-xs text-slate-400">${p.receipt}</p>
-                            <button onclick="closeModal('viewPaymentModal'); downloadReceipt('${p.receipt}')" class="mt-2 px-4 py-1.5 bg-brand-dark text-white rounded-lg text-xs hover:bg-brand-medium transition">
-                                <i class="fa-solid fa-download mr-1"></i> Download
-                            </button>
-                        </div>
-                    ` : `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200 text-center text-xs text-slate-400">No receipt generated</div>`}
-                    <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
-                        <button onclick="closeModal('viewPaymentModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                        ${p.status === 'pending' ? `<button onclick="closeModal('viewPaymentModal'); completePayment(${p.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-check mr-1.5"></i> Complete</button>` : ''}
-                    </div>
-                </div>
-            `;
-        }, 300);
-    }
-
-    // ============================================================
-    // COMPLETE PAYMENT
-    // ============================================================
-    function completePayment(id) {
-        if (!confirm('Mark this payment as completed?')) return;
-        const p = PAYMENTS[id];
-        if (!p) return;
-        
-        p.status = 'completed';
-        p.receipt = 'RCP-' + String(id).padStart(3, '0') + '.pdf';
-        updatePaymentRow(p);
-        showToast('Payment #' + p.payment_id + ' completed!', 'success');
-    }
-
-    function updatePaymentRow(p) {
-        const rows = document.querySelectorAll('.payment-row');
-        rows.forEach(row => {
-            const applicant = row.querySelector('.font-semibold.text-slate-800.text-sm')?.textContent;
-            if (applicant === p.applicant) {
-                const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
-                const statusColors = {
-                    completed: 'bg-emerald-100 text-emerald-700',
-                    pending: 'bg-amber-100 text-amber-700',
-                    failed: 'bg-rose-100 text-rose-700'
-                };
-                statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[p.status] || statusColors.pending}`;
-                statusBadge.textContent = p.status.charAt(0).toUpperCase() + p.status.slice(1);
-            }
-        });
-    }
-
-    // ============================================================
-    // RECEIPT GENERATION
-    // ============================================================
-    function downloadReceipt(receipt) {
-        // In production, this would download the actual PDF
-        showToast('Downloading receipt: ' + receipt, 'success');
-    }
-
-    // ============================================================
-    // TOAST NOTIFICATIONS
-    // ============================================================
-    let toastTimer = null;
-
-    function showToast(message, type = 'success') {
-        const toast = document.getElementById('toast');
-        const colors = {
-            success: 'bg-brand-dark',
-            danger: 'bg-rose-600',
-            info: 'bg-blue-600',
-            warning: 'bg-amber-600'
-        };
-        toast.className = 'fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2 ' + (colors[type] || colors.success);
-        toast.querySelector('i').className = 'fa-solid fa-circle-check';
-        document.getElementById('toastMessage').textContent = message;
-        toast.classList.remove('hidden');
-
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
-    }
-
-    // ============================================================
-    // SEARCH & FILTER
-    // ============================================================
-    document.getElementById('searchPayment').addEventListener('input', filterPayments);
-    document.getElementById('filterStatus').addEventListener('change', filterPayments);
-    document.getElementById('filterMethod').addEventListener('change', filterPayments);
-
-    function filterPayments() {
-        const search = document.getElementById('searchPayment').value.toLowerCase();
-        const status = document.getElementById('filterStatus').value;
-        const method = document.getElementById('filterMethod').value;
-        let visibleCount = 0;
-
-        document.querySelectorAll('.payment-row').forEach(row => {
-            const applicant = row.dataset.applicant;
-            const reference = row.dataset.reference || '';
-            const rowStatus = row.dataset.status;
-            const rowMethod = row.dataset.method;
-            const permitId = row.dataset.id.toLowerCase();
-
-            const matchesSearch = applicant.includes(search) || permitId.includes(search) || reference.includes(search);
-            const matchesStatus = !status || rowStatus === status;
-            const matchesMethod = !method || rowMethod === method;
-            const isVisible = matchesSearch && matchesStatus && matchesMethod;
-
-            row.style.display = isVisible ? '' : 'none';
-            if (isVisible) visibleCount++;
-        });
-
-        document.getElementById('emptyState').style.display = visibleCount === 0 ? 'flex' : 'none';
-    }
-
-    function resetFilters() {
-        document.getElementById('searchPayment').value = '';
-        document.getElementById('filterStatus').value = '';
-        document.getElementById('filterMethod').value = '';
-        document.querySelectorAll('.payment-row').forEach(row => row.style.display = '');
-        document.getElementById('emptyState').style.display = 'none';
-    }
-
-    function changePage(page) {
-        if (page < 1 || page > <?php echo $totalPages; ?>) return;
-        window.location.href = '?page=' + page;
-    }
-
-    // ESC to close modals
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            });
+document.querySelectorAll('.fixed.inset-0').forEach(modal => {
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal(this.id);
         }
     });
+});
+
+// ============================================================
+// PAYMENT METHOD TOGGLE
+// ============================================================
+document.querySelectorAll('input[name="payment_method_radio"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        document.getElementById('payment_method').value = this.value;
+        const refSection = document.getElementById('referenceSection');
+        if (this.value === 'cash' || this.value === 'over_the_counter') {
+            refSection.classList.add('hidden');
+        } else {
+            refSection.classList.remove('hidden');
+        }
+    });
+});
+
+// ============================================================
+// AUTO-FILL AMOUNT
+// ============================================================
+document.getElementById('payment_permit').addEventListener('change', function() {
+    const selected = this.options[this.selectedIndex];
+    document.getElementById('payment_amount').value = selected.dataset.fee || 0;
+});
+
+// ============================================================
+// SAVE PAYMENT (via API)
+// ============================================================
+async function savePayment(event) {
+    event.preventDefault();
+    
+    const data = {
+        permit_id: parseInt(document.getElementById('payment_permit').value),
+        amount: parseFloat(document.getElementById('payment_amount').value),
+        method: document.getElementById('payment_method').value,
+        reference_number: document.getElementById('payment_reference').value || null,
+        notes: document.getElementById('payment_notes').value || null
+    };
+    
+    try {
+        await paymentApi.createPayment(data);
+        closeModal('processPaymentModal');
+        showToast('Payment processed successfully!', 'success');
+        loadPayments(1);
+        loadStats();
+    } catch (error) {
+        showToast('Payment failed: ' + error.message, 'danger');
+    }
+}
+
+// ============================================================
+// VIEW PAYMENT (via API)
+// ============================================================
+async function viewPayment(id) {
+    openModal('viewPaymentModal');
+    
+    try {
+        const result = await paymentApi.getPayment(id);
+        const p = result.data;
+        
+        if (!p) {
+            document.getElementById('paymentDetailsContent').innerHTML = '<p class="text-center text-slate-500">Payment not found</p>';
+            return;
+        }
+        
+        const permitInfo = p.permits || {};
+        const statusColors = {
+            completed: 'bg-emerald-100 text-emerald-700',
+            pending: 'bg-amber-100 text-amber-700',
+            failed: 'bg-rose-100 text-rose-700',
+            refunded: 'bg-purple-100 text-purple-700'
+        };
+        
+        document.getElementById('paymentDetailsContent').innerHTML = `
+            <div class="space-y-4">
+                <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
+                    <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-2xl flex-shrink-0">
+                        ${(permitInfo.applicant || 'P').charAt(0)}
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-bold text-slate-900 maskable">${permitInfo.applicant || 'Unknown'}</h4>
+                        <p class="text-sm text-slate-500">${p.payment_id} • ${permitInfo.permit_id || '—'}</p>
+                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[p.status] || statusColors.pending}">
+                            ${p.status.toUpperCase()}
+                        </span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div><p class="text-xs text-slate-400 font-semibold">Amount</p><p class="text-sm font-bold text-slate-800 maskable">₱${parseFloat(p.amount).toLocaleString('en-PH', {minimumFractionDigits: 2})}</p></div>
+                    <div><p class="text-xs text-slate-400 font-semibold">Method</p><p class="text-sm text-slate-800 capitalize">${p.method.replace('_', ' ')}</p></div>
+                    <div><p class="text-xs text-slate-400 font-semibold">Reference</p><p class="text-sm text-slate-800 font-mono maskable">${p.reference_number || '—'}</p></div>
+                    <div><p class="text-xs text-slate-400 font-semibold">Date</p><p class="text-sm text-slate-800">${new Date(p.created_at).toLocaleString()}</p></div>
+                    ${p.paid_at ? `<div><p class="text-xs text-slate-400 font-semibold">Paid At</p><p class="text-sm text-slate-800">${new Date(p.paid_at).toLocaleString()}</p></div>` : ''}
+                    <div><p class="text-xs text-slate-400 font-semibold">Paid By</p><p class="text-sm text-slate-800 maskable">${p.paid_by || '—'}</p></div>
+                </div>
+                ${p.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">📝 Notes</h5><p class="text-sm text-slate-800">${p.notes}</p></div>` : ''}
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                    <button onclick="closeModal('viewPaymentModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
+                    ${p.status === 'pending' ? `<button onclick="closeModal('viewPaymentModal'); completePayment(${p.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-check mr-1.5"></i> Complete</button>` : ''}
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        document.getElementById('paymentDetailsContent').innerHTML = `<p class="text-center text-rose-500">Failed to load: ${error.message}</p>`;
+    }
+}
+
+// ============================================================
+// COMPLETE PAYMENT (via API)
+// ============================================================
+async function completePayment(id) {
+    if (!confirm('Mark this payment as completed?')) return;
+    
+    try {
+        await paymentApi.completePayment(id);
+        showToast('Payment completed successfully!', 'success');
+        loadPayments(currentPage);
+        loadStats();
+    } catch (error) {
+        showToast('Failed to complete payment: ' + error.message, 'danger');
+    }
+}
+
+// ============================================================
+// DOWNLOAD RECEIPT
+// ============================================================
+function downloadReceipt(receiptPath) {
+    showToast('Downloading receipt: ' + receiptPath, 'success');
+}
+
+// ============================================================
+// TOAST NOTIFICATIONS (using ModalSystem.toast or global toast)
+// ============================================================
+function showToast(message, type = 'success') {
+    if (typeof toast !== 'undefined') {
+        const typeMap = { success: 'success', danger: 'error', info: 'info', warning: 'warning' };
+        toast[typeMap[type] || 'info'](message, { duration: 4000 });
+        return;
+    }
+    if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+        const typeMap = { success: 'success', danger: 'error', info: 'info', warning: 'warning' };
+        ModalSystem.toast[typeMap[type] || 'info'](message, { duration: 4000 });
+        return;
+    }
+    console.log('[' + type + '] ' + message);
+}
+
+// ============================================================
+// SEARCH & FILTER
+// ============================================================
+let searchTimeout;
+document.getElementById('searchPayment').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => loadPayments(1), 300);
+});
+
+document.getElementById('filterStatus').addEventListener('change', () => loadPayments(1));
+document.getElementById('filterMethod').addEventListener('change', () => loadPayments(1));
+
+function resetFilters() {
+    document.getElementById('searchPayment').value = '';
+    document.getElementById('filterStatus').value = '';
+    document.getElementById('filterMethod').value = '';
+    loadPayments(1);
+}
+
+function changePage(page) {
+    if (page < 1 || page > totalPages) return;
+    loadPayments(page);
+}
+
+// ESC to close modals
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
+            closeModal(modal.id);
+        });
+    }
+});
+
+// ============================================================
+// INITIALIZE
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+    loadStats();
+    loadFeeStructure();
+    loadPayments(currentPage);
+});
 </script>
 
 <?php include_once '../../includes/footer.php'; ?>

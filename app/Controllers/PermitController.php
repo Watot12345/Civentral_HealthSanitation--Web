@@ -55,8 +55,10 @@ class PermitController extends BaseController
             $allPermits = $this->permitModel->all(['order' => 'created_at.desc']);
             $filtered = [];
 
+            $allowedStatuses = !empty($status) ? explode(',', $status) : [];
+            
             foreach ($allPermits as $p) {
-                $passesStatus = empty($status) || ($p['status'] ?? '') === $status;
+                $passesStatus = empty($allowedStatuses) || in_array($p['status'] ?? '', $allowedStatuses);
                 $passesType = empty($type) || ($p['business_type'] ?? '') === $type;
 
                 $passesSearch = true;
