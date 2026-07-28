@@ -1,5 +1,5 @@
 <?php
-// Core/Database.php
+// config/database.php
 
 require_once __DIR__ . '/../Core/Env.php';
 
