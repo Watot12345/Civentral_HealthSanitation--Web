@@ -416,15 +416,25 @@ function getActionBadge($status) {
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-[#176B87]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 Violations & Corrective Actions
             </h2>
-            <div class="flex items-center gap-2">
-                <!-- Added Search Bar -->
+            <!-- Filter & Export Controls -->
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Date Range Filters -->
+                <div class="flex items-center gap-1 text-xs">
+                    <label for="dateFrom" class="text-[#0d4f64] font-medium">From</label>
+                    <input type="date" id="dateFrom" class="border rounded-md px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-transparent transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] outline-none">
+                    <label for="dateTo" class="text-[#0d4f64] font-medium ml-1">To</label>
+                    <input type="date" id="dateTo" class="border rounded-md px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-transparent transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] outline-none">
+                </div>
+                <!-- Search -->
                 <input type="text" id="tableSearch" placeholder="Search location..." class="text-sm border rounded-md px-3 py-1 bg-white focus:ring-2 focus:ring-transparent transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] outline-none">
+                <!-- Severity Filter -->
                 <select id="severityFilter" class="text-sm border rounded-md px-2 py-1 bg-white focus:ring-2 focus:ring-transparent transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] outline-none">
                     <option value="all">All</option>
                     <option value="critical">Critical</option>
                     <option value="non-critical">Non‑Critical</option>
                 </select>
-                <button id="exportCsvBtn" class="text-sm font-medium border px-3 py-1 rounded-md transition-all duration-200 hover:bg-[#176B87] hover:text-white hover:border-[#176B87] text-[#0d4f64] border-[#86B6F6] bg-transparent flex items-center gap-1">
+                <!-- Export Button -->
+                <button id="exportCsvBtn" class="text-sm font-medium border px-3 py-1 rounded-md transition-all duration-200 hover:bg-[#176B87] hover:text-white hover:border-[#176B87] hover:shadow-sm text-[#0d4f64] border-[#86B6F6] bg-transparent flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     Export
                 </button>
@@ -446,7 +456,11 @@ function getActionBadge($status) {
                 </thead>
                 <tbody id="violationTableBody">
                     <?php foreach ($violations as $v): ?>
-                    <tr class="border-b transition-all duration-150 hover:bg-[#EEF5FF] violation-row border-[#B4D4FF]" data-severity="<?= $v['severity'] ?>" data-location="<?= strtolower(htmlspecialchars($v['location'])) ?>">
+                    <!-- ADD data-date attribute for filtering by date -->
+                    <tr class="border-b transition-all duration-150 hover:bg-[#EEF5FF] violation-row border-[#B4D4FF]" 
+                        data-severity="<?= $v['severity'] ?>" 
+                        data-location="<?= strtolower(htmlspecialchars($v['location'])) ?>"
+                        data-date="<?= date('Y-m-d', strtotime($v['timestamp'])) ?>">
                         <td class="px-3 py-3 font-medium text-[#0d4f64]"><?= htmlspecialchars($v['location']) ?></td>
                         <td class="px-3 py-3 max-w-[220px] truncate text-[#176B87]" title="<?= htmlspecialchars($v['description']) ?>">
                             <?= htmlspecialchars($v['description']) ?>
@@ -607,7 +621,7 @@ function getActionBadge($status) {
 <div id="toastContainer" class="fixed bottom-6 right-6 z-[100] space-y-3"></div>
 
 <!-- ============================================================
-     JAVASCRIPT
+     JAVASCRIPT (Enhanced with Date Filter & Export)
      ============================================================ -->
 <script>
     (function() {
@@ -648,35 +662,44 @@ function getActionBadge($status) {
             `;
             container.appendChild(toast);
 
-            // Animate in
             setTimeout(() => {
                 toast.classList.remove('translate-y-full', 'opacity-0');
             }, 50);
 
-            // Animate out and remove
             setTimeout(() => {
                 toast.classList.add('translate-y-full', 'opacity-0');
                 setTimeout(() => toast.remove(), 300);
             }, 3500);
         }
 
-        // ----- 3. FILTER & SEARCH -----
+        // ----- 3. FILTER & SEARCH (including date range) -----
         const filterSelect = document.getElementById('severityFilter');
         const searchInput = document.getElementById('tableSearch');
+        const dateFrom = document.getElementById('dateFrom');
+        const dateTo = document.getElementById('dateTo');
         const rows = document.querySelectorAll('.violation-row');
 
         function applyFilters() {
             const filterVal = filterSelect.value;
             const searchVal = searchInput.value.toLowerCase();
+            const fromVal = dateFrom.value;   // YYYY-MM-DD
+            const toVal = dateTo.value;
 
             rows.forEach(row => {
                 const sev = row.getAttribute('data-severity');
                 const loc = row.getAttribute('data-location');
-                
-                const matchesFilter = (filterVal === 'all' || sev === filterVal);
-                const matchesSearch = loc.includes(searchVal);
+                const rowDate = row.getAttribute('data-date'); // YYYY-MM-DD
 
-                if (matchesFilter && matchesSearch) {
+                // Severity filter
+                const matchesFilter = (filterVal === 'all' || sev === filterVal);
+                // Search filter
+                const matchesSearch = loc.includes(searchVal);
+                // Date filter
+                let matchesDate = true;
+                if (fromVal && rowDate < fromVal) matchesDate = false;
+                if (toVal && rowDate > toVal) matchesDate = false;
+
+                if (matchesFilter && matchesSearch && matchesDate) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';
@@ -684,8 +707,11 @@ function getActionBadge($status) {
             });
         }
 
+        // Attach events
         if (filterSelect) filterSelect.addEventListener('change', applyFilters);
         if (searchInput) searchInput.addEventListener('input', applyFilters);
+        if (dateFrom) dateFrom.addEventListener('change', applyFilters);
+        if (dateTo) dateTo.addEventListener('change', applyFilters);
 
         // ----- 4. MODAL LOGIC (Assign Corrective Action) -----
         const modal = document.getElementById('actionModal');
@@ -794,10 +820,55 @@ function getActionBadge($status) {
             });
         }
 
-        // ----- 7. EXPORT CSV (simulated) -----
+        // ----- 7. EXPORT CSV (fully functional) -----
         const exportBtn = document.getElementById('exportCsvBtn');
         if (exportBtn) {
             exportBtn.addEventListener('click', function() {
+                // Get only visible rows (those not hidden by filters)
+                const visibleRows = document.querySelectorAll('.violation-row:not([style*="display: none"])');
+                if (visibleRows.length === 0) {
+                    showToast('No rows to export. Adjust your filters.', 'error');
+                    return;
+                }
+
+                // Build CSV content
+                const headers = ['Location', 'Description', 'Date Detected', 'Severity', 'Status'];
+                const rowsData = [];
+
+                visibleRows.forEach(row => {
+                    const cols = row.querySelectorAll('td');
+                    // Columns: 0:Location, 1:Description, 2:Date, 3:Severity, 4:Status
+                    const location = cols[0] ? cols[0].textContent.trim() : '';
+                    const description = cols[1] ? cols[1].textContent.trim() : '';
+                    const date = cols[2] ? cols[2].textContent.trim() : '';
+                    const severity = cols[3] ? cols[3].textContent.trim() : '';
+                    const status = cols[4] ? cols[4].textContent.trim() : '';
+                    rowsData.push([location, description, date, severity, status]);
+                });
+
+                // Convert to CSV string (simple quoting for fields with commas)
+                let csvContent = headers.join(',') + '\n';
+                rowsData.forEach(row => {
+                    const escaped = row.map(cell => {
+                        if (typeof cell === 'string' && (cell.includes(',') || cell.includes('"'))) {
+                            return '"' + cell.replace(/"/g, '""') + '"';
+                        }
+                        return cell;
+                    });
+                    csvContent += escaped.join(',') + '\n';
+                });
+
+                // Create Blob and download
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.href = url;
+                link.setAttribute('download', 'violations_export.csv');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
                 showToast('Violation data exported to CSV successfully!', 'success');
             });
         }
@@ -809,7 +880,7 @@ function getActionBadge($status) {
             }
         });
 
-        console.log('Health Sanitation Dashboard initialized.');
+        console.log('Health Sanitation Dashboard initialized with date filter and CSV export.');
     })();
 </script>
 

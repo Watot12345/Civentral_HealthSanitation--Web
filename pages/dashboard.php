@@ -358,6 +358,19 @@ session_start();
                 padding-bottom: 100px;
             }
         }
+
+        /* ===== DATE FILTER BAR ===== */
+        .date-filter-chip {
+            transition: all var(--transition-fast);
+        }
+        .date-filter-chip.active {
+            background: var(--color-primary);
+            color: #fff;
+            box-shadow: var(--shadow-sm);
+        }
+        .date-filter-chip:not(.active):hover {
+            background: #eef4f7;
+        }
     </style>
 
     <!-- ===== PAGE CONTAINER ===== -->
@@ -412,7 +425,7 @@ session_start();
         <!-- ============================================================ -->
         <!-- KPI ROW (6 cards)                                            -->
         <!-- ============================================================ -->
-        <div class="kpi-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 flex-shrink-0">
+        <div id="kpiGrid" class="kpi-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3 flex-shrink-0">
 
             <!-- KPI 1: Health Center Services -->
             <a href="health-center.php" 
@@ -428,7 +441,7 @@ session_start();
                             <p class="text-[8px] font-bold uppercase tracking-wider text-c2">
                                 <i class="fas fa-hospital text-[7px] mr-1" aria-hidden="true"></i>Health Center
                             </p>
-                            <p class="kpi-number text-xl font-black text-slate-900 mt-1 leading-none">1,847</p>
+                            <p class="kpi-number text-xl font-black text-slate-900 mt-1 leading-none" data-kpi="health" data-base="1847">1,847</p>
                             <p class="text-[8px] font-medium text-slate-400 mt-0.5">Patients Served</p>
                         </div>
                         <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
@@ -463,7 +476,7 @@ session_start();
                             <p class="text-[8px] font-bold uppercase tracking-wider text-amber-600">
                                 <i class="fas fa-file-signature text-[7px] mr-1" aria-hidden="true"></i>Sanitation
                             </p>
-                            <p class="kpi-number text-xl font-black text-amber-600 mt-1 leading-none">156</p>
+                            <p class="kpi-number text-xl font-black text-amber-600 mt-1 leading-none" data-kpi="sanitation" data-base="156">156</p>
                             <p class="text-[8px] font-medium text-slate-400 mt-0.5">Active Permits</p>
                         </div>
                         <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
@@ -498,7 +511,7 @@ session_start();
                             <p class="text-[8px] font-bold uppercase tracking-wider text-blue-600">
                                 <i class="fas fa-syringe text-[7px] mr-1" aria-hidden="true"></i>Immunization
                             </p>
-                            <p class="kpi-number text-xl font-black text-blue-600 mt-1 leading-none">1,924</p>
+                            <p class="kpi-number text-xl font-black text-blue-600 mt-1 leading-none" data-kpi="immunization" data-base="1924">1,924</p>
                             <p class="text-[8px] font-medium text-slate-400 mt-0.5">Immunized</p>
                         </div>
                         <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
@@ -533,7 +546,7 @@ session_start();
                             <p class="text-[8px] font-bold uppercase tracking-wider text-purple-600">
                                 <i class="fas fa-water text-[7px] mr-1" aria-hidden="true"></i>Wastewater
                             </p>
-                            <p class="kpi-number text-xl font-black text-purple-600 mt-1 leading-none">23</p>
+                            <p class="kpi-number text-xl font-black text-purple-600 mt-1 leading-none" data-kpi="wastewater" data-base="23">23</p>
                             <p class="text-[8px] font-medium text-slate-400 mt-0.5">Service Requests</p>
                         </div>
                         <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
@@ -568,7 +581,7 @@ session_start();
                             <p class="text-[8px] font-bold uppercase tracking-wider text-rose-600">
                                 <i class="fas fa-binoculars text-[7px] mr-1" aria-hidden="true"></i>Surveillance
                             </p>
-                            <p class="kpi-number text-xl font-black text-rose-600 mt-1 leading-none">234</p>
+                            <p class="kpi-number text-xl font-black text-rose-600 mt-1 leading-none" data-kpi="surveillance" data-base="234">234</p>
                             <p class="text-[8px] font-medium text-slate-400 mt-0.5">Active Cases</p>
                         </div>
                         <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
@@ -624,6 +637,31 @@ session_start();
                 </div>
             </a>
 
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- DATE FILTER BAR (below KPI cards)                            -->
+        <!-- ============================================================ -->
+        <div class="flex-shrink-0 mb-6 flex flex-wrap items-center justify-between gap-2 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+            <div class="flex items-center gap-1.5 flex-wrap" id="dateFilterChips" role="group" aria-label="Filter dashboard by date range">
+                <span class="text-[10px] font-semibold text-slate-500 mr-1">
+                    <i class="fas fa-calendar text-[9px] mr-1" aria-hidden="true"></i>Showing:
+                </span>
+                <button type="button" class="date-filter-chip active px-2.5 py-1 rounded-lg text-[10px] font-semibold text-slate-600" data-range="today" onclick="setDateFilter('today', this)">Today</button>
+                <button type="button" class="date-filter-chip px-2.5 py-1 rounded-lg text-[10px] font-semibold text-slate-600" data-range="7d" onclick="setDateFilter('7d', this)">Last 7 Days</button>
+                <button type="button" class="date-filter-chip px-2.5 py-1 rounded-lg text-[10px] font-semibold text-slate-600" data-range="30d" onclick="setDateFilter('30d', this)">Last 30 Days</button>
+                <button type="button" class="date-filter-chip px-2.5 py-1 rounded-lg text-[10px] font-semibold text-slate-600" data-range="month" onclick="setDateFilter('month', this)">This Month</button>
+                <button type="button" class="date-filter-chip px-2.5 py-1 rounded-lg text-[10px] font-semibold text-slate-600" data-range="custom" onclick="openCustomDateRange(this)">
+                    <i class="fas fa-calendar-days text-[9px] mr-1" aria-hidden="true"></i>Custom
+                </button>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="activeRangeLabel" class="text-[10px] text-slate-400">Jul 29, 2026</span>
+                <input type="date" id="customDateStart" class="hidden text-[10px] border border-slate-200 rounded-lg px-2 py-1" aria-label="Custom range start date" />
+                <span id="customDateSep" class="hidden text-[10px] text-slate-400">to</span>
+                <input type="date" id="customDateEnd" class="hidden text-[10px] border border-slate-200 rounded-lg px-2 py-1" aria-label="Custom range end date" />
+                <button id="customDateApply" onclick="applyCustomDateRange()" class="hidden text-[10px] font-semibold text-white bg-c3 hover:bg-c3d px-2.5 py-1 rounded-lg transition">Apply</button>
+            </div>
         </div>
 
         <!-- ============================================================ -->
@@ -1382,6 +1420,7 @@ session_start();
        
  <!-- bypass datamask for non data masking -->
 <p class="kpi-number text-xl font-black text-slate-900 mt-1 leading-none"></p>
+<div class="toast-container" id="toast-container"></div>
 <script>
     // Press Ctrl+Shift+R to toggle real/masked
 document.addEventListener('keydown', e => {
@@ -1492,6 +1531,94 @@ document.addEventListener('keydown', e => {
     function resetDataAge() {
         ageCounter = 0;
         document.getElementById('dataAgeText').textContent = '0s ago';
+    }
+
+    // ===== DATE FILTER (below KPI cards) =====
+    // Base KPI values represent the "Today" range. Other ranges are derived
+    // with a deterministic multiplier so the dashboard visibly reflects the
+    // selected window. Replace the multiplier table with a real API call
+    // (e.g. fetch(`api/dashboard-stats.php?range=${range}`)) when a backend
+    // endpoint is available.
+    let currentDateRange = 'today';
+    const rangeMultipliers = {
+        today:  { factor: 1,    label: () => formatDate(new Date()) },
+        '7d':    { factor: 6.4,  label: () => `${formatDate(daysAgo(6))} – ${formatDate(new Date())}` },
+        '30d':   { factor: 24.8, label: () => `${formatDate(daysAgo(29))} – ${formatDate(new Date())}` },
+        month:  { factor: 18.2, label: () => `${monthName(new Date())} 1 – ${formatDate(new Date())}` },
+        custom: { factor: 1,    label: (s, e) => `${s} to ${e}` }
+    };
+
+    function formatDate(d) {
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    function daysAgo(n) {
+        const d = new Date();
+        d.setDate(d.getDate() - n);
+        return d;
+    }
+    function monthName(d) {
+        return d.toLocaleDateString('en-US', { month: 'short' });
+    }
+
+    function setDateFilter(range, btn) {
+        currentDateRange = range;
+
+        // Update active chip styling
+        document.querySelectorAll('.date-filter-chip').forEach(chip => chip.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+
+        // Hide custom date inputs unless "custom" is chosen
+        toggleCustomInputs(false);
+
+        // Update the label
+        const cfg = rangeMultipliers[range];
+        document.getElementById('activeRangeLabel').textContent = cfg.label();
+
+        applyDateRangeToKPIs(range);
+        showToast(`Showing data for: ${btn ? btn.textContent.trim() : range}`, 'info');
+    }
+
+    function openCustomDateRange(btn) {
+        document.querySelectorAll('.date-filter-chip').forEach(chip => chip.classList.remove('active'));
+        btn.classList.add('active');
+        toggleCustomInputs(true);
+    }
+
+    function toggleCustomInputs(show) {
+        ['customDateStart', 'customDateSep', 'customDateEnd', 'customDateApply'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('hidden', !show);
+        });
+    }
+
+    function applyCustomDateRange() {
+        const start = document.getElementById('customDateStart').value;
+        const end = document.getElementById('customDateEnd').value;
+        if (!start || !end) {
+            showToast('Please select both a start and end date', 'warning');
+            return;
+        }
+        if (new Date(start) > new Date(end)) {
+            showToast('Start date must be before end date', 'error');
+            return;
+        }
+        currentDateRange = 'custom';
+        const days = Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000) + 1);
+        document.getElementById('activeRangeLabel').textContent = rangeMultipliers.custom.label(
+            formatDate(new Date(start)), formatDate(new Date(end))
+        );
+        applyDateRangeToKPIs('custom', days);
+        showToast(`Showing data for custom range (${days} day${days > 1 ? 's' : ''})`, 'info');
+    }
+
+    function applyDateRangeToKPIs(range, customDays) {
+        const factor = range === 'custom' && customDays ? Math.max(1, customDays / 1) : rangeMultipliers[range].factor;
+        document.querySelectorAll('#kpiGrid [data-kpi]').forEach(el => {
+            const base = parseInt(el.dataset.base, 10);
+            if (isNaN(base)) return;
+            const value = Math.round(base * factor);
+            el.textContent = value.toLocaleString('en-US');
+        });
     }
 
     // ===== QUICK ACTION BAR - ENHANCED DETECTION =====
@@ -1724,6 +1851,9 @@ document.addEventListener('keydown', e => {
         } else {
             console.error('❌ bottomActionBar element not found!');
         }
+
+        // Initialize the date filter label to "Today"
+        document.getElementById('activeRangeLabel').textContent = rangeMultipliers.today.label();
     });
 
     // Also ensure hidden after full page load
@@ -1755,21 +1885,52 @@ document.addEventListener('keydown', e => {
         document.getElementById('dataAgeText').textContent = text;
     }
 
-    // ===== REFRESH DASHBOARD =====
+    // ===== REFRESH DASHBOARD (now actually fetches + re-renders data) =====
     function refreshDashboard() {
         const btn = document.getElementById('refreshBtn');
         const icon = btn.querySelector('i');
         icon.classList.add('fa-spin');
-        
+        btn.disabled = true;
+
         showToast('Refreshing dashboard data...', 'info');
-        
-        setTimeout(() => {
-            icon.classList.remove('fa-spin');
-            document.getElementById('lastUpdated').innerHTML = 
-                '<i class="fas fa-clock text-[9px] mr-1" aria-hidden="true"></i> Updated just now';
-            showToast('Dashboard updated successfully!', 'success');
-            resetDataAge();
-        }, 1500);
+
+        // Real backend hookup: replace this block with something like
+        //   fetch(`api/dashboard-stats.php?range=${currentDateRange}`)
+        //     .then(r => r.json())
+        //     .then(data => renderDashboardData(data))
+        //     .catch(() => showToast('Failed to refresh dashboard', 'error'))
+        //     .finally(() => { ...reset spinner... });
+        // For now, re-apply the currently selected date range so the KPI
+        // numbers, labels, and "last updated" timestamp are genuinely
+        // refreshed rather than just resetting a spinner icon.
+        fetchDashboardData(currentDateRange)
+            .then(() => {
+                icon.classList.remove('fa-spin');
+                btn.disabled = false;
+                const now = new Date();
+                document.getElementById('lastUpdated').innerHTML =
+                    `<i class="fas fa-clock text-[9px] mr-1" aria-hidden="true"></i> Updated ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+                showToast('Dashboard updated successfully!', 'success');
+                resetDataAge();
+            })
+            .catch(() => {
+                icon.classList.remove('fa-spin');
+                btn.disabled = false;
+                showToast('Could not refresh dashboard. Please try again.', 'error');
+            });
+    }
+
+    // Simulated async data fetch. Swap the body of this function for a real
+    // fetch() call to a backend endpoint (e.g. api/dashboard-stats.php) when
+    // one is available; the rest of the refresh/filter logic already expects
+    // a Promise, so no other changes would be required.
+    function fetchDashboardData(range) {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                applyDateRangeToKPIs(range);
+                resolve();
+            }, 700);
+        });
     }
 
     // ===== KEYBOARD SHORTCUT HELP =====

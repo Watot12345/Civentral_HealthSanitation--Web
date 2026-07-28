@@ -423,6 +423,24 @@
         pointer-events: none;
     }
     .module-tooltip.active { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+
+    /* Service Distribution donut tooltip (positioned relative to its own container, not the viewport) */
+    .donut-tooltip {
+        position: absolute;
+        z-index: 50;
+        background: var(--glass-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 10px;
+        box-shadow: 0 15px 35px -8px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.5) inset;
+        border: 1px solid var(--glass-border);
+        padding: 7px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #18181b;
+        white-space: nowrap;
+        pointer-events: none;
+    }
 </style>
 
 <main class="flex-1 h-screen flex flex-col m-0 overflow-y-auto overflow-x-hidden bg-zinc-50/50 rounded-none font-sans scrollbar-thin">
@@ -460,72 +478,7 @@
         </div>
 
         <!-- Toolbar -->
-        <div class="no-print mb-8 rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-4 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex flex-wrap items-center gap-4 fade-in delay-1">
-            <div class="flex items-center gap-2">
-                <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
-                <select id="dateRangeSelect" class="text-xs font-medium bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg px-3 py-2 transition-all focus:outline-none focus:ring-2 focus:ring-zinc-100 cursor-pointer">
-                    <option value="today">Today</option>
-                    <option value="7d">Last 7 Days</option>
-                    <option value="30d">Last 30 Days</option>
-                    <option value="90d">Last 90 Days</option>
-                    <option value="6m" selected>Last 6 Months</option>
-                    <option value="12m">Last 12 Months</option>
-                    <option value="custom">Custom Range</option>
-                </select>
-                <div id="customDateWrap" class="hidden items-center gap-1.5">
-                    <input type="date" id="dateFrom" class="text-xs bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-zinc-100">
-                    <span class="text-zinc-300 font-bold">–</span>
-                    <input type="date" id="dateTo" class="text-xs bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-zinc-100">
-                </div>
-            </div>
-
-            <div class="h-6 w-px bg-zinc-200"></div>
-
-            <label class="flex items-center gap-2.5 text-xs font-semibold text-zinc-600 cursor-pointer select-none">
-                <span class="relative inline-flex items-center">
-                    <input type="checkbox" id="yoyToggle" class="sr-only peer">
-                    <span class="w-9 h-5 bg-zinc-200 peer-checked:bg-zinc-800 rounded-full transition-colors duration-200"></span>
-                    <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></span>
-                </span>
-                Compare YoY
-            </label>
-
-            <div class="h-6 w-px bg-zinc-200"></div>
-
-            <div class="flex items-center gap-3 text-xs text-zinc-600 font-semibold">
-                <label class="flex items-center gap-2 cursor-pointer select-none">
-                    <span class="relative inline-flex items-center">
-                        <input type="checkbox" id="autoRefreshToggle" class="sr-only peer" checked>
-                        <span class="w-9 h-5 bg-zinc-200 peer-checked:bg-emerald-600 rounded-full transition-colors duration-200"></span>
-                        <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></span>
-                    </span>
-                    Auto-refresh
-                </label>
-                <select id="refreshIntervalSelect" class="text-xs font-medium bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer">
-                    <option value="30" selected>30s</option>
-                    <option value="60">1m</option>
-                    <option value="300">5m</option>
-                </select>
-                <span id="lastUpdatedLabel" class="text-zinc-400 font-medium whitespace-nowrap">Updated just now</span>
-            </div>
-
-            <div class="ml-auto flex items-center gap-2">
-                <button onclick="refreshData()" class="flex items-center gap-2 text-xs font-bold text-zinc-700 border border-zinc-200 bg-white rounded-lg px-3.5 py-2 hover:bg-zinc-50 active:scale-95 transition-all">
-                    <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                    Refresh
-                </button>
-                <button onclick="window.print()" class="flex items-center gap-2 text-xs font-bold text-zinc-700 border border-zinc-200 bg-white rounded-lg px-3.5 py-2 hover:bg-zinc-50 active:scale-95 transition-all">
-                    <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"></path>
-                    </svg>
-                    Export
-                </button>
-            </div>
-        </div>
+        
 
         <!-- AI Insights (With Cursor Glow) -->
         <div class="ai-glow-container mb-8 rounded-2xl border border-zinc-200 bg-white/60 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift fade-in delay-2" id="aiInsightPanel">
@@ -542,6 +495,8 @@
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" id="insightsGrid"></div>
         </div>
+
+        
 
         <!-- Trend + Predictive + Modules -->
         <div class="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in delay-3">
@@ -608,8 +563,83 @@
             </div>
         </div>
 
+        
+
+        <!-- Service / Disease Trend + Service Distribution (integrated from ai-insight.js) -->
+        <div class="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in delay-3">
+            <!-- Service Requests Trend -->
+            <div class="rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift">
+                <div class="flex items-center gap-2.5 mb-4">
+                    <div class="p-1.5 bg-blue-50 rounded-lg">
+                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Service Requests Trend</h2>
+                </div>
+                <svg viewBox="0 0 500 200" class="w-full h-auto">
+                    <g id="serviceLineGroup"></g>
+                    <g id="serviceDotsGroup"></g>
+                </svg>
+                <div class="mt-4 flex flex-wrap items-center gap-3 text-xs font-medium text-zinc-500">
+                    <span class="service-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="appointments"><span class="inline-block h-2 w-2 rounded-full" style="background:#3b82f6"></span> Appointments</span>
+                    <span class="service-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="emails"><span class="inline-block h-2 w-2 rounded-full" style="background:#10b981"></span> Emails</span>
+                    <span class="service-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="requests"><span class="inline-block h-2 w-2 rounded-full" style="background:#f59e0b"></span> Requests</span>
+                </div>
+            </div>
+
+            <!-- Disease Surveillance -->
+            <div class="rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift">
+                <div class="flex items-center gap-2.5 mb-4">
+                    <div class="p-1.5 bg-rose-50 rounded-lg">
+                        <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Disease Surveillance</h2>
+                </div>
+                <svg viewBox="0 0 500 200" class="w-full h-auto">
+                    <g id="diseaseLineGroup"></g>
+                    <g id="diseaseDotsGroup"></g>
+                </svg>
+                <div class="mt-4 flex flex-wrap items-center gap-3 text-xs font-medium text-zinc-500">
+                    <span class="disease-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="dengue"><span class="inline-block h-2 w-2 rounded-full" style="background:#ef4444"></span> Dengue</span>
+                    <span class="disease-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="influenza"><span class="inline-block h-2 w-2 rounded-full" style="background:#eab308"></span> Influenza</span>
+                    <span class="disease-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="foodPoisoning"><span class="inline-block h-2 w-2 rounded-full" style="background:#22c55e"></span> Food Poisoning</span>
+                    <span class="disease-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="leptospirosis"><span class="inline-block h-2 w-2 rounded-full" style="background:#a855f7"></span> Leptospirosis</span>
+                </div>
+            </div>
+
+            <!-- Service Distribution -->
+            <div class="rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift flex flex-col items-center">
+                <div class="flex items-center gap-2.5 mb-4 self-start">
+                    <div class="p-1.5 bg-purple-50 rounded-lg">
+                        <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.024 9.024 0 0120.488 9z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Service Distribution</h2>
+                </div>
+                <div class="relative">
+                    <svg id="donutSvg" viewBox="0 0 200 200" class="w-44 h-44">
+                        <g id="donutSegments"></g>
+                    </svg>
+                    <div id="donutTooltip" class="donut-tooltip"><span id="tooltipText"></span></div>
+                </div>
+                <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs font-medium text-zinc-500 w-full">
+                    <span class="flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full" style="background:#3b82f6"></span> Health Center</span>
+                    <span class="flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full" style="background:#10b981"></span> Sanitation</span>
+                    <span class="flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full" style="background:#f59e0b"></span> Immunization</span>
+                    <span class="flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full" style="background:#8b5cf6"></span> Wastewater</span>
+                </div>
+            </div>
+        </div>
+
+        
+
         <!-- Performance Metrics (Restyled to match System Overview KPIs) -->
-        <div class="rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift fade-in delay-4">
+        <div class="rounded-2xl mb-10 border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift fade-in delay-4">
             <div class="flex items-center justify-between mb-5">
                 <div class="flex items-center gap-2.5">
                     <div class="p-1.5 bg-blue-50 border border-blue-100 rounded-lg transition-all">
@@ -626,6 +656,73 @@
                 </div>
             </div>
             <div class="metrics-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4" id="metricsGrid"></div>
+        </div>
+
+        <div class="no-print mb-8 rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-4 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex flex-wrap items-center gap-4 fade-in delay-1">
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                <select id="dateRangeSelect" class="text-xs font-medium bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg px-3 py-2 transition-all focus:outline-none focus:ring-2 focus:ring-zinc-100 cursor-pointer">
+                    <option value="today">Today</option>
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d">Last 30 Days</option>
+                    <option value="90d">Last 90 Days</option>
+                    <option value="6m" selected>Last 6 Months</option>
+                    <option value="12m">Last 12 Months</option>
+                    <option value="custom">Custom Range</option>
+                </select>
+                <div id="customDateWrap" class="hidden items-center gap-1.5">
+                    <input type="date" id="dateFrom" class="text-xs bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-zinc-100">
+                    <span class="text-zinc-300 font-bold">–</span>
+                    <input type="date" id="dateTo" class="text-xs bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-zinc-100">
+                </div>
+            </div>
+
+            <div class="h-6 w-px bg-zinc-200"></div>
+
+            <label class="flex items-center gap-2.5 text-xs font-semibold text-zinc-600 cursor-pointer select-none">
+                <span class="relative inline-flex items-center">
+                    <input type="checkbox" id="yoyToggle" class="sr-only peer">
+                    <span class="w-9 h-5 bg-zinc-200 peer-checked:bg-zinc-800 rounded-full transition-colors duration-200"></span>
+                    <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></span>
+                </span>
+                Compare YoY
+            </label>
+
+            <div class="h-6 w-px bg-zinc-200"></div>
+
+            <div class="flex items-center gap-3 text-xs text-zinc-600 font-semibold">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <span class="relative inline-flex items-center">
+                        <input type="checkbox" id="autoRefreshToggle" class="sr-only peer" checked>
+                        <span class="w-9 h-5 bg-zinc-200 peer-checked:bg-emerald-600 rounded-full transition-colors duration-200"></span>
+                        <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></span>
+                    </span>
+                    Auto-refresh
+                </label>
+                <select id="refreshIntervalSelect" class="text-xs font-medium bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer">
+                    <option value="30" selected>30s</option>
+                    <option value="60">1m</option>
+                    <option value="300">5m</option>
+                </select>
+                <span id="lastUpdatedLabel" class="text-zinc-400 font-medium whitespace-nowrap">Updated just now</span>
+            </div>
+
+            <div class="ml-auto flex items-center gap-2">
+                <button onclick="refreshData()" class="flex items-center gap-2 text-xs font-bold text-zinc-700 border border-zinc-200 bg-white rounded-lg px-3.5 py-2 hover:bg-zinc-50 active:scale-95 transition-all">
+                    <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    Refresh
+                </button>
+                <button onclick="window.print()" class="flex items-center gap-2 text-xs font-bold text-zinc-700 border border-zinc-200 bg-white rounded-lg px-3.5 py-2 hover:bg-zinc-50 active:scale-95 transition-all">
+                    <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"></path>
+                    </svg>
+                    Export
+                </button>
+            </div>
         </div>
 
         <!-- Staff Performance -->
@@ -1591,6 +1688,255 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // =====================================================================
+    // SERVICE / DISEASE TREND + SERVICE DISTRIBUTION
+    // (integrated from ai-insight.js — functions are declared in this shared
+    // scope and explicitly exported to window instead of being hidden inside
+    // an IIFE, so refreshData() and auto-refresh can call them directly)
+    // =====================================================================
+    const serviceMonths = ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
+    var serviceData = {
+        appointments: [6, 8, 10, 11, 9, 7],
+        emails: [4, 5, 6, 7, 5, 3],
+        requests: [3, 4, 5, 6, 4, 2]
+    };
+    const serviceColors = { appointments: '#3b82f6', emails: '#10b981', requests: '#f59e0b' };
+    var serviceVisibility = { appointments: true, emails: true, requests: true };
+
+    function drawServiceChart() {
+        const group = document.getElementById('serviceLineGroup');
+        const dots = document.getElementById('serviceDotsGroup');
+        if (!group || !dots) return;
+        group.innerHTML = '';
+        dots.innerHTML = '';
+
+        const width = 500, height = 200;
+        const margin = { top: 20, bottom: 30, left: 40, right: 20 };
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = height - margin.top - margin.bottom;
+        const maxVal = 12;
+
+        function getX(idx) { return margin.left + (idx / (serviceMonths.length - 1)) * chartWidth; }
+        function getY(val) { return margin.top + chartHeight - (val / maxVal) * chartHeight; }
+
+        Object.keys(serviceData).forEach(series => {
+            if (!serviceVisibility[series]) return;
+            const values = serviceData[series];
+            const color = serviceColors[series];
+            let pathD = '';
+            values.forEach((val, idx) => {
+                const x = getX(idx), y = getY(val);
+                pathD += (idx === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+            });
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', pathD);
+            path.setAttribute('stroke', color);
+            path.setAttribute('stroke-width', '2.5');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke-linecap', 'round');
+            path.setAttribute('stroke-linejoin', 'round');
+            group.appendChild(path);
+
+            values.forEach((val, idx) => {
+                const x = getX(idx), y = getY(val);
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', x);
+                circle.setAttribute('cy', y);
+                circle.setAttribute('r', '4');
+                circle.setAttribute('fill', color);
+                circle.setAttribute('stroke', '#fff');
+                circle.setAttribute('stroke-width', '1');
+                dots.appendChild(circle);
+            });
+        });
+    }
+    window.drawServiceChart = drawServiceChart;
+
+    document.querySelectorAll('.service-legend').forEach(item => {
+        item.addEventListener('click', function () {
+            const series = this.dataset.series;
+            serviceVisibility[series] = !serviceVisibility[series];
+            const dot = this.querySelector('.inline-block');
+            dot.style.opacity = serviceVisibility[series] ? '1' : '0.3';
+            drawServiceChart();
+        });
+    });
+
+    const diseaseMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    var diseaseData = {
+        dengue: [2, 4, 3, 5, 7, 4],
+        influenza: [5, 7, 6, 8, 6, 3],
+        foodPoisoning: [1, 2, 4, 3, 5, 2],
+        leptospirosis: [0, 1, 2, 1, 3, 1]
+    };
+    const diseaseColors = { dengue: '#ef4444', influenza: '#eab308', foodPoisoning: '#22c55e', leptospirosis: '#a855f7' };
+    var diseaseVisibility = { dengue: true, influenza: true, foodPoisoning: true, leptospirosis: true };
+
+    function drawDiseaseChart() {
+        const group = document.getElementById('diseaseLineGroup');
+        const dots = document.getElementById('diseaseDotsGroup');
+        if (!group || !dots) return;
+        group.innerHTML = '';
+        dots.innerHTML = '';
+
+        const width = 500, height = 200;
+        const margin = { top: 20, bottom: 30, left: 40, right: 20 };
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = height - margin.top - margin.bottom;
+        const maxVal = 10;
+
+        function getX(idx) { return margin.left + (idx / (diseaseMonths.length - 1)) * chartWidth; }
+        function getY(val) { return margin.top + chartHeight - (val / maxVal) * chartHeight; }
+
+        Object.keys(diseaseData).forEach(series => {
+            if (!diseaseVisibility[series]) return;
+            const values = diseaseData[series];
+            const color = diseaseColors[series];
+            let pathD = '';
+            values.forEach((val, idx) => {
+                const x = getX(idx), y = getY(val);
+                pathD += (idx === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+            });
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', pathD);
+            path.setAttribute('stroke', color);
+            path.setAttribute('stroke-width', '2.5');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke-linecap', 'round');
+            path.setAttribute('stroke-linejoin', 'round');
+            group.appendChild(path);
+
+            values.forEach((val, idx) => {
+                const x = getX(idx), y = getY(val);
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', x);
+                circle.setAttribute('cy', y);
+                circle.setAttribute('r', '4');
+                circle.setAttribute('fill', color);
+                circle.setAttribute('stroke', '#fff');
+                circle.setAttribute('stroke-width', '1');
+                dots.appendChild(circle);
+            });
+        });
+    }
+    window.drawDiseaseChart = drawDiseaseChart;
+
+    document.querySelectorAll('.disease-legend').forEach(item => {
+        item.addEventListener('click', function () {
+            const series = this.dataset.series;
+            diseaseVisibility[series] = !diseaseVisibility[series];
+            const dot = this.querySelector('.inline-block');
+            dot.style.opacity = diseaseVisibility[series] ? '1' : '0.3';
+            drawDiseaseChart();
+        });
+    });
+
+    // Service Distribution donut — data lives in a shared variable (not a
+    // local const) so refreshData() can update it between redraws.
+    var donutData = [
+        { label: 'Health Center', percentage: 35.7, color: '#3b82f6' },
+        { label: 'Sanitation', percentage: 42.9, color: '#10b981' },
+        { label: 'Immunization', percentage: 21.4, color: '#f59e0b' },
+        { label: 'Wastewater', percentage: 0, color: '#8b5cf6' }
+    ];
+
+    function drawDonut() {
+        const container = document.getElementById('donutSegments');
+        if (!container) return;
+        container.innerHTML = '';
+
+        const radius = 80;
+        const circumference = 2 * Math.PI * radius;
+        let cumulativeOffset = 0;
+
+        donutData.forEach(seg => {
+            const percent = seg.percentage;
+            if (percent === 0) return;
+
+            const dashLength = (percent / 100) * circumference;
+            const dashArray = dashLength + ' ' + (circumference - dashLength);
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', '100');
+            circle.setAttribute('cy', '100');
+            circle.setAttribute('r', radius);
+            circle.setAttribute('fill', 'none');
+            circle.setAttribute('stroke', seg.color);
+            circle.setAttribute('stroke-width', '30');
+            circle.setAttribute('stroke-dasharray', dashArray);
+            circle.setAttribute('stroke-dashoffset', -cumulativeOffset);
+            circle.setAttribute('stroke-linecap', 'round');
+            circle.style.cursor = 'pointer';
+
+            circle.dataset.label = seg.label;
+            circle.dataset.percentage = seg.percentage;
+
+            const startAngleFrom3 = (-cumulativeOffset / circumference) * 360;
+            const midAngleFrom3 = startAngleFrom3 + (dashLength / 2 / circumference) * 360;
+            let midAngleFromTop = midAngleFrom3 + 90;
+            midAngleFromTop = ((midAngleFromTop % 360) + 360) % 360;
+            circle.dataset.midpointAngle = midAngleFromTop;
+
+            container.appendChild(circle);
+            cumulativeOffset += dashLength;
+        });
+    }
+    window.drawDonut = drawDonut;
+
+    function initDonutTooltip() {
+        const donutSvg = document.getElementById('donutSvg');
+        const donutTip = document.getElementById('donutTooltip');
+        const donutTipText = document.getElementById('tooltipText');
+        if (!donutSvg || !donutTip || !donutTipText) return;
+
+        const container = donutSvg.parentElement;
+
+        donutTip.style.position = 'absolute';
+        donutTip.style.left = '0px';
+        donutTip.style.top = '0px';
+        donutTip.style.transform = 'translate(-50%, -50%)';
+        donutTip.style.opacity = '0';
+        donutTip.style.zIndex = '50';
+
+        const circles = document.querySelectorAll('#donutSegments circle');
+        if (circles.length === 0) return;
+
+        circles.forEach(circle => {
+            const label = circle.dataset.label;
+            const percentage = parseFloat(circle.dataset.percentage);
+            const midAngleDeg = parseFloat(circle.dataset.midpointAngle);
+            const angleRad = midAngleDeg * Math.PI / 180;
+
+            const positionTooltip = () => {
+                const svgRect = donutSvg.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                const centerX = (svgRect.left - containerRect.left) + svgRect.width / 2;
+                const centerY = (svgRect.top - containerRect.top) + svgRect.height / 2;
+
+                const viewBoxSize = 200;
+                const svgSize = Math.min(donutSvg.clientWidth, donutSvg.clientHeight);
+                const scale = svgSize / viewBoxSize;
+                const ringCenterRadius = 80 * scale;
+
+                const x = centerX + ringCenterRadius * Math.sin(angleRad);
+                const y = centerY - ringCenterRadius * Math.cos(angleRad);
+
+                donutTip.style.left = x + 'px';
+                donutTip.style.top = y + 'px';
+                donutTipText.textContent = label + ' (' + percentage + '%)';
+            };
+
+            circle.addEventListener('mouseenter', function () { positionTooltip(); donutTip.style.opacity = '1'; });
+            circle.addEventListener('mousemove', positionTooltip);
+            circle.addEventListener('mouseleave', function () { donutTip.style.opacity = '0'; });
+        });
+    }
+    window.initDonutTooltip = initDonutTooltip;
+
+    drawServiceChart();
+    drawDiseaseChart();
+    drawDonut();
+    setTimeout(initDonutTooltip, 300);
+
+    // =====================================================================
     // AUTO-REFRESH
     // =====================================================================
     var refreshTimer = null;
@@ -1617,6 +1963,25 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         staffChart.updateOptions(buildStaffOptions(sortedStaff()), true, true);
         updateTrendChart();
+
+        // Jitter and redraw the integrated service / disease / donut widgets
+        Object.keys(serviceData).forEach(function(key) {
+            serviceData[key] = serviceData[key].map(function(v) { return Math.max(0, Math.round(v + (Math.random() * 2 - 1))); });
+        });
+        drawServiceChart();
+
+        Object.keys(diseaseData).forEach(function(key) {
+            diseaseData[key] = diseaseData[key].map(function(v) { return Math.max(0, Math.round(v + (Math.random() * 2 - 1))); });
+        });
+        drawDiseaseChart();
+
+        donutData = donutData.map(function(seg) {
+            var jitter = seg.percentage === 0 ? 0 : (Math.random() * 4 - 2);
+            return { label: seg.label, color: seg.color, percentage: Math.max(0, Math.round((seg.percentage + jitter) * 10) / 10) };
+        });
+        drawDonut();
+        initDonutTooltip();
+
         lastUpdated = new Date();
         tickLastUpdated();
         
