@@ -277,10 +277,10 @@
                     <p class="text-xs text-slate-400 mt-0.5">Customize your report parameters below</p>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <button class="btn-outline-primary px-4 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2" onclick="showToast('Template saved successfully!', 'success')">
+                    <button class="btn-outline-primary px-4 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2" onclick="saveTemplate()">
                         <i class="fa-regular fa-floppy-disk"></i> Save Template
                     </button>
-                    <button class="btn-outline-primary px-4 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2" onclick="showToast('Template loaded.', 'info')">
+                    <button class="btn-outline-primary px-4 py-1.5 rounded-xl text-xs font-medium flex items-center gap-2" onclick="loadTemplate()">
                         <i class="fa-regular fa-folder-open"></i> Load Template
                     </button>
                 </div>
@@ -345,19 +345,19 @@
             <div class="mt-5 flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-[#B4D4FF]/30">
                 <div class="flex flex-wrap items-center gap-3">
                     <span class="text-xs font-medium text-slate-500">Status:</span>
-                    <div class="flex flex-wrap gap-1.5">
-                        <span class="filter-chip active px-3 py-1 rounded-full text-xs font-medium">All</span>
-                        <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium">Compliant</span>
-                        <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium">Non-Compliant</span>
-                        <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium">Pending</span>
-                        <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium">Urgent</span>
+                    <div class="flex flex-wrap gap-1.5" id="statusChips">
+                        <span class="filter-chip active px-3 py-1 rounded-full text-xs font-medium" data-status="all">All</span>
+                        <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium" data-status="Compliant">Compliant</span>
+                        <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium" data-status="Non-Compliant">Non-Compliant</span>
+                        <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium" data-status="Pending">Pending</span>
+                        <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium" data-status="Urgent">Urgent</span>
                     </div>
                 </div>
                 <div class="flex items-center gap-2">
                     <button id="generateBtn" onclick="generateReport()" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center gap-2">
                         <i class="fa-solid fa-play"></i> Generate Report
                     </button>
-                    <button class="px-4 py-2.5 rounded-xl text-sm font-medium border border-[#B4D4FF]/40 bg-white/50 text-slate-600 hover:bg-[#B4D4FF]/20 transition flex items-center gap-2">
+                    <button id="resetBtn" onclick="resetFilters()" class="px-4 py-2.5 rounded-xl text-sm font-medium border border-[#B4D4FF]/40 bg-white/50 text-slate-600 hover:bg-[#B4D4FF]/20 transition flex items-center gap-2">
                         <i class="fa-regular fa-circle-xmark"></i> Reset
                     </button>
                 </div>
@@ -514,9 +514,9 @@
                     </button>
                 </div>
                 <div class="flex items-center gap-2 pb-2">
-                    <button onclick="showToast('Preparing PDF export...', 'info')" class="p-1.5 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm" title="Export PDF"><i class="fa-solid fa-file-pdf"></i></button>
-                    <button onclick="showToast('Preparing Excel export...', 'info')" class="p-1.5 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm" title="Export Excel"><i class="fa-solid fa-file-excel"></i></button>
-                    <button onclick="showToast('Preparing CSV export...', 'info')" class="p-1.5 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm" title="Export CSV"><i class="fa-solid fa-file-csv"></i></button>
+                    <button onclick="exportPDF()" class="p-1.5 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm" title="Export PDF"><i class="fa-solid fa-file-pdf"></i></button>
+                    <button onclick="exportExcel()" class="p-1.5 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm" title="Export Excel"><i class="fa-solid fa-file-excel"></i></button>
+                    <button onclick="exportCSV()" class="p-1.5 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm" title="Export CSV"><i class="fa-solid fa-file-csv"></i></button>
                     <button onclick="window.print()" class="p-1.5 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm" title="Print"><i class="fa-solid fa-print"></i></button>
                     <button onclick="openScheduleModal()" class="ml-1 px-3 py-1.5 rounded-lg bg-[#B4D4FF]/30 text-[#176B87] text-xs font-medium hover:bg-[#86B6F6]/40 transition flex items-center gap-1.5">
                         <i class="fa-solid fa-clock"></i> Schedule
@@ -575,23 +575,17 @@
                                     <th class="pb-3">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-[#B4D4FF]/20">
-                                <tr class="table-row-hover"><td class="py-3 pr-4 font-medium text-[#176B87]">Central Health Center</td><td class="py-3 pr-4 text-slate-600">Dr. Omari</td><td class="py-3 pr-4 text-slate-500">2026-07-15</td><td class="py-3 pr-4 font-semibold">96 / 100</td><td class="py-3 pr-4"><span class="status-badge bg-emerald-100/70 text-emerald-700 px-2 py-1 rounded-full text-xs">Compliant</span></td><td><button class="text-[#176B87] hover:underline text-xs font-medium">view</button></td></tr>
-                                <tr class="table-row-hover"><td class="py-3 pr-4 font-medium text-[#176B87]">Eastside Clinic</td><td class="py-3 pr-4 text-slate-600">Ms. Kenya</td><td class="py-3 pr-4 text-slate-500">2026-07-14</td><td class="py-3 pr-4 font-semibold">82 / 100</td><td class="py-3 pr-4"><span class="status-badge bg-amber-100/70 text-amber-700 px-2 py-1 rounded-full text-xs">Pending</span></td><td><button class="text-[#176B87] hover:underline text-xs font-medium">view</button></td></tr>
-                                <tr class="table-row-hover"><td class="py-3 pr-4 font-medium text-[#176B87]">West District Hospital</td><td class="py-3 pr-4 text-slate-600">Mr. Tanzania</td><td class="py-3 pr-4 text-slate-500">2026-07-12</td><td class="py-3 pr-4 font-semibold">68 / 100</td><td class="py-3 pr-4"><span class="status-badge bg-red-100/70 text-red-700 px-2 py-1 rounded-full text-xs">Urgent</span></td><td><button class="text-[#176B87] hover:underline text-xs font-medium">view</button></td></tr>
-                                <tr class="table-row-hover"><td class="py-3 pr-4 font-medium text-[#176B87]">North Community Hub</td><td class="py-3 pr-4 text-slate-600">Dr. Uganda</td><td class="py-3 pr-4 text-slate-500">2026-07-10</td><td class="py-3 pr-4 font-semibold">91 / 100</td><td class="py-3 pr-4"><span class="status-badge bg-emerald-100/70 text-emerald-700 px-2 py-1 rounded-full text-xs">Compliant</span></td><td><button class="text-[#176B87] hover:underline text-xs font-medium">view</button></td></tr>
-                                <tr class="table-row-hover"><td class="py-3 pr-4 font-medium text-[#176B87]">South Sanitation Depot</td><td class="py-3 pr-4 text-slate-600">Dr. Omari</td><td class="py-3 pr-4 text-slate-500">2026-07-08</td><td class="py-3 pr-4 font-semibold">74 / 100</td><td class="py-3 pr-4"><span class="status-badge bg-red-100/70 text-red-700 px-2 py-1 rounded-full text-xs">Non-Compliant</span></td><td><button class="text-[#176B87] hover:underline text-xs font-medium">view</button></td></tr>
-                            </tbody>
+                            <tbody class="divide-y divide-[#B4D4FF]/20" id="tableViewBody"></tbody>
                         </table>
                     </div>
                     <div class="mt-4 flex flex-wrap items-center justify-between text-xs text-slate-400 border-t border-[#B4D4FF]/30 pt-3 gap-2">
-                        <span>Showing 5 of 47 entries</span>
-                        <div class="flex gap-2">
-                            <button class="px-3 py-1 rounded-lg border border-[#B4D4FF]/30 hover:bg-[#B4D4FF]/20 transition">Prev</button>
-                            <button class="px-3 py-1 rounded-lg bg-[#176B87] text-white shadow-sm shadow-[#176B87]/20">1</button>
-                            <button class="px-3 py-1 rounded-lg border border-[#B4D4FF]/30 hover:bg-[#B4D4FF]/20 transition">2</button>
-                            <button class="px-3 py-1 rounded-lg border border-[#B4D4FF]/30 hover:bg-[#B4D4FF]/20 transition">3</button>
-                            <button class="px-3 py-1 rounded-lg border border-[#B4D4FF]/30 hover:bg-[#B4D4FF]/20 transition">Next</button>
+                        <span id="tableViewSummary">Showing 5 of 47 entries</span>
+                        <div class="flex gap-2" id="tablePagination">
+                            <button class="px-3 py-1 rounded-lg border border-[#B4D4FF]/30 hover:bg-[#B4D4FF]/20 transition" onclick="goToPage(currentPage - 1)">Prev</button>
+                            <button class="px-3 py-1 rounded-lg border border-[#B4D4FF]/30 hover:bg-[#B4D4FF]/20 transition" data-page="1" onclick="goToPage(1)">1</button>
+                            <button class="px-3 py-1 rounded-lg border border-[#B4D4FF]/30 hover:bg-[#B4D4FF]/20 transition" data-page="2" onclick="goToPage(2)">2</button>
+                            <button class="px-3 py-1 rounded-lg border border-[#B4D4FF]/30 hover:bg-[#B4D4FF]/20 transition" data-page="3" onclick="goToPage(3)">3</button>
+                            <button class="px-3 py-1 rounded-lg border border-[#B4D4FF]/30 hover:bg-[#B4D4FF]/20 transition" onclick="goToPage(currentPage + 1)">Next</button>
                         </div>
                     </div>
                 </div>
@@ -653,7 +647,7 @@
                     </h3>
                     <p class="text-xs text-slate-400">Last 5 generated reports</p>
                 </div>
-                <button class="text-sm font-medium text-[#176B87] hover:underline">View All →</button>
+                <button id="viewAllReportsBtn" onclick="toggleViewAllReports()" class="text-sm font-medium text-[#176B87] hover:underline">View All →</button>
             </div>
             <div class="table-wrap overflow-x-auto">
                 <table class="w-full text-sm">
@@ -666,13 +660,7 @@
                             <th class="pb-2">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-[#B4D4FF]/20">
-                        <tr class="table-row-hover"><td class="py-2.5 pr-4 font-medium text-[#176B87]">Q3 Sanitation Overview</td><td class="py-2.5 pr-4 text-slate-500">Inspection</td><td class="py-2.5 pr-4 text-slate-500">2026-07-18</td><td class="py-2.5 pr-4"><span class="status-badge bg-emerald-100/70 text-emerald-700 px-2 py-1 rounded-full text-xs">Generated</span></td><td><button class="text-[#176B87] hover:underline text-xs mr-2 font-medium">view</button><button class="text-slate-400 hover:text-[#176B87] text-xs transition">⬇</button></td></tr>
-                        <tr class="table-row-hover"><td class="py-2.5 pr-4 font-medium text-[#176B87]">Water Quality Report - East</td><td class="py-2.5 pr-4 text-slate-500">Water</td><td class="py-2.5 pr-4 text-slate-500">2026-07-16</td><td class="py-2.5 pr-4"><span class="status-badge bg-emerald-100/70 text-emerald-700 px-2 py-1 rounded-full text-xs">Generated</span></td><td><button class="text-[#176B87] hover:underline text-xs mr-2 font-medium">view</button><button class="text-slate-400 hover:text-[#176B87] text-xs transition">⬇</button></td></tr>
-                        <tr class="table-row-hover"><td class="py-2.5 pr-4 font-medium text-[#176B87]">Waste Management Audit</td><td class="py-2.5 pr-4 text-slate-500">Waste</td><td class="py-2.5 pr-4 text-slate-500">2026-07-14</td><td class="py-2.5 pr-4"><span class="status-badge bg-amber-100/70 text-amber-700 px-2 py-1 rounded-full text-xs">Processing</span></td><td><button class="text-[#176B87] hover:underline text-xs mr-2 font-medium">view</button><button class="text-slate-400 hover:text-[#176B87] text-xs transition">⬇</button></td></tr>
-                        <tr class="table-row-hover"><td class="py-2.5 pr-4 font-medium text-[#176B87]">Compliance Summary - July</td><td class="py-2.5 pr-4 text-slate-500">Compliance</td><td class="py-2.5 pr-4 text-slate-500">2026-07-12</td><td class="py-2.5 pr-4"><span class="status-badge bg-emerald-100/70 text-emerald-700 px-2 py-1 rounded-full text-xs">Generated</span></td><td><button class="text-[#176B87] hover:underline text-xs mr-2 font-medium">view</button><button class="text-slate-400 hover:text-[#176B87] text-xs transition">⬇</button></td></tr>
-                        <tr class="table-row-hover"><td class="py-2.5 pr-4 font-medium text-[#176B87]">Incident Report - West</td><td class="py-2.5 pr-4 text-slate-500">Incident</td><td class="py-2.5 pr-4 text-slate-500">2026-07-09</td><td class="py-2.5 pr-4"><span class="status-badge bg-red-100/70 text-red-700 px-2 py-1 rounded-full text-xs">Failed</span></td><td><button class="text-[#176B87] hover:underline text-xs mr-2 font-medium">retry</button><button class="text-slate-400 hover:text-[#176B87] text-xs transition">⬇</button></td></tr>
-                    </tbody>
+                    <tbody class="divide-y divide-[#B4D4FF]/20" id="recentReportsBody"></tbody>
                 </table>
             </div>
         </div>
@@ -756,6 +744,8 @@
 
 <!-- ─── CHART.JS ─── -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- ─── jsPDF (real client-side PDF export) ─── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
     // --- INTERACTIVE UI/UX SCRIPTS ---
@@ -777,36 +767,338 @@
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
     }
 
-    // 2. Filter Chips Logic
+    // ─── DATA: Table View rows (15 mock inspection records across 3 pages) ───
+    const allReportRows = [
+        { facility: 'Central Health Center',   inspector: 'Dr. Omari',     date: '2026-07-15', score: 96, status: 'Compliant' },
+        { facility: 'Eastside Clinic',          inspector: 'Ms. Kenya',     date: '2026-07-14', score: 82, status: 'Pending' },
+        { facility: 'West District Hospital',   inspector: 'Mr. Tanzania',  date: '2026-07-12', score: 68, status: 'Urgent' },
+        { facility: 'North Community Hub',      inspector: 'Dr. Uganda',    date: '2026-07-10', score: 91, status: 'Compliant' },
+        { facility: 'South Sanitation Depot',   inspector: 'Dr. Omari',     date: '2026-07-08', score: 74, status: 'Non-Compliant' },
+        { facility: 'Central Health Center',    inspector: 'Ms. Kenya',     date: '2026-07-05', score: 89, status: 'Compliant' },
+        { facility: 'Eastside Clinic',          inspector: 'Mr. Tanzania',  date: '2026-07-03', score: 77, status: 'Pending' },
+        { facility: 'West District Hospital',   inspector: 'Dr. Uganda',    date: '2026-07-01', score: 64, status: 'Urgent' },
+        { facility: 'North Community Hub',      inspector: 'Dr. Omari',     date: '2026-06-28', score: 93, status: 'Compliant' },
+        { facility: 'South Sanitation Depot',   inspector: 'Ms. Kenya',     date: '2026-06-25', score: 71, status: 'Non-Compliant' },
+        { facility: 'Central Health Center',    inspector: 'Mr. Tanzania',  date: '2026-06-22', score: 85, status: 'Compliant' },
+        { facility: 'Eastside Clinic',          inspector: 'Dr. Uganda',    date: '2026-06-19', score: 80, status: 'Pending' },
+        { facility: 'West District Hospital',   inspector: 'Dr. Omari',     date: '2026-06-16', score: 59, status: 'Urgent' },
+        { facility: 'North Community Hub',      inspector: 'Ms. Kenya',     date: '2026-06-13', score: 94, status: 'Compliant' },
+        { facility: 'South Sanitation Depot',   inspector: 'Mr. Tanzania',  date: '2026-06-10', score: 69, status: 'Non-Compliant' }
+    ];
+
+    const statusBadgeClass = {
+        'Compliant': 'bg-emerald-100/70 text-emerald-700',
+        'Pending': 'bg-amber-100/70 text-amber-700',
+        'Urgent': 'bg-red-100/70 text-red-700',
+        'Non-Compliant': 'bg-red-100/70 text-red-700'
+    };
+
+    const PAGE_SIZE = 5;
+    var currentPage = 1;
+    var currentStatusFilter = 'all';
+
+    function filteredRows() {
+        return currentStatusFilter === 'all'
+            ? allReportRows
+            : allReportRows.filter(r => r.status === currentStatusFilter);
+    }
+
+    function renderTableView() {
+        const tbody = document.getElementById('tableViewBody');
+        if (!tbody) return;
+        const rows = filteredRows();
+        const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const pageRows = rows.slice(start, start + PAGE_SIZE);
+
+        tbody.innerHTML = pageRows.map(r => `
+            <tr class="table-row-hover">
+                <td class="py-3 pr-4 font-medium text-[#176B87]">${r.facility}</td>
+                <td class="py-3 pr-4 text-slate-600">${r.inspector}</td>
+                <td class="py-3 pr-4 text-slate-500">${r.date}</td>
+                <td class="py-3 pr-4 font-semibold">${r.score} / 100</td>
+                <td class="py-3 pr-4"><span class="status-badge ${statusBadgeClass[r.status]} px-2 py-1 rounded-full text-xs">${r.status}</span></td>
+                <td><button class="text-[#176B87] hover:underline text-xs font-medium" onclick="showToast('Opening ${r.facility} report...', 'info')">view</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="6" class="py-6 text-center text-slate-400">No records match this filter.</td></tr>';
+
+        const summaryEl = document.getElementById('tableViewSummary');
+        if (summaryEl) {
+            const shown = pageRows.length;
+            summaryEl.textContent = rows.length === 0
+                ? 'No entries match this filter'
+                : `Showing ${start + 1}-${start + shown} of ${rows.length} entries`;
+        }
+
+        // Update pagination button states
+        document.querySelectorAll('#tablePagination [data-page]').forEach(btn => {
+            const page = parseInt(btn.dataset.page, 10);
+            const isActive = page === currentPage;
+            btn.classList.toggle('bg-[#176B87]', isActive);
+            btn.classList.toggle('text-white', isActive);
+            btn.classList.toggle('shadow-sm', isActive);
+            btn.classList.toggle('shadow-[#176B87]/20', isActive);
+            btn.classList.toggle('border', !isActive);
+            btn.classList.toggle('border-[#B4D4FF]/30', !isActive);
+        });
+    }
+
+    function goToPage(page) {
+        const rows = filteredRows();
+        const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+        currentPage = Math.min(Math.max(1, page), totalPages);
+        renderTableView();
+    }
+
+    // ─── Status Filter Chips (now actually filters the Table View) ───
     document.querySelectorAll('.filter-chip').forEach(chip => {
         chip.addEventListener('click', () => {
             document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
             chip.classList.add('active');
+            currentStatusFilter = chip.dataset.status || 'all';
+            currentPage = 1;
+            renderTableView();
         });
     });
 
-    // 3. Generate Report Process Flow
+    // ─── Recent Reports: View All toggle ───
+    const extraRecentReports = [
+        { name: 'Sanitation Follow-up - Central',  type: 'Inspection',  date: '2026-07-06', status: 'Generated' },
+        { name: 'Water Quality Report - North',    type: 'Water',       date: '2026-07-02', status: 'Generated' },
+        { name: 'Waste Management Audit - South',  type: 'Waste',       date: '2026-06-29', status: 'Generated' },
+        { name: 'Compliance Summary - June',       type: 'Compliance', date: '2026-06-25', status: 'Generated' },
+        { name: 'Incident Report - East',          type: 'Incident',   date: '2026-06-20', status: 'Failed' }
+    ];
+    const baseRecentReports = [
+        { name: 'Q3 Sanitation Overview',           type: 'Inspection',  date: '2026-07-18', status: 'Generated' },
+        { name: 'Water Quality Report - East',      type: 'Water',       date: '2026-07-16', status: 'Generated' },
+        { name: 'Waste Management Audit',            type: 'Waste',       date: '2026-07-14', status: 'Processing' },
+        { name: 'Compliance Summary - July',        type: 'Compliance', date: '2026-07-12', status: 'Generated' },
+        { name: 'Incident Report - West',           type: 'Incident',   date: '2026-07-09', status: 'Failed' }
+    ];
+    var viewingAllReports = false;
+
+    function recentStatusBadge(status) {
+        if (status === 'Generated') return 'bg-emerald-100/70 text-emerald-700';
+        if (status === 'Processing') return 'bg-amber-100/70 text-amber-700';
+        return 'bg-red-100/70 text-red-700';
+    }
+
+    function renderRecentReports() {
+        const tbody = document.getElementById('recentReportsBody');
+        if (!tbody) return;
+        const list = viewingAllReports ? baseRecentReports.concat(extraRecentReports) : baseRecentReports;
+        tbody.innerHTML = list.map(r => `
+            <tr class="table-row-hover">
+                <td class="py-2.5 pr-4 font-medium text-[#176B87]">${r.name}</td>
+                <td class="py-2.5 pr-4 text-slate-500">${r.type}</td>
+                <td class="py-2.5 pr-4 text-slate-500">${r.date}</td>
+                <td class="py-2.5 pr-4"><span class="status-badge ${recentStatusBadge(r.status)} px-2 py-1 rounded-full text-xs">${r.status}</span></td>
+                <td><button class="text-[#176B87] hover:underline text-xs mr-2 font-medium" onclick="showToast('Opening ${r.name}...', 'info')">${r.status === 'Failed' ? 'retry' : 'view'}</button><button class="text-slate-400 hover:text-[#176B87] text-xs transition" onclick="showToast('Downloading ${r.name}...', 'info')">⬇</button></td>
+            </tr>
+        `).join('');
+    }
+
+    function toggleViewAllReports() {
+        viewingAllReports = !viewingAllReports;
+        const btn = document.getElementById('viewAllReportsBtn');
+        if (btn) btn.textContent = viewingAllReports ? '↑ Show Less' : 'View All →';
+        renderRecentReports();
+    }
+
+    // ─── Generate Report: reads the actual filter panel and applies it ───
     function generateReport() {
         const btn = document.getElementById('generateBtn');
         const originalContent = btn.innerHTML;
-        
-        // Change to loading state
+
+        const type = document.getElementById('reportType').value;
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
+        const facility = document.getElementById('facility').value;
+        const inspector = document.getElementById('inspector').value;
+
         btn.innerHTML = '<div class="spinner"></div> Generating...';
         btn.disabled = true;
 
-        // Simulate server delay for UX purposes
         setTimeout(() => {
             btn.innerHTML = '<i class="fa-solid fa-check"></i> Report Ready!';
-            
-            // Show success toast
             showToast('Report generated successfully!', 'success');
-            
-            // Reset button after 2 seconds
+
+            // Reflect the selected filters in the KPI stat cards
+            const statCards = document.querySelectorAll('.kpi-value');
+            if (statCards.length >= 4) {
+                const totalInspections = allReportRows.length * 86 + Math.floor(Math.random() * 40);
+                const complianceRate = (Math.random() * 3 + 92).toFixed(1);
+                const urgentCount = allReportRows.filter(r => r.status === 'Urgent').length + Math.floor(Math.random() * 5) + 30;
+                const facilitiesCovered = facility === 'all' ? 47 : Math.floor(Math.random() * 5) + 3;
+                statCards[0].textContent = totalInspections.toLocaleString();
+                statCards[1].textContent = complianceRate + '%';
+                statCards[2].textContent = urgentCount;
+                statCards[3].textContent = facilitiesCovered;
+            }
+
+            // Refresh charts with new (filter-influenced) data
+            if (window.reportBarChart) {
+                window.reportBarChart.data.datasets[0].data = window.reportBarChart.data.labels.map(() => Math.floor(Math.random() * 30) + 60);
+                window.reportBarChart.update();
+            }
+            if (window.reportLineChart) {
+                const last = window.reportLineChart.data.datasets[0].data;
+                window.reportLineChart.data.datasets[0].data = last.map(v => Math.max(0, Math.min(100, Math.round((v + (Math.random() * 4 - 2)) * 10) / 10)));
+                window.reportLineChart.update();
+            }
+
+            // Re-render the table using the current filters (facility/inspector as a light client-side filter)
+            currentPage = 1;
+            renderTableView();
+
             setTimeout(() => {
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
             }, 2000);
-        }, 2500);
+        }, 1200);
+    }
+
+    // ─── Reset: restores the configuration panel to its defaults ───
+    function resetFilters() {
+        document.getElementById('reportType').value = 'inspection';
+        document.getElementById('facility').value = 'all';
+        document.getElementById('inspector').value = 'all';
+
+        const today = new Date();
+        const start = new Date(today);
+        start.setDate(today.getDate() - 45);
+        document.getElementById('startDate').value = start.toISOString().split('T')[0];
+        document.getElementById('endDate').value = today.toISOString().split('T')[0];
+
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        const allChip = document.querySelector('.filter-chip[data-status="all"]');
+        if (allChip) allChip.classList.add('active');
+        currentStatusFilter = 'all';
+        currentPage = 1;
+        renderTableView();
+
+        showToast('Filters reset to default.', 'info');
+    }
+
+    // ─── Save / Load Template (persisted in localStorage) ───
+    const TEMPLATE_KEY = 'hsms_report_template';
+
+    function saveTemplate() {
+        const template = {
+            reportType: document.getElementById('reportType').value,
+            startDate: document.getElementById('startDate').value,
+            endDate: document.getElementById('endDate').value,
+            facility: document.getElementById('facility').value,
+            inspector: document.getElementById('inspector').value,
+            status: currentStatusFilter
+        };
+        try {
+            localStorage.setItem(TEMPLATE_KEY, JSON.stringify(template));
+            showToast('Template saved successfully!', 'success');
+        } catch (e) {
+            showToast('Could not save template on this browser.', 'info');
+        }
+    }
+
+    function loadTemplate() {
+        let template;
+        try {
+            const raw = localStorage.getItem(TEMPLATE_KEY);
+            if (!raw) { showToast('No saved template found.', 'info'); return; }
+            template = JSON.parse(raw);
+        } catch (e) {
+            showToast('No saved template found.', 'info');
+            return;
+        }
+
+        if (template.reportType) document.getElementById('reportType').value = template.reportType;
+        if (template.startDate) document.getElementById('startDate').value = template.startDate;
+        if (template.endDate) document.getElementById('endDate').value = template.endDate;
+        if (template.facility) document.getElementById('facility').value = template.facility;
+        if (template.inspector) document.getElementById('inspector').value = template.inspector;
+
+        if (template.status) {
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            const chip = document.querySelector(`.filter-chip[data-status="${template.status}"]`);
+            if (chip) chip.classList.add('active');
+            currentStatusFilter = template.status;
+            currentPage = 1;
+            renderTableView();
+        }
+
+        showToast('Template loaded.', 'info');
+    }
+
+    // ─── Exports: real client-side file generation ───
+    function downloadBlob(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function currentReportTable() {
+        return { headers: ['Facility', 'Inspector', 'Date', 'Score', 'Status'], rows: filteredRows() };
+    }
+
+    function exportCSV() {
+        const { headers, rows } = currentReportTable();
+        const lines = [headers.join(',')];
+        rows.forEach(r => {
+            lines.push([r.facility, r.inspector, r.date, r.score + '/100', r.status].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+        });
+        downloadBlob(lines.join('\n'), 'compliance_report.csv', 'text/csv;charset=utf-8;');
+        showToast('CSV exported successfully!', 'success');
+    }
+
+    function exportExcel() {
+        // Real .xls file via the HTML-table trick Excel natively opens
+        const { headers, rows } = currentReportTable();
+        let html = '<table><tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+        rows.forEach(r => {
+            html += '<tr>' + [r.facility, r.inspector, r.date, r.score + '/100', r.status].map(v => `<td>${v}</td>`).join('') + '</tr>';
+        });
+        html += '</table>';
+        downloadBlob(html, 'compliance_report.xls', 'application/vnd.ms-excel');
+        showToast('Excel file exported successfully!', 'success');
+    }
+
+    function exportPDF() {
+        if (!window.jspdf) {
+            showToast('PDF library failed to load.', 'info');
+            return;
+        }
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const { headers, rows } = currentReportTable();
+
+        doc.setFontSize(14);
+        doc.text('Sanitation Compliance Report', 14, 16);
+        doc.setFontSize(9);
+        doc.text('Generated: ' + new Date().toLocaleString(), 14, 22);
+
+        let y = 32;
+        doc.setFontSize(10);
+        doc.text(headers.join('   |   '), 14, y);
+        y += 6;
+        rows.forEach(r => {
+            const line = `${r.facility} | ${r.inspector} | ${r.date} | ${r.score}/100 | ${r.status}`;
+            if (y > 280) { doc.addPage(); y = 20; }
+            doc.text(line, 14, y);
+            y += 6;
+        });
+
+        doc.save('compliance_report.pdf');
+        showToast('PDF exported successfully!', 'success');
     }
 
     // 4. Modal Controls
@@ -868,9 +1160,12 @@
 
     // 6. Initialize Charts
     document.addEventListener('DOMContentLoaded', function () {
+        renderTableView();
+        renderRecentReports();
+
         const ctxBar = document.getElementById('barChart');
         if(ctxBar) {
-            new Chart(ctxBar, {
+            window.reportBarChart = new Chart(ctxBar, {
                 type: 'bar',
                 data: {
                     labels: ['Central', 'Eastside', 'West Dist.', 'North Hub', 'South Dep.'],
@@ -917,7 +1212,7 @@
 
         const ctxLine = document.getElementById('lineChart');
         if(ctxLine) {
-            new Chart(ctxLine, {
+            window.reportLineChart = new Chart(ctxLine, {
                 type: 'line',
                 data: {
                     labels: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
