@@ -33,14 +33,20 @@ try {
     error_log('Inspections view: failed to load permits - ' . $e->getMessage());
 }
 
-// Employees for the Inspector dropdown/filter. TODO: if your employees
-// table has a role/department column that distinguishes inspectors,
-// filter for it here (e.g. array_filter by $e['department'] === 'Sanitation')
-// instead of listing every employee.
 $inspectors = [];
 try {
     $employeeModel = new Employee();
-    $inspectors = $employeeModel->all();
+    $allEmps = $employeeModel->all();
+    $inspectors = array_values(array_filter($allEmps, function($e) {
+        $primaryRole = $e['role'] ?? '';
+        $roleDesc = strtolower($e['role_description'] ?? '');
+        $dept = strtolower(trim($e['department'] ?? ''));
+        return (in_array($primaryRole, ['Sanitation Officer', 'Sanitation Director', 'Wastewater Lead']) || str_contains($roleDesc, 'inspector') || str_contains($roleDesc, 'officer'))
+            && ($dept === '' || str_contains($dept, 'sanitation') || str_contains($dept, 'permits'));
+    }));
+    if (empty($inspectors)) {
+        $inspectors = $allEmps;
+    }
 } catch (\Throwable $e) {
     error_log('Inspections view: failed to load employees - ' . $e->getMessage());
 }

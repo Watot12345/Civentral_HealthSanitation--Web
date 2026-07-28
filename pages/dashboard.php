@@ -4,7 +4,19 @@ session_start();
 
  include '../includes/header.php';
  include '../includes/sidebar.php'; 
+
+ if (!empty($_SESSION['flash_error'])):
 ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof toast !== 'undefined') {
+        toast.error(<?php echo json_encode($_SESSION['flash_error']); ?>, { title: 'Access Denied' });
+    } else if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+        ModalSystem.toast.error(<?php echo json_encode($_SESSION['flash_error']); ?>, { title: 'Access Denied' });
+    }
+});
+</script>
+<?php unset($_SESSION['flash_error']); endif; ?>
 <!-- ADD FONT AWESOME CDN -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
@@ -364,24 +376,49 @@ session_start();
     <div class="flex-1 px-6 pt-[26px] pb-4 flex flex-col min-h-0 overflow-y-auto custom-scroll animate-fadeOverlay dashboard-content">
 
         <!-- ============================================================ -->
-        <!-- PAGE HEADER                                                  -->
+        <!-- PAGE HEADER (Role-Aware Custom Dashboard)                    -->
         <!-- ============================================================ -->
+        <?php
+            $currentRole = trim($_SESSION['role'] ?? $_SESSION['role_description'] ?? 'System Admin');
+
+            if (strcasecmp($currentRole, 'Health Center Director') === 0) {
+                $dashTitle = 'Health Center Services Dashboard';
+                $dashSubtitle = 'Operational analytics, patient consultations & health center performance overview';
+                $dashBadge = 'Health Center Director';
+            } elseif (strcasecmp($currentRole, 'Sanitation Director') === 0) {
+                $dashTitle = 'Sanitation Permits Dashboard';
+                $dashSubtitle = 'Permit applications, environmental inspections & sanitation compliance metrics';
+                $dashBadge = 'Sanitation Director';
+            } elseif (strcasecmp($currentRole, 'Immunization Coordinator') === 0) {
+                $dashTitle = 'Immunization & Nutrition Dashboard';
+                $dashSubtitle = 'Child vaccination tracking, growth charts & nutrition assessment analytics';
+                $dashBadge = 'Immunization Coordinator';
+            } elseif (strcasecmp($currentRole, 'System Administrator') === 0 || strcasecmp($currentRole, 'System Admin') === 0) {
+                $dashTitle = 'System Overview';
+                $dashSubtitle = 'Real-time snapshot across all modules and system health';
+                $dashBadge = 'System Administrator';
+            } else {
+                $dashTitle = htmlspecialchars($currentRole) . ' Dashboard';
+                $dashSubtitle = 'Role-specific operational activity & module metrics';
+                $dashBadge = htmlspecialchars($currentRole);
+            }
+        ?>
         <div class="flex-shrink-0 mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
                 <div class="flex items-center gap-2 flex-wrap">
                     <h1 class="text-xl font-bold text-c3 flex items-center gap-2">
                         <i class="fas fa-gauge-high text-c2" aria-hidden="true"></i>
-                        System Overview
+                        <?php echo $dashTitle; ?>
                     </h1>
-                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-semibold">
-                        <i class="fas fa-user-shield text-[8px] mr-1" aria-hidden="true"></i> Admin
+                    <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-semibold flex items-center gap-1">
+                        <i class="fas fa-user-shield text-[9px]" aria-hidden="true"></i> <?php echo $dashBadge; ?>
                     </span>
                     <span class="flex items-center gap-1.5 text-[10px] text-emerald-600 ml-1">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse2" aria-hidden="true"></span>
                         Live
                     </span>
                 </div>
-                <p class="text-sm text-[#4a6080] mt-0.5">Real-time snapshot across all modules and system health</p>
+                <p class="text-sm text-[#4a6080] mt-0.5"><?php echo $dashSubtitle; ?></p>
             </div>
             <div class="flex items-center gap-2 flex-wrap">
                 <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
@@ -410,220 +447,311 @@ session_start();
         </div>
 
         <!-- ============================================================ -->
-        <!-- KPI ROW (6 cards)                                            -->
         <!-- ============================================================ -->
-        <div class="kpi-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 flex-shrink-0">
+        <!-- KPI ROW (Role-Specific 6 Dedicated Cards)                    -->
+        <!-- ============================================================ -->
+        <?php
+        $userRoleForKpi = trim($_SESSION['role'] ?? $_SESSION['role_description'] ?? 'System Admin');
 
-            <!-- KPI 1: Health Center Services -->
-            <a href="health-center.php" 
-               class="kpi-card relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-c2/20 hover:border-c2/40 cursor-pointer group block"
-               aria-label="Health Center Services: 1,847 patients served, 12.5% increase">
+        if (strcasecmp($userRoleForKpi, 'Health Center Director') === 0 || strcasecmp($userRoleForKpi, 'Doctor') === 0 || strcasecmp($userRoleForKpi, 'Nurse') === 0) {
+            // Health Center & Surveillance Domain (6 dedicated cards)
+            $kpiCards = [
+                [
+                    'title' => 'Patient Registry',
+                    'value' => '1,847',
+                    'label' => 'Total Patients',
+                    'badge' => '+12.5%',
+                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                    'sub' => 'vs last month',
+                    'url' => site_url('modules/healthservices/patients.php'),
+                    'icon' => 'fa-hospital',
+                    'color' => 'c2',
+                    'border_color' => 'from-c3 to-c2',
+                    'offset' => '16',
+                    'pct' => '84%'
+                ],
+                [
+                    'title' => 'Medical Consults',
+                    'value' => '342',
+                    'label' => 'Completed Consults',
+                    'badge' => '34 today',
+                    'badge_bg' => 'bg-teal-100 text-teal-700',
+                    'sub' => 'active consultations',
+                    'url' => site_url('modules/healthservices/consultations.php'),
+                    'icon' => 'fa-stethoscope',
+                    'color' => 'teal-600',
+                    'border_color' => 'from-teal-400 to-teal-600',
+                    'offset' => '12',
+                    'pct' => '88%'
+                ],
+                [
+                    'title' => 'Triage Assessments',
+                    'value' => '125',
+                    'label' => 'Triage Today',
+                    'badge' => '5 urgent',
+                    'badge_bg' => 'bg-amber-100 text-amber-700',
+                    'sub' => 'queued patients',
+                    'url' => site_url('modules/healthservices/triage.php'),
+                    'icon' => 'fa-heart-pulse',
+                    'color' => 'amber-600',
+                    'border_color' => 'from-amber-400 to-amber-600',
+                    'offset' => '10',
+                    'pct' => '90%'
+                ],
+                [
+                    'title' => 'Prescriptions Issued',
+                    'value' => '489',
+                    'label' => 'Prescriptions Dispensed',
+                    'badge' => '+8.2%',
+                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                    'sub' => 'pharmacy fulfilled',
+                    'url' => site_url('modules/healthservices/prescriptions.php'),
+                    'icon' => 'fa-prescription-bottle',
+                    'color' => 'blue-600',
+                    'border_color' => 'from-blue-400 to-blue-600',
+                    'offset' => '15',
+                    'pct' => '85%'
+                ],
+                [
+                    'title' => 'Health Surveillance',
+                    'value' => '234',
+                    'label' => 'Active Case Reports',
+                    'badge' => '166 resolved',
+                    'badge_bg' => 'bg-indigo-100 text-indigo-700',
+                    'sub' => 'disease monitoring',
+                    'url' => site_url('modules/surveillence/case_reports.php'),
+                    'icon' => 'fa-binoculars',
+                    'color' => 'indigo-600',
+                    'border_color' => 'from-indigo-400 to-indigo-600',
+                    'offset' => '32',
+                    'pct' => '68%'
+                ],
+                [
+                    'title' => 'Real-time Alerts',
+                    'value' => '1',
+                    'label' => 'Outbreak Watch Alert',
+                    'badge' => 'Critical Watch',
+                    'badge_bg' => 'bg-rose-100 text-rose-700',
+                    'sub' => 'immediate response',
+                    'url' => site_url('modules/surveillence/alerts.php'),
+                    'icon' => 'fa-bell',
+                    'color' => 'rose-600',
+                    'border_color' => 'from-rose-500 to-red-600',
+                    'offset' => '5',
+                    'pct' => '95%'
+                ]
+            ];
+        } elseif (strcasecmp($userRoleForKpi, 'Sanitation Director') === 0 || strcasecmp($userRoleForKpi, 'Inspector') === 0 || strcasecmp($userRoleForKpi, 'Permit Clerk') === 0) {
+            // Sanitation & Wastewater Domain (6 dedicated cards)
+            $kpiCards = [
+                [
+                    'title' => 'Sanitation Permits',
+                    'value' => '156',
+                    'label' => 'Active Permits Issued',
+                    'badge' => '3 pending',
+                    'badge_bg' => 'bg-amber-100 text-amber-700',
+                    'sub' => '87% approval',
+                    'url' => site_url('modules/sanitation/permit_applications.php'),
+                    'icon' => 'fa-file-signature',
+                    'color' => 'amber-600',
+                    'border_color' => 'from-amber-400 to-amber-600',
+                    'offset' => '13',
+                    'pct' => '87%'
+                ],
+                [
+                    'title' => 'Field Inspections',
+                    'value' => '89',
+                    'label' => 'Inspections Conducted',
+                    'badge' => '12 today',
+                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                    'sub' => 'sanitary compliance',
+                    'url' => site_url('modules/sanitation/inspections.php'),
+                    'icon' => 'fa-search',
+                    'color' => 'emerald-600',
+                    'border_color' => 'from-emerald-400 to-emerald-600',
+                    'offset' => '10',
+                    'pct' => '90%'
+                ],
+                [
+                    'title' => 'Permit Renewals',
+                    'value' => '42',
+                    'label' => 'Renewals Processing',
+                    'badge' => '5 due soon',
+                    'badge_bg' => 'bg-blue-100 text-blue-700',
+                    'sub' => 'annual renewal',
+                    'url' => site_url('modules/sanitation/renewals.php'),
+                    'icon' => 'fa-rotate',
+                    'color' => 'blue-600',
+                    'border_color' => 'from-blue-400 to-blue-600',
+                    'offset' => '18',
+                    'pct' => '82%'
+                ],
+                [
+                    'title' => 'Wastewater Requests',
+                    'value' => '23',
+                    'label' => 'Desludging Requests',
+                    'badge' => '5 pending',
+                    'badge_bg' => 'bg-purple-100 text-purple-700',
+                    'sub' => 'vs last month',
+                    'url' => site_url('modules/services/service_requests.php'),
+                    'icon' => 'fa-water',
+                    'color' => 'purple-600',
+                    'border_color' => 'from-purple-400 to-purple-600',
+                    'offset' => '23',
+                    'pct' => '77%'
+                ],
+                [
+                    'title' => 'Septic Registry',
+                    'value' => '1,284',
+                    'label' => 'Registered Tanks',
+                    'badge' => '+4.1%',
+                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                    'sub' => 'total recorded',
+                    'url' => site_url('modules/services/septic_tanks.php'),
+                    'icon' => 'fa-flask',
+                    'color' => 'indigo-600',
+                    'border_color' => 'from-indigo-400 to-indigo-600',
+                    'offset' => '8',
+                    'pct' => '92%'
+                ],
+                [
+                    'title' => 'Compliance Violations',
+                    'value' => '5',
+                    'label' => 'Corrective Action Orders',
+                    'badge' => '2 unresolved',
+                    'badge_bg' => 'bg-rose-100 text-rose-700',
+                    'sub' => 'enforcement active',
+                    'url' => site_url('pages/compliance_monitoring.php'),
+                    'icon' => 'fa-gavel',
+                    'color' => 'rose-600',
+                    'border_color' => 'from-rose-400 to-rose-600',
+                    'offset' => '20',
+                    'pct' => '80%'
+                ]
+            ];
+        } else {
+            // System Overview default 6 KPI cards (Admin / System-wide)
+            $kpiCards = [
+                [
+                    'title' => 'Health Center',
+                    'value' => '1,847',
+                    'label' => 'Patients Served',
+                    'badge' => '+12.5%',
+                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                    'sub' => 'vs last month',
+                    'url' => site_url('modules/healthservices/patients.php'),
+                    'icon' => 'fa-hospital',
+                    'color' => 'c2',
+                    'border_color' => 'from-c3 to-c2',
+                    'offset' => '16',
+                    'pct' => '84%'
+                ],
+                [
+                    'title' => 'Sanitation',
+                    'value' => '156',
+                    'label' => 'Active Permits',
+                    'badge' => '3 pending',
+                    'badge_bg' => 'bg-amber-100 text-amber-700',
+                    'sub' => '87% approval',
+                    'url' => site_url('modules/sanitation/permit_applications.php'),
+                    'icon' => 'fa-file-signature',
+                    'color' => 'amber-600',
+                    'border_color' => 'from-amber-400 to-amber-600',
+                    'offset' => '13',
+                    'pct' => '87%'
+                ],
+                [
+                    'title' => 'Immunization',
+                    'value' => '1,924',
+                    'label' => 'Immunized',
+                    'badge' => '2 low stock',
+                    'badge_bg' => 'bg-rose-100 text-rose-700',
+                    'sub' => '92% coverage',
+                    'url' => site_url('modules/immunization/child_records.php'),
+                    'icon' => 'fa-syringe',
+                    'color' => 'blue-600',
+                    'border_color' => 'from-blue-400 to-blue-600',
+                    'offset' => '8',
+                    'pct' => '92%'
+                ],
+                [
+                    'title' => 'Wastewater',
+                    'value' => '23',
+                    'label' => 'Service Requests',
+                    'badge' => '+5%',
+                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                    'sub' => 'vs last month',
+                    'url' => site_url('modules/services/septic_tanks.php'),
+                    'icon' => 'fa-water',
+                    'color' => 'purple-600',
+                    'border_color' => 'from-purple-400 to-purple-600',
+                    'offset' => '23',
+                    'pct' => '77%'
+                ],
+                [
+                    'title' => 'Surveillance',
+                    'value' => '234',
+                    'label' => 'Active Cases',
+                    'badge' => '1 outbreak',
+                    'badge_bg' => 'bg-rose-100 text-rose-700',
+                    'sub' => '68% resolved',
+                    'url' => site_url('modules/surveillence/case_reports.php'),
+                    'icon' => 'fa-binoculars',
+                    'color' => 'rose-600',
+                    'border_color' => 'from-rose-400 to-rose-600',
+                    'offset' => '32',
+                    'pct' => '68%'
+                ],
+                [
+                    'title' => 'System Uptime',
+                    'value' => '99.97%',
+                    'label' => 'Running Smoothly',
+                    'badge' => 'Operational',
+                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                    'sub' => '199d uptime',
+                    'url' => site_url('management/system_logs.php'),
+                    'icon' => 'fa-server',
+                    'color' => 'indigo-600',
+                    'border_color' => 'from-indigo-400 to-indigo-600',
+                    'offset' => '1',
+                    'pct' => '99.9%'
+                ]
+            ];
+        }
+        ?>
+        <div class="kpi-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 flex-shrink-0">
+            <?php foreach ($kpiCards as $card): ?>
+            <a href="<?php echo $card['url']; ?>" 
+               class="kpi-card relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-<?php echo $card['color']; ?>/20 cursor-pointer group block"
+               aria-label="<?php echo $card['title']; ?>: <?php echo $card['value']; ?> <?php echo $card['label']; ?>">
                 <div class="kpi-shine"></div>
-                <div class="absolute inset-0 bg-gradient-to-br from-c1/30 via-transparent to-transparent pointer-events-none"></div>
-                <i class="fas fa-hospital kpi-watermark absolute -bottom-3 -right-2 text-[58px] text-c2/10 rotate-[-8deg] pointer-events-none" aria-hidden="true"></i>
-                <div class="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-c3 to-c2"></div>
+                <div class="absolute inset-0 bg-gradient-to-br from-slate-50 via-transparent to-transparent pointer-events-none"></div>
+                <i class="fas <?php echo $card['icon']; ?> kpi-watermark absolute -bottom-3 -right-2 text-[58px] text-slate-400/10 rotate-[-8deg] pointer-events-none" aria-hidden="true"></i>
+                <div class="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b <?php echo $card['border_color']; ?>"></div>
                 <div class="relative p-3">
                     <div class="flex items-start justify-between gap-2">
                         <div>
-                            <p class="text-[8px] font-bold uppercase tracking-wider text-c2">
-                                <i class="fas fa-hospital text-[7px] mr-1" aria-hidden="true"></i>Health Center
+                            <p class="text-[8px] font-bold uppercase tracking-wider text-slate-600">
+                                <i class="fas <?php echo $card['icon']; ?> text-[7px] mr-1" aria-hidden="true"></i><?php echo $card['title']; ?>
                             </p>
-                            <p class="kpi-number text-xl font-black text-slate-900 mt-1 leading-none">1,847</p>
-                            <p class="text-[8px] font-medium text-slate-400 mt-0.5">Patients Served</p>
+                            <p class="kpi-number text-xl font-black text-slate-900 mt-1 leading-none"><?php echo $card['value']; ?></p>
+                            <p class="text-[8px] font-medium text-slate-400 mt-0.5"><?php echo $card['label']; ?></p>
                         </div>
                         <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
                             <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e2e8f0" stroke-width="3"/>
-                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#176B87" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:16" transform="rotate(-90 18 18)"/>
-                            <text x="18" y="20.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#176B87">84%</text>
+                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#176B87" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:<?php echo $card['offset']; ?>" transform="rotate(-90 18 18)"/>
+                            <text x="18" y="20.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#176B87"><?php echo $card['pct']; ?></text>
                         </svg>
                     </div>
                     <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[7px] font-bold">
-                            <i class="fas fa-arrow-up text-[5px] mr-0.5" aria-hidden="true"></i> 12.5%
+                        <span class="px-1.5 py-0.5 <?php echo $card['badge_bg']; ?> rounded-full text-[7px] font-bold">
+                            <?php echo $card['badge']; ?>
                         </span>
-                        <span class="text-[7px] text-slate-400">vs last month</span>
-                        <svg viewBox="0 0 60 20" class="w-8 h-3 opacity-70" aria-hidden="true">
-                            <polyline class="kpi-spark" points="0,16 10,14 20,15 30,10 40,11 50,4 60,3" fill="none" stroke="#176B87" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
+                        <span class="text-[7px] text-slate-400"><?php echo $card['sub']; ?></span>
                     </div>
                 </div>
             </a>
-
-            <!-- KPI 2: Sanitation Permit & Inspection -->
-            <a href="sanitation-permits.php" 
-               class="kpi-card relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-amber-200/50 hover:border-amber-300 cursor-pointer group block"
-               aria-label="Sanitation: 156 active permits, 3 pending">
-                <div class="kpi-shine"></div>
-                <div class="absolute inset-0 bg-gradient-to-br from-amber-50 via-transparent to-transparent pointer-events-none"></div>
-                <i class="fas fa-file-signature kpi-watermark absolute -bottom-3 -right-2 text-[58px] text-amber-500/10 rotate-[-8deg] pointer-events-none" aria-hidden="true"></i>
-                <div class="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-amber-400 to-amber-600"></div>
-                <div class="relative p-3">
-                    <div class="flex items-start justify-between gap-2">
-                        <div>
-                            <p class="text-[8px] font-bold uppercase tracking-wider text-amber-600">
-                                <i class="fas fa-file-signature text-[7px] mr-1" aria-hidden="true"></i>Sanitation
-                            </p>
-                            <p class="kpi-number text-xl font-black text-amber-600 mt-1 leading-none">156</p>
-                            <p class="text-[8px] font-medium text-slate-400 mt-0.5">Active Permits</p>
-                        </div>
-                        <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
-                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#fde8c8" stroke-width="3"/>
-                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#d97706" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:13" transform="rotate(-90 18 18)"/>
-                            <text x="18" y="20.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#d97706">87%</text>
-                        </svg>
-                    </div>
-                    <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[7px] font-bold">
-                            <i class="fas fa-clock text-[5px] mr-0.5" aria-hidden="true"></i> 3 pending
-                        </span>
-                        <span class="text-[7px] text-slate-400">87% approval</span>
-                        <svg viewBox="0 0 60 20" class="w-8 h-3 opacity-70" aria-hidden="true">
-                            <polyline class="kpi-spark" points="0,10 10,12 20,8 30,9 40,6 50,7 60,4" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </div>
-                </div>
-            </a>
-
-            <!-- KPI 3: Immunization & Nutrition Tracker -->
-            <a href="immunization-nutrition.php" 
-               class="kpi-card relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-blue-200/50 hover:border-blue-300 cursor-pointer group block"
-               aria-label="Immunization: 1,924 immunized, 2 low stock items">
-                <div class="kpi-shine"></div>
-                <div class="absolute inset-0 bg-gradient-to-br from-blue-50 via-transparent to-transparent pointer-events-none"></div>
-                <i class="fas fa-syringe kpi-watermark absolute -bottom-3 -right-2 text-[58px] text-blue-500/10 rotate-[-8deg] pointer-events-none" aria-hidden="true"></i>
-                <div class="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-blue-400 to-blue-600"></div>
-                <div class="relative p-3">
-                    <div class="flex items-start justify-between gap-2">
-                        <div>
-                            <p class="text-[8px] font-bold uppercase tracking-wider text-blue-600">
-                                <i class="fas fa-syringe text-[7px] mr-1" aria-hidden="true"></i>Immunization
-                            </p>
-                            <p class="kpi-number text-xl font-black text-blue-600 mt-1 leading-none">1,924</p>
-                            <p class="text-[8px] font-medium text-slate-400 mt-0.5">Immunized</p>
-                        </div>
-                        <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
-                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#dbeafe" stroke-width="3"/>
-                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:8" transform="rotate(-90 18 18)"/>
-                            <text x="18" y="20.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#2563eb">92%</text>
-                        </svg>
-                    </div>
-                    <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <span class="px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[7px] font-bold">
-                            <i class="fas fa-exclamation-triangle text-[5px] mr-0.5" aria-hidden="true"></i> 2 low stock
-                        </span>
-                        <span class="text-[7px] text-slate-400">92% coverage</span>
-                        <svg viewBox="0 0 60 20" class="w-8 h-3 opacity-70" aria-hidden="true">
-                            <polyline class="kpi-spark" points="0,8 10,10 20,7 30,11 40,9 50,13 60,12" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </div>
-                </div>
-            </a>
-
-            <!-- KPI 4: Wastewater & Septic Services -->
-            <a href="wastewater-septic.php" 
-               class="kpi-card relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-purple-200/50 hover:border-purple-300 cursor-pointer group block"
-               aria-label="Wastewater: 23 service requests, 5% increase">
-                <div class="kpi-shine"></div>
-                <div class="absolute inset-0 bg-gradient-to-br from-purple-50 via-transparent to-transparent pointer-events-none"></div>
-                <i class="fas fa-water kpi-watermark absolute -bottom-3 -right-2 text-[58px] text-purple-500/10 rotate-[-8deg] pointer-events-none" aria-hidden="true"></i>
-                <div class="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-purple-400 to-purple-600"></div>
-                <div class="relative p-3">
-                    <div class="flex items-start justify-between gap-2">
-                        <div>
-                            <p class="text-[8px] font-bold uppercase tracking-wider text-purple-600">
-                                <i class="fas fa-water text-[7px] mr-1" aria-hidden="true"></i>Wastewater
-                            </p>
-                            <p class="kpi-number text-xl font-black text-purple-600 mt-1 leading-none">23</p>
-                            <p class="text-[8px] font-medium text-slate-400 mt-0.5">Service Requests</p>
-                        </div>
-                        <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
-                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#f1e3fb" stroke-width="3"/>
-                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#9333ea" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:23" transform="rotate(-90 18 18)"/>
-                            <text x="18" y="20.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#9333ea">77%</text>
-                        </svg>
-                    </div>
-                    <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[7px] font-bold">
-                            <i class="fas fa-arrow-up text-[5px] mr-0.5" aria-hidden="true"></i> 5%
-                        </span>
-                        <span class="text-[7px] text-slate-400">vs last month</span>
-                        <svg viewBox="0 0 60 20" class="w-8 h-3 opacity-70" aria-hidden="true">
-                            <polyline class="kpi-spark" points="0,14 10,13 20,15 30,10 40,12 50,8 60,9" fill="none" stroke="#9333ea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </div>
-                </div>
-            </a>
-
-            <!-- KPI 5: Health Surveillance System -->
-            <a href="health-surveillance.php" 
-               class="kpi-card relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-rose-200/50 hover:border-rose-300 cursor-pointer group block"
-               aria-label="Surveillance: 234 active cases, 1 outbreak">
-                <div class="kpi-shine"></div>
-                <div class="absolute inset-0 bg-gradient-to-br from-rose-50 via-transparent to-transparent pointer-events-none"></div>
-                <i class="fas fa-binoculars kpi-watermark absolute -bottom-3 -right-2 text-[58px] text-rose-500/10 rotate-[-8deg] pointer-events-none" aria-hidden="true"></i>
-                <div class="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-rose-400 to-rose-600"></div>
-                <div class="relative p-3">
-                    <div class="flex items-start justify-between gap-2">
-                        <div>
-                            <p class="text-[8px] font-bold uppercase tracking-wider text-rose-600">
-                                <i class="fas fa-binoculars text-[7px] mr-1" aria-hidden="true"></i>Surveillance
-                            </p>
-                            <p class="kpi-number text-xl font-black text-rose-600 mt-1 leading-none">234</p>
-                            <p class="text-[8px] font-medium text-slate-400 mt-0.5">Active Cases</p>
-                        </div>
-                        <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
-                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#fce1e7" stroke-width="3"/>
-                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e11d48" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:32" transform="rotate(-90 18 18)"/>
-                            <text x="18" y="20.5" text-anchor="middle" font-size="8" font-weight="700" fill="#e11d48">68%</text>
-                        </svg>
-                    </div>
-                    <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <span class="px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[7px] font-bold">
-                            <i class="fas fa-exclamation-triangle text-[5px] mr-0.5" aria-hidden="true"></i> 1 outbreak
-                        </span>
-                        <span class="text-[7px] text-slate-400">68% resolved</span>
-                        <svg viewBox="0 0 60 20" class="w-8 h-3 opacity-70" aria-hidden="true">
-                            <polyline class="kpi-spark" points="0,6 10,9 20,7 30,12 40,10 50,15 60,17" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </div>
-                </div>
-            </a>
-
-            <!-- KPI 6: System Uptime -->
-            <a href="system-status.php" 
-               class="kpi-card relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-xl hover:shadow-indigo-200/50 hover:border-indigo-300 cursor-pointer group block"
-               aria-label="System uptime: 99.97%, 199 days running">
-                <div class="kpi-shine"></div>
-                <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-transparent to-transparent pointer-events-none"></div>
-                <i class="fas fa-server kpi-watermark absolute -bottom-3 -right-2 text-[58px] text-indigo-500/10 rotate-[-8deg] pointer-events-none" aria-hidden="true"></i>
-                <div class="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-indigo-400 to-indigo-600"></div>
-                <div class="relative p-3">
-                    <div class="flex items-start justify-between gap-2">
-                        <div>
-                            <p class="text-[8px] font-bold uppercase tracking-wider text-indigo-600">
-                                <i class="fas fa-server text-[7px] mr-1" aria-hidden="true"></i>System Uptime
-                            </p>
-                            <p class="kpi-number text-xl font-black text-indigo-600 mt-1 leading-none">99.97%</p>
-                            <p class="text-[8px] font-medium text-slate-400 mt-0.5">199d 02h 14m running</p>
-                        </div>
-                        <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
-                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#E0E7FF" stroke-width="3"/>
-                            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#4F46E5" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:1" transform="rotate(-90 18 18)"/>
-                            <text x="18" y="20.5" text-anchor="middle" font-size="7.5" font-weight="700" fill="#4F46E5">99.9%</text>
-                        </svg>
-                    </div>
-                    <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[7px] font-bold">
-                            <i class="fas fa-check-circle text-[5px] mr-0.5" aria-hidden="true"></i> Operational
-                        </span>
-                        <span class="text-[7px] text-slate-400">Last check: 2 min ago</span>
-                        <div class="flex items-center gap-0.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse2" aria-hidden="true"></span>
-                        </div>
-                    </div>
-                </div>
-            </a>
-
+            <?php endforeach; ?>
         </div>
 
         <!-- ============================================================ -->
@@ -632,8 +760,245 @@ session_start();
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-shrink-0">
 
             <!-- ========================================================== -->
-            <!-- COLUMN 1: Module Activity Summary (STANDARDIZED)          -->
+            <!-- COLUMN 1: Module Activity Summary (Role-Specific)         -->
             <!-- ========================================================== -->
+            <?php
+            if (strcasecmp($userRoleForKpi, 'Health Center Director') === 0 || strcasecmp($userRoleForKpi, 'Doctor') === 0 || strcasecmp($userRoleForKpi, 'Nurse') === 0) {
+                $moduleSummaryCards = [
+                    [
+                        'name' => 'Patient Management',
+                        'icon' => 'fa-users',
+                        'color' => 'emerald-600',
+                        'bg' => 'bg-emerald-50',
+                        'total' => '1,847 registered',
+                        'today' => '125 today',
+                        'pct' => '84%',
+                        'bar' => 'bg-emerald-500',
+                        'badge' => 'Healthy',
+                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                        'stat1' => '12 pending vitals',
+                        'stat2' => '342 consults',
+                        'bar_width' => '84%'
+                    ],
+                    [
+                        'name' => 'Medical Consultations',
+                        'icon' => 'fa-stethoscope',
+                        'color' => 'teal-600',
+                        'bg' => 'bg-teal-50',
+                        'total' => '342 completed',
+                        'today' => '34 active today',
+                        'pct' => '88%',
+                        'bar' => 'bg-teal-500',
+                        'badge' => 'Active Queue',
+                        'badge_bg' => 'bg-teal-100 text-teal-700',
+                        'stat1' => '5 waiting rooms',
+                        'stat2' => '5 doctors duty',
+                        'bar_width' => '88%'
+                    ],
+                    [
+                        'name' => 'Triage & Screenings',
+                        'icon' => 'fa-heart-pulse',
+                        'color' => 'amber-600',
+                        'bg' => 'bg-amber-50',
+                        'total' => '125 screened',
+                        'today' => '2 emergency P1',
+                        'pct' => '90%',
+                        'bar' => 'bg-amber-500',
+                        'badge' => 'Priority Active',
+                        'badge_bg' => 'bg-amber-100 text-amber-700',
+                        'stat1' => '2 P1 emergency',
+                        'stat2' => '5 P2 urgent',
+                        'bar_width' => '90%'
+                    ],
+                    [
+                        'name' => 'Prescriptions & Pharmacy',
+                        'icon' => 'fa-prescription-bottle',
+                        'color' => 'blue-600',
+                        'bg' => 'bg-blue-50',
+                        'total' => '489 dispensed',
+                        'today' => '42 fulfilled today',
+                        'pct' => '85%',
+                        'bar' => 'bg-blue-500',
+                        'badge' => 'Stock Normal',
+                        'badge_bg' => 'bg-blue-100 text-blue-700',
+                        'stat1' => '12 reorder alerts',
+                        'stat2' => '92% fulfilled',
+                        'bar_width' => '85%'
+                    ],
+                    [
+                        'name' => 'Disease Surveillance',
+                        'icon' => 'fa-binoculars',
+                        'color' => 'rose-600',
+                        'bg' => 'bg-rose-50',
+                        'total' => '234 cases',
+                        'today' => '71 monitoring',
+                        'pct' => '68%',
+                        'bar' => 'bg-rose-500',
+                        'badge' => 'Critical Watch',
+                        'badge_bg' => 'bg-rose-100 text-rose-700',
+                        'stat1' => '1 outbreak watch',
+                        'stat2' => '166 resolved',
+                        'bar_width' => '68%'
+                    ]
+                ];
+            } elseif (strcasecmp($userRoleForKpi, 'Sanitation Director') === 0 || strcasecmp($userRoleForKpi, 'Inspector') === 0 || strcasecmp($userRoleForKpi, 'Permit Clerk') === 0) {
+                $moduleSummaryCards = [
+                    [
+                        'name' => 'Sanitation Permits',
+                        'icon' => 'fa-file-signature',
+                        'color' => 'amber-600',
+                        'bg' => 'bg-amber-50',
+                        'total' => '156 active',
+                        'today' => '86 today',
+                        'pct' => '87%',
+                        'bar' => 'bg-amber-500',
+                        'badge' => 'Attention',
+                        'badge_bg' => 'bg-amber-100 text-amber-700',
+                        'stat1' => '3 pending',
+                        'stat2' => '89 inspections',
+                        'bar_width' => '87%'
+                    ],
+                    [
+                        'name' => 'Field Inspections',
+                        'icon' => 'fa-search',
+                        'color' => 'emerald-600',
+                        'bg' => 'bg-emerald-50',
+                        'total' => '89 completed',
+                        'today' => '12 today',
+                        'pct' => '90%',
+                        'bar' => 'bg-emerald-500',
+                        'badge' => 'Compliant',
+                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                        'stat1' => '2 follow-ups',
+                        'stat2' => '87 passing',
+                        'bar_width' => '90%'
+                    ],
+                    [
+                        'name' => 'Permit Renewals',
+                        'icon' => 'fa-rotate',
+                        'color' => 'blue-600',
+                        'bg' => 'bg-blue-50',
+                        'total' => '42 renewals',
+                        'today' => '15 today',
+                        'pct' => '82%',
+                        'bar' => 'bg-blue-500',
+                        'badge' => 'Processing',
+                        'badge_bg' => 'bg-blue-100 text-blue-700',
+                        'stat1' => '5 expiring',
+                        'stat2' => '37 approved',
+                        'bar_width' => '82%'
+                    ],
+                    [
+                        'name' => 'Wastewater & Septic',
+                        'icon' => 'fa-water',
+                        'color' => 'purple-600',
+                        'bg' => 'bg-purple-50',
+                        'total' => '23 requests',
+                        'today' => '42 today',
+                        'pct' => '77%',
+                        'bar' => 'bg-purple-500',
+                        'badge' => 'Healthy',
+                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                        'stat1' => '5 pending',
+                        'stat2' => '1,284 tanks',
+                        'bar_width' => '77%'
+                    ],
+                    [
+                        'name' => 'Regulatory Compliance',
+                        'icon' => 'fa-gavel',
+                        'color' => 'rose-600',
+                        'bg' => 'bg-rose-50',
+                        'total' => '5 orders',
+                        'today' => '1 today',
+                        'pct' => '80%',
+                        'bar' => 'bg-rose-500',
+                        'badge' => 'Enforcing',
+                        'badge_bg' => 'bg-rose-100 text-rose-700',
+                        'stat1' => '2 open',
+                        'stat2' => '3 corrected',
+                        'bar_width' => '80%'
+                    ]
+                ];
+            } else {
+                $moduleSummaryCards = [
+                    [
+                        'name' => 'Health Center Services',
+                        'icon' => 'fa-hospital',
+                        'color' => 'emerald-600',
+                        'bg' => 'bg-emerald-50',
+                        'total' => '1,847 total',
+                        'today' => '125 today',
+                        'pct' => '84%',
+                        'bar' => 'bg-emerald-500',
+                        'badge' => 'Healthy',
+                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                        'stat1' => '12 pending',
+                        'stat2' => '342 consults',
+                        'bar_width' => '84%'
+                    ],
+                    [
+                        'name' => 'Sanitation Permit',
+                        'icon' => 'fa-clipboard-check',
+                        'color' => 'amber-600',
+                        'bg' => 'bg-amber-50',
+                        'total' => '156 total',
+                        'today' => '86 today',
+                        'pct' => '87%',
+                        'bar' => 'bg-amber-500',
+                        'badge' => 'Attention',
+                        'badge_bg' => 'bg-amber-100 text-amber-700',
+                        'stat1' => '3 pending',
+                        'stat2' => '89 inspections',
+                        'bar_width' => '87%'
+                    ],
+                    [
+                        'name' => 'Immunization Tracker',
+                        'icon' => 'fa-syringe',
+                        'color' => 'blue-600',
+                        'bg' => 'bg-blue-50',
+                        'total' => '1,924 total',
+                        'today' => '104 today',
+                        'pct' => '92%',
+                        'bar' => 'bg-blue-500',
+                        'badge' => 'Critical',
+                        'badge_bg' => 'bg-rose-100 text-rose-700',
+                        'stat1' => '2 low stock',
+                        'stat2' => '92% coverage',
+                        'bar_width' => '92%'
+                    ],
+                    [
+                        'name' => 'Wastewater Services',
+                        'icon' => 'fa-water',
+                        'color' => 'purple-600',
+                        'bg' => 'bg-purple-50',
+                        'total' => '23 total',
+                        'today' => '42 today',
+                        'pct' => '77%',
+                        'bar' => 'bg-purple-500',
+                        'badge' => 'Healthy',
+                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                        'stat1' => '5 pending',
+                        'stat2' => '1,284 tanks',
+                        'bar_width' => '77%'
+                    ],
+                    [
+                        'name' => 'Health Surveillance',
+                        'icon' => 'fa-binoculars',
+                        'color' => 'rose-600',
+                        'bg' => 'bg-rose-50',
+                        'total' => '234 total',
+                        'today' => '71 today',
+                        'pct' => '68%',
+                        'bar' => 'bg-rose-500',
+                        'badge' => 'Critical',
+                        'badge_bg' => 'bg-rose-100 text-rose-700',
+                        'stat1' => '1 outbreak',
+                        'stat2' => '166 resolved',
+                        'bar_width' => '68%'
+                    ]
+                ];
+            }
+            ?>
             <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
                 <div class="flex items-center justify-between mb-3 flex-shrink-0">
                     <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
@@ -646,187 +1011,42 @@ session_start();
                     </a>
                 </div>
                 <div class="flex-1 overflow-y-auto space-y-2.5 pr-1 custom-scroll">
-
-                    <!-- Module 1: Health Center Services -->
+                    <?php foreach ($moduleSummaryCards as $m): ?>
                     <div class="module-card p-3 bg-slate-50 rounded-xl border border-slate-100">
                         <div class="flex items-start justify-between">
                             <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-                                    <i class="fas fa-hospital text-emerald-600 text-sm" aria-hidden="true"></i>
+                                <div class="w-8 h-8 rounded-lg <?php echo $m['bg']; ?> flex items-center justify-center flex-shrink-0">
+                                    <i class="fas <?php echo $m['icon']; ?> text-<?php echo $m['color']; ?> text-sm" aria-hidden="true"></i>
                                 </div>
                                 <div>
-                                    <p class="text-xs font-semibold text-[#1a2e44]">Health Center Services</p>
+                                    <p class="text-xs font-semibold text-[#1a2e44]"><?php echo $m['name']; ?></p>
                                     <div class="flex items-center gap-2 text-[9px] text-slate-400">
-                                        <span><i class="fas fa-users text-[7px] mr-0.5" aria-hidden="true"></i>1,847 total</span>
-                                        <span><i class="fas fa-calendar-day text-[7px] mr-0.5" aria-hidden="true"></i>125 today</span>
+                                        <span><i class="fas fa-layer-group text-[7px] mr-0.5" aria-hidden="true"></i><?php echo $m['total']; ?></span>
+                                        <span><i class="fas fa-calendar-day text-[7px] mr-0.5" aria-hidden="true"></i><?php echo $m['today']; ?></span>
                                     </div>
                                 </div>
                             </div>
                             <div class="text-right">
-                                <span class="text-[9px] font-bold text-emerald-600 block">84%</span>
+                                <span class="text-[9px] font-bold text-<?php echo $m['color']; ?> block"><?php echo $m['pct']; ?></span>
                                 <span class="text-[7px] text-slate-400">completion</span>
                             </div>
                         </div>
                         <div class="mt-2 flex items-center justify-between">
                             <div class="flex gap-3 text-[8px]">
-                                <span class="text-amber-600"><i class="fas fa-clock text-[6px] mr-0.5" aria-hidden="true"></i>12 pending</span>
-                                <span class="text-emerald-600"><i class="fas fa-check-circle text-[6px] mr-0.5" aria-hidden="true"></i>342 consults</span>
+                                <span class="text-slate-600"><i class="fas fa-clock text-[6px] mr-0.5" aria-hidden="true"></i><?php echo $m['stat1']; ?></span>
+                                <span class="text-slate-600"><i class="fas fa-check-circle text-[6px] mr-0.5" aria-hidden="true"></i><?php echo $m['stat2']; ?></span>
                             </div>
-                            <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[7px] font-bold">
-                                <i class="fas fa-heartbeat text-[5px] mr-0.5" aria-hidden="true"></i> Healthy
+                            <span class="px-1.5 py-0.5 <?php echo $m['badge_bg']; ?> rounded-full text-[7px] font-bold">
+                                <?php echo $m['badge']; ?>
                             </span>
                         </div>
                         <div class="mt-1.5">
                             <div class="w-full h-1 bg-slate-200 rounded overflow-hidden">
-                                <div class="h-full bg-emerald-500 rounded" style="width:84%"></div>
+                                <div class="h-full <?php echo $m['bar']; ?> rounded" style="width:<?php echo $m['bar_width']; ?>"></div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Module 2: Sanitation -->
-                    <div class="module-card p-3 bg-slate-50 rounded-xl border border-slate-100">
-                        <div class="flex items-start justify-between">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
-                                    <i class="fas fa-clipboard-check text-amber-600 text-sm" aria-hidden="true"></i>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-semibold text-[#1a2e44]">Sanitation Permit</p>
-                                    <div class="flex items-center gap-2 text-[9px] text-slate-400">
-                                        <span><i class="fas fa-file-signature text-[7px] mr-0.5" aria-hidden="true"></i>156 total</span>
-                                        <span><i class="fas fa-calendar-day text-[7px] mr-0.5" aria-hidden="true"></i>86 today</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-[9px] font-bold text-amber-600 block">87%</span>
-                                <span class="text-[7px] text-slate-400">completion</span>
-                            </div>
-                        </div>
-                        <div class="mt-2 flex items-center justify-between">
-                            <div class="flex gap-3 text-[8px]">
-                                <span class="text-amber-600"><i class="fas fa-clock text-[6px] mr-0.5" aria-hidden="true"></i>3 pending</span>
-                                <span class="text-blue-600"><i class="fas fa-search text-[6px] mr-0.5" aria-hidden="true"></i>89 inspections</span>
-                            </div>
-                            <span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[7px] font-bold">
-                                <i class="fas fa-exclamation-triangle text-[5px] mr-0.5" aria-hidden="true"></i> Attention
-                            </span>
-                        </div>
-                        <div class="mt-1.5">
-                            <div class="w-full h-1 bg-slate-200 rounded overflow-hidden">
-                                <div class="h-full bg-amber-500 rounded" style="width:87%"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Module 3: Immunization -->
-                    <div class="module-card p-3 bg-slate-50 rounded-xl border border-slate-100">
-                        <div class="flex items-start justify-between">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                                    <i class="fas fa-syringe text-blue-600 text-sm" aria-hidden="true"></i>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-semibold text-[#1a2e44]">Immunization Tracker</p>
-                                    <div class="flex items-center gap-2 text-[9px] text-slate-400">
-                                        <span><i class="fas fa-syringe text-[7px] mr-0.5" aria-hidden="true"></i>1,924 total</span>
-                                        <span><i class="fas fa-calendar-day text-[7px] mr-0.5" aria-hidden="true"></i>104 today</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-[9px] font-bold text-blue-600 block">92%</span>
-                                <span class="text-[7px] text-slate-400">completion</span>
-                            </div>
-                        </div>
-                        <div class="mt-2 flex items-center justify-between">
-                            <div class="flex gap-3 text-[8px]">
-                                <span class="text-rose-600"><i class="fas fa-exclamation-triangle text-[6px] mr-0.5" aria-hidden="true"></i>2 low stock</span>
-                                <span class="text-emerald-600"><i class="fas fa-check-circle text-[6px] mr-0.5" aria-hidden="true"></i>92% coverage</span>
-                            </div>
-                            <span class="px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[7px] font-bold">
-                                <i class="fas fa-exclamation-triangle text-[5px] mr-0.5" aria-hidden="true"></i> Critical
-                            </span>
-                        </div>
-                        <div class="mt-1.5">
-                            <div class="w-full h-1 bg-slate-200 rounded overflow-hidden">
-                                <div class="h-full bg-blue-500 rounded" style="width:92%"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Module 4: Wastewater -->
-                    <div class="module-card p-3 bg-slate-50 rounded-xl border border-slate-100">
-                        <div class="flex items-start justify-between">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
-                                    <i class="fas fa-water text-purple-600 text-sm" aria-hidden="true"></i>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-semibold text-[#1a2e44]">Wastewater Services</p>
-                                    <div class="flex items-center gap-2 text-[9px] text-slate-400">
-                                        <span><i class="fas fa-tools text-[7px] mr-0.5" aria-hidden="true"></i>23 total</span>
-                                        <span><i class="fas fa-calendar-day text-[7px] mr-0.5" aria-hidden="true"></i>42 today</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-[9px] font-bold text-purple-600 block">77%</span>
-                                <span class="text-[7px] text-slate-400">completion</span>
-                            </div>
-                        </div>
-                        <div class="mt-2 flex items-center justify-between">
-                            <div class="flex gap-3 text-[8px]">
-                                <span class="text-amber-600"><i class="fas fa-clock text-[6px] mr-0.5" aria-hidden="true"></i>5 pending</span>
-                                <span class="text-purple-600"><i class="fas fa-flask text-[6px] mr-0.5" aria-hidden="true"></i>1,284 tanks</span>
-                            </div>
-                            <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[7px] font-bold">
-                                <i class="fas fa-check-circle text-[5px] mr-0.5" aria-hidden="true"></i> Healthy
-                            </span>
-                        </div>
-                        <div class="mt-1.5">
-                            <div class="w-full h-1 bg-slate-200 rounded overflow-hidden">
-                                <div class="h-full bg-purple-500 rounded" style="width:77%"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Module 5: Surveillance -->
-                    <div class="module-card p-3 bg-slate-50 rounded-xl border border-slate-100">
-                        <div class="flex items-start justify-between">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center flex-shrink-0">
-                                    <i class="fas fa-binoculars text-rose-600 text-sm" aria-hidden="true"></i>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-semibold text-[#1a2e44]">Health Surveillance</p>
-                                    <div class="flex items-center gap-2 text-[9px] text-slate-400">
-                                        <span><i class="fas fa-chart-bar text-[7px] mr-0.5" aria-hidden="true"></i>234 total</span>
-                                        <span><i class="fas fa-calendar-day text-[7px] mr-0.5" aria-hidden="true"></i>71 today</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <span class="text-[9px] font-bold text-rose-600 block">68%</span>
-                                <span class="text-[7px] text-slate-400">completion</span>
-                            </div>
-                        </div>
-                        <div class="mt-2 flex items-center justify-between">
-                            <div class="flex gap-3 text-[8px]">
-                                <span class="text-rose-600"><i class="fas fa-exclamation-triangle text-[6px] mr-0.5" aria-hidden="true"></i>1 outbreak</span>
-                                <span class="text-blue-600"><i class="fas fa-check-circle text-[6px] mr-0.5" aria-hidden="true"></i>166 resolved</span>
-                            </div>
-                            <span class="px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[7px] font-bold">
-                                <i class="fas fa-exclamation-triangle text-[5px] mr-0.5" aria-hidden="true"></i> Critical
-                            </span>
-                        </div>
-                        <div class="mt-1.5">
-                            <div class="w-full h-1 bg-slate-200 rounded overflow-hidden">
-                                <div class="h-full bg-rose-500 rounded" style="width:68%"></div>
-                            </div>
-                        </div>
-                    </div>
-
+                    <?php endforeach; ?>
                 </div>
             </div>
 
@@ -982,8 +1202,101 @@ session_start();
             </div>
 
             <!-- ============================================================ -->
-            <!-- COLUMN 3: System Health Status                             -->
+            <!-- COLUMN 3: Triage Status (Health Roles) / System Health (Admin)-->
             <!-- ============================================================ -->
+            <?php if (strcasecmp($currentRole, 'Health Center Director') === 0 || strcasecmp($currentRole, 'Doctor') === 0 || strcasecmp($currentRole, 'Nurse') === 0): ?>
+            <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
+                <div class="flex items-center justify-between mb-3 flex-shrink-0">
+                    <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
+                        <i class="fas fa-heart-pulse text-rose-500" aria-hidden="true"></i> Triage Status &amp; Patient Queue
+                        <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[9px] font-bold flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse2" aria-hidden="true"></span>
+                            125 Active Today
+                        </span>
+                    </div>
+                    <a href="<?= site_url('modules/healthservices/triage.php') ?>" class="text-[10px] text-c2 font-semibold hover:underline">
+                        View Triage <i class="fas fa-arrow-right text-[8px] ml-0.5"></i>
+                    </a>
+                </div>
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scroll">
+
+                    <!-- Priority 1: Emergency -->
+                    <div class="p-3 bg-rose-50 rounded-xl border border-rose-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center flex-shrink-0 font-black text-xs">
+                                    P1
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-rose-900">Emergency (Priority 1)</p>
+                                    <p class="text-[10px] text-rose-700">Resuscitation &amp; Immediate Care</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-rose-600 text-white font-black text-xs rounded-lg shadow-sm">2 Queue</span>
+                        </div>
+                        <div class="mt-2 text-[9px] text-rose-800 flex items-center justify-between border-t border-rose-200/60 pt-1.5">
+                            <span><i class="fas fa-clock mr-1"></i>Avg Wait: &lt; 2 mins</span>
+                            <span class="font-bold text-rose-900">2 Patients Being Treated</span>
+                        </div>
+                    </div>
+
+                    <!-- Priority 2: Urgent -->
+                    <div class="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center flex-shrink-0 font-black text-xs">
+                                    P2
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-amber-900">Urgent (Priority 2)</p>
+                                    <p class="text-[10px] text-amber-700">High-risk conditions &amp; severe pain</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-amber-500 text-white font-black text-xs rounded-lg shadow-sm">5 Queue</span>
+                        </div>
+                        <div class="mt-2 text-[9px] text-amber-800 flex items-center justify-between border-t border-amber-200/60 pt-1.5">
+                            <span><i class="fas fa-clock mr-1"></i>Avg Wait: 15 mins</span>
+                            <span class="font-bold text-amber-900">Room 3 &amp; 4 Active</span>
+                        </div>
+                    </div>
+
+                    <!-- Priority 3: Non-Urgent -->
+                    <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 font-black text-xs">
+                                    P3
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-emerald-900">Standard / Non-Urgent</p>
+                                    <p class="text-[10px] text-emerald-700">Routine consultation &amp; vitals check</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-emerald-600 text-white font-black text-xs rounded-lg shadow-sm">18 Queue</span>
+                        </div>
+                        <div class="mt-2 text-[9px] text-emerald-800 flex items-center justify-between border-t border-emerald-200/60 pt-1.5">
+                            <span><i class="fas fa-clock mr-1"></i>Avg Wait: 25 mins</span>
+                            <span class="font-bold text-emerald-900">5 Doctors On Duty</span>
+                        </div>
+                    </div>
+
+                    <!-- Vital Signs Progress -->
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-notes-medical text-blue-600 text-xs"></i>
+                                <span class="text-xs font-bold text-slate-800">Vital Signs Screenings</span>
+                            </div>
+                            <span class="text-[10px] font-bold text-blue-600">80% Completed</span>
+                        </div>
+                        <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                            <div class="bg-blue-600 h-full rounded-full" style="width: 80%"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+            <?php else: ?>
             <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
                 <div class="flex items-center justify-between mb-3 flex-shrink-0">
                     <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
@@ -1135,6 +1448,7 @@ session_start();
 
                 </div>
             </div>
+            <?php endif; ?>
 
         </div>
 

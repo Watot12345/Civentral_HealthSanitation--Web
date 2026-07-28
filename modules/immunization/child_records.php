@@ -9,260 +9,52 @@
 // ============================================================
 
 // ============================================================
-// 1. PHP BACKEND - Fetch Data
+// 1. PHP BACKEND - With Dependency Injection
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../app/Models/Child.php';
+require_once __DIR__ . '/../../includes/data-mask.php';
+require_once __DIR__ . '/../../includes/toast.php';
 
-// Sample Child Records Data
-$children = [
-    [
-        'id' => 1,
-        'child_id' => 'CH-001',
-        'first_name' => 'Sofia',
-        'last_name' => 'Garcia',
-        'middle_name' => 'Dela Cruz',
-        'gender' => 'Female',
-        'birth_date' => '2024-03-15',
-        'age' => '2 yrs 4 mos',
-        'birth_weight' => 3.2,
-        'birth_height' => 50,
-        'blood_type' => 'O+',
-        'address' => '123 Rizal St., Barangay San Jose',
-        'barangay' => 'Barangay San Jose',
-        'mother_name' => 'Rosa Mendoza',
-        'mother_contact' => '09123456787',
-        'mother_occupation' => 'Teacher',
-        'father_name' => 'Ramon Garcia',
-        'father_contact' => '09123456788',
-        'father_occupation' => 'Engineer',
-        'family_history' => 'Mother - Asthma, Grandfather - Diabetes',
-        'allergies' => 'None',
-        'health_center' => 'Health Center 1',
-        'registration_date' => '2024-03-15',
-        'status' => 'active',
-        'nutrition_status' => 'Normal',
-        'vaccine_compliance' => 75,
-        'last_visit' => '2026-07-10'
-    ],
-    [
-        'id' => 2,
-        'child_id' => 'CH-002',
-        'first_name' => 'Luis',
-        'last_name' => 'Mendoza',
-        'middle_name' => 'Santos',
-        'gender' => 'Male',
-        'birth_date' => '2025-04-20',
-        'age' => '1 yr 3 mos',
-        'birth_weight' => 3.0,
-        'birth_height' => 48,
-        'blood_type' => 'A+',
-        'address' => '456 Mabini Ave., Barangay Poblacion',
-        'barangay' => 'Barangay Poblacion',
-        'mother_name' => 'Rosa Mendoza',
-        'mother_contact' => '09123456787',
-        'mother_occupation' => 'Teacher',
-        'father_name' => 'Carlos Mendoza',
-        'father_contact' => '09123456789',
-        'father_occupation' => 'Architect',
-        'family_history' => 'Father - Hypertension',
-        'allergies' => 'Peanuts',
-        'health_center' => 'Health Center 1',
-        'registration_date' => '2025-04-20',
-        'status' => 'active',
-        'nutrition_status' => 'Moderate',
-        'vaccine_compliance' => 50,
-        'last_visit' => '2026-07-08'
-    ],
-    [
-        'id' => 3,
-        'child_id' => 'CH-003',
-        'first_name' => 'Emma',
-        'last_name' => 'Lim',
-        'middle_name' => 'Tan',
-        'gender' => 'Female',
-        'birth_date' => '2023-06-01',
-        'age' => '3 yrs 1 mo',
-        'birth_weight' => 3.5,
-        'birth_height' => 52,
-        'blood_type' => 'B+',
-        'address' => '789 Bonifacio Rd., Barangay Riverside',
-        'barangay' => 'Barangay Riverside',
-        'mother_name' => 'Elena Tan',
-        'mother_contact' => '09123456786',
-        'mother_occupation' => 'Nurse',
-        'father_name' => 'Carlos Lim',
-        'father_contact' => '09123456785',
-        'father_occupation' => 'Doctor',
-        'family_history' => 'None',
-        'allergies' => 'None',
-        'health_center' => 'Health Center 2',
-        'registration_date' => '2023-06-01',
-        'status' => 'active',
-        'nutrition_status' => 'Normal',
-        'vaccine_compliance' => 90,
-        'last_visit' => '2026-07-12'
-    ],
-    [
-        'id' => 4,
-        'child_id' => 'CH-004',
-        'first_name' => 'Noah',
-        'last_name' => 'Torres',
-        'middle_name' => 'Rivera',
-        'gender' => 'Male',
-        'birth_date' => '2025-10-10',
-        'age' => '9 mos',
-        'birth_weight' => 2.8,
-        'birth_height' => 46,
-        'blood_type' => 'O-',
-        'address' => '101 Luna St., Barangay San Roque',
-        'barangay' => 'Barangay San Roque',
-        'mother_name' => 'Elena Torres',
-        'mother_contact' => '09123456784',
-        'mother_occupation' => 'Freelancer',
-        'father_name' => 'Ramon Torres',
-        'father_contact' => '09123456783',
-        'father_occupation' => 'Driver',
-        'family_history' => 'Mother - Anemia',
-        'allergies' => 'None',
-        'health_center' => 'Health Center 1',
-        'registration_date' => '2025-10-10',
-        'status' => 'active',
-        'nutrition_status' => 'Critical',
-        'vaccine_compliance' => 30,
-        'last_visit' => '2026-07-15'
-    ],
-    [
-        'id' => 5,
-        'child_id' => 'CH-005',
-        'first_name' => 'Isabella',
-        'last_name' => 'Cruz',
-        'middle_name' => 'Gomez',
-        'gender' => 'Female',
-        'birth_date' => '2024-08-25',
-        'age' => '1 yr 11 mos',
-        'birth_weight' => 3.3,
-        'birth_height' => 51,
-        'blood_type' => 'AB+',
-        'address' => '202 Santos St., Barangay Sta. Cruz',
-        'barangay' => 'Barangay Sta. Cruz',
-        'mother_name' => 'Ana Cruz',
-        'mother_contact' => '09123456782',
-        'mother_occupation' => 'Accountant',
-        'father_name' => 'Jose Cruz',
-        'father_contact' => '09123456781',
-        'father_occupation' => 'Police Officer',
-        'family_history' => 'None',
-        'allergies' => 'Latex',
-        'health_center' => 'Health Center 2',
-        'registration_date' => '2024-08-25',
-        'status' => 'active',
-        'nutrition_status' => 'Normal',
-        'vaccine_compliance' => 80,
-        'last_visit' => '2026-07-14'
-    ],
-    [
-        'id' => 6,
-        'child_id' => 'CH-006',
-        'first_name' => 'Marcus',
-        'last_name' => 'Reyes',
-        'middle_name' => 'Dizon',
-        'gender' => 'Male',
-        'birth_date' => '2023-11-30',
-        'age' => '2 yrs 8 mos',
-        'birth_weight' => 3.6,
-        'birth_height' => 53,
-        'blood_type' => 'A-',
-        'address' => '303 Rizal St., Barangay San Jose',
-        'barangay' => 'Barangay San Jose',
-        'mother_name' => 'Liza Reyes',
-        'mother_contact' => '09123456780',
-        'mother_occupation' => 'Teacher',
-        'father_name' => 'Miguel Reyes',
-        'father_contact' => '09123456779',
-        'father_occupation' => 'Engineer',
-        'family_history' => 'Mother - Diabetes',
-        'allergies' => 'None',
-        'health_center' => 'Health Center 1',
-        'registration_date' => '2023-11-30',
-        'status' => 'inactive',
-        'nutrition_status' => 'Overweight',
-        'vaccine_compliance' => 60,
-        'last_visit' => '2026-06-28'
-    ],
-    [
-        'id' => 7,
-        'child_id' => 'CH-007',
-        'first_name' => 'Sophia',
-        'last_name' => 'Santos',
-        'middle_name' => 'Bautista',
-        'gender' => 'Female',
-        'birth_date' => '2025-12-01',
-        'age' => '7 mos',
-        'birth_weight' => 2.9,
-        'birth_height' => 47,
-        'blood_type' => 'B-',
-        'address' => '404 Mabini Ave., Barangay Poblacion',
-        'barangay' => 'Barangay Poblacion',
-        'mother_name' => 'Maria Santos',
-        'mother_contact' => '09123456778',
-        'mother_occupation' => 'Nurse',
-        'father_name' => 'Juan Santos',
-        'father_contact' => '09123456777',
-        'father_occupation' => 'Lawyer',
-        'family_history' => 'None',
-        'allergies' => 'None',
-        'health_center' => 'Health Center 2',
-        'registration_date' => '2025-12-01',
-        'status' => 'active',
-        'nutrition_status' => 'Normal',
-        'vaccine_compliance' => 45,
-        'last_visit' => '2026-07-11'
-    ],
-    [
-        'id' => 8,
-        'child_id' => 'CH-008',
-        'first_name' => 'Nathan',
-        'last_name' => 'Garcia',
-        'middle_name' => 'Ramos',
-        'gender' => 'Male',
-        'birth_date' => '2024-02-14',
-        'age' => '2 yrs 5 mos',
-        'birth_weight' => 3.1,
-        'birth_height' => 49,
-        'blood_type' => 'O+',
-        'address' => '505 Bonifacio Rd., Barangay Riverside',
-        'barangay' => 'Barangay Riverside',
-        'mother_name' => 'Rosa Ramos',
-        'mother_contact' => '09123456776',
-        'mother_occupation' => 'Entrepreneur',
-        'father_name' => 'Ramon Garcia',
-        'father_contact' => '09123456775',
-        'father_occupation' => 'Accountant',
-        'family_history' => 'Father - Hypertension',
-        'allergies' => 'None',
-        'health_center' => 'Health Center 1',
-        'registration_date' => '2024-02-14',
-        'status' => 'active',
-        'nutrition_status' => 'Normal',
-        'vaccine_compliance' => 70,
-        'last_visit' => '2026-07-13'
-    ],
+// Constants
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 5;
+
+// Shared nutrition badge color map.
+// Defined ONCE here (previously redeclared on every loop iteration) and
+// also echoed as JSON below so the JS side reuses the exact same map
+// instead of keeping a second, hand-duplicated copy in <script>.
+$nutritionColors = [
+    'Normal'      => 'bg-emerald-100 text-emerald-700',
+    'Moderate'    => 'bg-amber-100 text-amber-700',
+    'Critical'    => 'bg-rose-100 text-rose-700',
+    'Overweight'  => 'bg-blue-100 text-blue-700',
 ];
 
-// Stats
-$totalChildren = count($children);
-$activeChildren = count(array_filter($children, fn($c) => $c['status'] === 'active'));
-$criticalNutrition = count(array_filter($children, fn($c) => $c['nutrition_status'] === 'Critical'));
-$normalNutrition = count(array_filter($children, fn($c) => $c['nutrition_status'] === 'Normal'));
-$vaccineCompliant = count(array_filter($children, fn($c) => $c['vaccine_compliance'] >= 80));
+// Initialize model
+$childModel = new Child();
 
-// Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$limit = 5;
+// Get statistics from model
+$stats = $childModel->getStats();
+
+// Pagination logic
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : DEFAULT_PAGE;
+$limit = DEFAULT_LIMIT;
 $offset = ($page - 1) * $limit;
-$totalPages = ceil($totalChildren / $limit);
-$paginatedChildren = array_slice($children, $offset, $limit);
+
+// Get paginated children from model
+$children = $childModel->search([], $limit, $offset);
+$totalChildren = $stats['total'];
+$totalPages = max(1, ceil($totalChildren / $limit));
+
+// Stats for display
+$totalChildrenCount = $stats['total'];
+$activeChildren = $stats['active'];
+$criticalNutrition = $stats['critical_nutrition'];
+$normalNutrition = $stats['normal_nutrition'];
+$vaccineCompliant = $stats['vaccine_compliant'];
 
 $title = 'Child Records';
 ?>
@@ -300,7 +92,7 @@ $title = 'Child Records';
                         <i class="fa-solid fa-child text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-slate-900"><?php echo $totalChildren; ?></p>
+                        <p class="text-2xl font-black text-slate-900"><?php echo $totalChildrenCount; ?></p>
                         <p class="text-xs font-medium text-slate-500">Total Children</p>
                     </div>
                 </div>
@@ -393,7 +185,7 @@ $title = 'Child Records';
     </div>
 
     <!-- Critical Nutrition Alert -->
-    <?php if ($criticalNutrition > 0): ?>
+    <?php if ($criticalNutrition > 0 && $totalChildren > 0): ?>
     <div class="bg-rose-50 border border-rose-200 rounded-xl p-3 mb-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
             <i class="fa-solid fa-triangle-exclamation text-rose-500 text-lg"></i>
@@ -444,90 +236,116 @@ $title = 'Child Records';
         </div>
     </div>
 
+    <!-- Quick Filter Chips -->
+    <div class="flex flex-wrap gap-2 mb-4">
+        <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide mr-2">Quick Filters:</span>
+        <button onclick="quickFilter('gender', 'Male')" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+            <i class="fa-solid fa-mars text-sky-500 mr-1"></i> Male
+        </button>
+        <button onclick="quickFilter('gender', 'Female')" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+            <i class="fa-solid fa-venus text-pink-500 mr-1"></i> Female
+        </button>
+        <button onclick="quickFilter('nutrition', 'Critical')" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+            <i class="fa-solid fa-triangle-exclamation text-rose-500 mr-1"></i> Critical
+        </button>
+        <button onclick="quickFilter('status', 'active')" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+            <i class="fa-solid fa-check-circle text-emerald-500 mr-1"></i> Active
+        </button>
+        <button onclick="quickFilter('status', 'inactive')" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 transition">
+            <i class="fa-solid fa-circle-xmark text-slate-400 mr-1"></i> Inactive
+        </button>
+    </div>
+
     <!-- Children Table -->
+    <div id="tableWrapper" class="<?php echo empty($children) ? 'hidden' : ''; ?>">
     <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 border-b border-slate-200">
                     <tr>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Child ID</th>
-                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Child Name</th>
-                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gender</th>
-                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Age</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Child Information</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mother</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nutrition</th>
-                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vaccine %</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vaccine</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
                         <th class="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="childTableBody">
-                    <?php foreach ($paginatedChildren as $child): ?>
+                    <?php foreach ($children as $child): ?>
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors child-row <?php echo $child['nutrition_status'] === 'Critical' ? 'bg-rose-50/50' : ''; ?>"
-                        data-name="<?php echo strtolower($child['first_name'] . ' ' . $child['last_name']); ?>"
-                        data-id="<?php echo $child['child_id']; ?>"
-                        data-mother="<?php echo strtolower($child['mother_name']); ?>"
-                        data-status="<?php echo $child['status']; ?>">
-                        <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo $child['child_id']; ?></td>
+                        data-name="<?php echo htmlspecialchars(strtolower($child['first_name'] . ' ' . $child['last_name'])); ?>"
+                        data-id="<?php echo htmlspecialchars($child['child_id']); ?>"
+                        data-mother="<?php echo htmlspecialchars(strtolower($child['mother_name'])); ?>"
+                        data-status="<?php echo htmlspecialchars($child['status']); ?>"
+                        data-gender="<?php echo htmlspecialchars($child['gender']); ?>"
+                        data-nutrition="<?php echo htmlspecialchars($child['nutrition_status']); ?>"
+                        data-barangay="<?php echo htmlspecialchars(strtolower($child['barangay'])); ?>">
+                        <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold maskable" data-real="<?php echo htmlspecialchars($child['child_id']); ?>"><?php echo htmlspecialchars($child['child_id']); ?></td>
                         <td class="px-4 py-3">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-sm flex-shrink-0">
                                     <?php echo strtoupper(substr($child['first_name'], 0, 1) . substr($child['last_name'], 0, 1)); ?>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-slate-800 text-sm"><?php echo $child['first_name'] . ' ' . $child['last_name']; ?></p>
-                                    <p class="text-xs text-slate-400"><?php echo $child['barangay']; ?></p>
+                                    <p class="font-semibold text-slate-800 text-sm maskable" data-real="<?php echo htmlspecialchars($child['first_name'] . ' ' . ($child['middle_name'] ?? '') . ' ' . $child['last_name']); ?>"><?php echo htmlspecialchars($child['first_name'] . ' ' . ($child['middle_name'] ?? '') . ' ' . $child['last_name']); ?></p>
+                                    <p class="text-xs text-slate-400"><?php echo htmlspecialchars($child['age'] ?? '—'); ?> • <?php echo htmlspecialchars($child['barangay']); ?></p>
                                 </div>
                             </div>
                         </td>
+                        <td class="px-4 py-3 text-xs text-slate-600 maskable" data-real="<?php echo htmlspecialchars($child['mother_name']); ?>"><?php echo htmlspecialchars($child['mother_name']); ?></td>
                         <td class="px-4 py-3">
-                            <span class="text-slate-600 text-xs">
-                                <i class="fa-solid <?php echo $child['gender'] === 'Male' ? 'fa-mars text-sky-500' : 'fa-venus text-pink-500'; ?>"></i>
-                                <?php echo $child['gender']; ?>
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs"><?php echo $child['age']; ?></td>
-                        <td class="px-4 py-3 text-slate-600 text-xs"><?php echo $child['mother_name']; ?></td>
-                        <td class="px-4 py-3">
-                            <?php
-                                $nutritionColors = [
-                                    'Normal' => 'bg-emerald-100 text-emerald-700',
-                                    'Moderate' => 'bg-amber-100 text-amber-700',
-                                    'Critical' => 'bg-rose-100 text-rose-700',
-                                    'Overweight' => 'bg-blue-100 text-blue-700'
-                                ];
-                            ?>
                             <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo $nutritionColors[$child['nutrition_status']] ?? $nutritionColors['Normal']; ?>">
-                                <?php echo $child['nutrition_status']; ?>
+                                <?php echo htmlspecialchars($child['nutrition_status'] ?? 'Normal'); ?>
                             </span>
                         </td>
                         <td class="px-4 py-3">
-                            <div class="flex items-center gap-1">
-                                <div class="w-full bg-slate-200 rounded-full h-1.5">
-                                    <div class="h-1.5 rounded-full <?php echo $child['vaccine_compliance'] >= 80 ? 'bg-emerald-500' : ($child['vaccine_compliance'] >= 50 ? 'bg-amber-500' : 'bg-rose-500'); ?>" 
-                                         style="width: <?php echo $child['vaccine_compliance']; ?>%"></div>
+                            <div class="flex items-center gap-2">
+                                <div class="flex-1 bg-slate-200 rounded-full h-2 min-w-[60px]">
+                                    <div class="h-2 rounded-full <?php echo ($child['vaccine_compliance'] ?? 0) >= 80 ? 'bg-emerald-500' : (($child['vaccine_compliance'] ?? 0) >= 50 ? 'bg-amber-500' : 'bg-rose-500'); ?>" 
+                                         style="width: <?php echo (int)($child['vaccine_compliance'] ?? 0); ?>%"></div>
                                 </div>
-                                <span class="text-xs font-semibold text-slate-600 min-w-[35px]"><?php echo $child['vaccine_compliance']; ?>%</span>
                             </div>
                         </td>
                         <td class="px-4 py-3">
                             <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo $child['status'] === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'; ?>">
-                                <?php echo ucfirst($child['status']); ?>
+                                <?php echo ucfirst($child['status'] ?? 'active'); ?>
                             </span>
                         </td>
                         <td class="px-4 py-3">
                             <div class="flex items-center justify-center gap-1">
-                                <button onclick="viewChild(<?php echo $child['id']; ?>)"
+                                <button onclick="viewChild(<?php echo (int)($child['id'] ?? 0); ?>)"
                                         class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
                                     <i class="fa-solid fa-eye text-sm"></i>
                                 </button>
-                                <button onclick="editChild(<?php echo $child['id']; ?>)"
+                                <button onclick="editChild(<?php echo (int)($child['id'] ?? 0); ?>)"
                                         class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
                                     <i class="fa-solid fa-pen text-sm"></i>
                                 </button>
-                                <button onclick="viewHealthRecord(<?php echo $child['id']; ?>)"
-                                        class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Health Records">
+                                <button onclick="viewVaccination(<?php echo (int)($child['id'] ?? 0); ?>)"
+                                        class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Vaccination">
+                                    <i class="fa-solid fa-syringe text-sm"></i>
+                                </button>
+                                <button onclick="viewHealthRecord(<?php echo (int)($child['id'] ?? 0); ?>)"
+                                        class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Medical History">
                                     <i class="fa-solid fa-folder-medical text-sm"></i>
+                                </button>
+                                <button onclick="printChild(<?php echo (int)($child['id'] ?? 0); ?>)"
+                                        class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Print">
+                                    <i class="fa-solid fa-print text-sm"></i>
+                                </button>
+                                <button onclick="exportChild(<?php echo (int)($child['id'] ?? 0); ?>)"
+                                        class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Export">
+                                    <i class="fa-solid fa-download text-sm"></i>
+                                </button>
+                                <button onclick="archiveChild(<?php echo (int)($child['id'] ?? 0); ?>)"
+                                        class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Archive">
+                                    <i class="fa-solid fa-archive text-sm"></i>
+                                </button>
+                                <button onclick="deleteChild(<?php echo (int)($child['id'] ?? 0); ?>)"
+                                        class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Delete">
+                                    <i class="fa-solid fa-trash text-sm"></i>
                                 </button>
                             </div>
                         </td>
@@ -537,17 +355,20 @@ $title = 'Child Records';
             </table>
         </div>
 
-        <!-- Empty state -->
-        <div id="emptyState" class="hidden flex-col items-center justify-center py-14 text-center">
-            <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                <i class="fa-solid fa-child text-slate-400"></i>
+        <!-- Empty state for no search results -->
+        <div id="emptySearchState" class="hidden flex-col items-center justify-center py-14 text-center">
+            <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-magnifying-glass text-slate-400 text-2xl"></i>
             </div>
-            <p class="text-sm font-semibold text-slate-600">No children match your filters</p>
-            <p class="text-xs text-slate-400 mt-1">Try adjusting your search or clearing filters</p>
-            <button onclick="resetFilters()" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear all filters</button>
+            <p class="text-base font-bold text-slate-700 mb-1">No matching child records found.</p>
+            <p class="text-sm text-slate-500 mb-4">Try adjusting your search or filters.</p>
+            <button onclick="resetFilters()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                <i class="fa-solid fa-rotate-right mr-1.5"></i> Clear Filters
+            </button>
         </div>
 
         <!-- Pagination -->
+        <div id="paginationWrapper" class="<?php echo empty($children) ? 'hidden' : ''; ?>">
         <div class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
             <p class="text-xs text-slate-500">
                 Showing <span class="font-semibold text-slate-700"><?php echo $offset + 1; ?></span> to
@@ -573,7 +394,20 @@ $title = 'Child Records';
                 </button>
             </div>
         </div>
+        </div>
     </div>
+</div>
+
+<!-- Empty state for no records at all -->
+<div id="noRecordsState" class="<?php echo empty($children) ? 'flex' : 'hidden'; ?> flex-col items-center justify-center py-16 text-center">
+    <div class="w-20 h-20 rounded-full bg-brand-light border-2 border-brand-border flex items-center justify-center mb-5">
+        <i class="fa-solid fa-child text-brand-dark text-3xl"></i>
+    </div>
+    <h3 class="text-xl font-bold text-slate-900 mb-2">No Child Records Found</h3>
+    <p class="text-sm text-slate-500 mb-6 max-w-md">There are currently no registered children. Click 'Register Child' to add the first child record.</p>
+    <button onclick="openModal('registerChildModal')" class="px-6 py-2.5 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold shadow-sm">
+        <i class="fa-solid fa-child mr-1.5"></i> Register Child
+    </button>
 </div>
 
 <!-- ============================================================ -->
@@ -734,6 +568,169 @@ $title = 'Child Records';
 </div>
 
 <!-- ============================================================ -->
+<!-- EDIT CHILD MODAL                                             -->
+<!-- ============================================================ -->
+<div id="editChildModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-pen text-brand-medium"></i>
+                Edit Child Record
+            </h3>
+            <button onclick="closeModal('editChildModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="editChildForm" class="p-6 space-y-4" onsubmit="saveChildEdit(event)">
+            <input type="hidden" id="edit_child_id">
+            
+            <!-- Child Information -->
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">👶 Child Information</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">First Name</label>
+                        <input type="text" id="edit_first_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Middle Name</label>
+                        <input type="text" id="edit_middle_name" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Name</label>
+                        <input type="text" id="edit_last_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Gender</label>
+                        <select id="edit_gender" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Date</label>
+                        <input type="date" id="edit_birth_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Weight (kg)</label>
+                        <input type="number" id="edit_birth_weight" step="0.1" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Height (cm)</label>
+                        <input type="number" id="edit_birth_height" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Blood Type</label>
+                        <select id="edit_blood_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <option value="">Select</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label>
+                        <select id="edit_barangay" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <option value="Barangay San Jose">Barangay San Jose</option>
+                            <option value="Barangay Poblacion">Barangay Poblacion</option>
+                            <option value="Barangay Riverside">Barangay Riverside</option>
+                            <option value="Barangay San Roque">Barangay San Roque</option>
+                            <option value="Barangay Sta. Cruz">Barangay Sta. Cruz</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Address</label>
+                        <input type="text" id="edit_address" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mother Information -->
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">👩 Mother Information</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Mother's Name</label>
+                        <input type="text" id="edit_mother_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
+                        <input type="text" id="edit_mother_contact" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Occupation</label>
+                        <input type="text" id="edit_mother_occupation" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Father Information -->
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">👨 Father Information</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Father's Name</label>
+                        <input type="text" id="edit_father_name" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
+                        <input type="text" id="edit_father_contact" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Occupation</label>
+                        <input type="text" id="edit_father_occupation" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Family History</label>
+                <textarea id="edit_family_history" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Any family medical history..."></textarea>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Allergies</label>
+                <input type="text" id="edit_allergies" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="None">
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onclick="closeModal('editChildModal')"
+                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                    <i class="fa-solid fa-save mr-1.5"></i> Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- VACCINATION MODAL                                            -->
+<!-- ============================================================ -->
+<div id="vaccinationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900">Vaccination Records</h3>
+            <button onclick="closeModal('vaccinationModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="vaccinationContent" class="p-6">
+            <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- HEALTH RECORDS MODAL                                         -->
 <!-- ============================================================ -->
 <div id="healthRecordModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
@@ -752,236 +749,701 @@ $title = 'Child Records';
     </div>
 </div>
 
-<!-- Toast notification -->
-<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
-    <i class="fa-solid fa-circle-check"></i>
-    <span id="toastMessage"></span>
-</div>
-
 <!-- ============================================================ -->
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
 <script>
-    const CHILDREN = <?php echo json_encode(array_column($children, null, 'id'), JSON_PRETTY_PRINT); ?>;
+    const API_BASE = '<?php echo site_url('api/immunization.php'); ?>';
+
+    // Shared nutrition color map, sourced from the SAME PHP array used to
+    // render the initial table (see $nutritionColors above) so there is
+    // only ONE place that defines these colors.
+    const NUTRITION_COLORS = <?php echo json_encode($nutritionColors); ?>;
 
     // ============================================================
-    // MODAL FUNCTIONS
+    // SHARED HELPERS (previously re-declared inside viewChild,
+    // printChild, and refreshChildList — now defined once and reused)
+    // ============================================================
+    const val = (v, fallback = 'Not Provided') =>
+        (v === null || v === undefined || v === '' || (typeof v === 'number' && isNaN(v))) ? fallback : v;
+
+    const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+    const initials = (first, last) => `${(first || '?').charAt(0)}${(last || '?').charAt(0)}`.toUpperCase();
+
+    const getNutritionClass = (status) => NUTRITION_COLORS[status] || NUTRITION_COLORS.Normal;
+
+    const vaccineBarColor = (pct) => {
+        pct = pct || 0;
+        return pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-500' : 'bg-rose-500';
+    };
+
+    const complianceBar = (pct) => {
+        pct = pct || 0;
+        return `<div class="flex-1 bg-slate-200 rounded-full h-2 min-w-[60px]">
+                    <div class="h-2 rounded-full ${vaccineBarColor(pct)}" style="width: ${pct}%"></div>
+                </div>`;
+    };
+
+    const calculateAge = (birthDate) => {
+        if (!birthDate) return 'Not Provided';
+        const birth = new Date(birthDate);
+        const today = new Date();
+        const years = today.getFullYear() - birth.getFullYear();
+        const months = today.getMonth() - birth.getMonth();
+        const days = today.getDate() - birth.getDate();
+
+        let age = '';
+        if (years > 0) age += years + ' yr' + (years > 1 ? 's' : '');
+        if (months > 0 || years > 0) age += (age ? ' ' : '') + months + ' mo' + (months > 1 ? 's' : '');
+        if (days > 0 && years === 0) age += (age ? ' ' : '') + days + ' day' + (days > 1 ? 's' : '');
+        return age || '0 days';
+    };
+
+    function escHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // Toggle a "hidden"/visible-mode pair on an element in one call
+    // (replaces repeated classList.add('hidden') / remove('hidden') pairs).
+    function setVisible(el, show, showClass = '') {
+        if (!el) return;
+        el.classList.toggle('hidden', !show);
+        if (showClass) el.classList.toggle(showClass, show);
+    }
+
+    // ============================================================
+    // MODAL FUNCTIONS - Using ModalSystem
     // ============================================================
     function openModal(id) {
-        document.getElementById(id).classList.remove('hidden');
-        document.getElementById(id).classList.add('flex');
-        document.body.classList.add('overflow-hidden');
+        ModalSystem.open(id);
     }
 
     function closeModal(id) {
-        document.getElementById(id).classList.add('hidden');
-        document.getElementById(id).classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
+        ModalSystem.close(id);
     }
 
-    // Close modal on backdrop click
-    document.querySelectorAll('.fixed.inset-0').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-                this.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
+    // ============================================================
+    // FETCH CHILDREN FROM API
+    // ============================================================
+    async function fetchChildren(page = 1, limit = 5) {
+        try {
+            const response = await fetch(`${API_BASE}?page=${page}&limit=${limit}`);
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Failed to fetch children');
             }
-        });
-    });
+            return result.data || [];
+        } catch (err) {
+            console.error('Error fetching children:', err);
+            toast.error(err.message || 'Failed to load children');
+            return [];
+        }
+    }
+
+    async function fetchChild(id) {
+        try {
+            const response = await fetch(`${API_BASE}?id=${id}`);
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Failed to fetch child');
+            }
+            return result.data;
+        } catch (err) {
+            console.error('Error fetching child:', err);
+            toast.error(err.message || 'Failed to load child details');
+            return null;
+        }
+    }
 
     // ============================================================
     // VIEW CHILD
     // ============================================================
-    function viewChild(id) {
+    async function viewChild(id) {
+        const content = document.getElementById('childDetailsContent');
         openModal('viewChildModal');
-        const c = CHILDREN[id];
-        if (!c) return;
+        content.innerHTML = `
+            <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
+            </div>
+        `;
 
-        setTimeout(() => {
-            const nutritionColors = {
-                Normal: 'bg-emerald-100 text-emerald-700',
-                Moderate: 'bg-amber-100 text-amber-700',
-                Critical: 'bg-rose-100 text-rose-700',
-                Overweight: 'bg-blue-100 text-blue-700'
-            };
-
-            document.getElementById('childDetailsContent').innerHTML = `
-                <div class="space-y-4">
-                    <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
-                        <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-2xl flex-shrink-0">
-                            ${c.first_name.charAt(0)}${c.last_name.charAt(0)}
-                        </div>
-                        <div>
-                            <h4 class="text-lg font-bold text-slate-900">${c.first_name} ${c.last_name}</h4>
-                            <p class="text-sm text-slate-500">${c.child_id} • ${c.age} • ${c.barangay}</p>
-                            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${nutritionColors[c.nutrition_status] || nutritionColors.Normal}">
-                                Nutrition: ${c.nutrition_status}
-                            </span>
-                        </div>
-                    </div>
-                    
-                    <!-- Demographics -->
-                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <h5 class="text-sm font-bold text-slate-700 mb-2">📋 Demographics</h5>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div><p class="text-xs text-slate-400">Gender</p><p class="text-sm text-slate-800">${c.gender}</p></div>
-                            <div><p class="text-xs text-slate-400">Birth Date</p><p class="text-sm text-slate-800">${new Date(c.birth_date).toLocaleDateString()}</p></div>
-                            <div><p class="text-xs text-slate-400">Birth Weight</p><p class="text-sm text-slate-800">${c.birth_weight} kg</p></div>
-                            <div><p class="text-xs text-slate-400">Birth Height</p><p class="text-sm text-slate-800">${c.birth_height} cm</p></div>
-                            <div><p class="text-xs text-slate-400">Blood Type</p><p class="text-sm text-slate-800">${c.blood_type || '—'}</p></div>
-                            <div><p class="text-xs text-slate-400">Health Center</p><p class="text-sm text-slate-800">${c.health_center}</p></div>
-                        </div>
-                    </div>
-
-                    <!-- Family History -->
-                    <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border">
-                        <h5 class="text-sm font-bold text-slate-700 mb-2">👨‍👩‍👧 Family History</h5>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                                <p class="text-xs text-slate-400 font-semibold">Mother</p>
-                                <p class="text-sm text-slate-800">${c.mother_name}</p>
-                                <p class="text-xs text-slate-400">${c.mother_occupation || 'N/A'} • ${c.mother_contact || 'N/A'}</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-slate-400 font-semibold">Father</p>
-                                <p class="text-sm text-slate-800">${c.father_name || 'N/A'}</p>
-                                <p class="text-xs text-slate-400">${c.father_occupation || 'N/A'} • ${c.father_contact || 'N/A'}</p>
-                            </div>
-                            <div class="sm:col-span-2">
-                                <p class="text-xs text-slate-400 font-semibold">Family Medical History</p>
-                                <p class="text-sm text-slate-800">${c.family_history || 'None reported'}</p>
-                            </div>
-                            <div class="sm:col-span-2">
-                                <p class="text-xs text-slate-400 font-semibold">Allergies</p>
-                                <p class="text-sm text-slate-800">${c.allergies || 'None'}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Health Records Summary -->
-                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <h5 class="text-sm font-bold text-slate-700 mb-2">💉 Health Records Summary</h5>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <p class="text-xs text-slate-400">Vaccine Compliance</p>
-                                <div class="flex items-center gap-2 mt-1">
-                                    <div class="flex-1 bg-slate-200 rounded-full h-2">
-                                        <div class="h-2 rounded-full ${c.vaccine_compliance >= 80 ? 'bg-emerald-500' : c.vaccine_compliance >= 50 ? 'bg-amber-500' : 'bg-rose-500'}" 
-                                             style="width: ${c.vaccine_compliance}%"></div>
-                                    </div>
-                                    <span class="text-sm font-bold">${c.vaccine_compliance}%</span>
-                                </div>
-                            </div>
-                            <div>
-                                <p class="text-xs text-slate-400">Last Visit</p>
-                                <p class="text-sm font-semibold text-slate-800">${new Date(c.last_visit).toLocaleDateString()}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
-                        <button onclick="closeModal('viewChildModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                        <button onclick="closeModal('viewChildModal'); viewHealthRecord(${c.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold">
-                            <i class="fa-solid fa-folder-medical mr-1.5"></i> Health Records
-                        </button>
-                    </div>
+        const c = await fetchChild(id);
+        if (!c) {
+            content.innerHTML = `
+                <div class="text-center py-10 text-rose-500">
+                    <i class="fa-solid fa-exclamation-circle text-2xl mb-2"></i>
+                    <p>Failed to load child details</p>
                 </div>
             `;
-        }, 300);
+            return;
+        }
+
+        content.innerHTML = `
+            <div class="space-y-4">
+                <!-- Child Information -->
+                <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
+                    <div class="w-16 h-16 rounded-full bg-brand-light border-2 border-brand-border flex items-center justify-center text-brand-dark font-bold text-2xl flex-shrink-0">
+                        ${initials(c.first_name, c.last_name)}
+                    </div>
+                    <div>
+                        <h4 class="text-lg font-bold text-slate-900">${escHtml(val(c.first_name))} ${escHtml(val(c.last_name))}</h4>
+                        <p class="text-sm text-slate-500">${escHtml(val(c.child_id))} • ${calculateAge(c.birth_date)} • ${escHtml(val(c.barangay))}</p>
+                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${getNutritionClass(c.nutrition_status)}">
+                            ${escHtml(val(c.nutrition_status, 'Normal'))}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Child Details Section -->
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <h5 class="text-sm font-bold text-slate-700 mb-3">👶 Child Information</h5>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><p class="text-xs text-slate-400">Child ID</p><p class="text-sm text-slate-800 font-mono maskable" data-real="${escHtml(val(c.child_id))}">${escHtml(val(c.child_id))}</p></div>
+                        <div><p class="text-xs text-slate-400">Gender</p><p class="text-sm text-slate-800">${escHtml(val(c.gender))}</p></div>
+                        <div><p class="text-xs text-slate-400">Birth Date</p><p class="text-sm text-slate-800">${c.birth_date ? new Date(c.birth_date).toLocaleDateString() : 'Not Provided'}</p></div>
+                        <div><p class="text-xs text-slate-400">Birth Weight</p><p class="text-sm text-slate-800">${c.birth_weight ? c.birth_weight + ' kg' : 'Not Recorded'}</p></div>
+                        <div><p class="text-xs text-slate-400">Birth Height</p><p class="text-sm text-slate-800">${c.birth_height ? c.birth_height + ' cm' : 'Not Recorded'}</p></div>
+                        <div><p class="text-xs text-slate-400">Blood Type</p><p class="text-sm text-slate-800">${escHtml(val(c.blood_type, 'Unknown'))}</p></div>
+                        <div class="sm:col-span-2"><p class="text-xs text-slate-400">Full Name</p><p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.first_name) + ' ' + val(c.middle_name, '') + ' ' + val(c.last_name))}">${escHtml(val(c.first_name) + ' ' + val(c.middle_name, '') + ' ' + val(c.last_name))}</p></div>
+                        <div class="sm:col-span-2"><p class="text-xs text-slate-400">Health Center</p><p class="text-sm text-slate-800">${escHtml(val(c.health_center))}</p></div>
+                    </div>
+                </div>
+
+                <!-- Parents Section -->
+                <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border">
+                    <h5 class="text-sm font-bold text-slate-700 mb-3">👨‍👩‍👧 Parents Information</h5>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <p class="text-xs text-slate-400 font-semibold">Mother</p>
+                            <p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.mother_name))}">${escHtml(val(c.mother_name))}</p>
+                            <p class="text-xs text-slate-400">${escHtml(val(c.mother_occupation, 'N/A'))} • <span class="maskable" data-real="${escHtml(val(c.mother_contact, 'N/A'))}">${escHtml(val(c.mother_contact, 'N/A'))}</span></p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-slate-400 font-semibold">Father</p>
+                            <p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.father_name, 'Not Provided'))}">${escHtml(val(c.father_name, 'Not Provided'))}</p>
+                            <p class="text-xs text-slate-400">${escHtml(val(c.father_occupation, 'N/A'))} • <span class="maskable" data-real="${escHtml(val(c.father_contact, 'N/A'))}">${escHtml(val(c.father_contact, 'N/A'))}</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Medical Information -->
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <h5 class="text-sm font-bold text-slate-700 mb-3">🏥 Medical Information</h5>
+                    <div class="space-y-2">
+                        <div><p class="text-xs text-slate-400">Family History</p><p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.family_history, 'None Reported'))}">${escHtml(val(c.family_history, 'None Reported'))}</p></div>
+                        <div><p class="text-xs text-slate-400">Allergies</p><p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.allergies, 'None'))}">${escHtml(val(c.allergies, 'None'))}</p></div>
+                        <div>
+                            <p class="text-xs text-slate-400">Vaccine Compliance</p>
+                            <div class="flex items-center gap-2 mt-1">
+                                ${complianceBar(c.vaccine_compliance)}
+                                <span class="text-sm font-bold">${c.vaccine_compliance || 0}%</span>
+                            </div>
+                        </div>
+                        <div><p class="text-xs text-slate-400">Last Visit</p><p class="text-sm text-slate-800">${c.last_visit ? new Date(c.last_visit).toLocaleDateString() : 'Not Recorded'}</p></div>
+                    </div>
+                </div>
+
+                <!-- Address -->
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <h5 class="text-sm font-bold text-slate-700 mb-2">📍 Address</h5>
+                    <p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.address))}">${escHtml(val(c.address))}</p>
+                    <p class="text-xs text-slate-500 mt-1">${escHtml(val(c.barangay))}</p>
+                </div>
+
+                <!-- Registration Details -->
+                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <h5 class="text-sm font-bold text-slate-700 mb-2">📅 Registration Details</h5>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><p class="text-xs text-slate-400">Registration Date</p><p class="text-sm text-slate-800">${c.registration_date ? new Date(c.registration_date).toLocaleDateString() : 'Not Recorded'}</p></div>
+                        <div><p class="text-xs text-slate-400">Status</p><p class="text-sm text-slate-800">${capitalize(val(c.status, 'active'))}</p></div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                    <button onclick="closeModal('viewChildModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
+                    <button onclick="closeModal('viewChildModal'); viewHealthRecord(${c.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold">
+                        <i class="fa-solid fa-folder-medical mr-1.5"></i> Health Records
+                    </button>
+                </div>
+            </div>
+        `;
     }
 
     // ============================================================
     // EDIT CHILD
     // ============================================================
-    function editChild(id) {
-        showToast('Edit child ID: ' + id + ' (Edit modal coming soon)', 'info');
+    const EDIT_FIELD_MAP = {
+        first_name: 'edit_first_name', middle_name: 'edit_middle_name', last_name: 'edit_last_name',
+        gender: 'edit_gender', birth_date: 'edit_birth_date', birth_weight: 'edit_birth_weight',
+        birth_height: 'edit_birth_height', blood_type: 'edit_blood_type', barangay: 'edit_barangay',
+        address: 'edit_address', mother_name: 'edit_mother_name', mother_contact: 'edit_mother_contact',
+        mother_occupation: 'edit_mother_occupation', father_name: 'edit_father_name',
+        father_contact: 'edit_father_contact', father_occupation: 'edit_father_occupation',
+        family_history: 'edit_family_history', allergies: 'edit_allergies'
+    };
+
+    async function editChild(id) {
+        openModal('editChildModal');
+        document.getElementById('edit_child_id').value = id;
+
+        // Show loading state
+        const form = document.getElementById('editChildForm');
+        const originalContent = form.innerHTML;
+        form.innerHTML = `
+            <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
+            </div>
+        `;
+
+        const c = await fetchChild(id);
+        if (!c) {
+            form.innerHTML = originalContent;
+            closeModal('editChildModal');
+            toast.error('Failed to load child data');
+            return;
+        }
+
+        // Restore form and populate fields (single loop instead of 17 repeated lines)
+        form.innerHTML = originalContent;
+        document.getElementById('edit_child_id').value = c.id;
+        document.getElementById('edit_gender').value = c.gender || 'Male';
+        for (const [key, elId] of Object.entries(EDIT_FIELD_MAP)) {
+            if (key === 'gender') continue; // handled above (needs a default)
+            const el = document.getElementById(elId);
+            if (el) el.value = c[key] || '';
+        }
+    }
+
+    // ============================================================
+    // VIEW VACCINATION
+    // ============================================================
+    async function viewVaccination(id) {
+        openModal('vaccinationModal');
+        const content = document.getElementById('vaccinationContent');
+        const c = await fetchChild(id);
+        if (!c) {
+            content.innerHTML = `
+                <div class="text-center py-10 text-rose-500">
+                    <i class="fa-solid fa-exclamation-circle text-2xl mb-2"></i>
+                    <p>Failed to load vaccination records</p>
+                </div>
+            `;
+            return;
+        }
+
+        // In production, fetch vaccination records from API
+        const vaccinations = [
+            { vaccine: 'BCG', date: c.birth_date || '2024-01-15', status: 'completed', next_due: '' },
+            { vaccine: 'Hepatitis B', date: c.birth_date || '2024-01-15', status: 'completed', next_due: '' },
+            { vaccine: 'DPT', date: '2024-03-15', status: 'completed', next_due: '2024-06-15' },
+            { vaccine: 'Polio', date: '2024-03-15', status: 'completed', next_due: '2024-06-15' },
+            { vaccine: 'MMR', date: '2024-09-15', status: 'pending', next_due: '2024-09-15' },
+        ];
+
+        const vaccinationHtml = vaccinations.map(v => `
+            <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full ${v.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'} flex items-center justify-center">
+                        <i class="fa-solid fa-syringe text-sm"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-800 text-sm">${v.vaccine}</p>
+                        <p class="text-xs text-slate-400">Given: ${new Date(v.date).toLocaleDateString()}</p>
+                        ${v.next_due ? `<p class="text-xs text-slate-500">Next: ${new Date(v.next_due).toLocaleDateString()}</p>` : ''}
+                    </div>
+                </div>
+                <span class="px-2 py-1 rounded-full text-xs font-semibold ${v.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
+                    ${v.status === 'completed' ? 'Completed' : 'Pending'}
+                </span>
+            </div>
+        `).join('');
+
+        content.innerHTML = `
+            <div class="space-y-4">
+                <div class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
+                    <div class="w-10 h-10 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-sm flex-shrink-0">
+                        ${initials(c.first_name, c.last_name)}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-800 text-sm">${escHtml(c.first_name || '')} ${escHtml(c.last_name || '')}</p>
+                        <p class="text-xs text-slate-400">${escHtml(c.child_id || '')} • ${escHtml(c.age || '')}</p>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    ${vaccinationHtml}
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                    <button onclick="closeModal('vaccinationModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
+                    <button class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                        <i class="fa-solid fa-plus mr-1.5"></i> Add Vaccination
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    // ============================================================
+    // PRINT CHILD
+    // ============================================================
+    async function printChild(id) {
+        try {
+            toast.info('Preparing print view...');
+            const c = await fetchChild(id);
+            if (!c) {
+                toast.error('Failed to load child data');
+                return;
+            }
+
+            // Create a new window for printing
+            const printWindow = window.open('', '_blank', 'width=800,height=600');
+            if (!printWindow) {
+                toast.error('Please allow popups to print');
+                return;
+            }
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Child Record - ${escHtml(val(c.child_id))}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        .header { text-align: center; border-bottom: 2px solid #0B4F4A; padding-bottom: 10px; margin-bottom: 20px; }
+                        .section { margin-bottom: 20px; padding: 10px; background: #f8f8f8; border-radius: 5px; }
+                        .section-title { font-weight: bold; color: #0B4F4A; margin-bottom: 10px; }
+                        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+                        .label { font-size: 12px; color: #666; }
+                        .value { font-size: 14px; font-weight: 600; }
+                        @media print { body { padding: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Child Health Record</h1>
+                        <p>${escHtml(val(c.child_id))} • Printed on ${new Date().toLocaleDateString()}</p>
+                    </div>
+                    
+                    <div class="section">
+                        <div class="section-title">Child Information</div>
+                        <div class="grid">
+                            <div><div class="label">Full Name</div><div class="value">${escHtml(val(c.first_name) + ' ' + val(c.middle_name, '') + ' ' + val(c.last_name))}</div></div>
+                            <div><div class="label">Gender</div><div class="value">${escHtml(val(c.gender))}</div></div>
+                            <div><div class="label">Birth Date</div><div class="value">${c.birth_date ? new Date(c.birth_date).toLocaleDateString() : 'Not Provided'}</div></div>
+                            <div><div class="label">Age</div><div class="value">${calculateAge(c.birth_date)}</div></div>
+                            <div><div class="label">Birth Weight</div><div class="value">${c.birth_weight ? c.birth_weight + ' kg' : 'Not Recorded'}</div></div>
+                            <div><div class="label">Birth Height</div><div class="value">${c.birth_height ? c.birth_height + ' cm' : 'Not Recorded'}</div></div>
+                            <div><div class="label">Blood Type</div><div class="value">${escHtml(val(c.blood_type, 'Unknown'))}</div></div>
+                            <div><div class="label">Health Center</div><div class="value">${escHtml(val(c.health_center))}</div></div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Parents Information</div>
+                        <div class="grid">
+                            <div><div class="label">Mother's Name</div><div class="value">${escHtml(val(c.mother_name))}</div></div>
+                            <div><div class="label">Mother's Contact</div><div class="value">${escHtml(val(c.mother_contact, 'N/A'))}</div></div>
+                            <div><div class="label">Father's Name</div><div class="value">${escHtml(val(c.father_name, 'Not Provided'))}</div></div>
+                            <div><div class="label">Father's Contact</div><div class="value">${escHtml(val(c.father_contact, 'N/A'))}</div></div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Medical Information</div>
+                        <div class="grid">
+                            <div><div class="label">Family History</div><div class="value">${escHtml(val(c.family_history, 'None Reported'))}</div></div>
+                            <div><div class="label">Allergies</div><div class="value">${escHtml(val(c.allergies, 'None'))}</div></div>
+                            <div><div class="label">Vaccine Compliance</div><div class="value">${c.vaccine_compliance || 0}%</div></div>
+                            <div><div class="label">Last Visit</div><div class="value">${c.last_visit ? new Date(c.last_visit).toLocaleDateString() : 'Not Recorded'}</div></div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <div class="section-title">Address</div>
+                        <div class="value">${escHtml(val(c.address))}</div>
+                        <div class="value">${escHtml(val(c.barangay))}</div>
+                    </div>
+
+                    <script>window.onload = function() { window.print(); }<\/script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            toast.success('Print view opened');
+        } catch (err) {
+            toast.error(err.message || 'Failed to prepare print view');
+        }
     }
 
     // ============================================================
     // VIEW HEALTH RECORDS
     // ============================================================
-    function viewHealthRecord(id) {
+    async function viewHealthRecord(id) {
         openModal('healthRecordModal');
-        const c = CHILDREN[id];
-        if (!c) return;
-
-        setTimeout(() => {
-            // Sample health records data (in production, fetch from database)
-            const healthRecords = [
-                { date: '2026-07-10', type: 'Checkup', doctor: 'Dr. Elena Santos', notes: 'Normal development', follow_up: '2026-08-10' },
-                { date: '2026-06-15', type: 'Vaccination', doctor: 'Dr. Ana Cruz', notes: 'MMR Booster given', follow_up: '2026-07-15' },
-                { date: '2026-05-20', type: 'Nutrition Assessment', doctor: 'Dr. Miguel Reyes', notes: 'Weight within normal range', follow_up: '2026-06-20' },
-            ];
-
-            const recordsHtml = healthRecords.map(r => `
-                <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
-                    <div>
-                        <p class="font-semibold text-slate-800 text-sm">${r.type}</p>
-                        <p class="text-xs text-slate-400">${new Date(r.date).toLocaleDateString()} • ${r.doctor}</p>
-                        <p class="text-xs text-slate-600 mt-1">${r.notes}</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-xs text-slate-400">Follow-up:</span>
-                        <p class="text-xs font-semibold text-brand-dark">${new Date(r.follow_up).toLocaleDateString()}</p>
-                    </div>
-                </div>
-            `).join('');
-
-            document.getElementById('healthRecordContent').innerHTML = `
-                <div class="space-y-4">
-                    <div class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
-                        <div class="w-10 h-10 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-sm flex-shrink-0">
-                            ${c.first_name.charAt(0)}${c.last_name.charAt(0)}
-                        </div>
-                        <div>
-                            <p class="font-semibold text-slate-800 text-sm">${c.first_name} ${c.last_name}</p>
-                            <p class="text-xs text-slate-400">${c.child_id} • ${c.age}</p>
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        ${recordsHtml}
-                    </div>
-                    <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
-                        <button onclick="closeModal('healthRecordModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                        <button class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                            <i class="fa-solid fa-plus mr-1.5"></i> Add Record
-                        </button>
-                    </div>
+        const content = document.getElementById('healthRecordContent');
+        const c = await fetchChild(id);
+        if (!c) {
+            content.innerHTML = `
+                <div class="text-center py-10 text-rose-500">
+                    <i class="fa-solid fa-exclamation-circle text-2xl mb-2"></i>
+                    <p>Failed to load health records</p>
                 </div>
             `;
-        }, 300);
+            return;
+        }
+
+        // In production, fetch health records from API
+        const healthRecords = [
+            { date: c.last_visit || new Date().toISOString().split('T')[0], type: 'Checkup', doctor: 'Dr. Elena Santos', notes: 'Normal development', follow_up: '2026-08-10' },
+        ];
+
+        const recordsHtml = healthRecords.map(r => `
+            <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
+                <div>
+                    <p class="font-semibold text-slate-800 text-sm">${r.type}</p>
+                    <p class="text-xs text-slate-400">${new Date(r.date).toLocaleDateString()} • ${r.doctor}</p>
+                    <p class="text-xs text-slate-600 mt-1">${r.notes}</p>
+                </div>
+                <div class="text-right">
+                    <span class="text-xs text-slate-400">Follow-up:</span>
+                    <p class="text-xs font-semibold text-brand-dark">${new Date(r.follow_up).toLocaleDateString()}</p>
+                </div>
+            </div>
+        `).join('');
+
+        content.innerHTML = `
+            <div class="space-y-4">
+                <div class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
+                    <div class="w-10 h-10 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-sm flex-shrink-0">
+                        ${initials(c.first_name, c.last_name)}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-800 text-sm">${escHtml(c.first_name || '')} ${escHtml(c.last_name || '')}</p>
+                        <p class="text-xs text-slate-400">${escHtml(c.child_id || '')} • ${escHtml(c.age || '')}</p>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    ${recordsHtml}
+                </div>
+                <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                    <button onclick="closeModal('healthRecordModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
+                    <button class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                        <i class="fa-solid fa-plus mr-1.5"></i> Add Record
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    // ============================================================
+    // SHARED: read a set of form fields into a plain object
+    // (replaces two near-identical 15-line field-collection blocks
+    // in saveChildEdit / saveChildRegistration)
+    // ============================================================
+    function readFormFields(prefix, keys) {
+        const data = {};
+        keys.forEach(key => {
+            const el = document.getElementById(`${prefix}${key}`);
+            data[key] = el ? (el.value || null) : null;
+        });
+        return data;
+    }
+
+    const CHILD_FORM_KEYS = [
+        'first_name', 'last_name', 'gender', 'birth_date', 'birth_weight', 'birth_height',
+        'blood_type', 'barangay', 'address', 'mother_name', 'mother_contact', 'mother_occupation',
+        'father_name', 'father_contact', 'father_occupation', 'family_history', 'allergies'
+    ];
+
+    // Shared submit handler for both the register and edit forms — they
+    // differ only in HTTP method, URL, and the success/cleanup step.
+    async function submitChildForm(event, { url, method, formData, onSuccess, successMessage }) {
+        event.preventDefault();
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+
+        try {
+            const response = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            let result;
+            if (!response.ok) {
+                let errorMessage = response.statusText || 'An unexpected server error occurred.';
+                try {
+                    result = await response.json();
+                    errorMessage = result.message || errorMessage;
+                } catch (_) { /* non-JSON error body, keep statusText */ }
+                toast.error(errorMessage);
+                return;
+            }
+
+            result = await response.json();
+            if (!result.success) {
+                toast.error(result.message || 'Request failed');
+                return;
+            }
+
+            toast.success(successMessage);
+            onSuccess();
+            await refreshChildList();
+        } catch (err) {
+            toast.error(err.message || 'Network error. Please try again.');
+        } finally {
+            submitBtn.disabled = false;
+        }
+    }
+
+    // ============================================================
+    // SAVE CHILD EDIT
+    // ============================================================
+    async function saveChildEdit(event) {
+        const id = document.getElementById('edit_child_id').value;
+        const formData = readFormFields('edit_', CHILD_FORM_KEYS);
+        formData.middle_name = document.getElementById('edit_middle_name').value || null;
+
+        await submitChildForm(event, {
+            url: `${API_BASE}?id=${id}`,
+            method: 'PUT',
+            formData,
+            successMessage: 'Child record updated successfully.',
+            onSuccess: () => closeModal('editChildModal')
+        });
     }
 
     // ============================================================
     // SAVE CHILD REGISTRATION
     // ============================================================
-    function saveChildRegistration(event) {
-        event.preventDefault();
-        showToast('Child registered successfully!', 'success');
-        closeModal('registerChildModal');
+    async function saveChildRegistration(event) {
+        const formData = readFormFields('child_', CHILD_FORM_KEYS);
+        formData.health_center = 'Health Center 1';
+
+        await submitChildForm(event, {
+            url: API_BASE,
+            method: 'POST',
+            formData,
+            successMessage: 'Child registered successfully.',
+            onSuccess: () => {
+                closeModal('registerChildModal');
+                event.target.reset();
+            }
+        });
     }
 
     // ============================================================
-    // TOAST NOTIFICATIONS
+    // BUILD A CHILD ROW (shared by refreshChildList; single source
+    // of truth for the JS-rendered <tr>, mirroring the PHP row above)
     // ============================================================
-    let toastTimer = null;
+    function actionButtons(id) {
+        const actions = [
+            ['viewChild', 'fa-eye', 'text-brand-medium hover:bg-brand-light', 'View'],
+            ['editChild', 'fa-pen', 'text-slate-500 hover:bg-slate-100 hover:text-slate-700', 'Edit'],
+            ['viewVaccination', 'fa-syringe', 'text-emerald-600 hover:bg-emerald-50', 'Vaccination'],
+            ['viewHealthRecord', 'fa-folder-medical', 'text-blue-600 hover:bg-blue-50', 'Medical History'],
+            ['printChild', 'fa-print', 'text-slate-500 hover:bg-slate-100 hover:text-slate-700', 'Print'],
+            ['exportChild', 'fa-download', 'text-slate-500 hover:bg-slate-100 hover:text-slate-700', 'Export'],
+            ['archiveChild', 'fa-archive', 'text-amber-600 hover:bg-amber-50', 'Archive'],
+            ['deleteChild', 'fa-trash', 'text-rose-500 hover:bg-rose-50', 'Delete'],
+        ];
+        return actions.map(([fn, icon, cls, title]) => `
+            <button onclick="${fn}(${id})" class="p-1.5 ${cls} rounded-lg transition" title="${title}">
+                <i class="fa-solid ${icon} text-sm"></i>
+            </button>`).join('');
+    }
 
-    function showToast(message, type = 'success') {
-        const toast = document.getElementById('toast');
-        const colors = {
-            success: 'bg-brand-dark',
-            danger: 'bg-rose-600',
-            info: 'bg-blue-600',
-            warning: 'bg-amber-600'
-        };
-        toast.className = 'fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2 ' + (colors[type] || colors.success);
-        toast.querySelector('i').className = 'fa-solid fa-circle-check';
-        document.getElementById('toastMessage').textContent = message;
-        toast.classList.remove('hidden');
+    function buildChildRowHTML(child) {
+        return `
+            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${escHtml(child.child_id || '')}</td>
+            <td class="px-4 py-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-sm flex-shrink-0">
+                        ${initials(child.first_name, child.last_name)}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-800 text-sm">${escHtml(child.first_name || '')} ${escHtml(child.last_name || '')}</p>
+                        <p class="text-xs text-slate-400">${escHtml(child.age || '—')} • ${escHtml(child.barangay || '')}</p>
+                    </div>
+                </div>
+            </td>
+            <td class="px-4 py-3 text-xs text-slate-600 maskable" data-real="${escHtml(child.mother_name || '')}">${escHtml(child.mother_name || '')}</td>
+            <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded-full text-xs font-semibold ${getNutritionClass(child.nutrition_status)}">
+                    ${escHtml(child.nutrition_status || 'Normal')}
+                </span>
+            </td>
+            <td class="px-4 py-3">
+                <div class="flex items-center gap-2">
+                    ${complianceBar(child.vaccine_compliance)}
+                </div>
+            </td>
+            <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded-full text-xs font-semibold ${child.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}">
+                    ${capitalize(child.status || 'active')}
+                </span>
+            </td>
+            <td class="px-4 py-3">
+                <div class="flex items-center justify-center gap-1">
+                    ${actionButtons(child.id)}
+                </div>
+            </td>
+        `;
+    }
 
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
+    // ============================================================
+    // REFRESH CHILD LIST FROM API
+    // ============================================================
+    async function refreshChildList() {
+        try {
+            const response = await fetch(`${API_BASE}?page=1&limit=5`);
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Failed to refresh list');
+            }
+
+            const data = result.data;
+            if (!Array.isArray(data)) {
+                console.error('Unexpected data format', result);
+                return;
+            }
+
+            const tableWrapper = document.getElementById('tableWrapper');
+            const noRecordsState = document.getElementById('noRecordsState');
+            const emptySearchState = document.getElementById('emptySearchState');
+
+            setVisible(tableWrapper, data.length > 0);
+            setVisible(noRecordsState, data.length === 0, 'flex');
+            setVisible(emptySearchState, false, 'flex');
+
+            if (data.length > 0) {
+                const tbody = document.getElementById('childTableBody');
+                tbody.innerHTML = '';
+
+                data.forEach(child => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-slate-100 hover:bg-brand-light/40 transition-colors child-row ' +
+                        (child.nutrition_status === 'Critical' ? 'bg-rose-50/50' : '');
+                    Object.assign(row.dataset, {
+                        name: (child.first_name + ' ' + child.last_name).toLowerCase(),
+                        id: child.child_id || '',
+                        mother: (child.mother_name || '').toLowerCase(),
+                        status: child.status || 'active',
+                        gender: child.gender || '',
+                        nutrition: child.nutrition_status || '',
+                        barangay: (child.barangay || '').toLowerCase(),
+                    });
+                    row.innerHTML = buildChildRowHTML(child);
+                    tbody.appendChild(row);
+                });
+            }
+        } catch (err) {
+            console.error('Failed to refresh child list:', err);
+            toast.error(err.message || 'Failed to refresh list');
+        }
     }
 
     // ============================================================
@@ -1000,29 +1462,22 @@ $title = 'Child Records';
         let visibleCount = 0;
 
         document.querySelectorAll('.child-row').forEach(row => {
-            const name = row.dataset.name;
-            const id = row.dataset.id.toLowerCase();
-            const mother = row.dataset.mother;
-            const rowStatus = row.dataset.status;
-            
-            // Get gender and nutrition from row cells
-            const genderCell = row.querySelector('.text-slate-600.text-xs');
-            const nutritionCell = row.querySelector('.px-2.py-1.rounded-full.text-xs.font-semibold');
-            
-            const rowGender = genderCell ? genderCell.textContent.trim() : '';
-            const rowNutrition = nutritionCell ? nutritionCell.textContent.trim() : '';
-
-            const matchesSearch = name.includes(search) || id.includes(search) || mother.includes(search);
-            const matchesGender = !gender || rowGender === gender;
-            const matchesNutrition = !nutrition || rowNutrition === nutrition;
-            const matchesStatus = !status || rowStatus === status;
-            const isVisible = matchesSearch && matchesGender && matchesNutrition && matchesStatus;
+            const d = row.dataset;
+            const matchesSearch = !search ||
+                [d.name, d.id.toLowerCase(), d.mother, d.barangay].some(field => field.includes(search));
+            const isVisible = matchesSearch &&
+                (!gender || d.gender === gender) &&
+                (!nutrition || d.nutrition === nutrition) &&
+                (!status || d.status === status);
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
         });
 
-        document.getElementById('emptyState').style.display = visibleCount === 0 ? 'flex' : 'none';
+        const tableWrapper = document.getElementById('tableWrapper');
+        const emptySearchState = document.getElementById('emptySearchState');
+        const showEmpty = visibleCount === 0 && tableWrapper && !tableWrapper.classList.contains('hidden');
+        setVisible(emptySearchState, showEmpty, 'flex');
     }
 
     function resetFilters() {
@@ -1031,7 +1486,7 @@ $title = 'Child Records';
         document.getElementById('filterNutrition').value = '';
         document.getElementById('filterStatus').value = '';
         document.querySelectorAll('.child-row').forEach(row => row.style.display = '');
-        document.getElementById('emptyState').style.display = 'none';
+        setVisible(document.getElementById('emptySearchState'), false, 'flex');
     }
 
     function changePage(page) {
@@ -1039,16 +1494,109 @@ $title = 'Child Records';
         window.location.href = '?page=' + page;
     }
 
-    // ESC to close modals
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            });
+    // ============================================================
+    // ACTION MENU FUNCTIONS
+    // ============================================================
+    function toggleActionMenu(id) {
+        const menu = document.getElementById('actionMenu-' + id);
+        const isHidden = menu.classList.contains('hidden');
+        closeAllActionMenus();
+        if (isHidden) menu.classList.remove('hidden');
+    }
+
+    function closeAllActionMenus() {
+        document.querySelectorAll('[id^="actionMenu-"]').forEach(menu => menu.classList.add('hidden'));
+    }
+
+    // Close menus when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.relative.inline-block')) {
+            closeAllActionMenus();
         }
     });
+
+    // ============================================================
+    // QUICK FILTER FUNCTION
+    // ============================================================
+    function quickFilter(type, value) {
+        const targetMap = { gender: 'filterGender', nutrition: 'filterNutrition', status: 'filterStatus' };
+        const el = document.getElementById(targetMap[type]);
+        if (el) el.value = value;
+        filterChildren();
+    }
+
+    // ============================================================
+    // EXPORT FUNCTION
+    // ============================================================
+    async function exportChild(id) {
+        try {
+            toast.info('Preparing export...');
+            const response = await fetch(`${API_BASE}?id=${id}&export=pdf`);
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Export failed');
+            }
+
+            const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `child_${id}_export.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            toast.success('Export downloaded successfully');
+        } catch (err) {
+            toast.error(err.message || 'Export failed');
+        }
+    }
+
+    // ============================================================
+    // ARCHIVE / DELETE (shared confirm + PATCH/DELETE flow)
+    // ============================================================
+    async function confirmAndSend(id, { confirmMsg, method, body, successMsg, failMsg }) {
+        if (!confirm(confirmMsg)) return;
+        try {
+            const response = await fetch(`${API_BASE}?id=${id}`, {
+                method,
+                headers: body ? { 'Content-Type': 'application/json' } : undefined,
+                body: body ? JSON.stringify(body) : undefined
+            });
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || failMsg);
+            }
+
+            toast.success(successMsg);
+            await refreshChildList();
+        } catch (err) {
+            toast.error(err.message || failMsg);
+        }
+    }
+
+    function archiveChild(id) {
+        return confirmAndSend(id, {
+            confirmMsg: 'Are you sure you want to archive this child record?',
+            method: 'PATCH',
+            body: { status: 'inactive' },
+            successMsg: 'Child record archived successfully',
+            failMsg: 'Archive failed'
+        });
+    }
+
+    function deleteChild(id) {
+        return confirmAndSend(id, {
+            confirmMsg: 'Are you sure you want to delete this child record? This action cannot be undone.',
+            method: 'DELETE',
+            body: null,
+            successMsg: 'Child record deleted successfully',
+            failMsg: 'Delete failed'
+        });
+    }
 </script>
 
 <?php include_once '../../includes/footer.php'; ?>

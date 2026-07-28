@@ -14,6 +14,9 @@
 require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 
+// Enforce RBAC Page Authorization
+requirePermission('settings.manage');
+
 // ============================================================
 // SYSTEM CONFIGURATION
 // ============================================================

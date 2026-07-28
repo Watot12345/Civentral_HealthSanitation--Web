@@ -62,7 +62,7 @@ foreach ($rawReferrals as $r) {
         ? ($employees[$r['to_doctor_id']] ?? null)
         : null;
     $r['to_specialist'] = $toDoc ? ($toDoc['full_name'] ?? 'N/A') : ($r['to_hospital'] ?? 'N/A');
-    $r['specialty']     = $toDoc ? ($toDoc['role_description'] ?? 'Specialist') : 'Hospital';
+    $r['specialty']     = $toDoc ? ($toDoc['role_description'] ?: $toDoc['role'] ?: 'Specialist') : 'Hospital';
 
     // Map DB 'emergency' → frontend 'critical'
     if (($r['urgency'] ?? '') === 'emergency') {

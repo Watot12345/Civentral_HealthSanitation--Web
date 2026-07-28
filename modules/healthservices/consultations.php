@@ -42,9 +42,11 @@ try {
         $e['last_name'] = '';
         $dbEmployees[] = $e;
         
-        // NEW: Filter only medical staff for doctor dropdown
-        $role = strtolower($e['role_description'] ?? $e['role'] ?? '');
-        if (in_array($role, ['doctor', 'medical practitioner', 'nurse', 'dentist', 'midwives', 'nutritionist', 'immunization coordinator', 'lab tech', 'health center director'])) {
+        // Filter medical staff for doctor dropdown using primary role and role_description
+        $primaryRole = $e['role'] ?? '';
+        $roleDesc = strtolower($e['role_description'] ?? '');
+        if (in_array($primaryRole, ['Medical Practitioner', 'Health Center Director', 'Health Center Staff', 'Immunization Lead', 'Nutrition Staff']) ||
+            in_array($roleDesc, ['doctor', 'medical practitioner', 'nurse', 'dentist', 'midwives', 'nutritionist', 'immunization coordinator', 'lab tech', 'health center director'])) {
             $medicalStaff[] = $e;
         }
     }

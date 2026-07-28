@@ -6,56 +6,89 @@ session_start();
 
 require_once __DIR__ . '/Core/Env.php';
 require_once __DIR__ . '/config/database.php';
-
+require_once __DIR__ . '/config/paths.php';
+require_once __DIR__ . '/app/Models/ActivityLog.php';
 
 // Handle AJAX login request - MUST come before ANY HTML output
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    require_once 'config/database.php';
-    
+
     $employeeId = $_POST['employee_id'] ?? '';
-    $password = $_POST['password'] ?? '';
-    
+    $password   = $_POST['password'] ?? '';
+
     // Only process JSON response for AJAX requests
-    if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+    if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
         strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
         header('Content-Type: application/json');
-        
+
         try {
-            $db = Database::getInstance();
-             $result = $db->select('employees', ['employee_id' => $employeeId]);
+            $db     = Database::getInstance();
+            $result = $db->select('employees', ['employee_id' => $employeeId]);
+            $logModel = new ActivityLog();
+
             if (empty($result) || !is_array($result)) {
+                // Log failed login attempt
+                $logModel->log("Failed login attempt", [
+                    'user_name' => $employeeId ?: 'Unknown',
+                    'role'      => 'Unknown',
+                    'module'    => 'Authentication',
+                    'details'   => "Employee ID not found: {$employeeId}",
+                    'status'    => 'Failed',
+                ]);
                 echo json_encode(['success' => false, 'message' => 'Invalid employee ID or password.']);
                 exit;
             }
-            
+
             $user = $result[0];
-            
+
             if (!password_verify($password, $user['password'])) {
+                // Log wrong-password attempt
+                $logModel->log("Failed login attempt", [
+                    'user_name' => $user['full_name'] ?? $employeeId,
+                    'role'      => $user['role_description'] ?? $user['role'] ?? 'Unknown',
+                    'module'    => 'Authentication',
+                    'details'   => "Wrong password for employee ID: {$employeeId}",
+                    'status'    => 'Failed',
+                ]);
                 echo json_encode(['success' => false, 'message' => 'Invalid employee ID or password.']);
                 exit;
             }
-            
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['employee_id'] = $user['employee_id'];
-            $_SESSION['full_name'] = $user['full_name'];
-            $_SESSION['department'] = $user['department'] ?? '';
-            $_SESSION['role'] = $user['role'] ?? 'employee';
+
+            $_SESSION['user_id']          = $user['id'];
+            $_SESSION['employee_id']      = $user['employee_id'];
+            $_SESSION['full_name']        = $user['full_name'];
+            $_SESSION['department']       = $user['department'] ?? '';
+            $_SESSION['role']             = $user['role'] ?? 'employee';
             $_SESSION['role_description'] = $user['role_description'] ?? '';
-            $_SESSION['logged_in'] = true;
-            
+            $_SESSION['logged_in']        = true;
+
+            // Log successful login
+            $logModel->log("User logged in", [
+                'user_id'   => $user['id'],
+                'user_name' => $user['full_name'],
+                'role'      => $user['role_description'] ?? $user['role'] ?? 'Employee',
+                'module'    => 'Authentication',
+                'details'   => "Logged in as: {$user['employee_id']} ({$user['full_name']})",
+                'status'    => 'Success',
+            ]);
+
+            // Update last_login timestamp
+            try {
+                $db->update('employees', ['last_login' => date('Y-m-d H:i:sP')], ['id' => $user['id']], true);
+            } catch (Throwable $ignored) {}
+
             echo json_encode([
                 'success' => true,
                 'message' => 'Login successful',
-                'user' => [
-                    'name' => $user['full_name'],
-                    'employee_id' => $user['employee_id'],
-                    'department' => $user['department'] ?? '',
-                    'role' => $user['role'] ?? 'employee',
+                'user'    => [
+                    'name'             => $user['full_name'],
+                    'employee_id'      => $user['employee_id'],
+                    'department'       => $user['department'] ?? '',
+                    'role'             => $user['role'] ?? 'employee',
                     'role_description' => $user['role_description'] ?? ''
                 ]
             ]);
             exit;
-            
+
         } catch (Exception $e) {
             echo json_encode(['success' => false, 'message' => 'Server error. Please contact IT support.']);
             exit;

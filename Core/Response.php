@@ -6,7 +6,10 @@ class Response
     public static function json(bool $success, string $message = '', mixed $data = null, int $httpCode = 200, array $extra = []): never
     {
         http_response_code($httpCode);
-        header('Content-Type: application/json');
+        
+        if (!headers_sent()) {
+            header('Content-Type: application/json');
+        }
 
         echo json_encode(array_merge([
             'success' => $success,

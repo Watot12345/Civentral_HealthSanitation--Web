@@ -40,19 +40,37 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
       
       <span class="sidebar-text text-[9px] font-bold tracking-widest text-slate-400 uppercase block px-3 mb-2">Main Controls</span>
       
-      <!-- 1. SYSTEM OVERVIEW - Direct Link -->
+      <!-- 1. SYSTEM OVERVIEW / DASHBOARD - Direct Link -->
+      <?php if (hasPermission('dashboard.view')): ?>
       <div class="space-y-1">
         <a href="<?= site_url('pages/dashboard.php') ?>"
            class="w-full flex items-center px-3 py-2.5 hover:bg-white/60 hover:text-brand-dark rounded-xl text-xs font-semibold tracking-wide transition group 
            <?php echo (strpos($currentPath, 'dashboard.php') !== false || strpos($currentPath, 'module_activity.php') !== false || strpos($currentPath, 'alerts.php') !== false || strpos($currentPath, 'system_health.php') !== false) ? 'bg-white/60 text-brand-dark' : 'text-slate-600 hover:bg-white/60 hover:text-brand-dark'; ?>">
           <div class="flex items-center space-x-3">
             <i class="fa-solid fa-table-columns text-sm <?php echo (strpos($currentPath, 'dashboard.php') !== false || strpos($currentPath, 'module_activity.php') !== false || strpos($currentPath, 'alerts.php') !== false || strpos($currentPath, 'system_health.php') !== false) ? 'text-brand-medium' : 'text-slate-400 group-hover:text-brand-medium'; ?> transition"></i>
-            <span class="sidebar-text truncate">System Overview</span>
+            <span class="sidebar-text truncate">
+              <?php 
+                $userRoleLabel = trim($_SESSION['role'] ?? $_SESSION['role_description'] ?? '');
+                if (strcasecmp($userRoleLabel, 'Health Center Director') === 0) {
+                    echo 'Health Center Dashboard';
+                } elseif (strcasecmp($userRoleLabel, 'Sanitation Director') === 0) {
+                    echo 'Sanitation Dashboard';
+                } elseif (strcasecmp($userRoleLabel, 'Immunization Coordinator') === 0) {
+                    echo 'Immunization Dashboard';
+                } elseif (strcasecmp($userRoleLabel, 'System Administrator') === 0 || strcasecmp($userRoleLabel, 'System Admin') === 0) {
+                    echo 'System Overview';
+                } else {
+                    echo 'Dashboard Overview';
+                }
+              ?>
+            </span>
           </div>
         </a>
       </div>
+      <?php endif; ?>
 
       <!-- 2. ANALYTICS - Direct Link -->
+      <?php if (hasPermission('analytics.view')): ?>
       <div class="space-y-1">
         <a href="<?= site_url('pages/ai_insights.php') ?>"
            class="w-full flex items-center px-3 py-2.5 hover:bg-white/60 hover:text-brand-dark rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -63,8 +81,10 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
           </div>
         </a>
       </div>
+      <?php endif; ?>
 
       <!-- 3. REPORTS - Direct Link -->
+      <?php if (hasPermission('reports.view')): ?>
       <div class="space-y-1">
         <a href="<?= site_url('pages/custom_report.php') ?>"
            class="w-full flex items-center px-3 py-2.5 hover:bg-white/60 hover:text-brand-dark rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -75,8 +95,10 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
           </div>
         </a>
       </div>
+      <?php endif; ?>
 
       <!-- 4. COMPLIANCE & VIOLATIONS - Direct Link -->
+      <?php if (hasPermission('compliance.view')): ?>
       <div class="space-y-1">
         <a href="<?= site_url('pages/compliance_monitoring.php') ?>"
            class="w-full flex items-center px-3 py-2.5 hover:bg-white/60 hover:text-brand-dark rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -87,6 +109,7 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
           </div>
         </a>
       </div>
+      <?php endif; ?>
 
       <!-- ============================================================ -->
       <!-- SECTION 2: OPERATIONAL MODULES                               -->
@@ -95,6 +118,7 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
       <span class="sidebar-text text-[9px] font-bold tracking-widest text-slate-400 uppercase block px-3 mt-6 mb-2">Operational Modules</span>
 
       <!-- MODULE 1: HEALTH CENTER SERVICES -->
+      <?php if (hasPermission('patients.view') || hasPermission('consultations.view') || hasPermission('triage.view') || hasPermission('prescriptions.view')): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('healthCenterDropdown', 'healthCenterChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -109,45 +133,61 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
         </button>
         <div id="healthCenterDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
           
+          <?php if (hasPermission('patients.view')): ?>
           <a href="<?= site_url('modules/healthservices/patients.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'patients.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-users text-[10px] opacity-50"></i> 
             <span>Patient Management</span>
           </a>
+          <?php endif; ?>
 
+          <?php if (hasPermission('consultations.view')): ?>
           <a href="<?= site_url('modules/healthservices/consultations.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'consultations.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-stethoscope text-[10px] opacity-50"></i> 
             <span>Consultations</span>
           </a>
+          <?php endif; ?>
 
+          <?php if (hasPermission('patients.view')): ?>
           <a href="<?= site_url('modules/healthservices/medical_records.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'medical_records.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-folder text-[10px] opacity-50"></i> 
             <span>Medical Records</span>
           </a>
+          <?php endif; ?>
 
+          <?php if (hasPermission('patients.view')): ?>
           <a href="<?= site_url('modules/healthservices/appointments.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'appointments.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-calendar-check text-[10px] opacity-50"></i> 
             <span>Appointments</span>
           </a>
+          <?php endif; ?>
 
+          <?php if (hasPermission('triage.view')): ?>
           <a href="<?= site_url('modules/healthservices/triage.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'triage.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-heart-pulse text-[10px] opacity-50"></i> 
             <span>Triage</span>
           </a>
+          <?php endif; ?>
 
+          <?php if (hasPermission('prescriptions.view')): ?>
           <a href="<?= site_url('modules/healthservices/prescriptions.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'prescriptions.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-prescription-bottle text-[10px] opacity-50"></i> 
             <span>Prescriptions</span>
           </a>
+          <?php endif; ?>
 
+          <?php if (hasPermission('patients.view')): ?>
           <a href="<?= site_url('modules/healthservices/referrals.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'referrals.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-arrow-right-arrow-left text-[10px] opacity-50"></i> 
             <span>Referrals</span>
           </a>
+          <?php endif; ?>
 
         </div>
       </div>
+      <?php endif; ?>
 
       <!-- MODULE 2: SANITATION PERMITS -->
+      <?php if (hasPermission('permits.view') || hasPermission('inspections.view') || hasPermission('inspections.conduct')): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('sanitationDropdown', 'sanitationChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -162,16 +202,21 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
         </button>
         <div id="sanitationDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
           
+          <?php if (hasPermission('permits.view')): ?>
           <a href="<?= site_url('modules/sanitation/permit_applications.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'permit_applications.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-file-pen text-[10px] opacity-50"></i> 
             <span>Permit Applications</span>
           </a>
+          <?php endif; ?>
           
+          <?php if (hasPermission('inspections.view') || hasPermission('inspections.conduct')): ?>
           <a href="<?= site_url('modules/sanitation/inspections.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'inspections.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-search text-[10px] opacity-50"></i> 
             <span>Inspections</span>
           </a>
+          <?php endif; ?>
           
+          <?php if (hasPermission('permits.view')): ?>
           <a href="<?= site_url('modules/sanitation/permit_records.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'permit_records.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-folder text-[10px] opacity-50"></i> 
             <span>Permit Records</span>
@@ -191,11 +236,14 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
             <i class="fa-solid fa-rotate text-[10px] opacity-50"></i> 
             <span>Renewals</span>
           </a>
+          <?php endif; ?>
 
         </div>
       </div>
+      <?php endif; ?>
 
       <!-- MODULE 3: IMMUNIZATION & NUTRITION -->
+      <?php if (hasPermission('immunization.view')): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('immunizationDropdown', 'immunizationChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -237,8 +285,10 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
 
         </div>
       </div>
+      <?php endif; ?>
 
       <!-- MODULE 4: WASTEWATER SERVICES -->
+      <?php if (hasPermission('permits.view') || hasPermission('inspections.view')): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('wastewaterDropdown', 'wastewaterChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -280,8 +330,10 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
 
         </div>
       </div>
+      <?php endif; ?>
 
       <!-- MODULE 5: HEALTH SURVEILLANCE -->
+      <?php if (hasPermission('dashboard.view') || hasPermission('reports.view')): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('surveillanceDropdown', 'surveillanceChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -328,14 +380,17 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
 
         </div>
       </div>
+      <?php endif; ?>
 
       <!-- ============================================================ -->
       <!-- SECTION 3: SYSTEM MANAGEMENT                                 -->
       <!-- ============================================================ -->
 
+      <?php if (hasPermission('users.view') || hasPermission('roles.manage') || hasPermission('logs.view') || hasPermission('settings.manage')): ?>
       <span class="sidebar-text text-[9px] font-bold tracking-widest text-slate-400 uppercase block px-3 mt-6 mb-2">System Management</span>
 
       <!-- User Management -->
+      <?php if (hasPermission('users.view') || hasPermission('roles.manage')): ?>
       <div class="space-y-1">
         <a href="<?= site_url('management/user_management.php') ?>"
            class="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -346,8 +401,10 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
           </div>
         </a>
       </div>
+      <?php endif; ?>
 
       <!-- System Logs -->
+      <?php if (hasPermission('logs.view')): ?>
       <div class="space-y-1">
         <a href="<?= site_url('management/system_logs.php') ?>"
            class="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -358,8 +415,10 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
           </div>
         </a>
       </div>
+      <?php endif; ?>
 
       <!-- Settings -->
+      <?php if (hasPermission('settings.manage')): ?>
       <div class="space-y-1">
         <a href="<?= site_url('management/settings.php') ?>"
            class="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -370,15 +429,17 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
           </div>
         </a>
       </div>
+      <?php endif; ?>
+      <?php endif; ?>
 
     </nav>
     
     <!-- Logout -->
     <div class="p-4 border-t border-brand-border/40 shrink-0 bg-white/40">
-      <a href="<?= site_url('logout.php') ?>" class="flex items-center space-x-3 px-3 py-2.5 hover:bg-red-50 hover:text-red-600 text-slate-500 rounded-xl text-xs font-bold tracking-wide transition group cursor-pointer">
+      <button onclick="confirmLogout('<?= site_url('logout.php') ?>')" class="w-full flex items-center space-x-3 px-3 py-2.5 hover:bg-red-50 hover:text-red-600 text-slate-500 rounded-xl text-xs font-bold tracking-wide transition group cursor-pointer text-left border-0 bg-transparent outline-none">
         <i class="fa-solid fa-arrow-right-from-bracket text-sm"></i>
         <span class="sidebar-text truncate">Logout</span>
-      </a>
+      </button>
     </div>
   </div>
 </aside>

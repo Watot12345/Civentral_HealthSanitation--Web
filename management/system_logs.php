@@ -15,166 +15,18 @@ require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 
 // ============================================================
-// AUDIT TRAIL - System change logs
+// ACTIVITY LOGS - all real DB records
 // ============================================================
-$auditTrail = [
-    [
-        'id' => 'AUD-001',
-        'timestamp' => '2024-01-20 08:30:00',
-        'user' => 'Juan Dela Cruz',
-        'action' => 'User Created',
-        'module' => 'User Management',
-        'details' => 'Created new user: Maria Santos (maria.santos@caloocan.gov.ph)',
-        'ip_address' => '192.168.1.1',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'AUD-002',
-        'timestamp' => '2024-01-20 09:15:00',
-        'user' => 'Maria Santos',
-        'action' => 'Patient Record Updated',
-        'module' => 'Health Center Services',
-        'details' => 'Updated patient record: Patient ID #12345 - Added new diagnosis',
-        'ip_address' => '192.168.1.5',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'AUD-003',
-        'timestamp' => '2024-01-20 10:00:00',
-        'user' => 'Pedro Reyes',
-        'action' => 'Permit Approved',
-        'module' => 'Sanitation Permits',
-        'details' => 'Approved permit application #SAP-2024-001 for Riverside Food Court',
-        'ip_address' => '192.168.1.3',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'AUD-004',
-        'timestamp' => '2024-01-19 14:30:00',
-        'user' => 'Ana Cruz',
-        'action' => 'Password Changed',
-        'module' => 'User Management',
-        'details' => 'User Ana Cruz changed their password',
-        'ip_address' => '192.168.1.7',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'AUD-005',
-        'timestamp' => '2024-01-19 16:20:00',
-        'user' => 'Carlos Garcia',
-        'action' => 'Outbreak Alert Created',
-        'module' => 'Health Surveillance',
-        'details' => 'Created new outbreak alert: Dengue outbreak in San Jose (12 cases reported)',
-        'ip_address' => '192.168.1.9',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'AUD-006',
-        'timestamp' => '2024-01-18 11:45:00',
-        'user' => 'Elena Lim',
-        'action' => 'Inventory Updated',
-        'module' => 'Immunization & Nutrition',
-        'details' => 'Updated vaccine inventory: Added 50 doses of Dengue vaccine',
-        'ip_address' => '192.168.1.11',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'AUD-007',
-        'timestamp' => '2024-01-18 09:00:00',
-        'user' => 'System Admin',
-        'action' => 'System Configuration Changed',
-        'module' => 'System Management',
-        'details' => 'Updated system settings: Changed notification threshold to 10 cases',
-        'ip_address' => '127.0.0.1',
-        'status' => 'Success'
-    ],
-];
+require_once __DIR__ . '/../app/Models/ActivityLog.php';
+$activityLogModel = new ActivityLog();
+$activityLogs     = $activityLogModel->all(['limit' => 100, 'order' => 'created_at.desc']);
 
-// ============================================================
-// ACTIVITY LOGS - User activities
-// ============================================================
-$activityLogs = [
-    [
-        'id' => 'ACT-001',
-        'timestamp' => '2024-01-20 08:30:00',
-        'user' => 'Juan Dela Cruz',
-        'action' => 'Logged In',
-        'module' => 'Authentication',
-        'duration' => '2.3s',
-        'ip_address' => '192.168.1.1',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'ACT-002',
-        'timestamp' => '2024-01-20 08:45:00',
-        'user' => 'Maria Santos',
-        'action' => 'Viewed Dashboard',
-        'module' => 'System Overview',
-        'duration' => '1.2s',
-        'ip_address' => '192.168.1.5',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'ACT-003',
-        'timestamp' => '2024-01-20 09:15:00',
-        'user' => 'Pedro Reyes',
-        'action' => 'Generated Report',
-        'module' => 'Reports',
-        'duration' => '4.5s',
-        'ip_address' => '192.168.1.3',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'ACT-004',
-        'timestamp' => '2024-01-20 10:30:00',
-        'user' => 'Ana Cruz',
-        'action' => 'Updated Patient Record',
-        'module' => 'Health Center Services',
-        'duration' => '3.1s',
-        'ip_address' => '192.168.1.7',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'ACT-005',
-        'timestamp' => '2024-01-19 16:00:00',
-        'user' => 'Carlos Garcia',
-        'action' => 'Exported Data',
-        'module' => 'Health Surveillance',
-        'duration' => '5.2s',
-        'ip_address' => '192.168.1.9',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'ACT-006',
-        'timestamp' => '2024-01-19 13:30:00',
-        'user' => 'Unknown',
-        'action' => 'Failed Login Attempt',
-        'module' => 'Authentication',
-        'duration' => '0.8s',
-        'ip_address' => '10.0.0.5',
-        'status' => 'Failed'
-    ],
-    [
-        'id' => 'ACT-007',
-        'timestamp' => '2024-01-19 14:00:00',
-        'user' => 'Elena Lim',
-        'action' => 'Logged Out',
-        'module' => 'Authentication',
-        'duration' => '0.3s',
-        'ip_address' => '192.168.1.11',
-        'status' => 'Success'
-    ],
-    [
-        'id' => 'ACT-008',
-        'timestamp' => '2024-01-18 10:00:00',
-        'user' => 'System Admin',
-        'action' => 'System Backup',
-        'module' => 'System Management',
-        'duration' => '120.0s',
-        'ip_address' => '127.0.0.1',
-        'status' => 'Success'
-    ],
-];
+// AUDIT TRAIL — Real DB records from User Management & Authentication modules
+$auditTrail = array_filter($activityLogs, function($log) {
+    $module = strtolower($log['module'] ?? '');
+    return str_contains($module, 'user management') || str_contains($module, 'authentication');
+});
+$auditTrail = array_values($auditTrail);
 
 // ============================================================
 // ERROR LOGS - System errors
@@ -251,11 +103,11 @@ $errorLogs = [
 // ============================================================
 // STATISTICS
 // ============================================================
-$totalAudit = count($auditTrail);
+$totalAudit      = count($auditTrail);
 $totalActivities = count($activityLogs);
-$totalErrors = count($errorLogs);
-$criticalErrors = count(array_filter($errorLogs, function($e) { return $e['level'] == 'Critical'; }));
-$openErrors = count(array_filter($errorLogs, function($e) { return $e['status'] == 'Open'; }));
+$totalErrors     = count($errorLogs);
+$criticalErrors  = count(array_filter($errorLogs, function($e) { return $e['level'] == 'Critical'; }));
+$openErrors      = count(array_filter($errorLogs, function($e) { return $e['status'] == 'Open'; }));
 
 $title = 'System Logs';
 ?>
@@ -275,7 +127,7 @@ $title = 'System Logs';
                     <i class="fa-solid fa-clock-rotate-left"></i> <?php echo $totalAudit + $totalActivities + $totalErrors; ?> Total Logs
                 </span>
             </div>
-            <p class="text-sm text-slate-500 mt-0.5">Audit trail, activity logs, error logs & log search</p>
+            <p class="text-sm text-slate-500 mt-0.5">Audit trail, activity logs, error logs &amp; log search</p>
         </div>
         <div class="flex gap-3 flex-wrap">
             <button onclick="exportLogs()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-2 shadow-sm">
@@ -445,27 +297,38 @@ $title = 'System Logs';
                         <tr class="bg-slate-50 border-b border-slate-200">
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">ID</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Timestamp</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">#</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Timestamp</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">User</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Role</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Module</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Details</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">IP Address</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                         </tr>
                     </thead>
                     <tbody id="auditTableBody">
+                        <?php if (empty($auditTrail)): ?>
+                        <tr>
+                            <td colspan="8" class="px-4 py-8 text-center text-slate-400 text-sm">No audit trail entries yet. Login, logout, and user management actions will appear here.</td>
+                        </tr>
+                        <?php endif; ?>
                         <?php foreach ($auditTrail as $log): ?>
-                        <tr class="border-b border-slate-100 hover:bg-slate-50 transition log-row" data-type="audit" data-status="<?php echo $log['status']; ?>">
-                            <td class="px-4 py-3 font-medium text-slate-700 text-xs"><?php echo $log['id']; ?></td>
-                            <td class="px-4 py-3 text-slate-500 text-xs"><?php echo date('M d, Y h:i A', strtotime($log['timestamp'])); ?></td>
-                            <td class="px-4 py-3 font-medium text-slate-700"><?php echo $log['user']; ?></td>
-                            <td class="px-4 py-3 text-slate-600 text-sm"><?php echo $log['action']; ?></td>
+                        <tr class="border-b border-slate-100 hover:bg-slate-50 transition log-row" data-type="audit" data-status="<?php echo htmlspecialchars($log['status'] ?? 'Success', ENT_QUOTES); ?>">
+                            <td class="px-4 py-3 font-medium text-slate-700 text-xs">#<?php echo (int)($log['id'] ?? 0); ?></td>
+                            <td class="px-4 py-3 text-slate-500 text-xs"><?php echo $log['created_at'] ? date('M d, Y h:i A', strtotime($log['created_at'])) : '—'; ?></td>
+                            <td class="px-4 py-3 font-medium text-slate-700"><?php echo htmlspecialchars($log['user_name'] ?? 'System', ENT_QUOTES); ?></td>
                             <td class="px-4 py-3">
-                                <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium"><?php echo $log['module']; ?></span>
+                                <span class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full text-xs font-semibold"><?php echo htmlspecialchars($log['role'] ?? 'System Administrator', ENT_QUOTES); ?></span>
                             </td>
-                            <td class="px-4 py-3 text-slate-500 text-xs max-w-[200px] truncate" title="<?php echo $log['details']; ?>"><?php echo $log['details']; ?></td>
+                            <td class="px-4 py-3 text-slate-600 text-sm"><?php echo htmlspecialchars($log['action'] ?? '', ENT_QUOTES); ?></td>
                             <td class="px-4 py-3">
-                                <span class="px-2 py-1 <?php echo $log['status'] == 'Success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'; ?> rounded-full text-xs font-semibold">
-                                    <?php echo $log['status']; ?>
+                                <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium"><?php echo htmlspecialchars($log['module'] ?? 'System Management', ENT_QUOTES); ?></span>
+                            </td>
+                            <td class="px-4 py-3 font-mono text-xs text-slate-600"><?php echo htmlspecialchars($log['ip_address'] ?? '—', ENT_QUOTES); ?></td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 <?php echo ($log['status'] ?? 'Success') === 'Success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'; ?> rounded-full text-xs font-semibold">
+                                    <?php echo htmlspecialchars($log['status'] ?? 'Success', ENT_QUOTES); ?>
                                 </span>
                             </td>
                         </tr>
@@ -475,7 +338,7 @@ $title = 'System Logs';
             </div>
         </div>
     </div>
-
+    
     <!-- ============================================================ -->
     <!-- TAB CONTENT: ACTIVITY LOGS                                -->
     <!-- ============================================================ -->
@@ -496,28 +359,52 @@ $title = 'System Logs';
                     <thead>
                         <tr class="bg-slate-50 border-b border-slate-200">
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">ID</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Timestamp</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">User</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Role</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Module</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Duration</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">IP &amp; Device</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                         </tr>
                     </thead>
                     <tbody id="activityTableBody">
-                        <?php foreach ($activityLogs as $log): ?>
+                        <?php foreach ($activityLogs as $log): 
+                            $logRole = $log['role'] ?? 'Citizen';
+                            $roleBadgeColor = $logRole === 'Citizen' ? 'bg-sky-100 text-sky-700' : 'bg-slate-100 text-slate-700';
+                            if (strpos($logRole, 'Doctor') !== false || strpos($logRole, 'Nurse') !== false || strpos($logRole, 'Health') !== false) {
+                                $roleBadgeColor = 'bg-blue-100 text-blue-700';
+                            } elseif (strpos($logRole, 'Admin') !== false) {
+                                $roleBadgeColor = 'bg-red-100 text-red-700';
+                            } elseif (strpos($logRole, 'Inspector') !== false || strpos($logRole, 'Sanitation') !== false) {
+                                $roleBadgeColor = 'bg-amber-100 text-amber-700';
+                            }
+                            $dateStr = !empty($log['created_at']) ? date('M d, Y h:i A', strtotime($log['created_at'])) : date('M d, Y h:i A');
+                        ?>
                         <tr class="border-b border-slate-100 hover:bg-slate-50 transition log-row" data-type="activity" data-status="<?php echo $log['status']; ?>">
-                            <td class="px-4 py-3 font-medium text-slate-700 text-xs"><?php echo $log['id']; ?></td>
-                            <td class="px-4 py-3 text-slate-500 text-xs"><?php echo date('M d, Y h:i A', strtotime($log['timestamp'])); ?></td>
-                            <td class="px-4 py-3 font-medium text-slate-700"><?php echo $log['user']; ?></td>
-                            <td class="px-4 py-3 text-slate-600 text-sm"><?php echo $log['action']; ?></td>
-                            <td class="px-4 py-3">
-                                <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium"><?php echo $log['module']; ?></span>
+                            <td class="px-4 py-3 font-medium text-slate-700 text-xs">ACT-<?php echo sprintf('%03d', $log['id'] ?? 1); ?></td>
+                            <td class="px-4 py-3 font-medium text-slate-800">
+                                <span class="block text-sm font-semibold"><?php echo htmlspecialchars($log['user_name'] ?? 'System', ENT_QUOTES); ?></span>
+                                <span class="block text-[10px] text-slate-400"><?php echo $dateStr; ?></span>
                             </td>
-                            <td class="px-4 py-3 text-slate-500 text-xs"><?php echo $log['duration']; ?></td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-0.5 <?php echo $roleBadgeColor; ?> rounded-full text-xs font-semibold">
+                                    <?php echo htmlspecialchars($logRole, ENT_QUOTES); ?>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-slate-700 text-sm font-medium">
+                                <p class="font-semibold text-slate-800"><?php echo htmlspecialchars($log['action'], ENT_QUOTES); ?></p>
+                                <p class="text-[10px] text-slate-500 mt-0.5"><?php echo htmlspecialchars($log['details'] ?? '', ENT_QUOTES); ?></p>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium"><?php echo htmlspecialchars($log['module'], ENT_QUOTES); ?></span>
+                            </td>
+                            <td class="px-4 py-3 text-xs">
+                                <span class="font-mono font-semibold text-slate-700 block"><?php echo htmlspecialchars($log['ip_address'] ?? '127.0.0.1', ENT_QUOTES); ?></span>
+                                <span class="text-[10px] text-slate-400 block mt-0.5"><i class="fas fa-desktop text-[8px] mr-1"></i><?php echo htmlspecialchars($log['device'] ?? 'Desktop • Chrome 126 (Windows 11)', ENT_QUOTES); ?></span>
+                            </td>
                             <td class="px-4 py-3">
                                 <span class="px-2 py-1 <?php echo $log['status'] == 'Success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'; ?> rounded-full text-xs font-semibold">
-                                    <?php echo $log['status']; ?>
+                                    <?php echo htmlspecialchars($log['status'], ENT_QUOTES); ?>
                                 </span>
                             </td>
                         </tr>

@@ -10,8 +10,8 @@ $employeeId = $_SESSION['employee_id'] ?? 'SYS--ADMIN-2011';
 $role = $_SESSION['role'] ?? 'System Admin';
 $roleDescription = $_SESSION['role_description'] ?? 'admin';
 
-// FORCE display to show "System Admin"
-$displayRole = 'System Admin';  // Hardcoded to always show System Admin
+// Display actual user role dynamically
+$displayRole = !empty($_SESSION['role']) ? $_SESSION['role'] : (!empty($_SESSION['role_description']) ? $_SESSION['role_description'] : 'System Admin');
 
 // Generate initials from full name (e.g., "Joshua Sierra" -> "JS")
 $initials = '';

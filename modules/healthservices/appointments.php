@@ -66,7 +66,7 @@ try {
         }
     }
 
-    $medicalRoles = ['Health Center Director', 'Doctor', 'Nurse', 'Dentist', 'midwives', 'Nutritionist', 'Immunization Coordinator', 'Lab tech'];
+    $medicalRoles = ['Health Center Director', 'Medical Practitioner', 'Health Center Staff', 'Immunization Lead', 'Nutrition Staff', 'Doctor', 'Nurse', 'Dentist', 'midwives', 'Nutritionist', 'Immunization Coordinator', 'Lab tech'];
 
     $employeesMap = [];
     foreach ($dbEmployees as $e) {
@@ -720,7 +720,7 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
 <script>
     const APPOINTMENTS_DATA = <?php echo json_encode(array_column($appointments, null, 'id'), JSON_UNESCAPED_UNICODE); ?>;
     const CONSULTATION_MAP = <?php echo json_encode($consultationMap); ?>;
-    const MEDICAL_ROLES = ['Health Center Director', 'Doctor', 'Nurse', 'Dentist', 'midwives', 'Nutritionist', 'Immunization Coordinator', 'Lab tech'];
+    const MEDICAL_ROLES = ['Health Center Director', 'Medical Practitioner', 'Health Center Staff', 'Immunization Lead', 'Nutrition Staff', 'Doctor', 'Nurse', 'Dentist', 'midwives', 'Nutritionist', 'Immunization Coordinator', 'Lab tech'];
     const PATIENTS = <?php 
         echo json_encode(array_values(array_map(function($p) {
             return [
@@ -733,14 +733,16 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
 
     const DOCTORS = <?php 
     $medicalStaff = array_filter($dbEmployees, function($e) {
-        $role = $e['role_description'] ?? '';
-        return in_array($role, ['Health Center Director', 'Doctor', 'Nurse', 'Dentist', 'midwives', 'Nutritionist', 'Immunization Coordinator', 'Lab tech']);
+        $primaryRole = $e['role'] ?? '';
+        $roleDesc = $e['role_description'] ?? '';
+        return in_array($primaryRole, ['Health Center Director', 'Medical Practitioner', 'Health Center Staff', 'Immunization Lead', 'Nutrition Staff'])
+            || in_array($roleDesc, ['Health Center Director', 'Doctor', 'Nurse', 'Dentist', 'midwives', 'Nutritionist', 'Immunization Coordinator', 'Lab tech']);
     });
     echo json_encode(array_values(array_map(function($e) {
         return [
             'id' => $e['id'],
             'name' => $e['full_name'] ?? $e['name'] ?? $e['username'] ?? "Employee #{$e['id']}",
-            'role' => $e['role_description'] ?? '',
+            'role' => $e['role_description'] ?: $e['role'] ?: '',
             'department' => $e['department'] ?? ''
         ];
     }, $medicalStaff)));

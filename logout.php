@@ -1,8 +1,26 @@
 <?php
 // logout.php
 session_start();
-session_destroy();
+
+// Log logout event BEFORE session is destroyed
+require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/paths.php';
+require_once __DIR__ . '/app/Models/ActivityLog.php';
+try {
+    if (!empty($_SESSION['logged_in'])) {
+        $logModel = new ActivityLog();
+        $logModel->log("User logged out", [
+            'user_id'   => $_SESSION['user_id']   ?? null,
+            'user_name' => $_SESSION['full_name']  ?? 'Unknown',
+            'role'      => $_SESSION['role_description'] ?? $_SESSION['role'] ?? 'Employee',
+            'module'    => 'Authentication',
+            'details'   => "Session ended for: " . ($_SESSION['employee_id'] ?? ''),
+            'status'    => 'Success',
+        ]);
+    }
+} catch (Throwable $ignored) {}
+
+session_destroy();
 ?>
 <!DOCTYPE html>
 <html>

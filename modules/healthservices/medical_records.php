@@ -103,15 +103,19 @@ try {
         ];
     }
 
-    $employees = $employeeModel->all(['order' => 'full_name.asc']);
     $doctorEmployees = array_values(array_filter($employees, function($employee) {
-        return strtolower(trim($employee['department'] ?? '')) === 'health center'
-            && str_contains(strtolower($employee['role_description'] ?? ''), 'doctor');
+        $role = $employee['role'] ?? '';
+        $desc = strtolower($employee['role_description'] ?? '');
+        $dept = strtolower(trim($employee['department'] ?? ''));
+        return (in_array($role, ['Medical Practitioner', 'Health Center Director']) || str_contains($desc, 'doctor') || str_contains($desc, 'physician'))
+            && ($dept === '' || str_contains($dept, 'health') || str_contains($dept, 'medical'));
     }));
     $recordsClerkEmployees = array_values(array_filter($employees, function($employee) {
-        $description = strtolower($employee['role_description'] ?? '');
-        return strtolower(trim($employee['department'] ?? '')) === 'health center'
-            && (str_contains($description, 'med records clerk') || str_contains($description, 'medical records clerk'));
+        $role = $employee['role'] ?? '';
+        $desc = strtolower($employee['role_description'] ?? '');
+        $dept = strtolower(trim($employee['department'] ?? ''));
+        return (in_array($role, ['Health Center Staff', 'Health Center Director']) || str_contains($desc, 'clerk') || str_contains($desc, 'records'))
+            && ($dept === '' || str_contains($dept, 'health') || str_contains($dept, 'medical'));
     }));
     $patientsById = array_column($rawPatients, null, 'id');
     $rawRecords = $recordModel->all(['order' => 'date.desc,created_at.desc']);
