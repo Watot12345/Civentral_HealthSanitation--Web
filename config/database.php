@@ -113,7 +113,17 @@ class Database
 
         if ($httpCode >= 400) {
             error_log("Supabase error [{$httpCode}] on {$table}: {$response}");
-            throw new RuntimeException("Database request failed with status {$httpCode}.");
+            $errorDetails = '';
+            $decodedError = json_decode($response, true);
+            if (is_array($decodedError) && !empty($decodedError['message'])) {
+                $errorDetails = ': ' . $decodedError['message'];
+                if (!empty($decodedError['details'])) {
+                    $errorDetails .= ' (' . $decodedError['details'] . ')';
+                }
+            } else {
+                $errorDetails = ': ' . $response;
+            }
+            throw new RuntimeException("Database request failed with status {$httpCode}{$errorDetails}");
         }
 
         $decoded = json_decode($response, true);

@@ -95,16 +95,26 @@ class Payment
 
     /**
      * Create new payment
+     *
+     * Offline methods (cash, over_the_counter) have no external gateway,
+     * so we auto-generate a reference number for them. Digital methods
+     * (gcash, paymaya, bank_transfer) must arrive with a real reference
+     * from the gateway - PaymentController::store() enforces that before
+     * this is ever called.
      */
     public function create(array $data): array
     {
-        // Generate payment ID
         $data['payment_id'] = $this->generatePaymentId();
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
-        
-        // Set status based on method
-        if ($data['method'] === 'cash' || $data['method'] === 'over_the_counter') {
+
+        $method = $data['method'] ?? '';
+        $isOfflineMethod = in_array($method, ['cash', 'over_the_counter'], true);
+
+        if ($isOfflineMethod) {
+            if (empty($data['reference_number'])) {
+                $data['reference_number'] = $this->generateReferenceNumber($method);
+            }
             $data['status'] = 'completed';
             $data['paid_at'] = date('Y-m-d H:i:s');
         } else {
@@ -245,6 +255,18 @@ class Payment
     {
         $count = $this->db->count('payments') + 1;
         return 'PAY-' . date('Ymd') . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Generate a reference number for offline payments (cash / over-the-counter)
+     * that have no external gateway to supply one. Uses uniqid() rather than
+     * a running count to avoid unique-constraint collisions under concurrent
+     * requests (a count-based scheme can race and produce duplicates).
+     */
+    private function generateReferenceNumber(string $method): string
+    {
+        $prefix = $method === 'cash' ? 'CSH' : 'OTC';
+        return $prefix . '-' . date('ymd') . '-' . strtoupper(substr(uniqid(), -6));
     }
 
     /**

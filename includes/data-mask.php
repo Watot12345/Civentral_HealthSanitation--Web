@@ -112,7 +112,7 @@ window.toggleDataMask=function(){
     isMasked=!isMasked;
     localStorage.setItem('data_masking_enabled',isMasked);
     applyMasking();
-    var msg=isMasked?'All patient confidential data is hidden':'All patient confidential data is visible';
+    var msg=isMasked?'All Citizens confidential data is hidden':'All Citizens confidential data is visible';
     if(typeof toast!=='undefined'&&toast.info)toast.info(msg,{title:'Data Masking',duration:3000});
 };
 

@@ -123,6 +123,14 @@ class PaymentController extends BaseController
                 $errors['method'] = 'Invalid payment method';
             }
 
+            // Digital methods have a real gateway reference - it must be
+            // supplied, not invented. Cash/OTC have no gateway, so the
+            // model auto-generates one instead (see Payment::create()).
+            $digitalMethods = ['gcash', 'paymaya', 'bank_transfer'];
+            if (in_array($data['method'] ?? '', $digitalMethods, true) && empty($data['reference_number'])) {
+                $errors['reference_number'] = 'Reference number is required for ' . str_replace('_', ' ', $data['method']) . ' payments';
+            }
+
             if (!empty($errors)) {
                 return [
                     'success' => false,

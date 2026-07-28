@@ -510,3 +510,161 @@ create index IF not exists idx_inspections_overall_status on public.inspections 
 create trigger handle_inspections_updated_at BEFORE
 update on inspections for EACH row
 execute FUNCTION handle_updated_at ();
+
+create table public.permit_documents (
+  id bigserial not null,
+  permit_id integer not null,
+  document_type character varying(50) not null,
+  file_name character varying(255) not null,
+  file_path text not null,
+  file_size bigint null,
+  mime_type character varying(100) null,
+  uploaded_by integer not null,
+  uploaded_at timestamp with time zone null default now(),
+  verified boolean null default false,
+  verified_by integer null,
+  verified_at timestamp with time zone null,
+  updated_at timestamp with time zone null default now(),
+  document_id character varying(20) null,
+  applicant character varying(100) null,
+  file_type character varying(50) null,
+  status text null default 'pending'::text,
+  expiry_date date null,
+  qr_code character varying(50) null,
+  notes text null,
+  constraint permit_documents_pkey primary key (id),
+  constraint permit_documents_unique_file unique (permit_id, document_type, file_name),
+  constraint permit_documents_document_id_key unique (document_id),
+  constraint permit_documents_verified_by_fkey foreign KEY (verified_by) references employees (id),
+  constraint permit_documents_permit_id_fkey foreign KEY (permit_id) references permits (id) on delete CASCADE,
+  constraint permit_documents_uploaded_by_fkey foreign KEY (uploaded_by) references employees (id),
+  constraint permit_documents_document_type_check check (
+    (
+      (document_type)::text = any (
+        (
+          array[
+            'business_permit'::character varying,
+            'sanitary_permit'::character varying,
+            'fire_safety'::character varying,
+            'zoning_clearance'::character varying,
+            'environmental_compliance'::character varying,
+            'building_permit'::character varying,
+            'tax_clearance'::character varying,
+            'other'::character varying
+          ]
+        )::text[]
+      )
+    )
+  ),
+  constraint permit_documents_status_check check (
+    (
+      status = any (
+        array[
+          'verified'::text,
+          'pending'::text,
+          'expired'::text
+        ]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_permit_documents_permit_id on public.permit_documents using btree (permit_id) TABLESPACE pg_default;
+
+create index IF not exists idx_permit_documents_uploaded_by on public.permit_documents using btree (uploaded_by) TABLESPACE pg_default;
+
+create index IF not exists idx_permit_documents_document_type on public.permit_documents using btree (document_type) TABLESPACE pg_default;
+
+create index IF not exists idx_permit_documents_verified on public.permit_documents using btree (verified) TABLESPACE pg_default
+where
+  (verified = false);
+
+create index IF not exists idx_permit_documents_uploaded_at on public.permit_documents using btree (uploaded_at) TABLESPACE pg_default;
+
+create index IF not exists idx_permit_documents_document_id on public.permit_documents using btree (document_id) TABLESPACE pg_default;
+
+create index IF not exists idx_permit_documents_status on public.permit_documents using btree (status) TABLESPACE pg_default;
+
+create index IF not exists idx_permit_documents_applicant on public.permit_documents using btree (applicant) TABLESPACE pg_default;
+
+create index IF not exists idx_permit_documents_expiry_date on public.permit_documents using btree (expiry_date) TABLESPACE pg_default;
+
+create index IF not exists idx_permit_documents_qr_code on public.permit_documents using btree (qr_code) TABLESPACE pg_default;
+
+create index IF not exists idx_permit_documents_permit_status on public.permit_documents using btree (permit_id, status) TABLESPACE pg_default;
+
+create trigger generate_document_id_trigger BEFORE INSERT on permit_documents for EACH row
+execute FUNCTION generate_document_id ();
+
+create trigger handle_permit_documents_updated_at BEFORE
+update on permit_documents for EACH row
+execute FUNCTION update_permit_documents_timestamp ();
+
+create trigger populate_applicant_trigger BEFORE INSERT on permit_documents for EACH row
+execute FUNCTION populate_applicant ();
+
+
+create table public.payments (
+  id bigserial not null,
+  payment_id character varying(20) not null,
+  permit_id integer not null,
+  amount numeric(10, 2) not null,
+  method character varying(20) not null,
+  reference_number character varying(50) null,
+  status character varying(20) null default 'pending'::character varying,
+  receipt_path character varying(255) null,
+  paid_by character varying(100) null,
+  paid_at timestamp with time zone null,
+  notes text null,
+  created_at timestamp with time zone null default now(),
+  updated_at timestamp with time zone null default now(),
+  constraint payments_pkey primary key (id),
+  constraint payments_payment_id_key unique (payment_id),
+  constraint payments_reference_number_key unique (reference_number),
+  constraint payments_permit_id_fkey foreign KEY (permit_id) references permits (id) on delete CASCADE,
+  constraint payments_method_check check (
+    (
+      (method)::text = any (
+        (
+          array[
+            'cash'::character varying,
+            'gcash'::character varying,
+            'paymaya'::character varying,
+            'bank_transfer'::character varying,
+            'over_the_counter'::character varying
+          ]
+        )::text[]
+      )
+    )
+  ),
+  constraint payments_status_check check (
+    (
+      (status)::text = any (
+        (
+          array[
+            'pending'::character varying,
+            'completed'::character varying,
+            'failed'::character varying,
+            'refunded'::character varying
+          ]
+        )::text[]
+      )
+    )
+  )
+) TABLESPACE pg_default;
+
+create index IF not exists idx_payments_permit_id on public.payments using btree (permit_id) TABLESPACE pg_default;
+
+create index IF not exists idx_payments_status on public.payments using btree (status) TABLESPACE pg_default;
+
+create index IF not exists idx_payments_method on public.payments using btree (method) TABLESPACE pg_default;
+
+create index IF not exists idx_payments_created_at on public.payments using btree (created_at) TABLESPACE pg_default;
+
+create index IF not exists idx_payments_paid_at on public.payments using btree (paid_at) TABLESPACE pg_default;
+
+create trigger handle_payments_updated_at BEFORE
+update on payments for EACH row
+execute FUNCTION update_payments_timestamp ();
+
+

@@ -8,9 +8,9 @@ class Employee
     private Database $db;
     private string $table = 'employees';
 
-    public function __construct()
+    public function __construct(?Database $db = null)
     {
-        $this->db = Database::getInstance();
+        $this->db = $db ?? Database::getInstance();
     }
 
     public function all(array $options = []): array
@@ -85,5 +85,31 @@ class Employee
             return "Employee #{$id}";
         }
         return $employee['full_name'] ?? "Employee #{$id}";
+    }
+
+    /**
+     * Find multiple employees by IDs (solves N+1 problem)
+     */
+    public function findMultiple(array $ids): array
+    {
+        if (empty($ids)) {
+            return [];
+        }
+        
+        try {
+            // Use PostgREST 'in' operator: id=in.(1,2,3)
+            $idList = implode(',', array_map('intval', $ids));
+            $results = $this->db->select($this->table, ["id=in.({$idList})"]);
+            return $this->normalizeEmployees($results);
+        } catch (Throwable $e) {
+            error_log('Employee::findMultiple() Error: ' . $e->getMessage());
+            // Fallback: try users table
+            try {
+                $results = $this->db->select('users', ["id=in.({$idList})"]);
+                return $this->normalizeEmployees($results);
+            } catch (Throwable $e2) {
+                return [];
+            }
+        }
     }
 }
