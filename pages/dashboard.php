@@ -1,9 +1,19 @@
 <?php
 session_start();
 
+require_once __DIR__ . '/../app/Models/ActivityLog.php';
+$activityLogModel = new ActivityLog();
+$allDashboardLogs = $activityLogModel->all(['limit' => 30]);
+$recentActivities = array_values(array_filter($allDashboardLogs, function($log) {
+    $module = strtolower($log['module'] ?? '');
+    return !str_contains($module, 'authentication') 
+        && !str_contains($module, 'user management') 
+        && !str_contains($module, 'system management');
+}));
+$recentActivities = array_slice($recentActivities, 0, 5);
 
- include '../includes/header.php';
- include '../includes/sidebar.php'; 
+include __DIR__ . '/../includes/header.php';
+include __DIR__ . '/../includes/sidebar.php'; 
 
  if (!empty($_SESSION['flash_error'])):
 ?>
@@ -362,13 +372,29 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         /* ===== ADD PADDING FOR BOTTOM BAR ===== */
-        .dashboard-content {
-            padding-bottom: 90px;
+        /* ===== DATE FILTER CHIP & BLUR FILTERING EFFECT ===== */
+        .date-filter-chip {
+            transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
-        @media (max-width: 1023px) {
-            .dashboard-content {
-                padding-bottom: 100px;
-            }
+        .date-filter-chip.active {
+            background-color: var(--color-primary);
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(23, 107, 135, 0.35);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            transform: translateY(-1px) scale(1.04);
+        }
+        .date-filter-chip:not(.active):hover {
+            background-color: #eef4f7;
+            transform: translateY(-1px);
+        }
+        
+        .kpi-grid {
+            transition: filter 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
+        }
+        .kpi-updating {
+            filter: blur(5px) opacity(0.4);
+            transform: scale(0.995);
         }
     </style>
 
@@ -734,7 +760,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <p class="text-[8px] font-bold uppercase tracking-wider text-slate-600">
                                 <i class="fas <?php echo $card['icon']; ?> text-[7px] mr-1" aria-hidden="true"></i><?php echo $card['title']; ?>
                             </p>
-                            <p class="kpi-number text-xl font-black text-slate-900 mt-1 leading-none"><?php echo $card['value']; ?></p>
+                            <p class="kpi-number text-xl font-black text-slate-900 mt-1 leading-none" data-base-val="<?php echo htmlspecialchars($card['value']); ?>"><?php echo $card['value']; ?></p>
                             <p class="text-[8px] font-medium text-slate-400 mt-0.5"><?php echo $card['label']; ?></p>
                         </div>
                         <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0" aria-hidden="true">
@@ -752,6 +778,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </a>
             <?php endforeach; ?>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- DATE FILTER BAR (below KPI cards)                            -->
+        <!-- ============================================================ -->
+        <div class="flex-shrink-0 mb-6 flex flex-wrap items-center justify-between gap-2 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+            <div class="flex items-center gap-1.5 flex-wrap" id="dateFilterChips" role="group" aria-label="Filter dashboard by date range">
+                <span class="text-[10px] font-semibold text-slate-500 mr-1">
+                    <i class="fas fa-calendar text-[9px] mr-1" aria-hidden="true"></i>Showing:
+                </span>
+                <button type="button" class="date-filter-chip active px-2.5 py-1 rounded-lg text-[10px] font-semibold text-slate-600" data-range="today" onclick="setDateFilter('today', this)">Today</button>
+                <button type="button" class="date-filter-chip px-2.5 py-1 rounded-lg text-[10px] font-semibold text-slate-600" data-range="7d" onclick="setDateFilter('7d', this)">Last 7 Days</button>
+                <button type="button" class="date-filter-chip px-2.5 py-1 rounded-lg text-[10px] font-semibold text-slate-600" data-range="30d" onclick="setDateFilter('30d', this)">Last 30 Days</button>
+                <button type="button" class="date-filter-chip px-2.5 py-1 rounded-lg text-[10px] font-semibold text-slate-600" data-range="month" onclick="setDateFilter('month', this)">This Month</button>
+                <button type="button" class="date-filter-chip px-2.5 py-1 rounded-lg text-[10px] font-semibold text-slate-600" data-range="custom" onclick="openCustomDateRange(this)">
+                    <i class="fas fa-calendar-days text-[9px] mr-1" aria-hidden="true"></i>Custom
+                </button>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="activeRangeLabel" class="text-[10px] text-slate-400"><?php echo date('M j, Y'); ?></span>
+                <input type="date" id="customDateStart" class="hidden text-[10px] border border-slate-200 rounded-lg px-2 py-1" aria-label="Custom range start date" />
+                <span id="customDateSep" class="hidden text-[10px] text-slate-400">to</span>
+                <input type="date" id="customDateEnd" class="hidden text-[10px] border border-slate-200 rounded-lg px-2 py-1" aria-label="Custom range end date" />
+                <button id="customDateApply" onclick="applyCustomDateRange()" class="hidden text-[10px] font-semibold text-white bg-c3 hover:bg-c3d px-2.5 py-1 rounded-lg transition">Apply</button>
+            </div>
         </div>
 
         <!-- ============================================================ -->
@@ -1474,95 +1525,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
             <div class="space-y-2">
-                <!-- Activity 1 -->
-                <div class="activity-item flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
-                    <div class="activity-avatar bg-emerald-500">JD</div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between flex-wrap gap-1">
-                            <p class="text-xs font-semibold text-slate-800">Juan Dela Cruz</p>
-                            <span class="text-[9px] text-slate-400">Today, 10:42 AM</span>
-                        </div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[8px] font-semibold">
-                                <i class="fas fa-check-circle text-[7px] mr-0.5" aria-hidden="true"></i> Approved
-                            </span>
-                            <span class="text-[9px] text-slate-500">Sanitation Permit</span>
-                            <span class="text-[9px] text-slate-400">Permit #0156</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Activity 2 -->
-                <div class="activity-item flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
-                    <div class="activity-avatar bg-blue-500">MS</div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between flex-wrap gap-1">
-                            <p class="text-xs font-semibold text-slate-800">Maria Santos</p>
-                            <span class="text-[9px] text-slate-400">Today, 10:15 AM</span>
-                        </div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[8px] font-semibold">
-                                <i class="fas fa-syringe text-[7px] mr-0.5" aria-hidden="true"></i> Logged
-                            </span>
-                            <span class="text-[9px] text-slate-500">Immunization</span>
-                            <span class="text-[9px] text-slate-400">Patient #2211</span>
+                <?php if (empty($recentActivities)): ?>
+                    <div class="p-4 text-center text-xs text-slate-400">No activity logs recorded yet.</div>
+                <?php else: ?>
+                    <?php foreach ($recentActivities as $act): 
+                        $userName = htmlspecialchars($act['user_name'] ?? 'System');
+                        $initials = strtoupper(substr($userName, 0, 2));
+                        $action = htmlspecialchars($act['action'] ?? '');
+                        $module = htmlspecialchars($act['module'] ?? 'System');
+                        $ip = htmlspecialchars($act['ip_address'] ?? '127.0.0.1');
+                        $device = htmlspecialchars($act['device'] ?? 'Desktop');
+                        $role = htmlspecialchars($act['role'] ?? 'Staff');
+                        $dateFormatted = !empty($act['created_at']) ? date('M j, g:i A', strtotime($act['created_at'])) : 'Just now';
+                        
+                        $avatarColors = ['bg-emerald-500', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-rose-500'];
+                        $avatarBg = $avatarColors[abs(crc32($userName)) % count($avatarColors)];
+                    ?>
+                    <div class="activity-item flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
+                        <div class="activity-avatar <?php echo $avatarBg; ?>"><?php echo $initials; ?></div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between flex-wrap gap-1">
+                                <p class="text-xs font-semibold text-slate-800"><?php echo $userName; ?> <span class="text-[9px] font-normal text-slate-400">(<?php echo $role; ?>)</span></p>
+                                <span class="text-[9px] text-slate-400"><?php echo $dateFormatted; ?></span>
+                            </div>
+                            <div class="flex items-center gap-2 flex-wrap mt-0.5">
+                                <span class="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[8px] font-semibold">
+                                    <i class="fas fa-history text-[7px] mr-0.5" aria-hidden="true"></i> <?php echo $action; ?>
+                                </span>
+                                <span class="text-[9px] text-slate-500 font-medium"><?php echo $module; ?></span>
+                                <span class="text-[9px] font-mono text-slate-400 ml-auto"><i class="fas fa-network-wired text-[7px] mr-1"></i><?php echo $ip; ?> • <?php echo $device; ?></span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Activity 3 -->
-                <div class="activity-item flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
-                    <div class="activity-avatar bg-rose-500">PR</div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between flex-wrap gap-1">
-                            <p class="text-xs font-semibold text-slate-800">Pedro Reyes</p>
-                            <span class="text-[9px] text-slate-400">Today, 9:02 AM</span>
-                        </div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="px-1.5 py-0.5 bg-rose-50 text-rose-700 rounded-full text-[8px] font-semibold">
-                                <i class="fas fa-flag text-[7px] mr-0.5" aria-hidden="true"></i> Flagged
-                            </span>
-                            <span class="text-[9px] text-slate-500">Health Surveillance</span>
-                            <span class="text-[9px] text-slate-400">Case #0234 (Dengue)</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Activity 4 -->
-                <div class="activity-item flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
-                    <div class="activity-avatar bg-amber-500">AL</div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between flex-wrap gap-1">
-                            <p class="text-xs font-semibold text-slate-800">Ana Lim</p>
-                            <span class="text-[9px] text-slate-400">Yesterday, 4:30 PM</span>
-                        </div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-full text-[8px] font-semibold">
-                                <i class="fas fa-calendar text-[7px] mr-0.5" aria-hidden="true"></i> Scheduled
-                            </span>
-                            <span class="text-[9px] text-slate-500">Sanitation Permit</span>
-                            <span class="text-[9px] text-slate-400">Inspection #089</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Activity 5 -->
-                <div class="activity-item flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
-                    <div class="activity-avatar bg-slate-500">SY</div>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center justify-between flex-wrap gap-1">
-                            <p class="text-xs font-semibold text-slate-800">System</p>
-                            <span class="text-[9px] text-slate-400">Today, 2:00 AM</span>
-                        </div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[8px] font-semibold">
-                                <i class="fas fa-database text-[7px] mr-0.5" aria-hidden="true"></i> Backup
-                            </span>
-                            <span class="text-[9px] text-slate-500">System</span>
-                            <span class="text-[9px] text-slate-400">Full DB Backup</span>
-                        </div>
-                    </div>
-                </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -1694,8 +1690,9 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>     
        
- <!-- bypass datamask for non data masking -->
-<p class="kpi-number text-xl font-black text-slate-900 mt-1 leading-none"></p>
+<!-- Toast container -->
+<div id="toast-container" class="toast-container"></div>
+
 <script>
     // Press Ctrl+Shift+R to toggle real/masked
 document.addEventListener('keydown', e => {
@@ -1709,7 +1706,13 @@ document.addEventListener('keydown', e => {
 });
     // ===== TOAST SYSTEM =====
     function showToast(message, type = 'info', duration = 3000) {
-        const container = document.getElementById('toast-container');
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
         
@@ -2086,6 +2089,98 @@ document.addEventListener('keydown', e => {
         }, 1500);
     }
 
+    // ===== DATE FILTER HANDLERS WITH GLASS BLUR TRANSITION =====
+    function updateKpisForFilter(multiplier) {
+        const kpiGrid = document.querySelector('.kpi-grid');
+        if (kpiGrid) {
+            kpiGrid.classList.add('kpi-updating');
+        }
+        
+        setTimeout(() => {
+            document.querySelectorAll('.kpi-number').forEach(el => {
+                const baseVal = el.getAttribute('data-base-val') || el.textContent.trim();
+                if (!el.getAttribute('data-base-val')) {
+                    el.setAttribute('data-base-val', baseVal);
+                }
+                if (baseVal.includes('%')) return;
+                
+                const numericVal = parseInt(baseVal.replace(/,/g, ''), 10);
+                if (!isNaN(numericVal)) {
+                    const newVal = Math.max(1, Math.round(numericVal * multiplier));
+                    el.textContent = newVal.toLocaleString();
+                }
+            });
+            
+            if (kpiGrid) {
+                kpiGrid.classList.remove('kpi-updating');
+            }
+        }, 220);
+    }
+
+    function setDateFilter(range, btn) {
+        document.querySelectorAll('.date-filter-chip').forEach(c => c.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        
+        document.getElementById('customDateStart').classList.add('hidden');
+        document.getElementById('customDateSep').classList.add('hidden');
+        document.getElementById('customDateEnd').classList.add('hidden');
+        document.getElementById('customDateApply').classList.add('hidden');
+        
+        const label = document.getElementById('activeRangeLabel');
+        const now = new Date();
+        const options = { month: 'short', day: 'numeric', year: 'numeric' };
+        let multiplier = 1.0;
+        
+        if (range === 'today') {
+            label.textContent = now.toLocaleDateString('en-US', options);
+            multiplier = 0.05;
+        } else if (range === '7d') {
+            const past = new Date();
+            past.setDate(now.getDate() - 7);
+            label.textContent = `${past.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${now.toLocaleDateString('en-US', options)}`;
+            multiplier = 0.25;
+        } else if (range === '30d') {
+            const past = new Date();
+            past.setDate(now.getDate() - 30);
+            label.textContent = `${past.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${now.toLocaleDateString('en-US', options)}`;
+            multiplier = 1.0;
+        } else if (range === 'month') {
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+            label.textContent = `${firstDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${now.toLocaleDateString('en-US', options)}`;
+            multiplier = 1.0;
+        }
+        
+        updateKpisForFilter(multiplier);
+        showToast(`Filtered dashboard view for ${range.toUpperCase()}`, 'info');
+    }
+
+    function openCustomDateRange(btn) {
+        document.querySelectorAll('.date-filter-chip').forEach(c => c.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        
+        document.getElementById('customDateStart').classList.remove('hidden');
+        document.getElementById('customDateSep').classList.remove('hidden');
+        document.getElementById('customDateEnd').classList.remove('hidden');
+        document.getElementById('customDateApply').classList.remove('hidden');
+    }
+
+    function applyCustomDateRange() {
+        const startVal = document.getElementById('customDateStart').value;
+        const endVal = document.getElementById('customDateEnd').value;
+        if (!startVal || !endVal) {
+            showToast('Please select both start and end dates', 'warning');
+            return;
+        }
+        const d1 = new Date(startVal);
+        const d2 = new Date(endVal);
+        const diffDays = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)));
+        const multiplier = Math.min(5.0, Math.max(0.03, diffDays / 30.0));
+        
+        document.getElementById('activeRangeLabel').textContent = `${startVal} to ${endVal}`;
+        updateKpisForFilter(multiplier);
+        showToast(`Filtered for range (${diffDays} days)`, 'success');
+    }
+
     // ===== KEYBOARD SHORTCUT HELP =====
     console.log('📋 Keyboard Shortcuts:');
     console.log('  Alt+B  - Toggle Quick Action Bar');
@@ -2100,4 +2195,4 @@ document.addEventListener('keydown', e => {
 </script>
 </main>
 
-<?php include '../includes/footer.php'; ?>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

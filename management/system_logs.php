@@ -15,90 +15,39 @@ require_once '../includes/header.php';
 require_once '../includes/sidebar.php';
 
 // ============================================================
-// ACTIVITY LOGS - all real DB records
+// ACTIVITY LOGS & SYSTEM LOGS - Segregated Query
 // ============================================================
 require_once __DIR__ . '/../app/Models/ActivityLog.php';
 $activityLogModel = new ActivityLog();
-$activityLogs     = $activityLogModel->all(['limit' => 100, 'order' => 'created_at.desc']);
+$allLogs          = $activityLogModel->all(['limit' => 250, 'order' => 'created_at.desc']);
 
-// AUDIT TRAIL — Real DB records from User Management & Authentication modules
-$auditTrail = array_filter($activityLogs, function($log) {
+// 1. SYSTEM AUDIT TRAIL — Administrative, Security & Authentication Logs (Admin System Logs)
+$auditTrail = array_values(array_filter($allLogs, function($log) {
     $module = strtolower($log['module'] ?? '');
-    return str_contains($module, 'user management') || str_contains($module, 'authentication');
-});
-$auditTrail = array_values($auditTrail);
+    $action = strtolower($log['action'] ?? '');
+    return str_contains($module, 'user management') 
+        || str_contains($module, 'authentication')
+        || str_contains($module, 'system management')
+        || str_contains($module, 'system')
+        || str_contains($action, 'logged in')
+        || str_contains($action, 'logged out')
+        || str_contains($action, 'permission')
+        || str_contains($action, 'user');
+}));
+
+// 2. OPERATIONAL MODULE ACTIVITY LOGS — Operations handling logs only (Health Services, Sanitation, Immunization, Wastewater, Surveillance)
+$activityLogs = array_values(array_filter($allLogs, function($log) {
+    $module = strtolower($log['module'] ?? '');
+    return !str_contains($module, 'user management') 
+        && !str_contains($module, 'authentication')
+        && !str_contains($module, 'system management')
+        && !str_contains($module, 'system');
+}));
 
 // ============================================================
-// ERROR LOGS - System errors
+// ERROR LOGS - Dynamic System Errors & Security Warnings
 // ============================================================
-$errorLogs = [
-    [
-        'id' => 'ERR-001',
-        'timestamp' => '2024-01-20 08:15:00',
-        'level' => 'Warning',
-        'source' => 'Database Connection',
-        'message' => 'Database connection timeout after 5 seconds',
-        'file' => '/var/www/html/includes/db.php',
-        'line' => 45,
-        'stack_trace' => 'db_connect() -> query_timeout()',
-        'status' => 'Resolved'
-    ],
-    [
-        'id' => 'ERR-002',
-        'timestamp' => '2024-01-20 09:30:00',
-        'level' => 'Error',
-        'source' => 'Patient Records',
-        'message' => 'Failed to update patient record: Invalid data format',
-        'file' => '/var/www/html/modules/healthservices/patients.php',
-        'line' => 234,
-        'stack_trace' => 'update_patient() -> validate_data() -> format_error()',
-        'status' => 'Resolved'
-    ],
-    [
-        'id' => 'ERR-003',
-        'timestamp' => '2024-01-19 15:20:00',
-        'level' => 'Critical',
-        'source' => 'Authentication',
-        'message' => 'Multiple failed login attempts detected from IP 10.0.0.5',
-        'file' => '/var/www/html/includes/auth.php',
-        'line' => 89,
-        'stack_trace' => 'authenticate() -> check_attempts() -> block_ip()',
-        'status' => 'Open'
-    ],
-    [
-        'id' => 'ERR-004',
-        'timestamp' => '2024-01-19 11:00:00',
-        'level' => 'Warning',
-        'source' => 'File Upload',
-        'message' => 'File upload failed: File exceeds maximum allowed size',
-        'file' => '/var/www/html/modules/sanitation/documents.php',
-        'line' => 156,
-        'stack_trace' => 'upload_file() -> check_size() -> size_exceeded()',
-        'status' => 'Resolved'
-    ],
-    [
-        'id' => 'ERR-005',
-        'timestamp' => '2024-01-18 16:45:00',
-        'level' => 'Error',
-        'source' => 'API Integration',
-        'message' => 'API request failed: Service unavailable',
-        'file' => '/var/www/html/api/weather_api.php',
-        'line' => 67,
-        'stack_trace' => 'call_api() -> request() -> timeout()',
-        'status' => 'Open'
-    ],
-    [
-        'id' => 'ERR-006',
-        'timestamp' => '2024-01-18 08:00:00',
-        'level' => 'Critical',
-        'source' => 'System Memory',
-        'message' => 'System memory usage exceeded 90%',
-        'file' => '/var/www/html/includes/monitor.php',
-        'line' => 23,
-        'stack_trace' => 'memory_check() -> usage_high() -> alert()',
-        'status' => 'Resolved'
-    ],
-];
+$errorLogs = $activityLogModel->getErrorLogs();
 
 // ============================================================
 // STATISTICS
@@ -253,6 +202,9 @@ $title = 'System Logs';
                     <button onclick="clearSearch()" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition text-sm font-semibold">
                         <i class="fa-solid fa-times"></i> Clear
                     </button>
+                    <button onclick="openClearLogsModal()" class="px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition text-sm font-semibold flex items-center gap-1.5">
+                        <i class="fa-solid fa-trash-can text-xs"></i> Clear Logs
+                    </button>
                 </div>
             </div>
         </div>
@@ -263,11 +215,11 @@ $title = 'System Logs';
     <!-- ============================================================ -->
     <div class="flex gap-2 mb-6 border-b border-slate-200">
         <button onclick="switchTab('audit')" class="tab-btn active px-4 py-2.5 text-sm font-semibold border-b-2 border-brand-dark text-brand-dark transition" id="tab-audit">
-            <i class="fa-solid fa-file-shield"></i> Audit Trail
+            <i class="fa-solid fa-file-shield"></i> System &amp; Audit Logs
             <span class="ml-1.5 px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px]"><?php echo $totalAudit; ?></span>
         </button>
         <button onclick="switchTab('activity')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition" id="tab-activity">
-            <i class="fa-solid fa-list-check"></i> Activity Logs
+            <i class="fa-solid fa-list-check"></i> Operational Module Logs
             <span class="ml-1.5 px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px]"><?php echo $totalActivities; ?></span>
         </button>
         <button onclick="switchTab('error')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition" id="tab-error">
@@ -284,11 +236,11 @@ $title = 'System Logs';
             <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
                 <h3 class="font-semibold text-slate-800 flex items-center gap-2">
                     <i class="fa-solid fa-file-shield text-brand-medium"></i>
-                    Audit Trail
+                    System &amp; Audit Logs (Admin)
                     <span class="text-xs font-normal text-slate-400">(<?php echo $totalAudit; ?> entries)</span>
                 </h3>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs text-slate-400">Showing system changes and modifications</span>
+                    <span class="text-xs text-slate-400">Admin logins, user management, security access &amp; role permission updates</span>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -296,8 +248,6 @@ $title = 'System Logs';
                     <thead>
                         <tr class="bg-slate-50 border-b border-slate-200">
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">ID</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Timestamp</th>
-                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">#</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Timestamp</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">User</th>
                             <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Role</th>
@@ -310,7 +260,7 @@ $title = 'System Logs';
                     <tbody id="auditTableBody">
                         <?php if (empty($auditTrail)): ?>
                         <tr>
-                            <td colspan="8" class="px-4 py-8 text-center text-slate-400 text-sm">No audit trail entries yet. Login, logout, and user management actions will appear here.</td>
+                            <td colspan="8" class="px-4 py-8 text-center text-slate-400 text-sm">No administrative audit entries yet. Login, logout, and user management actions will appear here.</td>
                         </tr>
                         <?php endif; ?>
                         <?php foreach ($auditTrail as $log): ?>
@@ -340,18 +290,18 @@ $title = 'System Logs';
     </div>
     
     <!-- ============================================================ -->
-    <!-- TAB CONTENT: ACTIVITY LOGS                                -->
+    <!-- TAB CONTENT: OPERATIONAL ACTIVITY LOGS                      -->
     <!-- ============================================================ -->
     <div id="activityContent" class="tab-content hidden">
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
                 <h3 class="font-semibold text-slate-800 flex items-center gap-2">
                     <i class="fa-solid fa-list-check text-brand-medium"></i>
-                    Activity Logs
+                    Operational Module Activity Logs
                     <span class="text-xs font-normal text-slate-400">(<?php echo $totalActivities; ?> entries)</span>
                 </h3>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs text-slate-400">User activities and system events</span>
+                    <span class="text-xs text-slate-400">Handling logs across Health Services, Sanitation, Immunization, Wastewater &amp; Surveillance</span>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -444,6 +394,11 @@ $title = 'System Logs';
                         </tr>
                     </thead>
                     <tbody id="errorTableBody">
+                        <?php if (empty($errorLogs)): ?>
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-slate-400 text-sm">No system error or security warning logs recorded.</td>
+                        </tr>
+                        <?php endif; ?>
                         <?php foreach ($errorLogs as $log): 
                             $levelColors = [
                                 'Critical' => 'bg-red-100 text-red-700',
@@ -744,6 +699,58 @@ $title = 'System Logs';
     }
 
     // ============================================================
+    // CLEAR LOGS CONFIRMATION MODAL & API
+    // ============================================================
+    function openClearLogsModal() {
+        const modal = document.getElementById('clearLogsModal');
+        const card = document.getElementById('clearLogsModalCard');
+        if (!modal || !card) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            card.classList.remove('scale-95', 'opacity-0');
+            card.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    function closeClearLogsModal() {
+        const modal = document.getElementById('clearLogsModal');
+        const card = document.getElementById('clearLogsModalCard');
+        if (!modal || !card) return;
+        card.classList.remove('scale-100', 'opacity-100');
+        card.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 200);
+    }
+
+    function executeClearLogs() {
+        closeClearLogsModal();
+
+        const body = new URLSearchParams();
+        body.append('action', 'clear_logs');
+
+        fetch('user_management_api.php', {
+            method: 'POST',
+            body: body
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast('🧹 ' + data.message, 'info');
+                setTimeout(() => location.reload(), 600);
+            } else {
+                showToast('⚠️ ' + data.message, 'danger');
+            }
+        })
+        .catch(err => {
+            showToast('❌ Error clearing logs', 'danger');
+            console.error(err);
+        });
+    }
+
+    // ============================================================
     // ESC KEY TO CLOSE MODALS
     // ============================================================
     document.addEventListener('keydown', function(e) {
@@ -777,5 +784,26 @@ $title = 'System Logs';
         transition: background-color 0.2s ease;
     }
 </style>
+
+<!-- CLEAR ACTIVITY LOGS CONFIRMATION MODAL -->
+<div id="clearLogsModal" class="fixed inset-0 z-50 items-center justify-center hidden bg-slate-900/50 backdrop-blur-sm p-4 transition-opacity">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 text-center transform transition-all scale-95 opacity-0 duration-200" id="clearLogsModalCard">
+        <div class="w-14 h-14 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-800 mb-1">Clear Activity & System Logs?</h3>
+        <p class="text-xs text-slate-500 mb-5 leading-relaxed">
+            Are you sure you want to clear all activity and system logs? This action will permanently delete all activity log records directly from the database (<code class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono text-[11px]">activity_logs</code> table) and cannot be undone.
+        </p>
+        <div class="flex items-center justify-center gap-3 pt-2 border-t border-slate-100">
+            <button type="button" onclick="closeClearLogsModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition">
+                Cancel
+            </button>
+            <button type="button" onclick="executeClearLogs()" class="px-4 py-2 text-xs font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-md shadow-red-500/20 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-trash-can text-[10px]"></i> Permanently Delete in DB
+            </button>
+        </div>
+    </div>
+</div>
 
 <?php include_once '../includes/footer.php'; ?>

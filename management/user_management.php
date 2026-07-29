@@ -123,9 +123,17 @@ foreach ($users as $u) {
 }
 ksort($filterRoleOptions);
 
-// --- Fetch Activity Logs (latest 20) -------------------------------------
+// --- Fetch Activity Logs (User Management actions only, excluding login/logout) ---
 try {
-    $activityLogs = $logModel->all(['limit' => 20, 'order' => 'created_at.desc']);
+    $allUserLogs  = $logModel->all(['limit' => 100, 'order' => 'created_at.desc']);
+    $activityLogs = array_values(array_filter($allUserLogs, function($log) {
+        $module = strtolower($log['module'] ?? '');
+        $action = strtolower($log['action'] ?? '');
+        return (str_contains($module, 'user management') || str_contains($action, 'user') || str_contains($action, 'employee') || str_contains($action, 'permission') || str_contains($action, 'role') || str_contains($action, 'status'))
+            && !str_contains($action, 'logged in') 
+            && !str_contains($action, 'logged out');
+    }));
+    $activityLogs = array_slice($activityLogs, 0, 20);
 } catch (Throwable $e) {
     error_log('User Management — logs fetch error: ' . $e->getMessage());
     $activityLogs = [];
@@ -447,8 +455,8 @@ $title = 'User Management';
                 <button onclick="filterActivity('all')" class="filter-btn-activity active px-3 py-1 text-xs font-semibold rounded-full bg-brand-dark text-white hover:bg-brand-medium transition" id="act-all">All</button>
                 <button onclick="filterActivity('Success')" class="filter-btn-activity px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition" id="act-success">Success</button>
                 <button onclick="filterActivity('Failed')" class="filter-btn-activity px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 hover:bg-red-200 transition" id="act-failed">Failed</button>
-                <button onclick="clearLogs()" class="text-xs text-slate-400 hover:text-slate-600 font-medium">
-                    Clear logs
+                <button onclick="openClearLogsModal()" class="text-xs text-red-500 hover:text-red-700 transition font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-trash-can text-[10px]"></i> Clear logs
                 </button>
             </div>
         </div>
@@ -467,7 +475,7 @@ $title = 'User Management';
                 <tbody id="activityTableBody">
                     <?php if (empty($activityLogs)): ?>
                     <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-slate-400 text-sm">No activity recorded yet.</td>
+                        <td colspan="6" class="px-4 py-8 text-center text-slate-400 text-sm">No user management or permission activity recorded yet.</td>
                     </tr>
                     <?php endif; ?>
                     <?php foreach ($activityLogs as $log): 
@@ -1588,10 +1596,38 @@ $title = 'User Management';
     }
 
     // ============================================================
-    // CLEAR LOGS via API
+    // CLEAR LOGS CONFIRMATION MODAL
     // ============================================================
+    function openClearLogsModal() {
+        const modal = document.getElementById('clearLogsModal');
+        const card = document.getElementById('clearLogsModalCard');
+        if (!modal || !card) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            card.classList.remove('scale-95', 'opacity-0');
+            card.classList.add('scale-100', 'opacity-100');
+        }, 10);
+    }
+
+    function closeClearLogsModal() {
+        const modal = document.getElementById('clearLogsModal');
+        const card = document.getElementById('clearLogsModalCard');
+        if (!modal || !card) return;
+        card.classList.remove('scale-100', 'opacity-100');
+        card.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }, 200);
+    }
+
     function clearLogs() {
-        if (!confirm('Are you sure you want to clear all activity logs?')) return;
+        openClearLogsModal();
+    }
+
+    function executeClearLogs() {
+        closeClearLogsModal();
 
         const body = new URLSearchParams();
         body.append('action', 'clear_logs');
@@ -1658,9 +1694,25 @@ $title = 'User Management';
         opacity: 0.8;
     }
     
-    .user-row, .activity-row {
-        transition: background-color 0.2s ease;
-    }
-</style>
+<!-- CLEAR ACTIVITY LOGS CONFIRMATION MODAL -->
+<div id="clearLogsModal" class="fixed inset-0 z-50 items-center justify-center hidden bg-slate-900/50 backdrop-blur-sm p-4 transition-opacity">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 text-center transform transition-all scale-95 opacity-0 duration-200" id="clearLogsModalCard">
+        <div class="w-14 h-14 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-800 mb-1">Clear Activity Logs?</h3>
+        <p class="text-xs text-slate-500 mb-5 leading-relaxed">
+            Are you sure you want to clear all activity logs? This action will permanently delete all activity log records directly from the database (<code class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono text-[11px]">activity_logs</code> table) and cannot be undone.
+        </p>
+        <div class="flex items-center justify-center gap-3 pt-2 border-t border-slate-100">
+            <button type="button" onclick="closeClearLogsModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition">
+                Cancel
+            </button>
+            <button type="button" onclick="executeClearLogs()" class="px-4 py-2 text-xs font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 shadow-md shadow-red-500/20 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-trash-can text-[10px]"></i> Permanently Delete in DB
+            </button>
+        </div>
+    </div>
+</div>
 
 <?php include_once '../includes/footer.php'; ?>

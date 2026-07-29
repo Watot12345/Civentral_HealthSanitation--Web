@@ -41,6 +41,19 @@ class Prescription
         unset($data['prescription_id']);
         
         $result = $this->db->insert($this->table, $data);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $logger->log("Issued Prescription", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Prescription status: " . ($data['status'] ?? 'pending'),
+                    'status'  => 'Success'
+                ]);
+            } catch (\Throwable $e) {
+                error_log('Prescription::create ActivityLog error: ' . $e->getMessage());
+            }
+        }
         return is_array($result) ? $result : [];
     }
 
@@ -50,13 +63,41 @@ class Prescription
         if (isset($data['medications']) && is_array($data['medications'])) {
             $data['medications'] = json_encode($data['medications']);
         }
-        return $this->db->update($this->table, $data, ['id' => $id]);
+        $updated = $this->db->update($this->table, $data, ['id' => $id]);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $status = $data['status'] ?? 'updated';
+                $logger->log("Updated Prescription: {$status}", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Prescription #{$id} status set to {$status}",
+                    'status'  => 'Success'
+                ]);
+            } catch (\Throwable $e) {
+                error_log('Prescription::updateById ActivityLog error: ' . $e->getMessage());
+            }
+        }
+        return $updated;
     }
 
     public function deleteById(string|int $id): bool
     {
         try {
             $this->db->delete($this->table, ['id' => $id]);
+            if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+                require_once __DIR__ . '/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $logger->log("Cancelled Prescription", [
+                        'module'  => 'Health Center Services',
+                        'details' => "Removed prescription record #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {
+                    error_log('Prescription::deleteById ActivityLog error: ' . $e->getMessage());
+                }
+            }
             return true;
         } catch (\Throwable $e) {
             error_log('Prescription Model Error (deleteById): ' . $e->getMessage());

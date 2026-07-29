@@ -95,6 +95,22 @@ class PatientController extends BaseController
             
             $result = $this->patientModel->create($dbData);
             
+            if (class_exists('ActivityLog') || file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $fullName = trim(($dbData['first_name'] ?? '') . ' ' . ($dbData['last_name'] ?? ''));
+                    $pid = $dbData['patient_id'] ?? ($result['patient_id'] ?? '');
+                    $logger->log("Registered New Patient: {$fullName}", [
+                        'module'  => 'Health Center Services',
+                        'details' => "Patient ID: {$pid} | Barangay: " . ($dbData['barangay'] ?? 'N/A'),
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {
+                    error_log('PatientController store log error: ' . $e->getMessage());
+                }
+            }
+            
             return ['success' => true, 'message' => 'Patient created successfully', 'data' => $result, 'code' => 201];
         });
     }
@@ -120,8 +136,20 @@ class PatientController extends BaseController
             
             $result = $this->patientModel->updateById($id, $dbData);
             
-            // DEBUG
-            error_log('UPDATE result=' . json_encode($result));
+            if (class_exists('ActivityLog') || file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $fullName = trim(($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? ''));
+                    $logger->log("Updated Patient Record: {$fullName}", [
+                        'module'  => 'Health Center Services',
+                        'details' => "Updated patient record #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {
+                    error_log('PatientController update log error: ' . $e->getMessage());
+                }
+            }
             
             return ['success' => true, 'message' => 'Patient updated successfully', 'data' => $result];
         });
@@ -135,6 +163,22 @@ class PatientController extends BaseController
                 return ['success' => false, 'message' => 'Patient not found', 'code' => 404];
             }
             $success = $this->patientModel->deleteById($id);
+            
+            if ($success && (class_exists('ActivityLog') || file_exists(__DIR__ . '/../Models/ActivityLog.php'))) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $fullName = trim(($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? ''));
+                    $logger->log("Deleted Patient Record: {$fullName}", [
+                        'module'  => 'Health Center Services',
+                        'details' => "Removed patient record #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {
+                    error_log('PatientController destroy log error: ' . $e->getMessage());
+                }
+            }
+            
             return ['success' => $success, 'message' => $success ? 'Patient deleted successfully' : 'Failed to delete patient'];
         });
     }

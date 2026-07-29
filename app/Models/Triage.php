@@ -66,23 +66,79 @@ class Triage
         if (empty($data['status'])) {
             $data['status'] = 'pending';
         }
-        return $this->db->insert($this->table, $data);
+        $res = $this->db->insert($this->table, $data);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $tid = $data['triage_id'] ?? '';
+                $logger->log("Recorded Triage Assessment", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Triage ID: {$tid} | Priority: " . ($data['priority_level'] ?? 'Normal'),
+                    'status'  => 'Success'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Triage::create ActivityLog error: ' . $e->getMessage());
+            }
+        }
+        return $res;
     }
 
     public function updateById(string|int $id, array $data): array
     {
-        return $this->db->update($this->table, $data, ['id' => $id]);
+        $updated = $this->db->update($this->table, $data, ['id' => $id]);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $logger->log("Updated Triage Assessment", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Updated triage record #{$id}",
+                    'status'  => 'Success'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Triage::updateById ActivityLog error: ' . $e->getMessage());
+            }
+        }
+        return $updated;
     }
 
     public function updateStatus(string|int $id, string $status): array
     {
-        return $this->db->update($this->table, ['status' => $status], ['id' => $id]);
+        $updated = $this->db->update($this->table, ['status' => $status], ['id' => $id]);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $logger->log("Updated Triage Queue Status: {$status}", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Triage #{$id} status changed to {$status}",
+                    'status'  => 'Success'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Triage::updateStatus ActivityLog error: ' . $e->getMessage());
+            }
+        }
+        return $updated;
     }
 
     public function deleteById(string|int $id): bool
     {
         try {
             $this->db->delete($this->table, ['id' => $id]);
+            if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+                require_once __DIR__ . '/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $logger->log("Removed Triage Record", [
+                        'module'  => 'Health Center Services',
+                        'details' => "Removed triage record #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {
+                    error_log('Triage::deleteById ActivityLog error: ' . $e->getMessage());
+                }
+            }
             return true;
         } catch (Throwable $e) {
             error_log('Triage Model Error (deleteById): ' . $e->getMessage());

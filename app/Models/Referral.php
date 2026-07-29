@@ -42,18 +42,60 @@ class Referral
         if (empty($data['referral_id'])) {
             $data['referral_id'] = $this->generateReferralId();
         }
-        return $this->db->insert($this->table, $data);
+        $res = $this->db->insert($this->table, $data);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $rid = $data['referral_id'] ?? '';
+                $logger->log("Created Patient Referral", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Referral ID: {$rid} | Hospital: " . ($data['referred_to'] ?? 'Hospital'),
+                    'status'  => 'Success'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Referral::create ActivityLog error: ' . $e->getMessage());
+            }
+        }
+        return $res;
     }
 
     public function update(string|int $id, array $data): array
     {
-        return $this->db->update($this->table, $data, ['id' => $id]);
+        $updated = $this->db->update($this->table, $data, ['id' => $id]);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $logger->log("Updated Patient Referral", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Updated referral #{$id}",
+                    'status'  => 'Success'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Referral::update ActivityLog error: ' . $e->getMessage());
+            }
+        }
+        return $updated;
     }
 
     public function delete(string|int $id): bool
     {
         try {
             $this->db->delete($this->table, ['id' => $id]);
+            if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+                require_once __DIR__ . '/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $logger->log("Cancelled Patient Referral", [
+                        'module'  => 'Health Center Services',
+                        'details' => "Removed referral record #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {
+                    error_log('Referral::delete ActivityLog error: ' . $e->getMessage());
+                }
+            }
             return true;
         } catch (Throwable $e) {
             error_log('Referral Model Error (delete): ' . $e->getMessage());

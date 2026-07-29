@@ -40,20 +40,61 @@ class Appointment
         if (empty($data['appointment_id'])) {
             $data['appointment_id'] = $this->generateAppointmentId();
         }
-        // FIXED: Use service key
-        return $this->db->insert($this->table, $data, true);
+        $res = $this->db->insert($this->table, $data, true);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $type = $data['type'] ?? $data['service'] ?? 'Consultation';
+                $aid = $data['appointment_id'] ?? '';
+                $logger->log("Booked Appointment: {$type}", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Appointment ID: {$aid} | Date: " . ($data['appointment_date'] ?? date('Y-m-d')),
+                    'status'  => 'Success'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Appointment::create ActivityLog error: ' . $e->getMessage());
+            }
+        }
+        return $res;
     }
 
     public function updateById(string|int $id, array $data): array
     {
-        // FIXED: Use eq. format + service key
-        return $this->db->update($this->table, $data, ['id' => 'eq.' . $id], true);
+        $updated = $this->db->update($this->table, $data, ['id' => 'eq.' . $id], true);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $logger->log("Updated Appointment Record", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Updated appointment #{$id}",
+                    'status'  => 'Success'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Appointment::updateById ActivityLog error: ' . $e->getMessage());
+            }
+        }
+        return $updated;
     }
 
     public function updateStatus(string|int $id, string $status): array
     {
-        // FIXED: Use eq. format + service key
-        return $this->db->update($this->table, ['status' => $status], ['id' => 'eq.' . $id], true);
+        $updated = $this->db->update($this->table, ['status' => $status], ['id' => 'eq.' . $id], true);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $logger->log("Updated Appointment Status to {$status}", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Appointment #{$id} status changed to {$status}",
+                    'status'  => 'Success'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Appointment::updateStatus ActivityLog error: ' . $e->getMessage());
+            }
+        }
+        return $updated;
     }
 
     public function deleteById(string|int $id): bool

@@ -26,17 +26,59 @@ class Consultation
 
     public function create(array $data): array
     {
-        return $this->db->insert($this->table, $data, true);
+        $res = $this->db->insert($this->table, $data, true);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $cid = $data['consultation_id'] ?? ($res['consultation_id'] ?? '');
+                $logger->log("Recorded Consultation Entry", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Consultation ID: {$cid} | Patient: " . ($data['patient_name'] ?? 'N/A'),
+                    'status'  => 'Success'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Consultation::create ActivityLog error: ' . $e->getMessage());
+            }
+        }
+        return $res;
     }
 
     public function updateById(string $id, array $data): array
     {
-        return $this->db->update($this->table, $data, ['id' => 'eq.' . $id], true);
+        $updated = $this->db->update($this->table, $data, ['id' => 'eq.' . $id], true);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $logger->log("Updated Consultation Record", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Updated consultation #{$id}",
+                    'status'  => 'Success'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Consultation::updateById ActivityLog error: ' . $e->getMessage());
+            }
+        }
+        return $updated;
     }
 
     public function deleteById(string $id): bool
     {
         $this->db->delete($this->table, ['id' => 'eq.' . $id], true);
+        if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
+            require_once __DIR__ . '/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $logger->log("Deleted Consultation Record", [
+                    'module'  => 'Health Center Services',
+                    'details' => "Removed consultation #{$id}",
+                    'status'  => 'Success'
+                ]);
+            } catch (Throwable $e) {
+                error_log('Consultation::deleteById ActivityLog error: ' . $e->getMessage());
+            }
+        }
         return true;
     }
 
