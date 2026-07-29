@@ -1,7 +1,7 @@
 <?php
 
 declare(strict_types=1);
-
+/** @var \Database $db */
 /**
  * api/index.php
  *
@@ -31,13 +31,26 @@ declare(strict_types=1);
  *   GET    /permissions
  *   GET    /activity-logs
  *   DELETE /activity-logs
+ *   GET    /settings
+ *   POST   /settings/save
+ *   POST   /settings/reset
+ *   POST   /settings/export
+ *   POST   /settings/import
+ *   POST   /settings/cache-clear
+ *   POST   /settings/test-email
+ *   POST   /settings/test-sms
+ *   POST   /settings/backup
+ *   POST   /settings/restore
  */
 
 require_once __DIR__ . '/../core/bootstrap.php';
+require_once __DIR__ . '/../app/Controllers/ActivityLogController.php';
+require_once __DIR__ . '/../app/Controllers/EmployeeController.php';
+require_once __DIR__ . '/../app/Controllers/RoleController.php';
+require_once __DIR__ . '/../app/controllers/SettingsController.php';
+require_once __DIR__ . '/../app/controllers/NotificationController.php';
+require_once __DIR__ . '/../app/controllers/BackupController.php';
 
-use App\Controllers\ActivityLogController;
-use App\Controllers\EmployeeController;
-use App\Controllers\RoleController;
 use Core\Request;
 use Core\Router;
 
@@ -46,26 +59,39 @@ $router = new Router();
 
 // Static/collection routes must be registered before the `{id}` wildcard
 // route so e.g. /employees/search is not swallowed by /employees/{id}.
-$router->get('/employees/search', [EmployeeController::class, 'search']);
-$router->get('/employees/statistics', [EmployeeController::class, 'statistics']);
-$router->post('/employees/bulk-delete', [EmployeeController::class, 'bulkDelete']);
-$router->post('/employees/bulk-update', [EmployeeController::class, 'bulkUpdate']);
-$router->post('/employees/{id}/reset-password', [EmployeeController::class, 'resetPassword']);
-$router->patch('/employees/{id}/status', [EmployeeController::class, 'toggleStatus']);
+$router->get('/employees/search', [\EmployeeController::class, 'search']);
+$router->get('/employees/statistics', [\EmployeeController::class, 'statistics']);
+$router->post('/employees/bulk-delete', [\EmployeeController::class, 'bulkDelete']);
+$router->post('/employees/bulk-update', [\EmployeeController::class, 'bulkUpdate']);
+$router->post('/employees/{id}/reset-password', [\EmployeeController::class, 'resetPassword']);
+$router->patch('/employees/{id}/status', [\EmployeeController::class, 'toggleStatus']);
 
-$router->get('/employees', [EmployeeController::class, 'index']);
-$router->post('/employees', [EmployeeController::class, 'store']);
-$router->get('/employees/{id}', [EmployeeController::class, 'show']);
-$router->put('/employees/{id}', [EmployeeController::class, 'update']);
-$router->delete('/employees/{id}', [EmployeeController::class, 'destroy']);
+$router->get('/employees', [\EmployeeController::class, 'index']);
+$router->post('/employees', [\EmployeeController::class, 'store']);
+$router->get('/employees/{id}', [\EmployeeController::class, 'show']);
+$router->put('/employees/{id}', [\EmployeeController::class, 'update']);
+$router->delete('/employees/{id}', [\EmployeeController::class, 'destroy']);
 
-$router->get('/permissions', [RoleController::class, 'permissions']);
-$router->get('/roles', [RoleController::class, 'index']);
-$router->get('/roles/{id}', [RoleController::class, 'show']);
-$router->put('/roles/{id}', [RoleController::class, 'update']);
+$router->get('/permissions', [\RoleController::class, 'permissions']);
+$router->get('/roles', [\RoleController::class, 'index']);
+$router->get('/roles/{id}', [\RoleController::class, 'show']);
+$router->put('/roles/{id}', [\RoleController::class, 'update']);
 
-$router->get('/activity-logs', [ActivityLogController::class, 'index']);
-$router->delete('/activity-logs', [ActivityLogController::class, 'clear']);
+$router->get('/activity-logs', [\ActivityLogController::class, 'index']);
+$router->delete('/activity-logs', [\ActivityLogController::class, 'clear']);
+
+// Settings Engine REST Routes
+$router->get('/settings', [\SettingsController::class, 'index']);
+$router->post('/settings/save', [\SettingsController::class, 'save']);
+$router->post('/settings/bulk-update', [\SettingsController::class, 'save']);
+$router->post('/settings/reset', [\SettingsController::class, 'reset']);
+$router->post('/settings/export', [\SettingsController::class, 'export']);
+$router->post('/settings/import', [\SettingsController::class, 'import']);
+$router->post('/settings/cache-clear', [\SettingsController::class, 'clearCache']);
+$router->post('/settings/test-email', [\NotificationController::class, 'testEmail']);
+$router->post('/settings/test-sms', [\NotificationController::class, 'testSms']);
+$router->post('/settings/backup', [\BackupController::class, 'runBackup']);
+$router->post('/settings/restore', [\BackupController::class, 'restore']);
 
 // Strip a leading /api prefix if the web server passes the full path through.
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
