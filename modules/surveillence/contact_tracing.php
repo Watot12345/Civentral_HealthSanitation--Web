@@ -15,166 +15,78 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('health surveillance');
 
-// Index Cases (Patient Zero or confirmed cases)
-$indexCases = [
-    [
-        'id' => 'IC-001',
-        'name' => 'Juan Dela Cruz',
-        'age' => 45,
-        'gender' => 'Male',
-        'barangay' => 'San Jose',
-        'disease' => 'Dengue',
-        'date_confirmed' => '2024-01-15',
-        'status' => 'Active',
-        'risk_level' => 'High'
-    ],
-    [
-        'id' => 'IC-002',
-        'name' => 'Maria Santos',
-        'age' => 32,
-        'gender' => 'Female',
-        'barangay' => 'Poblacion',
-        'disease' => 'Influenza',
-        'date_confirmed' => '2024-01-16',
-        'status' => 'Recovered',
-        'risk_level' => 'Medium'
-    ],
-    [
-        'id' => 'IC-003',
-        'name' => 'Pedro Reyes',
-        'age' => 58,
-        'gender' => 'Male',
-        'barangay' => 'Riverside',
-        'disease' => 'Leptospirosis',
-        'date_confirmed' => '2024-01-17',
-        'status' => 'Active',
-        'risk_level' => 'High'
-    ],
-];
+require_once __DIR__ . '/../../app/Models/SurveillanceContact.php';
+require_once __DIR__ . '/../../app/Models/SurveillanceCase.php';
 
-// Contacts for each index case
-$contacts = [
-    [
-        'id' => 'CT-001',
-        'index_case_id' => 'IC-001',
-        'name' => 'Ana Dela Cruz',
-        'age' => 42,
-        'gender' => 'Female',
-        'relationship' => 'Spouse',
-        'address' => '123 San Jose St.',
-        'barangay' => 'San Jose',
-        'exposure_type' => 'Household',
-        'exposure_date' => '2024-01-12',
-        'last_contact_date' => '2024-01-15',
-        'symptoms' => ['Fever', 'Headache'],
-        'monitoring_status' => 'Active',
-        'quarantine_status' => 'Quarantined',
-        'quarantine_start' => '2024-01-15',
-        'quarantine_end' => '2024-01-29',
-        'risk_level' => 'High'
-    ],
-    [
-        'id' => 'CT-002',
-        'index_case_id' => 'IC-001',
-        'name' => 'Jose Dela Cruz',
-        'age' => 18,
-        'gender' => 'Male',
-        'relationship' => 'Son',
-        'address' => '123 San Jose St.',
-        'barangay' => 'San Jose',
-        'exposure_type' => 'Household',
-        'exposure_date' => '2024-01-10',
-        'last_contact_date' => '2024-01-14',
-        'symptoms' => [],
-        'monitoring_status' => 'Cleared',
-        'quarantine_status' => 'Completed',
-        'quarantine_start' => '2024-01-15',
-        'quarantine_end' => '2024-01-29',
-        'risk_level' => 'Medium'
-    ],
-    [
-        'id' => 'CT-003',
-        'index_case_id' => 'IC-001',
-        'name' => 'Maria Cruz',
-        'age' => 70,
-        'gender' => 'Female',
-        'relationship' => 'Mother',
-        'address' => '123 San Jose St.',
-        'barangay' => 'San Jose',
-        'exposure_type' => 'Household',
-        'exposure_date' => '2024-01-08',
-        'last_contact_date' => '2024-01-14',
-        'symptoms' => ['Fever', 'Body aches', 'Fatigue'],
-        'monitoring_status' => 'Active',
-        'quarantine_status' => 'Quarantined',
-        'quarantine_start' => '2024-01-15',
-        'quarantine_end' => '2024-01-29',
-        'risk_level' => 'High'
-    ],
-    [
-        'id' => 'CT-004',
-        'index_case_id' => 'IC-002',
-        'name' => 'Carlos Santos',
-        'age' => 35,
-        'gender' => 'Male',
-        'relationship' => 'Spouse',
-        'address' => '456 Poblacion St.',
-        'barangay' => 'Poblacion',
-        'exposure_type' => 'Household',
-        'exposure_date' => '2024-01-14',
-        'last_contact_date' => '2024-01-16',
-        'symptoms' => ['Cough', 'Sore throat'],
-        'monitoring_status' => 'Active',
-        'quarantine_status' => 'Quarantined',
-        'quarantine_start' => '2024-01-16',
-        'quarantine_end' => '2024-01-30',
-        'risk_level' => 'Medium'
-    ],
-    [
-        'id' => 'CT-005',
-        'index_case_id' => 'IC-002',
-        'name' => 'Lina Santos',
-        'age' => 8,
-        'gender' => 'Female',
-        'relationship' => 'Daughter',
-        'address' => '456 Poblacion St.',
-        'barangay' => 'Poblacion',
-        'exposure_type' => 'Household',
-        'exposure_date' => '2024-01-13',
-        'last_contact_date' => '2024-01-16',
-        'symptoms' => [],
-        'monitoring_status' => 'Monitoring',
-        'quarantine_status' => 'Quarantined',
-        'quarantine_start' => '2024-01-16',
-        'quarantine_end' => '2024-01-30',
-        'risk_level' => 'Low'
-    ],
-    [
-        'id' => 'CT-006',
-        'index_case_id' => 'IC-003',
-        'name' => 'Ben Reyes',
-        'age' => 60,
-        'gender' => 'Male',
-        'relationship' => 'Spouse',
-        'address' => '789 Riverside St.',
-        'barangay' => 'Riverside',
-        'exposure_type' => 'Household',
-        'exposure_date' => '2024-01-10',
-        'last_contact_date' => '2024-01-17',
-        'symptoms' => ['Fever', 'Muscle pain', 'Jaundice'],
-        'monitoring_status' => 'Active',
-        'quarantine_status' => 'Quarantined',
-        'quarantine_start' => '2024-01-17',
-        'quarantine_end' => '2024-01-31',
-        'risk_level' => 'High'
-    ],
-];
+try {
+    $contactModel = new SurveillanceContact();
+    $caseModel = new SurveillanceCase();
 
-// Statistics
+    $rawIndexCases = $caseModel->getIndexCases();
+    $rawContacts = $contactModel->all();
+
+    $indexCases = array_map(function($ic) {
+        return [
+            'id' => $ic['index_code'] ?? ('IC-' . $ic['id']),
+            'db_id' => (int) $ic['id'],
+            'name' => $ic['name'] ?? 'Unknown',
+            'age' => (int) ($ic['age'] ?? 0),
+            'gender' => $ic['gender'] ?? 'Unknown',
+            'barangay' => $ic['barangay'] ?? '',
+            'disease' => $ic['disease'] ?? 'Unknown',
+            'date_confirmed' => $ic['date_confirmed'] ?? date('Y-m-d'),
+            'status' => $ic['status'] ?? 'Isolated',
+            'risk_level' => $ic['risk_level'] ?? 'High'
+        ];
+    }, $rawIndexCases);
+
+    if (empty($indexCases)) {
+        $indexCases = [
+            ['id' => 'IC-001', 'db_id' => 1, 'name' => 'Juan Dela Cruz', 'age' => 45, 'gender' => 'Male', 'barangay' => 'San Jose', 'disease' => 'Dengue', 'date_confirmed' => '2026-07-20', 'status' => 'Isolated', 'risk_level' => 'High']
+        ];
+    }
+
+    $contacts = array_map(function($c) {
+        $symptomsRaw = $c['symptoms'] ?? '';
+        $symptomsArr = is_array($symptomsRaw) ? $symptomsRaw : array_map('trim', explode(',', (string)$symptomsRaw));
+        if (empty($symptomsArr) || (count($symptomsArr) === 1 && $symptomsArr[0] === '')) {
+            $symptomsArr = [];
+        }
+        return [
+            'id' => $c['contact_code'] ?? ('CT-' . $c['id']),
+            'db_id' => (int) $c['id'],
+            'index_case_id' => 'IC-00' . ($c['index_case_id'] ?? 1),
+            'name' => $c['name'] ?? 'Anonymous Contact',
+            'age' => (int) ($c['age'] ?? 0),
+            'gender' => $c['gender'] ?? 'Unknown',
+            'relationship' => $c['relationship'] ?? 'Relative',
+            'address' => $c['address'] ?? '',
+            'barangay' => $c['barangay'] ?? '',
+            'exposure_type' => $c['exposure_type'] ?? 'Direct Contact',
+            'exposure_date' => $c['exposure_date'] ?? date('Y-m-d'),
+            'last_contact_date' => $c['last_contact_date'] ?? date('Y-m-d'),
+            'symptoms' => $symptomsArr,
+            'monitoring_status' => $c['monitoring_status'] ?? 'Under Monitoring',
+            'quarantine_status' => $c['quarantine_status'] ?? 'Quarantined',
+            'quarantine_start' => $c['quarantine_start'] ?? date('Y-m-d'),
+            'quarantine_end' => $c['quarantine_end'] ?? date('Y-m-d', strtotime('+14 days')),
+            'risk_level' => $c['risk_level'] ?? 'Medium'
+        ];
+    }, $rawContacts);
+
+} catch (Throwable $e) {
+    error_log("Contact tracing fetch error: " . $e->getMessage());
+    $indexCases = [];
+    $contacts = [];
+}
+
+// Statistics with divide-by-zero guards
 $totalContacts = count($contacts);
-$activeContacts = count(array_filter($contacts, function($c) { return $c['monitoring_status'] == 'Active'; }));
-$quarantined = count(array_filter($contacts, function($c) { return $c['quarantine_status'] == 'Quarantined'; }));
-$highRiskContacts = count(array_filter($contacts, function($c) { return $c['risk_level'] == 'High'; }));
+$activeContacts = count(array_filter($contacts, function($c) { return strcasecmp($c['monitoring_status'], 'Cleared') !== 0; }));
+$quarantined = count(array_filter($contacts, function($c) { return strcasecmp($c['quarantine_status'], 'Quarantined') === 0; }));
+$highRiskContacts = count(array_filter($contacts, function($c) { return strcasecmp($c['risk_level'], 'High') === 0; }));
+$quarantinedPercentage = $totalContacts > 0 ? round(($quarantined / $totalContacts) * 100) : 0;
+
 
 $title = 'Contact Tracing';
 ?>

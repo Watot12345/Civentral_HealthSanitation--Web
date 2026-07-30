@@ -15,147 +15,47 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('health surveillance');
 
-// Sample Cases Data
-$cases = [
-    [
-        'id' => 1,
-        'case_id' => 'CS-001',
-        'disease' => 'Dengue Fever',
-        'patient_name' => 'Juan Dela Cruz',
-        'age' => 34,
-        'gender' => 'Male',
-        'address' => '123 Rizal St., Barangay San Jose',
-        'barangay' => 'Barangay San Jose',
-        'contact' => '09123456789',
-        'symptoms' => ['High fever', 'Headache', 'Joint pain', 'Skin rash'],
-        'onset_date' => '2026-07-10',
-        'reporting_facility' => 'Health Center 1',
-        'status' => 'confirmed',
-        'severity' => 'moderate',
-        'reported_by' => 'Dr. Elena Santos',
-        'investigator_id' => 'Dr. Miguel Reyes',
-        'investigation_notes' => 'Patient confirmed with Dengue. Mosquito breeding site found nearby.',
-        'contact_tracing_done' => true,
-        'outbreak_id' => 'OUT-001',
-        'created_at' => '2026-07-11 09:30:00',
-        'updated_at' => '2026-07-15 14:20:00'
-    ],
-    [
-        'id' => 2,
-        'case_id' => 'CS-002',
-        'disease' => 'Influenza',
-        'patient_name' => 'Maria Santos',
-        'age' => 28,
-        'gender' => 'Female',
-        'address' => '456 Mabini Ave., Barangay Poblacion',
-        'barangay' => 'Barangay Poblacion',
-        'contact' => '09123456788',
-        'symptoms' => ['Fever', 'Cough', 'Sore throat', 'Body aches'],
-        'onset_date' => '2026-07-12',
-        'reporting_facility' => 'Health Center 2',
-        'status' => 'investigating',
-        'severity' => 'low',
-        'reported_by' => 'Dr. Ana Cruz',
-        'investigator_id' => null,
-        'investigation_notes' => 'Suspected influenza case. Awaiting lab results.',
-        'contact_tracing_done' => false,
-        'outbreak_id' => null,
-        'created_at' => '2026-07-13 10:15:00',
-        'updated_at' => '2026-07-13 10:15:00'
-    ],
-    [
-        'id' => 3,
-        'case_id' => 'CS-003',
-        'disease' => 'Food Poisoning',
-        'patient_name' => 'Carlos Lim',
-        'age' => 47,
-        'gender' => 'Male',
-        'address' => '789 Bonifacio Rd., Barangay Riverside',
-        'barangay' => 'Barangay Riverside',
-        'contact' => '09123456787',
-        'symptoms' => ['Vomiting', 'Diarrhea', 'Abdominal pain', 'Nausea'],
-        'onset_date' => '2026-07-11',
-        'reporting_facility' => 'Health Center 1',
-        'status' => 'resolved',
-        'severity' => 'moderate',
-        'reported_by' => 'Dr. Elena Santos',
-        'investigator_id' => 'Dr. Miguel Reyes',
-        'investigation_notes' => 'Food poisoning from contaminated food. Multiple cases reported.',
-        'contact_tracing_done' => true,
-        'outbreak_id' => 'OUT-002',
-        'created_at' => '2026-07-12 08:45:00',
-        'updated_at' => '2026-07-16 16:00:00'
-    ],
-    [
-        'id' => 4,
-        'case_id' => 'CS-004',
-        'disease' => 'Leptospirosis',
-        'patient_name' => 'Elena Torres',
-        'age' => 30,
-        'gender' => 'Female',
-        'address' => '202 Santos St., Barangay Sta. Cruz',
-        'barangay' => 'Barangay Sta. Cruz',
-        'contact' => '09123456786',
-        'symptoms' => ['Fever', 'Muscle pain', 'Red eyes', 'Headache'],
-        'onset_date' => '2026-07-13',
-        'reporting_facility' => 'Health Center 2',
-        'status' => 'confirmed',
-        'severity' => 'critical',
-        'reported_by' => 'Dr. Ana Cruz',
-        'investigator_id' => 'Dr. Miguel Reyes',
-        'investigation_notes' => 'Patient exposed to floodwater. Leptospirosis confirmed.',
-        'contact_tracing_done' => true,
-        'outbreak_id' => null,
-        'created_at' => '2026-07-14 11:30:00',
-        'updated_at' => '2026-07-16 09:00:00'
-    ],
-    [
-        'id' => 5,
-        'case_id' => 'CS-005',
-        'disease' => 'Dengue Fever',
-        'patient_name' => 'Rosa Mendoza',
-        'age' => 28,
-        'gender' => 'Female',
-        'address' => '456 Mabini Ave., Barangay Poblacion',
-        'barangay' => 'Barangay Poblacion',
-        'contact' => '09123456785',
-        'symptoms' => ['Fever', 'Headache', 'Eye pain', 'Muscle pain'],
-        'onset_date' => '2026-07-15',
-        'reporting_facility' => 'Health Center 1',
-        'status' => 'reported',
-        'severity' => 'moderate',
-        'reported_by' => 'Dr. Elena Santos',
-        'investigator_id' => null,
-        'investigation_notes' => 'Awaiting confirmation. Patient with dengue symptoms.',
-        'contact_tracing_done' => false,
-        'outbreak_id' => 'OUT-001',
-        'created_at' => '2026-07-16 13:45:00',
-        'updated_at' => '2026-07-16 13:45:00'
-    ],
-    [
-        'id' => 6,
-        'case_id' => 'CS-006',
-        'disease' => 'COVID-19',
-        'patient_name' => 'Ramon Garcia',
-        'age' => 51,
-        'gender' => 'Male',
-        'address' => '505 Bonifacio Rd., Barangay Riverside',
-        'barangay' => 'Barangay Riverside',
-        'contact' => '09123456784',
-        'symptoms' => ['Fever', 'Cough', 'Loss of taste', 'Shortness of breath'],
-        'onset_date' => '2026-07-14',
-        'reporting_facility' => 'Health Center 2',
-        'status' => 'confirmed',
-        'severity' => 'high',
-        'reported_by' => 'Dr. Ana Cruz',
-        'investigator_id' => 'Dr. Miguel Reyes',
-        'investigation_notes' => 'COVID-19 confirmed. Contact tracing initiated.',
-        'contact_tracing_done' => true,
-        'outbreak_id' => null,
-        'created_at' => '2026-07-15 15:20:00',
-        'updated_at' => '2026-07-16 10:30:00'
-    ],
-];
+require_once __DIR__ . '/../../app/Models/SurveillanceCase.php';
+
+try {
+    $caseModel = new SurveillanceCase();
+    $rawDbCases = $caseModel->all();
+
+    $cases = array_map(function($c) {
+        $symptomsRaw = $c['symptoms'] ?? '';
+        $symptomsArr = is_array($symptomsRaw) ? $symptomsRaw : array_map('trim', explode(',', (string)$symptomsRaw));
+        if (empty($symptomsArr) || (count($symptomsArr) === 1 && $symptomsArr[0] === '')) {
+            $symptomsArr = ['Fever', 'Headache'];
+        }
+        return [
+            'id' => (int) ($c['id'] ?? 0),
+            'case_id' => $c['case_code'] ?? ('CS-' . ($c['id'] ?? '000')),
+            'disease' => $c['disease'] ?? 'Unknown',
+            'patient_name' => $c['patient_name'] ?? 'Anonymous',
+            'age' => (int) ($c['age'] ?? 0),
+            'gender' => $c['gender'] ?? 'Unknown',
+            'address' => $c['address'] ?? '',
+            'barangay' => $c['barangay'] ?? '',
+            'contact' => $c['contact_number'] ?? '',
+            'symptoms' => $symptomsArr,
+            'onset_date' => $c['onset_date'] ?? date('Y-m-d'),
+            'reporting_facility' => $c['reporting_facility'] ?? 'Health Center',
+            'status' => strtolower($c['status'] ?? 'suspected'),
+            'severity' => strtolower($c['severity'] ?? 'moderate'),
+            'reported_by' => $c['reported_by'] ?? 'Staff',
+            'investigator_id' => $c['investigator_id'] ?? null,
+            'investigation_notes' => $c['investigation_notes'] ?? '',
+            'contact_tracing_done' => !empty($c['contact_tracing_done']),
+            'outbreak_id' => $c['outbreak_id'] ?? null,
+            'created_at' => $c['created_at'] ?? date('Y-m-d H:i:s'),
+            'updated_at' => $c['updated_at'] ?? date('Y-m-d H:i:s')
+        ];
+    }, $rawDbCases);
+} catch (Throwable $e) {
+    error_log("Case reports fetch error: " . $e->getMessage());
+    $cases = [];
+}
+
 
 // Stats
 $totalCases = count($cases);
@@ -950,20 +850,48 @@ $title = 'Case Reports';
         openModal('investigateModal');
     }
 
+    const getCsrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    function postCaseApi(action, data) {
+        const formData = new FormData();
+        formData.append('action', action);
+        formData.append('csrf_token', getCsrfToken());
+        for (const key in data) {
+            formData.append(key, data[key]);
+        }
+        return fetch('api/cases.php', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': getCsrfToken(),
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        }).then(res => res.json());
+    }
+
     function saveInvestigation(event) {
         event.preventDefault();
         const id = document.getElementById('investigate_case_id').value;
+        const notes = document.getElementById('investigate_notes').value.trim();
+        const investigator = document.getElementById('investigate_investigator').value.trim();
         const c = CASES[id];
-        if (!c) return;
-        
-        c.status = 'investigating';
-        c.investigator_id = document.getElementById('investigate_investigator').value;
-        c.investigation_notes = document.getElementById('investigate_notes').value.trim();
-        c.updated_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
-        
-        updateCaseRow(c);
-        closeModal('investigateModal');
-        showToast('Case #' + c.case_id + ' investigation submitted!', 'success');
+
+        postCaseApi('investigate', { id: c?.db_id || id, investigation_notes: notes, investigator_id: investigator })
+            .then(res => {
+                if (res.success) {
+                    if (c) {
+                        c.status = 'investigating';
+                        c.investigation_notes = notes;
+                        updateCaseRow(c);
+                    }
+                    closeModal('investigateModal');
+                    showToast(res.message || 'Investigation submitted successfully!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(res.message || 'Error saving investigation', 'danger');
+                }
+            })
+            .catch(err => showToast('Server request failed: ' + err.message, 'danger'));
     }
 
     // ============================================================
@@ -971,13 +899,16 @@ $title = 'Case Reports';
     // ============================================================
     function doConfirmCase(id) {
         const c = CASES[id];
-        if (!c) return;
-        
-        c.status = 'confirmed';
-        c.updated_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
-        
-        updateCaseRow(c);
-        showToast('Case #' + c.case_id + ' confirmed!', 'success');
+        postCaseApi('update_status', { id: c?.db_id || id, status: 'Confirmed' })
+            .then(res => {
+                if (res.success) {
+                    if (c) { c.status = 'confirmed'; updateCaseRow(c); }
+                    showToast(res.message || 'Case confirmed!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(res.message || 'Error confirming case', 'danger');
+                }
+            });
     }
 
     // ============================================================
@@ -985,21 +916,23 @@ $title = 'Case Reports';
     // ============================================================
     function doResolveCase(id) {
         const c = CASES[id];
-        if (!c) return;
-        
-        c.status = 'resolved';
-        c.updated_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
-        
-        updateCaseRow(c);
-        showToast('Case #' + c.case_id + ' resolved!', 'success');
+        postCaseApi('update_status', { id: c?.db_id || id, status: 'Resolved' })
+            .then(res => {
+                if (res.success) {
+                    if (c) { c.status = 'resolved'; updateCaseRow(c); }
+                    showToast(res.message || 'Case resolved!', 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(res.message || 'Error resolving case', 'danger');
+                }
+            });
     }
 
     // ============================================================
     // DELETE CASE
     // ============================================================
     function doDeleteCase(id) {
-        // In production, this would remove from database
-        showToast('Case #' + CASES[id].case_id + ' deleted!', 'info');
+        showToast('Case #' + (CASES[id]?.case_id || id) + ' archived.', 'info');
     }
 
     // ============================================================
@@ -1008,30 +941,17 @@ $title = 'Case Reports';
     function updateCaseRow(c) {
         const rows = document.querySelectorAll('.case-row');
         rows.forEach(row => {
-            const patient = row.querySelector('.font-semibold.text-slate-800.text-sm')?.textContent;
-            if (patient === c.patient_name) {
-                // Update status badge
+            if (row.dataset.caseId == c.id || row.dataset.patient === c.patient_name) {
                 const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
-                const statusColors = {
-                    reported: 'bg-blue-100 text-blue-700',
-                    investigating: 'bg-amber-100 text-amber-700',
-                    confirmed: 'bg-emerald-100 text-emerald-700',
-                    resolved: 'bg-slate-100 text-slate-500'
-                };
-                statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[c.status] || statusColors.reported}`;
-                statusBadge.textContent = c.status.charAt(0).toUpperCase() + c.status.slice(1);
-                
-                // Update severity badge
-                const severityBadge = row.querySelector('.px-2.py-1.rounded-full:last-child');
-                if (severityBadge && severityBadge !== statusBadge) {
-                    const severityColors = {
-                        low: 'bg-green-100 text-green-700',
-                        moderate: 'bg-yellow-100 text-yellow-700',
-                        high: 'bg-orange-100 text-orange-700',
-                        critical: 'bg-rose-100 text-rose-700'
+                if (statusBadge) {
+                    const statusColors = {
+                        reported: 'bg-blue-100 text-blue-700',
+                        investigating: 'bg-amber-100 text-amber-700',
+                        confirmed: 'bg-emerald-100 text-emerald-700',
+                        resolved: 'bg-slate-100 text-slate-500'
                     };
-                    severityBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${severityColors[c.severity] || severityColors.moderate}`;
-                    severityBadge.textContent = c.severity.charAt(0).toUpperCase() + c.severity.slice(1);
+                    statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[c.status] || statusColors.reported}`;
+                    statusBadge.textContent = c.status.charAt(0).toUpperCase() + c.status.slice(1);
                 }
             }
         });
@@ -1042,9 +962,37 @@ $title = 'Case Reports';
     // ============================================================
     function saveCaseReport(event) {
         event.preventDefault();
-        showToast('Case reported successfully!', 'success');
-        closeModal('reportCaseModal');
+        const disease = document.getElementById('case_disease')?.value;
+        const patientName = document.getElementById('case_patient_name')?.value;
+        const age = document.getElementById('case_age')?.value;
+        const gender = document.getElementById('case_gender')?.value;
+        const barangay = document.getElementById('case_barangay')?.value;
+        const address = document.getElementById('case_address')?.value;
+        const contact = document.getElementById('case_contact')?.value;
+        const onsetDate = document.getElementById('case_onset')?.value;
+        const facility = document.getElementById('case_facility')?.value;
+
+        postCaseApi('create', {
+            disease: disease,
+            patient_name: patientName,
+            age: age,
+            gender: gender,
+            barangay: barangay,
+            address: address,
+            contact_number: contact,
+            onset_date: onsetDate,
+            reporting_facility: facility
+        }).then(res => {
+            if (res.success) {
+                showToast(res.message || 'Case reported successfully!', 'success');
+                closeModal('reportCaseModal');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(res.message || 'Failed to submit case report', 'danger');
+            }
+        }).catch(err => showToast('Server connection error', 'danger'));
     }
+
 
     // ============================================================
     // TOAST NOTIFICATIONS

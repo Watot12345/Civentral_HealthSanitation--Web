@@ -760,6 +760,23 @@ behavior, it's the session cache. Either:
 - Logout and log back in, OR
 - Call `PermissionService::getInstance()->invalidateCache()`
 
+### RULE 9: Never write hardcoded role strings for logic gates
+```php
+// BAD — breaks if role name changes, or has extra spaces, or different case
+if ($_SESSION['role_description'] === 'Sanitation Director') { ... }
+if (strcasecmp($_SESSION['role'], 'System Admin') === 0) { ... }
+
+// GOOD — permission-based, adaptable, single source of truth
+if (hasPermission('dashboard.sanitation')) { ... }
+if (getPermissionService()->isAdminRole($_SESSION['role'])) { ... }
+```
+
+### RULE 10: Session role should always be authoritative for sidebar
+Even if `$_SESSION['role_description']` is present, `$_SESSION['role']`
+drives the sidebar logic via `getNavMenuHtml()`.
+- Ensure both are set consistently when switching roles
+- No hardcoded `if ('Sanitation' === ...)` checks in navigation code
+
 ---
 
 *Generated from codebase analysis — /opt/lampp/htdocs/capstone/ — 2026-07-30*

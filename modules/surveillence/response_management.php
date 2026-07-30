@@ -15,205 +15,86 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('health surveillance');
 
-// Response Teams
-$responseTeams = [
-    [
-        'id' => 'RT-001',
-        'name' => 'Rapid Response Team Alpha',
-        'leader' => 'Dr. Maria Reyes',
-        'members' => ['Nurse John Santos', 'Med Tech Anna Cruz', 'Sanitation Officer Ben Chen', 'Epidemiologist Dr. Lee'],
-        'specialization' => 'Outbreak Control',
-        'status' => 'Available',
-        'deployed_to' => null,
-        'last_deployment' => '2024-01-10',
-        'contact' => '+63 912 345 6789'
-    ],
-    [
-        'id' => 'RT-002',
-        'name' => 'Rapid Response Team Bravo',
-        'leader' => 'Dr. Carlos Garcia',
-        'members' => ['Nurse Maria Lopez', 'Med Tech Jose Ramos', 'Sanitation Officer Ana Tan', 'Epidemiologist Dr. Wu'],
-        'specialization' => 'Emergency Response',
-        'status' => 'Deployed',
-        'deployed_to' => 'San Jose',
-        'last_deployment' => '2024-01-15',
-        'contact' => '+63 912 345 6790'
-    ],
-    [
-        'id' => 'RT-003',
-        'name' => 'Surveillance & Monitoring Team',
-        'leader' => 'Dr. Sofia Santos',
-        'members' => ['Epidemiologist Mark Lim', 'Data Analyst Jane Cruz', 'Field Worker Pedro Gomez', 'Nurse Rosa Perez'],
-        'specialization' => 'Data Collection & Analysis',
-        'status' => 'Available',
-        'deployed_to' => null,
-        'last_deployment' => '2024-01-12',
-        'contact' => '+63 912 345 6791'
-    ],
-    [
-        'id' => 'RT-004',
-        'name' => 'Community Health Team',
-        'leader' => 'Dr. Elena Rivera',
-        'members' => ['Health Worker Mario Santos', 'Nurse Lisa Tan', 'Social Worker Ana Reyes', 'Barangay Health Worker Juan Cruz'],
-        'specialization' => 'Community Engagement',
-        'status' => 'Standby',
-        'deployed_to' => null,
-        'last_deployment' => '2024-01-08',
-        'contact' => '+63 912 345 6792'
-    ],
-    [
-        'id' => 'RT-005',
-        'name' => 'Medical Logistics Team',
-        'leader' => 'Dr. Ramon Velasco',
-        'members' => ['Logistics Officer Mark Reyes', 'Supply Chain Anna Santos', 'Pharmacist Jose Cruz', 'Driver Ben Tan'],
-        'specialization' => 'Logistics & Supply',
-        'status' => 'Available',
-        'deployed_to' => null,
-        'last_deployment' => '2024-01-14',
-        'contact' => '+63 912 345 6793'
-    ],
-];
+require_once __DIR__ . '/../../app/Models/SurveillanceResponse.php';
 
-// Resources Inventory
-$resources = [
-    [
-        'id' => 'RES-001',
-        'name' => 'Medical Supplies Kit',
-        'category' => 'Medical Supplies',
-        'quantity' => 150,
-        'unit' => 'kits',
-        'location' => 'Main Warehouse',
-        'status' => 'Available',
-        'last_restock' => '2024-01-10',
-        'threshold' => 50
-    ],
-    [
-        'id' => 'RES-002',
-        'name' => 'PPE Sets',
-        'category' => 'Protective Equipment',
-        'quantity' => 500,
-        'unit' => 'sets',
-        'location' => 'Main Warehouse',
-        'status' => 'Available',
-        'last_restock' => '2024-01-12',
-        'threshold' => 100
-    ],
-    [
-        'id' => 'RES-003',
-        'name' => 'Testing Kits - Dengue',
-        'category' => 'Testing Kits',
-        'quantity' => 200,
-        'unit' => 'kits',
-        'location' => 'Lab Facility',
-        'status' => 'Available',
-        'last_restock' => '2024-01-14',
-        'threshold' => 50
-    ],
-    [
-        'id' => 'RES-004',
-        'name' => 'Testing Kits - Influenza',
-        'category' => 'Testing Kits',
-        'quantity' => 180,
-        'unit' => 'kits',
-        'location' => 'Lab Facility',
-        'status' => 'Available',
-        'last_restock' => '2024-01-13',
-        'threshold' => 40
-    ],
-    [
-        'id' => 'RES-005',
-        'name' => 'Antiviral Medications',
-        'category' => 'Medications',
-        'quantity' => 300,
-        'unit' => 'doses',
-        'location' => 'Pharmacy',
-        'status' => 'Low Stock',
-        'last_restock' => '2024-01-08',
-        'threshold' => 100
-    ],
-    [
-        'id' => 'RES-006',
-        'name' => 'Disinfectants',
-        'category' => 'Sanitation',
-        'quantity' => 100,
-        'unit' => 'gallons',
-        'location' => 'Warehouse B',
-        'status' => 'Available',
-        'last_restock' => '2024-01-15',
-        'threshold' => 30
-    ],
-    [
-        'id' => 'RES-007',
-        'name' => 'Vehicles',
-        'category' => 'Transport',
-        'quantity' => 8,
-        'unit' => 'units',
-        'location' => 'Fleet Garage',
-        'status' => 'Available',
-        'last_restock' => '2024-01-01',
-        'threshold' => 3
-    ],
-];
+try {
+    $respModel = new SurveillanceResponse();
+    $rawTeams = $respModel->getTeams();
+    $rawResources = $respModel->getResources();
+    $rawInterventions = $respModel->getInterventions();
 
-// Active Interventions
-$interventions = [
-    [
-        'id' => 'INT-001',
-        'title' => 'Dengue Outbreak Response - San Jose',
-        'type' => 'Outbreak Response',
-        'location' => 'San Jose',
-        'status' => 'Active',
-        'start_date' => '2024-01-15',
-        'end_date' => '2024-02-15',
-        'team_lead' => 'Dr. Maria Reyes',
-        'progress' => 65,
-        'activities' => ['Fogging Operations', 'Contact Tracing', 'Community Education', 'Medical Checkups'],
-        'resources_used' => ['PPE Sets', 'Testing Kits - Dengue', 'Disinfectants'],
-        'outcomes' => ['32 cases identified', '15 patients treated', '85% coverage achieved']
-    ],
-    [
-        'id' => 'INT-002',
-        'title' => 'Influenza Containment - Poblacion',
-        'type' => 'Containment',
-        'location' => 'Poblacion',
-        'status' => 'Active',
-        'start_date' => '2024-01-16',
-        'end_date' => '2024-02-16',
-        'team_lead' => 'Dr. Carlos Garcia',
-        'progress' => 45,
-        'activities' => ['Isolation Protocol', 'Antiviral Distribution', 'School Monitoring', 'Public Awareness'],
-        'resources_used' => ['Antiviral Medications', 'PPE Sets', 'Testing Kits - Influenza'],
-        'outcomes' => ['20 cases identified', '8 patients treated', '60% coverage achieved']
-    ],
-    [
-        'id' => 'INT-003',
-        'title' => 'Leptospirosis Prevention - Riverside',
-        'type' => 'Prevention',
-        'location' => 'Riverside',
-        'status' => 'Active',
-        'start_date' => '2024-01-17',
-        'end_date' => '2024-02-17',
-        'team_lead' => 'Dr. Sofia Santos',
-        'progress' => 30,
-        'activities' => ['Flood Control', 'Water Testing', 'Health Education', 'Medical Checkups'],
-        'resources_used' => ['Disinfectants', 'PPE Sets', 'Medical Supplies Kit'],
-        'outcomes' => ['5 cases identified', '45 households reached', '40% coverage achieved']
-    ],
-    [
-        'id' => 'INT-004',
-        'title' => 'Community Health Outreach - Bagong Silang',
-        'type' => 'Health Outreach',
-        'location' => 'Bagong Silang',
-        'status' => 'Completed',
-        'start_date' => '2024-01-05',
-        'end_date' => '2024-01-20',
-        'team_lead' => 'Dr. Elena Rivera',
-        'progress' => 100,
-        'activities' => ['Health Education', 'Screening', 'Vaccination Drive', 'Nutrition Assessment'],
-        'resources_used' => ['Medical Supplies Kit', 'PPE Sets'],
-        'outcomes' => ['200 patients screened', '50 vaccinated', '95% satisfaction rate']
-    ],
-];
+    $responseTeams = array_map(function($t) {
+        $membersRaw = $t['members'] ?? '';
+        $membersArr = is_array($membersRaw) ? $membersRaw : array_map('trim', explode(',', (string)$membersRaw));
+        if (empty($membersArr) || (count($membersArr) === 1 && $membersArr[0] === '')) {
+            $membersArr = ['Officer ' . ($t['leader'] ?? 'Lead')];
+        }
+        return [
+            'id' => $t['team_code'] ?? ('RT-' . $t['id']),
+            'db_id' => (int) $t['id'],
+            'name' => $t['name'] ?? 'Response Team',
+            'leader' => $t['leader'] ?? 'Team Leader',
+            'members' => $membersArr,
+            'specialization' => $t['specialization'] ?? 'Epidemiology',
+            'status' => $t['status'] ?? 'Available',
+            'deployed_to' => $t['deployed_to'] ?? null,
+            'last_deployment' => $t['last_deployment'] ?? date('Y-m-d'),
+            'contact' => $t['contact'] ?? '0917-000-0000'
+        ];
+    }, $rawTeams);
+
+    $resources = array_map(function($r) {
+        return [
+            'id' => $r['resource_code'] ?? ('RES-' . $r['id']),
+            'db_id' => (int) $r['id'],
+            'name' => $r['name'] ?? 'Resource Item',
+            'category' => $r['category'] ?? 'Supplies',
+            'quantity' => (int) ($r['quantity'] ?? 0),
+            'unit' => $r['unit'] ?? 'pcs',
+            'location' => $r['location'] ?? 'Central Warehouse',
+            'status' => $r['status'] ?? 'Available',
+            'last_restock' => $r['last_restock'] ?? date('Y-m-d'),
+            'threshold' => (int) ($r['threshold'] ?? 10)
+        ];
+    }, $rawResources);
+
+    $interventions = array_map(function($i) {
+        $actRaw = $i['activities'] ?? '';
+        $actArr = is_array($actRaw) ? $actRaw : array_map('trim', explode(',', (string)$actRaw));
+        if (empty($actArr) || (count($actArr) === 1 && $actArr[0] === '')) {
+            $actArr = ['Field Intervention', 'Community Health Monitoring'];
+        }
+
+        $resRaw = $i['resources_used'] ?? '';
+        $resArr = is_array($resRaw) ? $resRaw : array_map('trim', explode(',', (string)$resRaw));
+
+        $outRaw = $i['outcomes'] ?? '';
+        $outArr = is_array($outRaw) ? $outRaw : array_map('trim', explode(',', (string)$outRaw));
+
+        return [
+            'id' => $i['intervention_code'] ?? ('INT-' . $i['id']),
+            'db_id' => (int) $i['id'],
+            'title' => $i['title'] ?? 'Intervention Operation',
+            'type' => $i['type'] ?? 'Vector Control',
+            'location' => $i['location'] ?? 'San Jose',
+            'status' => $i['status'] ?? 'In Progress',
+            'start_date' => $i['start_date'] ?? date('Y-m-d'),
+            'end_date' => $i['end_date'] ?? date('Y-m-d', strtotime('+30 days')),
+            'team_lead' => $i['team_lead'] ?? 'Team Lead',
+            'progress' => (int) ($i['progress'] ?? 50),
+            'activities' => $actArr,
+            'resources_used' => $resArr,
+            'outcomes' => $outArr
+        ];
+    }, $rawInterventions);
+
+} catch (Throwable $e) {
+    error_log("Response management fetch error: " . $e->getMessage());
+    $responseTeams = [];
+    $resources = [];
+    $interventions = [];
+}
+
 
 // Effectiveness Metrics
 $effectivenessMetrics = [

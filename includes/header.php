@@ -2,6 +2,9 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
 require_once __DIR__ . '/../config/paths.php';
 
 // Get user data from session
@@ -37,7 +40,9 @@ $minimalHeader = $minimalHeader ?? false;
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES); ?>">
   <title>Civentral</title>
+
   <link rel="icon" type="image/png" href="<?= site_url('assets/images/logo.png'); ?>">
   
   <!-- Tailwind CSS -->

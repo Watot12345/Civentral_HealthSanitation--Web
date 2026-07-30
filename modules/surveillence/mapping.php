@@ -15,6 +15,8 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('health surveillance');
 
+require_once __DIR__ . '/../../app/Models/SurveillanceCase.php';
+
 // STRICTLY CALOOCAN CITY BARANGAYS
 $barangayCases = [
     ['name' => 'San Jose', 'lat' => 14.5794, 'lng' => 121.0359, 'dengue' => 12, 'influenza' => 8, 'leptospirosis' => 0, 'total' => 22, 'risk' => 'High', 'population' => 8500],
@@ -28,20 +30,42 @@ $barangayCases = [
     ['name' => 'Camarin', 'lat' => 14.5785, 'lng' => 121.0470, 'dengue' => 7, 'influenza' => 4, 'leptospirosis' => 0, 'total' => 11, 'risk' => 'Moderate', 'population' => 7200],
 ];
 
+try {
+    $caseModel = new SurveillanceCase();
+    $dbCases = $caseModel->all();
+    if (!empty($dbCases)) {
+        $countsByBarangay = [];
+        foreach ($dbCases as $c) {
+            $bName = trim(str_ireplace('Barangay', '', $c['barangay'] ?? ''));
+            if (!isset($countsByBarangay[$bName])) $countsByBarangay[$bName] = 0;
+            $countsByBarangay[$bName]++;
+        }
+        foreach ($barangayCases as &$b) {
+            if (isset($countsByBarangay[$b['name']])) {
+                $b['total'] = $countsByBarangay[$b['name']];
+            }
+        }
+        unset($b);
+    }
+} catch (Throwable $e) {
+    error_log("Mapping cases query error: " . $e->getMessage());
+}
+
 // Calculate case rates
 foreach ($barangayCases as &$b) {
-    $b['case_rate'] = round(($b['total'] / $b['population']) * 1000, 1);
+    $b['case_rate'] = $b['population'] > 0 ? round(($b['total'] / $b['population']) * 1000, 1) : 0;
 }
 unset($b);
 
 // Summary stats
 $totalCases = array_sum(array_column($barangayCases, 'total'));
 $highRisk = count(array_filter($barangayCases, function($b) { return $b['risk'] == 'High'; }));
-$avgRate = round(array_sum(array_column($barangayCases, 'case_rate')) / count($barangayCases), 1);
 $totalBarangays = count($barangayCases);
+$avgRate = $totalBarangays > 0 ? round(array_sum(array_column($barangayCases, 'case_rate')) / $totalBarangays, 1) : 0;
 
 $title = 'Mapping & Clustering';
 ?>
+
 
 <!-- ============================================================ -->
 <!-- 2. HTML + PHP EMBEDDED + Tailwind CSS                       -->

@@ -15,79 +15,40 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('health surveillance');
 
-// Simulated real-time alert data
-$alerts = [
-    [
-        'id' => 'ALT-001',
-        'disease' => 'Dengue',
-        'barangay' => 'San Jose',
-        'cases' => 12,
-        'threshold' => 10,
-        'severity' => 'Critical',
-        'status' => 'Active',
-        'timestamp' => date('Y-m-d H:i:s', strtotime('-5 minutes')),
-        'escalation_level' => 3,
-        'assigned_to' => 'Dr. Reyes',
-        'response_actions' => ['Immediate containment', 'Contact tracing', 'Fogging operations'],
-        'message' => 'Critical outbreak detected in San Jose! Cases have exceeded threshold by 20%'
-    ],
-    [
-        'id' => 'ALT-002',
-        'disease' => 'Dengue',
-        'barangay' => 'Camarin',
-        'cases' => 7,
-        'threshold' => 8,
-        'severity' => 'Warning',
-        'status' => 'Active',
-        'timestamp' => date('Y-m-d H:i:s', strtotime('-15 minutes')),
-        'escalation_level' => 1,
-        'assigned_to' => 'Dr. Santos',
-        'response_actions' => ['Monitoring', 'Community awareness'],
-        'message' => 'Alert: Camarin has exceeded threshold for Dengue'
-    ],
-    [
-        'id' => 'ALT-003',
-        'disease' => 'Influenza',
-        'barangay' => 'Poblacion',
-        'cases' => 15,
-        'threshold' => 14,
-        'severity' => 'Critical',
-        'status' => 'Active',
-        'timestamp' => date('Y-m-d H:i:s', strtotime('-25 minutes')),
-        'escalation_level' => 2,
-        'assigned_to' => 'Dr. Garcia',
-        'response_actions' => ['Isolation', 'Antiviral distribution', 'School closures'],
-        'message' => 'Critical influenza outbreak in Poblacion!'
-    ],
-    [
-        'id' => 'ALT-004',
-        'disease' => 'Leptospirosis',
-        'barangay' => 'Riverside',
-        'cases' => 5,
-        'threshold' => 4,
-        'severity' => 'Critical',
-        'status' => 'Active',
-        'timestamp' => date('Y-m-d H:i:s', strtotime('-2 hours')),
-        'escalation_level' => 3,
-        'assigned_to' => 'Dr. Cruz',
-        'response_actions' => ['Flood control', 'Water testing', 'Medical checkups'],
-        'message' => 'Critical leptospirosis outbreak in Riverside!'
-    ],
-    [
-        'id' => 'ALT-005',
-        'disease' => 'Influenza',
-        'barangay' => 'Kaybiga',
-        'cases' => 6,
-        'threshold' => 8,
-        'severity' => 'Warning',
-        'status' => 'Active',
-        'timestamp' => date('Y-m-d H:i:s', strtotime('-3 hours')),
-        'escalation_level' => 1,
-        'assigned_to' => 'Dr. Santos',
-        'response_actions' => ['Monitoring', 'Health advisory'],
-        'message' => 'Warning: Kaybiga has exceeded threshold for Influenza'
-    ],
-];
+require_once __DIR__ . '/../../app/Models/SurveillanceAlert.php';
+
+try {
+    $alertModel = new SurveillanceAlert();
+    $rawAlerts = $alertModel->all();
+
+    $alerts = array_map(function($a) {
+        $actionsRaw = $a['response_actions'] ?? '';
+        $actionsArr = is_array($actionsRaw) ? $actionsRaw : array_map('trim', explode(',', (string)$actionsRaw));
+        if (empty($actionsArr) || (count($actionsArr) === 1 && $actionsArr[0] === '')) {
+            $actionsArr = ['Monitoring', 'Field Investigation'];
+        }
+        return [
+            'id' => $a['alert_code'] ?? ('ALT-' . $a['id']),
+            'db_id' => (int) $a['id'],
+            'disease' => $a['disease'] ?? 'Dengue',
+            'barangay' => $a['barangay'] ?? 'San Jose',
+            'cases' => (int) ($a['cases'] ?? 0),
+            'threshold' => (int) ($a['threshold'] ?? 10),
+            'severity' => $a['severity'] ?? 'Warning',
+            'status' => $a['status'] ?? 'Active',
+            'timestamp' => $a['timestamp'] ?? date('Y-m-d H:i:s'),
+            'escalation_level' => (int) ($a['escalation_level'] ?? 1),
+            'assigned_to' => $a['assigned_to'] ?? 'Dr. Reyes',
+            'response_actions' => $actionsArr,
+            'message' => $a['message'] ?? 'Alert triggered for ' . ($a['disease'] ?? 'Disease')
+        ];
+    }, $rawAlerts);
+
+} catch (Throwable $e) {
+    error_log("Alerts fetch error: " . $e->getMessage());
+    $alerts = [];
+}
+
 
 // Escalation protocol levels
 $escalationLevels = [
