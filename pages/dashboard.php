@@ -406,29 +406,35 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- ============================================================ -->
         <?php
             $currentRole = trim($_SESSION['role'] ?? $_SESSION['role_description'] ?? 'System Admin');
+            $userRoleDesc = trim($_SESSION['role_description'] ?? '');
+            $userRole     = trim($_SESSION['role'] ?? '');
+            $isSysAdmin   = getPermissionService()->isAdminRole($userRoleDesc) 
+                || getPermissionService()->isAdminRole($userRole)
+                || (isset($_SESSION['department']) && strcasecmp($_SESSION['department'], 'Administration') === 0);
 
-if (hasPermission('dashboard.health_center')) {
-    $dashTitle = 'Health Center Services Dashboard';
-    $dashSubtitle = 'Operational analytics, patient consultations & health center performance overview';
-    $dashBadge = 'Health Center Director';
-} elseif (hasPermission('dashboard.sanitation')) {
-    $dashTitle = 'Sanitation Permits Dashboard';
-    $dashSubtitle = 'Permit applications, environmental inspections & sanitation compliance metrics';
-    $dashBadge = 'Sanitation Director';
-} elseif (hasPermission('dashboard.immunization')) {
-    $dashTitle = 'Immunization & Nutrition Dashboard';
-    $dashSubtitle = 'Child vaccination tracking, growth charts & nutrition assessment analytics';
-    $dashBadge = 'Immunization Coordinator';
-} elseif (hasPermission('dashboard.system_admin')) {
-    $dashTitle = 'System Overview';
-    $dashSubtitle = 'Real-time snapshot across all modules and system health';
-    $dashBadge = 'System Administrator';
-} else {
+            if ($isSysAdmin) {
+                $dashTitle = 'System Overview';
+                $dashSubtitle = 'Real-time snapshot across all modules and system health';
+                $dashBadge = 'System Administrator';
+            } elseif (hasPermission('dashboard.health_center')) {
+                $dashTitle = 'Health Center Services Dashboard';
+                $dashSubtitle = 'Operational analytics, patient consultations & health center performance overview';
+                $dashBadge = 'Health Center Director';
+            } elseif (hasPermission('dashboard.sanitation')) {
+                $dashTitle = 'Sanitation Permits Dashboard';
+                $dashSubtitle = 'Permit applications, environmental inspections & sanitation compliance metrics';
+                $dashBadge = 'Sanitation Director';
+            } elseif (hasPermission('dashboard.immunization')) {
+                $dashTitle = 'Immunization & Nutrition Dashboard';
+                $dashSubtitle = 'Child vaccination tracking, growth charts & nutrition assessment analytics';
+                $dashBadge = 'Immunization Coordinator';
+            } else {
                 $dashTitle = htmlspecialchars($currentRole) . ' Dashboard';
                 $dashSubtitle = 'Role-specific operational activity & module metrics';
                 $dashBadge = htmlspecialchars($currentRole);
             }
         ?>
+
         <div class="flex-shrink-0 mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
                 <div class="flex items-center gap-2 flex-wrap">
@@ -477,9 +483,10 @@ if (hasPermission('dashboard.health_center')) {
         <!-- KPI ROW (Role-Specific 6 Dedicated Cards)                    -->
         <!-- ============================================================ -->
         <?php
-// Use permission-based checks (same as page header) — single source of truth
-$_isHcRole  = hasPermission('dashboard.health_center');
-$_isSanRole = hasPermission('dashboard.sanitation');
+// Use permission-based checks with admin precedence — single source of truth
+$_isHcRole  = !$isSysAdmin && hasPermission('dashboard.health_center');
+$_isSanRole = !$isSysAdmin && hasPermission('dashboard.sanitation');
+
 
 if ($_isHcRole) {
     $kpiCards = [

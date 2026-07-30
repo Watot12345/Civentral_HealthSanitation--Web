@@ -31,8 +31,11 @@ $employeeModel = new Employee($db);
 $roleModel = new Role();
 $logModel = new ActivityLog();
 
-$isSystemAdmin = hasPermission(App\Constants\Permissions::ROLES_MANAGE) || getPermissionService()->isAdminRole($_SESSION['role'] ?? '');
+$isSystemAdmin = getPermissionService()->isAdminRole($_SESSION['role'] ?? '') 
+    || getPermissionService()->isAdminRole($_SESSION['role_description'] ?? '') 
+    || hasPermission(\App\Constants\Permissions::ROLES_MANAGE);
 $userDept = getDepartmentResolver()->resolveDepartmentName();
+
 
 try {
     $allUsers = $employeeModel->all(['order' => 'created_at.desc']);

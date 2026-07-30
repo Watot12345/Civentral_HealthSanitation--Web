@@ -334,22 +334,9 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
           </div>
         </button>
         <div id="surveillanceDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
-
-      <div class="space-y-1">
-        <button onclick="toggleDropdown('surveillanceDropdown', 'surveillanceChevron')" 
-                class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
-                <?php echo ($activeModule === 'surveillance') ? 'bg-white/60 text-brand-dark' : 'text-slate-600 hover:bg-white/60 hover:text-brand-dark'; ?> cursor-pointer">
-          <div class="flex items-center space-x-3">
-            <i class="fa-solid fa-binoculars text-sm <?php echo ($activeModule === 'surveillance') ? 'text-brand-medium' : 'text-slate-400 group-hover:text-brand-medium'; ?> transition"></i>
-            <span class="sidebar-text truncate">Health Surveillance</span>
-          </div>
-          <div class="dropdown-right">
-            <i id="surveillanceChevron" class="fa-solid fa-chevron-down text-[10px] opacity-60 dropdown-chevron transition-transform duration-200"></i>
-          </div>
-        </button>
-        <div id="surveillanceDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
           
           <a href="<?= site_url('modules/surveillence/case_reports.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'case_reports.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+
             <i class="fa-solid fa-file-medical text-[10px] opacity-50"></i> 
             <span>Case Reports</span>
           </a>
