@@ -193,104 +193,81 @@ if (!function_exists('getClientDevice')) {
 }
 
 // ============================================================
-// GLOBAL ROLE-BASED ACCESS CONTROL (RBAC) PERMISSION SYSTEM
+// GLOBAL ROLE-BASED ACCESS CONTROL (RBAC) ENTERPRISE SYSTEM
 // ============================================================
+
+// Autoload core services & constants
+require_once __DIR__ . '/../app/Constants/Permissions.php';
+require_once __DIR__ . '/../app/services/PermissionService.php';
+require_once __DIR__ . '/../app/services/DepartmentResolver.php';
+require_once __DIR__ . '/../app/services/NavigationService.php';
+require_once __DIR__ . '/../app/services/RememberMeService.php';
+require_once __DIR__ . '/../app/Middleware/AuthorizationMiddleware.php';
+
+use App\Services\PermissionService;
+use App\Services\DepartmentResolver;
+use App\Services\NavigationService;
+use App\Services\RememberMeService;
+use App\Middleware\AuthorizationMiddleware;
+
+// Process auto-login if Keep Me Signed In cookie exists
+RememberMeService::processAutoLogin();
+
+if (!function_exists('getPermissionService')) {
+    function getPermissionService(): PermissionService {
+        return PermissionService::getInstance();
+    }
+}
+
+if (!function_exists('getDepartmentResolver')) {
+    function getDepartmentResolver(): DepartmentResolver {
+        return DepartmentResolver::getInstance();
+    }
+}
+
+if (!function_exists('getNavigationService')) {
+    function getNavigationService(): NavigationService {
+        return NavigationService::getInstance();
+    }
+}
 
 if (!function_exists('getUserGrantedPermissions')) {
     function getUserGrantedPermissions(): array {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-
-        if (isset($_SESSION['granted_permission_slugs']) && is_array($_SESSION['granted_permission_slugs'])) {
-            return $_SESSION['granted_permission_slugs'];
-        }
-
-        $userRole = trim($_SESSION['role'] ?? $_SESSION['role_description'] ?? 'employee');
-
-        if (strcasecmp($userRole, 'System Administrator') === 0 || strcasecmp($userRole, 'System Admin') === 0 || strcasecmp($userRole, 'admin') === 0) {
-            $allSlugs = [
-                'dashboard.view', 'analytics.view', 'reports.view', 'compliance.view',
-                'patients.view', 'patients.create', 'patients.edit', 'patients.delete',
-                'consultations.view', 'consultations.create', 'triage.view', 'triage.create',
-                'prescriptions.view', 'prescriptions.create',
-                'permits.view', 'permits.create', 'permits.approve', 'inspections.view', 'inspections.conduct',
-                'immunization.view', 'immunization.create', 'immunization.edit',
-                'users.view', 'users.create', 'users.edit', 'users.delete', 'roles.manage', 'settings.manage', 'logs.view'
-            ];
-            $_SESSION['granted_permission_slugs'] = $allSlugs;
-            return $allSlugs;
-        }
-
-        try {
-            require_once __DIR__ . '/../app/Models/Role.php';
-            $roleModel = new Role();
-            $roles = $roleModel->all();
-
-            $matchedRole = null;
-            foreach ($roles as $r) {
-                if (strcasecmp(trim($r['name']), $userRole) === 0) {
-                    $matchedRole = $r;
-                    break;
-                }
-            }
-
-            $grantedSlugs = [];
-            if ($matchedRole && !empty($matchedRole['permissions'])) {
-                foreach ($matchedRole['permissions'] as $p) {
-                    if (!empty($p['granted']) && !empty($p['slug'])) {
-                        $grantedSlugs[] = $p['slug'];
-                    }
-                }
-            }
-
-            $_SESSION['granted_permission_slugs'] = $grantedSlugs;
-            return $grantedSlugs;
-        } catch (Throwable $e) {
-            return [];
-        }
+        return PermissionService::getInstance()->getGrantedPermissions();
     }
 }
 
 if (!function_exists('hasPermission')) {
     function hasPermission(string $slug): bool {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        $userRole = trim($_SESSION['role'] ?? $_SESSION['role_description'] ?? '');
-        if (strcasecmp($userRole, 'System Administrator') === 0 || strcasecmp($userRole, 'System Admin') === 0 || strcasecmp($userRole, 'admin') === 0) {
-            return true;
-        }
-        $granted = getUserGrantedPermissions();
-        return in_array($slug, $granted, true);
+        return PermissionService::getInstance()->hasPermission($slug);
     }
 }
 
 if (!function_exists('requirePermission')) {
     function requirePermission(string $slug): void {
-        if (!hasPermission($slug)) {
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
-            }
-            // Log security warning for unauthorized URL path editing / access attempt
-            if (class_exists('ActivityLog')) {
-                try {
-                    $logger = new ActivityLog();
-                    $logger->log('Unauthorized URL Path Access Attempt', [
-                        'module'  => 'URL Security & Header Access',
-                        'details' => "Attempted unauthorized access to permission slug [{$slug}] via URL: " . ($_SERVER['REQUEST_URI'] ?? ''),
-                        'status'  => 'Failed'
-                    ]);
-                } catch (Throwable $e) {
-                    // Ignore log failure
-                }
-            }
-            $_SESSION['flash_error'] = 'Access Denied: You do not have permission to view that page.';
-            header('Location: ' . site_url('pages/dashboard.php'));
-            exit;
-        }
+        AuthorizationMiddleware::authorize($slug, 'URL Path Access');
     }
 }
+
+if (!function_exists('getCurrentUserDepartment')) {
+    function getCurrentUserDepartment(): string {
+        return DepartmentResolver::getInstance()->getCurrentUserDepartment();
+    }
+}
+
+if (!function_exists('canAccessDepartment')) {
+    function canAccessDepartment(string $department): bool {
+        return DepartmentResolver::getInstance()->canAccessDepartment($department);
+    }
+}
+
+if (!function_exists('requireDepartmentAccess')) {
+    function requireDepartmentAccess(string $department): void {
+        AuthorizationMiddleware::authorizeDepartment($department, 'Module Department Access');
+    }
+}
+
+
 
 // ============================================================
 // SYSTEM-WIDE SETTINGS ENGINE BOOTSTRAP INITIALIZATION

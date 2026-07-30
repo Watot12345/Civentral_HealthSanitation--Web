@@ -13,6 +13,7 @@
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
+requireDepartmentAccess('sanitation permits');
 require_once __DIR__ . '/../../includes/data-mask.php';
 
 $title = 'Permit Applications';

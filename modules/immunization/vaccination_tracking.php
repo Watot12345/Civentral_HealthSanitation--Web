@@ -13,6 +13,7 @@
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
+requireDepartmentAccess('immunization & nutrition');
 
 // Sample Children Data
 $children = [

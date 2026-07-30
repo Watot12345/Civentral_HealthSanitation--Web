@@ -13,6 +13,7 @@
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
+requireDepartmentAccess('health surveillance');
 
 $barangayCases = [
     ['name' => 'San Jose', 'lat' => 14.5794, 'lng' => 121.0359],

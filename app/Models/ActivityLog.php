@@ -23,6 +23,12 @@ class ActivityLog
             $options['order'] = 'created_at.desc';
         }
 
+        $targetDept = null;
+        if (isset($options['department']) && !empty($options['department'])) {
+            $targetDept = trim($options['department']);
+            unset($options['department']);
+        }
+
         try {
             $logs = $this->db->select($this->table, [], $options);
             foreach ($logs as &$log) {
@@ -46,12 +52,46 @@ class ActivityLog
                 }
             }
             unset($log);
+
+            if ($targetDept !== null) {
+                require_once __DIR__ . '/Employee.php';
+                $employeeModel = new Employee($this->db);
+                $allUsers = $employeeModel->all();
+                $deptUsers = getDepartmentResolver()->filterUsersForDepartment($allUsers, $targetDept);
+
+                $allowedUserIds = [];
+                $allowedUserNames = [];
+                foreach ($deptUsers as $u) {
+                    if (!empty($u['id'])) $allowedUserIds[(int)$u['id']] = true;
+                    if (!empty($u['employee_id'])) $allowedUserNames[strtolower(trim($u['employee_id']))] = true;
+                    if (!empty($u['full_name'])) $allowedUserNames[strtolower(trim($u['full_name']))] = true;
+                    if (!empty($u['username'])) $allowedUserNames[strtolower(trim($u['username']))] = true;
+                }
+
+                $logs = array_values(array_filter($logs, function($log) use ($targetDept, $allowedUserIds, $allowedUserNames) {
+                    $userId = (int)($log['user_id'] ?? 0);
+                    if ($userId > 0 && isset($allowedUserIds[$userId])) {
+                        return true;
+                    }
+                    $userName = strtolower(trim($log['user_name'] ?? ''));
+                    if (!empty($userName) && isset($allowedUserNames[$userName])) {
+                        return true;
+                    }
+                    $role = trim($log['role'] ?? '');
+                    if (!empty($role) && getDepartmentResolver()->isRoleInDepartment($role, $targetDept)) {
+                        return true;
+                    }
+                    return false;
+                }));
+            }
+
             return $logs;
         } catch (Throwable $e) {
             error_log('ActivityLog::all() database error: ' . $e->getMessage());
             return [];
         }
     }
+
 
     /**
      * Create a new activity log record in the database

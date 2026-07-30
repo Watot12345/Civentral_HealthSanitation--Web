@@ -20,6 +20,12 @@ try {
     }
 } catch (Throwable $ignored) {}
 
+try {
+    if (class_exists('App\Services\RememberMeService')) {
+        \App\Services\RememberMeService::clearToken();
+    }
+} catch (Throwable $ignored) {}
+
 session_destroy();
 ?>
 <!DOCTYPE html>

@@ -71,6 +71,11 @@ class RoleController extends BaseController
             // Sync permissions if provided
             if (isset($data['permission_ids']) && is_array($data['permission_ids'])) {
                 $this->roleModel->syncPermissions((int) $id, $data['permission_ids']);
+                
+                // Invalidate permission cache automatically
+                if (class_exists('App\Services\PermissionService')) {
+                    \App\Services\PermissionService::getInstance()->invalidateCache();
+                }
             }
 
             // Log activity

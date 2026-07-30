@@ -143,14 +143,34 @@ class Role
             }
         }
 
+        $defaultMatrix = class_exists('\App\Services\PermissionService') 
+            ? \App\Services\PermissionService::defaultRolePermissionMatrix() 
+            : [];
+
         // Merge in memory
         foreach ($roles as &$role) {
             $roleId = (int) $role['id'];
+            $roleName = trim($role['name'] ?? '');
             $grantedIds = $grantedByRole[$roleId] ?? [];
+            $hasDbCustom = !empty($grantedIds);
+
+            $defaultSlugs = [];
+            if (!$hasDbCustom && !empty($roleName)) {
+                foreach ($defaultMatrix as $mName => $mSlugs) {
+                    if (strcasecmp(trim($mName), $roleName) === 0) {
+                        $defaultSlugs = $mSlugs;
+                        break;
+                    }
+                }
+            }
 
             $perms = $allPermissions;
             foreach ($perms as &$perm) {
-                $perm['granted'] = in_array((int) $perm['id'], $grantedIds, true);
+                if ($hasDbCustom) {
+                    $perm['granted'] = in_array((int) $perm['id'], $grantedIds, true);
+                } else {
+                    $perm['granted'] = in_array($perm['slug'] ?? '', $defaultSlugs, true);
+                }
             }
 
             $role['permissions'] = $perms;

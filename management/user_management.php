@@ -31,18 +31,25 @@ $employeeModel = new Employee($db);
 $roleModel = new Role();
 $logModel = new ActivityLog();
 
-try {
-    $users = $employeeModel->all(['order' => 'created_at.desc']);
+$isSystemAdmin = hasPermission(App\Constants\Permissions::ROLES_MANAGE) || getPermissionService()->isAdminRole($_SESSION['role'] ?? '');
+$userDept = getDepartmentResolver()->resolveDepartmentName();
 
-    // Sort employees by Organizational Hierarchy:
-    // 1. System Admin
-    // 2. Department Heads (Health Center Director, Sanitation Director, Immunization Lead, Wastewater Lead, Surveillance Lead)
-    // 3. Department Staff
-    // Within each group: Department -> Position (role_description) -> Full Name
+try {
+    $allUsers = $employeeModel->all(['order' => 'created_at.desc']);
+
+    // Departmental Scoping: Non-admin department heads only see users under their department
+    if (!$isSystemAdmin && !empty($userDept)) {
+        $users = getDepartmentResolver()->filterUsersForDepartment($allUsers, $userDept);
+    } else {
+        $users = $allUsers;
+    }
+
+    // Sort employees by Organizational Hierarchy
     usort($users, function($a, $b) {
         $getRoleRank = function($user) {
-            $role = $user['role'] ?? '';
-            if ($role === 'System Admin') return 1;
+            $role = $user['role_description'] ?? $user['role'] ?? '';
+            if ($role === 'System Admin' || $role === 'System Administrator') return 1;
+
             $deptHeads = [
                 'Health Center Director',
                 'Sanitation Director',
@@ -77,7 +84,14 @@ try {
 
 // --- Fetch Roles (with permissions & user_count attached) -----------------
 try {
-    $roles = $roleModel->all(['order' => 'id.asc'], $users);
+    $allRoles = $roleModel->all(['order' => 'id.asc'], $users);
+
+    // Departmental Scoping: Non-admin department heads only see roles under their department
+    if (!$isSystemAdmin && !empty($userDept)) {
+        $roles = getDepartmentResolver()->filterRolesForDepartment($allRoles, $userDept);
+    } else {
+        $roles = $allRoles;
+    }
 } catch (Throwable $e) {
     error_log('User Management — roles fetch error: ' . $e->getMessage());
     $roles = [];
@@ -125,7 +139,12 @@ ksort($filterRoleOptions);
 
 // --- Fetch Activity Logs (User Management actions only, excluding login/logout) ---
 try {
-    $allUserLogs  = $logModel->all(['limit' => 100, 'order' => 'created_at.desc']);
+    $logOptions = ['limit' => 100, 'order' => 'created_at.desc'];
+    if (!$isSystemAdmin && !empty($userDept)) {
+        $logOptions['department'] = $userDept;
+    }
+    $allUserLogs  = $logModel->all($logOptions);
+
     $activityLogs = array_values(array_filter($allUserLogs, function($log) {
         $module = strtolower($log['module'] ?? '');
         $action = strtolower($log['action'] ?? '');
@@ -174,6 +193,24 @@ $title = 'User Management';
             </button>
         </div>
     </div>
+
+    <?php if (!$isSystemAdmin): ?>
+    <!-- Departmental Scope Banner -->
+    <div class="mb-6 bg-blue-50/80 border border-blue-200/80 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                <i class="fa-solid fa-building-user"></i>
+            </div>
+            <div>
+                <h4 class="text-xs font-bold text-blue-900 uppercase tracking-wider">Department Scope Active</h4>
+                <p class="text-xs text-blue-700 mt-0.5">Filtered to employees and position roles within <strong class="font-semibold"><?= htmlspecialchars($userDept) ?></strong>.</p>
+            </div>
+        </div>
+        <span class="px-3 py-1 bg-blue-200/60 text-blue-800 text-[11px] font-bold rounded-full">
+            <?= htmlspecialchars($userDept) ?>
+        </span>
+    </div>
+    <?php endif; ?>
 
     <!-- ============================================================ -->
     <!-- KPI CARDS - User Overview                                 -->
@@ -368,10 +405,13 @@ $title = 'User Management';
                                 <button onclick="toggleUserStatus(<?php echo (int) $user['id']; ?>)" class="text-amber-600 hover:text-amber-800 text-xs font-medium transition px-2 py-1 hover:bg-amber-50 rounded" title="Toggle Status">
                                     <i class="fa-solid <?php echo ($user['status'] ?? 'Active') === 'Active' ? 'fa-pause' : 'fa-play'; ?>"></i>
                                 </button>
+                                <?php if ($isSystemAdmin): ?>
                                 <button onclick="deleteUser(<?php echo (int) $user['id']; ?>)" class="text-red-500 hover:text-red-700 text-xs font-medium transition px-2 py-1 hover:bg-red-50 rounded" title="Delete User">
                                     <i class="fa-solid fa-trash-can"></i>
                                 </button>
+                                <?php endif; ?>
                             </div>
+
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -550,6 +590,12 @@ $title = 'User Management';
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Department</label>
+                        <?php if (!$isSystemAdmin && !empty($userDept)): ?>
+                        <input type="hidden" name="department" value="<?php echo htmlspecialchars($userDept, ENT_QUOTES); ?>">
+                        <select id="department" disabled class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-100 text-slate-700 font-medium cursor-not-allowed outline-none select-none">
+                            <option value="<?php echo htmlspecialchars($userDept, ENT_QUOTES); ?>" selected><?php echo htmlspecialchars($userDept, ENT_QUOTES); ?></option>
+                        </select>
+                        <?php else: ?>
                         <select id="department" name="department" onchange="onDepartmentChange(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" required>
                             <option value="">Select Department</option>
                             <option value="Health Center Services">Health Center Services</option>
@@ -558,17 +604,23 @@ $title = 'User Management';
                             <option value="Wastewater Services">Wastewater Services</option>
                             <option value="Health Surveillance">Health Surveillance</option>
                         </select>
+                        <?php endif; ?>
                     </div>
+
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Primary Role</label>
                         <select id="roleId" name="role" onchange="onRoleChange(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" required>
-                            <option value="">Select Role</option>
-                            <?php foreach ($roles as $role): ?>
-                            <?php if ($role['name'] === 'System Admin') continue; ?>
-                            <option value="<?php echo htmlspecialchars($role['name'], ENT_QUOTES); ?>"><?php echo htmlspecialchars($role['name'], ENT_QUOTES); ?></option>
+                            <option value="">Select Primary Role</option>
+                            <?php 
+                            $primaryCategories = getDepartmentResolver()->getPrimaryRoleCategoriesForDepartment($userDept, $isSystemAdmin);
+                            foreach ($primaryCategories as $catRole): 
+                                if ($catRole === 'System Admin') continue;
+                            ?>
+                            <option value="<?php echo htmlspecialchars($catRole, ENT_QUOTES); ?>"><?php echo htmlspecialchars($catRole, ENT_QUOTES); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
+
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Position</label>
                         <select id="roleDescription" name="role_description" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
@@ -756,14 +808,23 @@ $title = 'User Management';
         });
     }
 
+    const CURRENT_USER_DEPT = <?php echo json_encode($userDept); ?>;
+    const IS_SYSTEM_ADMIN   = <?php echo json_encode($isSystemAdmin); ?>;
+
     function onDepartmentChange(dept, targetRole = '') {
+        if (!IS_SYSTEM_ADMIN && CURRENT_USER_DEPT) {
+            dept = CURRENT_USER_DEPT;
+        }
         const roleSelect = document.getElementById('roleId');
         if (!roleSelect) return;
-        roleSelect.innerHTML = '<option value="">Select Role</option>';
+        roleSelect.innerHTML = '<option value="">Select Primary Role</option>';
         
         let roles = dept && DEPT_TO_ROLES[dept] ? DEPT_TO_ROLES[dept] : PRIMARY_ROLES;
         roles.forEach(r => {
             if (r === 'System Admin') return; // Cannot select Admin
+            if (!IS_SYSTEM_ADMIN && (r.includes('Director') || r.includes('System Admin'))) {
+                return; // Non-admin Department Heads cannot register Director roles
+            }
             const opt = document.createElement('option');
             opt.value = r;
             opt.textContent = r;
@@ -777,6 +838,7 @@ $title = 'User Management';
             onRoleChange(roleSelect.value);
         }
     }
+
 
     function generateNextEmployeeIdJS(dept, role) {
         const deptRolePrefixes = {
@@ -871,17 +933,22 @@ $title = 'User Management';
         const form = document.getElementById('userForm');
         if (form) form.reset();
         document.getElementById('userId').value = '';
-        onDepartmentChange('Health Center Services');
+        const initialDept = (!IS_SYSTEM_ADMIN && CURRENT_USER_DEPT) ? CURRENT_USER_DEPT : 'Health Center Services';
+        const deptSelect = document.getElementById('department');
+        if (deptSelect) deptSelect.value = initialDept;
+
+        onDepartmentChange(initialDept);
         document.getElementById('userModalTitle').innerHTML = '<i class="fa-solid fa-user-plus text-brand-medium"></i> Register New User';
         document.getElementById('userFormSubmit').innerHTML = '<i class="fa-solid fa-save mr-1.5"></i> Register User';
         const err = document.getElementById('userFormError');
         if (err) err.classList.add('hidden');
         
-        // Auto-generate default Employee ID for Health Center Services
-        document.getElementById('username').value = generateNextEmployeeIdJS('Health Center Services', 'Health Center Director');
+        const initialRole = (DEPT_TO_ROLES[initialDept] && DEPT_TO_ROLES[initialDept][0]) ? DEPT_TO_ROLES[initialDept][0] : 'Health Center Director';
+        document.getElementById('username').value = generateNextEmployeeIdJS(initialDept, initialRole);
         
         openModal('addUserModal');
     }
+
 
     // Override openModal for addUserModal to ensure clean state
     const _origOpenModal = openModal;
@@ -1377,13 +1444,24 @@ $title = 'User Management';
                 perms.forEach(p => {
                     const checked = p.granted ? 'checked' : '';
                     const permName = p.label || p.name || p.slug || 'Permission';
+                    const slug = (p.slug || '').toLowerCase();
+                    
+                    const isAdminOnlySlug = ['roles.manage', 'settings.manage', 'users.delete', 'logs.view', 'dashboard.system_admin'].includes(slug);
+                    const isDisabled = (!IS_SYSTEM_ADMIN && isAdminOnlySlug);
+                    
+                    const disabledAttr = isDisabled ? 'disabled' : '';
+                    const labelClass = isDisabled ? 'text-slate-400 opacity-60 cursor-not-allowed' : 'text-slate-600 cursor-pointer';
+                    const lockBadge = isDisabled ? '<i class="fa-solid fa-lock text-[10px] text-amber-500 ml-0.5" title="Requires System Administrator Privileges"></i>' : '';
+
                     html += `
-                        <label class="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
-                            <input type="checkbox" value="${p.id}" ${checked} class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium">
-                            ${permName}
+                        <label class="flex items-center gap-2 text-xs ${labelClass}" title="${isDisabled ? 'Requires System Administrator Privileges' : ''}">
+                            <input type="checkbox" value="${p.id}" ${checked} ${disabledAttr} class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium ${isDisabled ? 'bg-slate-100 cursor-not-allowed' : ''}">
+                            <span>${permName}</span>
+                            ${lockBadge}
                         </label>
                     `;
                 });
+
                 html += `
                         </div>
                     </div>
@@ -1402,7 +1480,8 @@ $title = 'User Management';
         const roleSelect = document.getElementById('permissionRoleSelect');
         const roleId = roleSelect ? roleSelect.value : 0;
         const roleName = roleSelect ? roleSelect.options[roleSelect.selectedIndex].text : '';
-        const checkboxes = document.querySelectorAll('#permissionGrid input[type="checkbox"]:checked');
+        const checkboxes = document.querySelectorAll('#permissionGrid input[type="checkbox"]:checked:not(:disabled)');
+
         const permIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
 
         const saveBtn = document.querySelector('button[onclick="savePermissions()"]');

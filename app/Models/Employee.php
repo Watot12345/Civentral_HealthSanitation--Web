@@ -46,15 +46,42 @@ class Employee
         }
     }
 
+    public function resolveRoleId(array $data): ?int
+    {
+        if (!empty($data['role_id'])) {
+            return (int)$data['role_id'];
+        }
+        $targetRole = trim($data['role_description'] ?? $data['role'] ?? '');
+        if (empty($targetRole)) return null;
+
+        try {
+            require_once __DIR__ . '/Role.php';
+            $roleModel = new Role();
+            foreach ($roleModel->all() as $r) {
+                if (strcasecmp(trim($r['name']), $targetRole) === 0) {
+                    return (int)$r['id'];
+                }
+            }
+        } catch (Throwable $e) {}
+        return null;
+    }
+
     public function create(array $data): array
     {
+        if (empty($data['role_id'])) {
+            $data['role_id'] = $this->resolveRoleId($data);
+        }
         return $this->db->insert($this->table, $data, true);
     }
 
     public function updateById(string|int $id, array $data): array
     {
+        if (empty($data['role_id']) && (!empty($data['role_description']) || !empty($data['role']))) {
+            $data['role_id'] = $this->resolveRoleId($data);
+        }
         return $this->db->update($this->table, $data, ['id' => 'eq.' . $id], true);
     }
+
 
     public function deleteById(string|int $id): bool
     {

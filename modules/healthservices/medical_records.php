@@ -13,6 +13,7 @@
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
+requireDepartmentAccess('health center services');
 require_once '../../app/Models/Patient.php';
 require_once '../../app/Models/Employee.php';
 require_once '../../app/Models/MedicalRecord.php';

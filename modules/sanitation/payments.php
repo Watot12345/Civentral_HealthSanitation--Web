@@ -13,6 +13,7 @@
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
+requireDepartmentAccess('sanitation permits');
 
 $title = 'Payments';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;

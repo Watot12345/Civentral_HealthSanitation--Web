@@ -19,7 +19,16 @@ require_once '../includes/sidebar.php';
 // ============================================================
 require_once __DIR__ . '/../app/Models/ActivityLog.php';
 $activityLogModel = new ActivityLog();
-$allLogs          = $activityLogModel->all(['limit' => 250, 'order' => 'created_at.desc']);
+
+$isSystemAdmin = hasPermission(App\Constants\Permissions::ROLES_MANAGE) || getPermissionService()->isAdminRole($_SESSION['role'] ?? '');
+$userDept      = getDepartmentResolver()->resolveDepartmentName();
+
+$logOptions = ['limit' => 250, 'order' => 'created_at.desc'];
+if (!$isSystemAdmin && !empty($userDept)) {
+    $logOptions['department'] = $userDept;
+}
+$allLogs = $activityLogModel->all($logOptions);
+
 
 // 1. SYSTEM AUDIT TRAIL — Administrative, Security & Authentication Logs (Admin System Logs)
 $auditTrail = array_values(array_filter($allLogs, function($log) {

@@ -13,6 +13,7 @@
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
+requireDepartmentAccess('sanitation permits');
 
 // These two model requires assume this view lives two levels under the
 // project root (same depth as your other module views). Adjust the path

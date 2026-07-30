@@ -1,0 +1,20 @@
+{
+    "key": "feature_flags_map",
+    "value": {
+        "ai.analytics": true,
+        "ai.gemini": true,
+        "dashboard.realtime": true,
+        "health_center": true,
+        "immunization": true,
+        "maintenance.mode": false,
+        "notifications.email": true,
+        "notifications.in_app": true,
+        "notifications.sms": false,
+        "sanitation": true,
+        "surveillance": true,
+        "sync.offline": true,
+        "wastewater": true
+    },
+    "expires_at": 1785423912,
+    "updated_at": "2026-07-30 22:05:12"
+}

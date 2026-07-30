@@ -57,9 +57,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['employee_id']      = $user['employee_id'];
             $_SESSION['full_name']        = $user['full_name'];
             $_SESSION['department']       = $user['department'] ?? '';
-            $_SESSION['role']             = $user['role'] ?? 'employee';
-            $_SESSION['role_description'] = $user['role_description'] ?? '';
+            $functionalRole               = $user['role_description'] ?? $user['role'] ?? 'employee';
+            $_SESSION['role']             = $functionalRole;
+            $_SESSION['role_description'] = $functionalRole;
+
             $_SESSION['logged_in']        = true;
+
+            // Handle Keep Me Signed In option
+            $rememberMe = !empty($_POST['remember_me']) && ($_POST['remember_me'] === 'true' || $_POST['remember_me'] === '1' || $_POST['remember_me'] === 'on');
+            if ($rememberMe && class_exists('App\Services\RememberMeService')) {
+                \App\Services\RememberMeService::createToken($user);
+            }
 
             // Log successful login
             $logModel->log("User logged in", [
@@ -222,7 +230,7 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
 
                     <div class="flex items-center justify-between pt-1">
                         <label class="flex items-center space-x-2 cursor-pointer select-none">
-                            <input type="checkbox" class="w-4 h-4 text-brand-medium border-gray-300 rounded focus:ring-brand-medium accent-brand-medium" />
+                            <input type="checkbox" id="rememberMe" name="remember_me" class="w-4 h-4 text-brand-medium border-gray-300 rounded focus:ring-brand-medium accent-brand-medium" />
                             <span class="text-xs text-gray-500">Keep me signed in</span>
                         </label>
                         <a href="#" class="text-xs font-semibold text-brand-medium hover:underline">Forgot password?</a>
@@ -311,9 +319,11 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
         const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         try {
+            const rememberMe = document.getElementById('rememberMe')?.checked || false;
             const formData = new FormData();
             formData.append('employee_id', employeeId);
             formData.append('password', password);
+            formData.append('remember_me', rememberMe);
 
             const response = await fetch(window.location.href, {
                 method: 'POST',

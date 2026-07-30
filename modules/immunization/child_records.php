@@ -13,6 +13,7 @@
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
+requireDepartmentAccess('immunization & nutrition');
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../app/Models/Child.php';
 require_once __DIR__ . '/../../includes/data-mask.php';

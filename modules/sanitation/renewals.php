@@ -13,6 +13,7 @@
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
+requireDepartmentAccess('sanitation permits');
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../app/Models/Renewal.php';
 require_once __DIR__ . '/../../app/Models/Permit.php';

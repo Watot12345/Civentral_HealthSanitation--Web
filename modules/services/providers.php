@@ -13,6 +13,7 @@
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
+requireDepartmentAccess('wastewater services');
 
 // Sample Service Providers Data
 $serviceProviders = [

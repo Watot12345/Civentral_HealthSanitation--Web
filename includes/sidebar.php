@@ -49,20 +49,7 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
           <div class="flex items-center space-x-3">
             <i class="fa-solid fa-table-columns text-sm <?php echo (strpos($currentPath, 'dashboard.php') !== false || strpos($currentPath, 'module_activity.php') !== false || strpos($currentPath, 'alerts.php') !== false || strpos($currentPath, 'system_health.php') !== false) ? 'text-brand-medium' : 'text-slate-400 group-hover:text-brand-medium'; ?> transition"></i>
             <span class="sidebar-text truncate">
-              <?php 
-                $userRoleLabel = trim($_SESSION['role'] ?? $_SESSION['role_description'] ?? '');
-                if (strcasecmp($userRoleLabel, 'Health Center Director') === 0) {
-                    echo 'Health Center Dashboard';
-                } elseif (strcasecmp($userRoleLabel, 'Sanitation Director') === 0) {
-                    echo 'Sanitation Dashboard';
-                } elseif (strcasecmp($userRoleLabel, 'Immunization Coordinator') === 0) {
-                    echo 'Immunization Dashboard';
-                } elseif (strcasecmp($userRoleLabel, 'System Administrator') === 0 || strcasecmp($userRoleLabel, 'System Admin') === 0) {
-                    echo 'System Overview';
-                } else {
-                    echo 'Dashboard Overview';
-                }
-              ?>
+              <?= htmlspecialchars(getNavigationService()->getDashboardTitle()) ?>
             </span>
           </div>
         </a>
@@ -118,7 +105,7 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
       <span class="sidebar-text text-[9px] font-bold tracking-widest text-slate-400 uppercase block px-3 mt-6 mb-2">Operational Modules</span>
 
       <!-- MODULE 1: HEALTH CENTER SERVICES -->
-      <?php if (hasPermission('patients.view') || hasPermission('consultations.view') || hasPermission('triage.view') || hasPermission('prescriptions.view')): ?>
+      <?php if (canAccessDepartment('health center services') && (hasPermission('patients.view') || hasPermission('consultations.view') || hasPermission('triage.view') || hasPermission('prescriptions.view'))): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('healthCenterDropdown', 'healthCenterChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -187,7 +174,7 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
       <?php endif; ?>
 
       <!-- MODULE 2: SANITATION PERMITS -->
-      <?php if (hasPermission('permits.view') || hasPermission('inspections.view') || hasPermission('inspections.conduct')): ?>
+      <?php if (canAccessDepartment('sanitation permits') && (hasPermission('permits.view') || hasPermission('inspections.view') || hasPermission('inspections.conduct'))): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('sanitationDropdown', 'sanitationChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -243,7 +230,7 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
       <?php endif; ?>
 
       <!-- MODULE 3: IMMUNIZATION & NUTRITION -->
-      <?php if (hasPermission('immunization.view')): ?>
+      <?php if (canAccessDepartment('immunization & nutrition') && (hasPermission('immunization.view') || hasPermission('patients.view') || hasPermission('dashboard.view'))): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('immunizationDropdown', 'immunizationChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -288,7 +275,7 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
       <?php endif; ?>
 
       <!-- MODULE 4: WASTEWATER SERVICES -->
-      <?php if (hasPermission('permits.view') || hasPermission('inspections.view')): ?>
+      <?php if (canAccessDepartment('wastewater services') && (hasPermission('permits.view') || hasPermission('inspections.view'))): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('wastewaterDropdown', 'wastewaterChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -333,7 +320,21 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
       <?php endif; ?>
 
       <!-- MODULE 5: HEALTH SURVEILLANCE -->
-      <?php if (hasPermission('dashboard.view') || hasPermission('reports.view')): ?>
+      <?php if (canAccessDepartment('health surveillance') && (hasPermission('dashboard.view') || hasPermission('reports.view'))): ?>
+      <div class="space-y-1">
+        <button onclick="toggleDropdown('surveillanceDropdown', 'surveillanceChevron')" 
+                class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
+                <?php echo ($activeModule === 'surveillance') ? 'bg-white/60 text-brand-dark' : 'text-slate-600 hover:bg-white/60 hover:text-brand-dark'; ?> cursor-pointer">
+          <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-binoculars text-sm <?php echo ($activeModule === 'surveillance') ? 'text-brand-medium' : 'text-slate-400 group-hover:text-brand-medium'; ?> transition"></i>
+            <span class="sidebar-text truncate">Health Surveillance</span>
+          </div>
+          <div class="dropdown-right">
+            <i id="surveillanceChevron" class="fa-solid fa-chevron-down text-[10px] opacity-60 dropdown-chevron transition-transform duration-200"></i>
+          </div>
+        </button>
+        <div id="surveillanceDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
+
       <div class="space-y-1">
         <button onclick="toggleDropdown('surveillanceDropdown', 'surveillanceChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 

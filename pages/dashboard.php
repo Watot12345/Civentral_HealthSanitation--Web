@@ -407,23 +407,23 @@ document.addEventListener('DOMContentLoaded', function() {
         <?php
             $currentRole = trim($_SESSION['role'] ?? $_SESSION['role_description'] ?? 'System Admin');
 
-            if (strcasecmp($currentRole, 'Health Center Director') === 0) {
-                $dashTitle = 'Health Center Services Dashboard';
-                $dashSubtitle = 'Operational analytics, patient consultations & health center performance overview';
-                $dashBadge = 'Health Center Director';
-            } elseif (strcasecmp($currentRole, 'Sanitation Director') === 0) {
-                $dashTitle = 'Sanitation Permits Dashboard';
-                $dashSubtitle = 'Permit applications, environmental inspections & sanitation compliance metrics';
-                $dashBadge = 'Sanitation Director';
-            } elseif (strcasecmp($currentRole, 'Immunization Coordinator') === 0) {
-                $dashTitle = 'Immunization & Nutrition Dashboard';
-                $dashSubtitle = 'Child vaccination tracking, growth charts & nutrition assessment analytics';
-                $dashBadge = 'Immunization Coordinator';
-            } elseif (strcasecmp($currentRole, 'System Administrator') === 0 || strcasecmp($currentRole, 'System Admin') === 0) {
-                $dashTitle = 'System Overview';
-                $dashSubtitle = 'Real-time snapshot across all modules and system health';
-                $dashBadge = 'System Administrator';
-            } else {
+if (hasPermission('dashboard.health_center')) {
+    $dashTitle = 'Health Center Services Dashboard';
+    $dashSubtitle = 'Operational analytics, patient consultations & health center performance overview';
+    $dashBadge = 'Health Center Director';
+} elseif (hasPermission('dashboard.sanitation')) {
+    $dashTitle = 'Sanitation Permits Dashboard';
+    $dashSubtitle = 'Permit applications, environmental inspections & sanitation compliance metrics';
+    $dashBadge = 'Sanitation Director';
+} elseif (hasPermission('dashboard.immunization')) {
+    $dashTitle = 'Immunization & Nutrition Dashboard';
+    $dashSubtitle = 'Child vaccination tracking, growth charts & nutrition assessment analytics';
+    $dashBadge = 'Immunization Coordinator';
+} elseif (hasPermission('dashboard.system_admin')) {
+    $dashTitle = 'System Overview';
+    $dashSubtitle = 'Real-time snapshot across all modules and system health';
+    $dashBadge = 'System Administrator';
+} else {
                 $dashTitle = htmlspecialchars($currentRole) . ' Dashboard';
                 $dashSubtitle = 'Role-specific operational activity & module metrics';
                 $dashBadge = htmlspecialchars($currentRole);
@@ -477,274 +477,277 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- KPI ROW (Role-Specific 6 Dedicated Cards)                    -->
         <!-- ============================================================ -->
         <?php
-        $userRoleForKpi = trim($_SESSION['role'] ?? $_SESSION['role_description'] ?? 'System Admin');
+// Use permission-based checks (same as page header) — single source of truth
+$_isHcRole  = hasPermission('dashboard.health_center');
+$_isSanRole = hasPermission('dashboard.sanitation');
 
-        if (strcasecmp($userRoleForKpi, 'Health Center Director') === 0 || strcasecmp($userRoleForKpi, 'Doctor') === 0 || strcasecmp($userRoleForKpi, 'Nurse') === 0) {
-            // Health Center & Surveillance Domain (6 dedicated cards)
-            $kpiCards = [
-                [
-                    'title' => 'Patient Registry',
-                    'value' => '1,847',
-                    'label' => 'Total Patients',
-                    'badge' => '+12.5%',
-                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                    'sub' => 'vs last month',
-                    'url' => site_url('modules/healthservices/patients.php'),
-                    'icon' => 'fa-hospital',
-                    'color' => 'c2',
-                    'border_color' => 'from-c3 to-c2',
-                    'offset' => '16',
-                    'pct' => '84%'
-                ],
-                [
-                    'title' => 'Medical Consults',
-                    'value' => '342',
-                    'label' => 'Completed Consults',
-                    'badge' => '34 today',
-                    'badge_bg' => 'bg-teal-100 text-teal-700',
-                    'sub' => 'active consultations',
-                    'url' => site_url('modules/healthservices/consultations.php'),
-                    'icon' => 'fa-stethoscope',
-                    'color' => 'teal-600',
-                    'border_color' => 'from-teal-400 to-teal-600',
-                    'offset' => '12',
-                    'pct' => '88%'
-                ],
-                [
-                    'title' => 'Triage Assessments',
-                    'value' => '125',
-                    'label' => 'Triage Today',
-                    'badge' => '5 urgent',
-                    'badge_bg' => 'bg-amber-100 text-amber-700',
-                    'sub' => 'queued patients',
-                    'url' => site_url('modules/healthservices/triage.php'),
-                    'icon' => 'fa-heart-pulse',
-                    'color' => 'amber-600',
-                    'border_color' => 'from-amber-400 to-amber-600',
-                    'offset' => '10',
-                    'pct' => '90%'
-                ],
-                [
-                    'title' => 'Prescriptions Issued',
-                    'value' => '489',
-                    'label' => 'Prescriptions Dispensed',
-                    'badge' => '+8.2%',
-                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                    'sub' => 'pharmacy fulfilled',
-                    'url' => site_url('modules/healthservices/prescriptions.php'),
-                    'icon' => 'fa-prescription-bottle',
-                    'color' => 'blue-600',
-                    'border_color' => 'from-blue-400 to-blue-600',
-                    'offset' => '15',
-                    'pct' => '85%'
-                ],
-                [
-                    'title' => 'Health Surveillance',
-                    'value' => '234',
-                    'label' => 'Active Case Reports',
-                    'badge' => '166 resolved',
-                    'badge_bg' => 'bg-indigo-100 text-indigo-700',
-                    'sub' => 'disease monitoring',
-                    'url' => site_url('modules/surveillence/case_reports.php'),
-                    'icon' => 'fa-binoculars',
-                    'color' => 'indigo-600',
-                    'border_color' => 'from-indigo-400 to-indigo-600',
-                    'offset' => '32',
-                    'pct' => '68%'
-                ],
-                [
-                    'title' => 'Real-time Alerts',
-                    'value' => '1',
-                    'label' => 'Outbreak Watch Alert',
-                    'badge' => 'Critical Watch',
-                    'badge_bg' => 'bg-rose-100 text-rose-700',
-                    'sub' => 'immediate response',
-                    'url' => site_url('modules/surveillence/alerts.php'),
-                    'icon' => 'fa-bell',
-                    'color' => 'rose-600',
-                    'border_color' => 'from-rose-500 to-red-600',
-                    'offset' => '5',
-                    'pct' => '95%'
-                ]
-            ];
-        } elseif (strcasecmp($userRoleForKpi, 'Sanitation Director') === 0 || strcasecmp($userRoleForKpi, 'Inspector') === 0 || strcasecmp($userRoleForKpi, 'Permit Clerk') === 0) {
-            // Sanitation & Wastewater Domain (6 dedicated cards)
-            $kpiCards = [
-                [
-                    'title' => 'Sanitation Permits',
-                    'value' => '156',
-                    'label' => 'Active Permits Issued',
-                    'badge' => '3 pending',
-                    'badge_bg' => 'bg-amber-100 text-amber-700',
-                    'sub' => '87% approval',
-                    'url' => site_url('modules/sanitation/permit_applications.php'),
-                    'icon' => 'fa-file-signature',
-                    'color' => 'amber-600',
-                    'border_color' => 'from-amber-400 to-amber-600',
-                    'offset' => '13',
-                    'pct' => '87%'
-                ],
-                [
-                    'title' => 'Field Inspections',
-                    'value' => '89',
-                    'label' => 'Inspections Conducted',
-                    'badge' => '12 today',
-                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                    'sub' => 'sanitary compliance',
-                    'url' => site_url('modules/sanitation/inspections.php'),
-                    'icon' => 'fa-search',
-                    'color' => 'emerald-600',
-                    'border_color' => 'from-emerald-400 to-emerald-600',
-                    'offset' => '10',
-                    'pct' => '90%'
-                ],
-                [
-                    'title' => 'Permit Renewals',
-                    'value' => '42',
-                    'label' => 'Renewals Processing',
-                    'badge' => '5 due soon',
-                    'badge_bg' => 'bg-blue-100 text-blue-700',
-                    'sub' => 'annual renewal',
-                    'url' => site_url('modules/sanitation/renewals.php'),
-                    'icon' => 'fa-rotate',
-                    'color' => 'blue-600',
-                    'border_color' => 'from-blue-400 to-blue-600',
-                    'offset' => '18',
-                    'pct' => '82%'
-                ],
-                [
-                    'title' => 'Wastewater Requests',
-                    'value' => '23',
-                    'label' => 'Desludging Requests',
-                    'badge' => '5 pending',
-                    'badge_bg' => 'bg-purple-100 text-purple-700',
-                    'sub' => 'vs last month',
-                    'url' => site_url('modules/services/service_requests.php'),
-                    'icon' => 'fa-water',
-                    'color' => 'purple-600',
-                    'border_color' => 'from-purple-400 to-purple-600',
-                    'offset' => '23',
-                    'pct' => '77%'
-                ],
-                [
-                    'title' => 'Septic Registry',
-                    'value' => '1,284',
-                    'label' => 'Registered Tanks',
-                    'badge' => '+4.1%',
-                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                    'sub' => 'total recorded',
-                    'url' => site_url('modules/services/septic_tanks.php'),
-                    'icon' => 'fa-flask',
-                    'color' => 'indigo-600',
-                    'border_color' => 'from-indigo-400 to-indigo-600',
-                    'offset' => '8',
-                    'pct' => '92%'
-                ],
-                [
-                    'title' => 'Compliance Violations',
-                    'value' => '5',
-                    'label' => 'Corrective Action Orders',
-                    'badge' => '2 unresolved',
-                    'badge_bg' => 'bg-rose-100 text-rose-700',
-                    'sub' => 'enforcement active',
-                    'url' => site_url('pages/compliance_monitoring.php'),
-                    'icon' => 'fa-gavel',
-                    'color' => 'rose-600',
-                    'border_color' => 'from-rose-400 to-rose-600',
-                    'offset' => '20',
-                    'pct' => '80%'
-                ]
-            ];
-        } else {
-            // System Overview default 6 KPI cards (Admin / System-wide)
-            $kpiCards = [
-                [
-                    'title' => 'Health Center',
-                    'value' => '1,847',
-                    'label' => 'Patients Served',
-                    'badge' => '+12.5%',
-                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                    'sub' => 'vs last month',
-                    'url' => site_url('modules/healthservices/patients.php'),
-                    'icon' => 'fa-hospital',
-                    'color' => 'c2',
-                    'border_color' => 'from-c3 to-c2',
-                    'offset' => '16',
-                    'pct' => '84%'
-                ],
-                [
-                    'title' => 'Sanitation',
-                    'value' => '156',
-                    'label' => 'Active Permits',
-                    'badge' => '3 pending',
-                    'badge_bg' => 'bg-amber-100 text-amber-700',
-                    'sub' => '87% approval',
-                    'url' => site_url('modules/sanitation/permit_applications.php'),
-                    'icon' => 'fa-file-signature',
-                    'color' => 'amber-600',
-                    'border_color' => 'from-amber-400 to-amber-600',
-                    'offset' => '13',
-                    'pct' => '87%'
-                ],
-                [
-                    'title' => 'Immunization',
-                    'value' => '1,924',
-                    'label' => 'Immunized',
-                    'badge' => '2 low stock',
-                    'badge_bg' => 'bg-rose-100 text-rose-700',
-                    'sub' => '92% coverage',
-                    'url' => site_url('modules/immunization/child_records.php'),
-                    'icon' => 'fa-syringe',
-                    'color' => 'blue-600',
-                    'border_color' => 'from-blue-400 to-blue-600',
-                    'offset' => '8',
-                    'pct' => '92%'
-                ],
-                [
-                    'title' => 'Wastewater',
-                    'value' => '23',
-                    'label' => 'Service Requests',
-                    'badge' => '+5%',
-                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                    'sub' => 'vs last month',
-                    'url' => site_url('modules/services/septic_tanks.php'),
-                    'icon' => 'fa-water',
-                    'color' => 'purple-600',
-                    'border_color' => 'from-purple-400 to-purple-600',
-                    'offset' => '23',
-                    'pct' => '77%'
-                ],
-                [
-                    'title' => 'Surveillance',
-                    'value' => '234',
-                    'label' => 'Active Cases',
-                    'badge' => '1 outbreak',
-                    'badge_bg' => 'bg-rose-100 text-rose-700',
-                    'sub' => '68% resolved',
-                    'url' => site_url('modules/surveillence/case_reports.php'),
-                    'icon' => 'fa-binoculars',
-                    'color' => 'rose-600',
-                    'border_color' => 'from-rose-400 to-rose-600',
-                    'offset' => '32',
-                    'pct' => '68%'
-                ],
-                [
-                    'title' => 'System Uptime',
-                    'value' => '99.97%',
-                    'label' => 'Running Smoothly',
-                    'badge' => 'Operational',
-                    'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                    'sub' => '199d uptime',
-                    'url' => site_url('management/system_logs.php'),
-                    'icon' => 'fa-server',
-                    'color' => 'indigo-600',
-                    'border_color' => 'from-indigo-400 to-indigo-600',
-                    'offset' => '1',
-                    'pct' => '99.9%'
-                ]
-            ];
-        }
-        ?>
+if ($_isHcRole) {
+    $kpiCards = [
+        [
+            'title' => 'Patients Served',
+            'value' => '3,812',
+            'label' => 'Total Patients This Month',
+            'badge' => '+9.4%',
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'vs last month',
+            'url' => site_url('modules/healthservices/patients.php'),
+            'icon' => 'fa-users',
+            'color' => 'emerald-600',
+            'border_color' => 'from-emerald-400 to-emerald-600',
+            'offset' => '8',
+            'pct' => '92%'
+        ],
+        [
+            'title' => 'Consultations',
+            'value' => '2,134',
+            'label' => 'Consultations Completed',
+            'badge' => '+6.7%',
+            'badge_bg' => 'bg-sky-100 text-sky-700',
+            'sub' => 'this month',
+            'url' => site_url('modules/healthservices/consultations.php'),
+            'icon' => 'fa-stethoscope',
+            'color' => 'sky-600',
+            'border_color' => 'from-sky-400 to-sky-600',
+            'offset' => '12',
+            'pct' => '88%'
+        ],
+        [
+            'title' => 'Triage Visits',
+            'value' => '1,245',
+            'label' => 'Patients Triaged',
+            'badge' => '+12.3%',
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'vs last month',
+            'url' => site_url('modules/healthservices/triage.php'),
+            'icon' => 'fa-heart-pulse',
+            'color' => 'amber-600',
+            'border_color' => 'from-amber-400 to-amber-600',
+            'offset' => '10',
+            'pct' => '90%'
+        ],
+        [
+            'title' => 'Prescriptions Issued',
+            'value' => '489',
+            'label' => 'Prescriptions Dispensed',
+            'badge' => '+8.2%',
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'pharmacy fulfilled',
+            'url' => site_url('modules/healthservices/prescriptions.php'),
+            'icon' => 'fa-prescription-bottle',
+            'color' => 'blue-600',
+            'border_color' => 'from-blue-400 to-blue-600',
+            'offset' => '15',
+            'pct' => '85%'
+        ],
+        [
+            'title' => 'Health Surveillance',
+            'value' => '234',
+            'label' => 'Active Case Reports',
+            'badge' => '166 resolved',
+            'badge_bg' => 'bg-indigo-100 text-indigo-700',
+            'sub' => 'disease monitoring',
+            'url' => site_url('modules/surveillence/case_reports.php'),
+            'icon' => 'fa-binoculars',
+            'color' => 'indigo-600',
+            'border_color' => 'from-indigo-400 to-indigo-600',
+            'offset' => '32',
+            'pct' => '68%'
+        ],
+        [
+            'title' => 'Real-time Alerts',
+            'value' => '1',
+            'label' => 'Outbreak Watch Alert',
+            'badge' => 'Critical Watch',
+            'badge_bg' => 'bg-rose-100 text-rose-700',
+            'sub' => 'immediate response',
+            'url' => site_url('modules/surveillence/alerts.php'),
+            'icon' => 'fa-bell',
+            'color' => 'rose-600',
+            'border_color' => 'from-rose-500 to-red-600',
+            'offset' => '5',
+            'pct' => '95%'
+        ],
+    ];
+}
+// Sanitation & Wastewater KPI cards
+elseif ($_isSanRole) {
+    $kpiCards = [
+        [
+            'title' => 'Sanitation Permits',
+            'value' => '156',
+            'label' => 'Active Permits Issued',
+            'badge' => '3 pending',
+            'badge_bg' => 'bg-amber-100 text-amber-700',
+            'sub' => '87% approval',
+            'url' => site_url('modules/sanitation/permit_applications.php'),
+            'icon' => 'fa-file-signature',
+            'color' => 'amber-600',
+            'border_color' => 'from-amber-400 to-amber-600',
+            'offset' => '13',
+            'pct' => '87%'
+        ],
+        [
+            'title' => 'Field Inspections',
+            'value' => '89',
+            'label' => 'Inspections Conducted',
+            'badge' => '12 today',
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'sanitary compliance',
+            'url' => site_url('modules/sanitation/inspections.php'),
+            'icon' => 'fa-search',
+            'color' => 'emerald-600',
+            'border_color' => 'from-emerald-400 to-emerald-600',
+            'offset' => '10',
+            'pct' => '90%'
+        ],
+        [
+            'title' => 'Permit Renewals',
+            'value' => '42',
+            'label' => 'Renewals Processing',
+            'badge' => '5 due soon',
+            'badge_bg' => 'bg-blue-100 text-blue-700',
+            'sub' => 'annual renewal',
+            'url' => site_url('modules/sanitation/renewals.php'),
+            'icon' => 'fa-rotate',
+            'color' => 'blue-600',
+            'border_color' => 'from-blue-400 to-blue-600',
+            'offset' => '18',
+            'pct' => '82%'
+        ],
+        [
+            'title' => 'Wastewater Requests',
+            'value' => '23',
+            'label' => 'Desludging Requests',
+            'badge' => '5 pending',
+            'badge_bg' => 'bg-purple-100 text-purple-700',
+            'sub' => 'vs last month',
+            'url' => site_url('modules/services/service_requests.php'),
+            'icon' => 'fa-water',
+            'color' => 'purple-600',
+            'border_color' => 'from-purple-400 to-purple-600',
+            'offset' => '23',
+            'pct' => '77%'
+        ],
+        [
+            'title' => 'Septic Registry',
+            'value' => '1,284',
+            'label' => 'Registered Tanks',
+            'badge' => '+4.1%',
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'total recorded',
+            'url' => site_url('modules/services/septic_tanks.php'),
+            'icon' => 'fa-flask',
+            'color' => 'indigo-600',
+            'border_color' => 'from-indigo-400 to-indigo-600',
+            'offset' => '8',
+            'pct' => '92%'
+        ],
+        [
+            'title' => 'Compliance Violations',
+            'value' => '5',
+            'label' => 'Corrective Action Orders',
+            'badge' => '2 unresolved',
+            'badge_bg' => 'bg-rose-100 text-rose-700',
+            'sub' => 'enforcement active',
+            'url' => site_url('pages/compliance_monitoring.php'),
+            'icon' => 'fa-gavel',
+            'color' => 'rose-600',
+            'border_color' => 'from-rose-400 to-rose-600',
+            'offset' => '20',
+            'pct' => '80%'
+        ],
+    ];
+}
+// Default system overview cards (Admin / System-wide)
+else {
+    $kpiCards = [
+        [
+            'title' => 'Health Center',
+            'value' => '1,847',
+            'label' => 'Patients Served',
+            'badge' => '+12.5%',
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'vs last month',
+            'url' => site_url('modules/healthservices/patients.php'),
+            'icon' => 'fa-hospital',
+            'color' => 'c2',
+            'border_color' => 'from-c3 to-c2',
+            'offset' => '16',
+            'pct' => '84%'
+        ],
+        [
+            'title' => 'Sanitation',
+            'value' => '156',
+            'label' => 'Active Permits',
+            'badge' => '3 pending',
+            'badge_bg' => 'bg-amber-100 text-amber-700',
+            'sub' => '87% approval',
+            'url' => site_url('modules/sanitation/permit_applications.php'),
+            'icon' => 'fa-file-signature',
+            'color' => 'amber-600',
+            'border_color' => 'from-amber-400 to-amber-600',
+            'offset' => '13',
+            'pct' => '87%'
+        ],
+        [
+            'title' => 'Immunization',
+            'value' => '1,924',
+            'label' => 'Immunized',
+            'badge' => '2 low stock',
+            'badge_bg' => 'bg-rose-100 text-rose-700',
+            'sub' => '92% coverage',
+            'url' => site_url('modules/immunization/child_records.php'),
+            'icon' => 'fa-syringe',
+            'color' => 'blue-600',
+            'border_color' => 'from-blue-400 to-blue-600',
+            'offset' => '8',
+            'pct' => '92%'
+        ],
+        [
+            'title' => 'Wastewater',
+            'value' => '23',
+            'label' => 'Service Requests',
+            'badge' => '+5%',
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'vs last month',
+            'url' => site_url('modules/services/septic_tanks.php'),
+            'icon' => 'fa-water',
+            'color' => 'purple-600',
+            'border_color' => 'from-purple-400 to-purple-600',
+            'offset' => '23',
+            'pct' => '77%'
+        ],
+        [
+            'title' => 'Surveillance',
+            'value' => '234',
+            'label' => 'Active Cases',
+            'badge' => '1 outbreak',
+            'badge_bg' => 'bg-rose-100 text-rose-700',
+            'sub' => '68% resolved',
+            'url' => site_url('modules/surveillence/case_reports.php'),
+            'icon' => 'fa-binoculars',
+            'color' => 'rose-600',
+            'border_color' => 'from-rose-400 to-rose-600',
+            'offset' => '32',
+            'pct' => '68%'
+        ],
+        [
+            'title' => 'System Uptime',
+            'value' => '99.97%',
+            'label' => 'Running Smoothly',
+            'badge' => 'Operational',
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => '199d uptime',
+            'url' => site_url('management/system_logs.php'),
+            'icon' => 'fa-server',
+            'color' => 'indigo-600',
+            'border_color' => 'from-indigo-400 to-indigo-600',
+            'offset' => '1',
+            'pct' => '99.9%'
+        ],
+    ];
+}
+?>
         <div class="kpi-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 flex-shrink-0">
             <?php foreach ($kpiCards as $card): ?>
             <a href="<?php echo $card['url']; ?>" 
@@ -814,7 +817,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <!-- COLUMN 1: Module Activity Summary (Role-Specific)         -->
             <!-- ========================================================== -->
             <?php
-            if (strcasecmp($userRoleForKpi, 'Health Center Director') === 0 || strcasecmp($userRoleForKpi, 'Doctor') === 0 || strcasecmp($userRoleForKpi, 'Nurse') === 0) {
+            if ($_isHcRole) {
                 $moduleSummaryCards = [
                     [
                         'name' => 'Patient Management',
@@ -892,7 +895,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         'bar_width' => '68%'
                     ]
                 ];
-            } elseif (strcasecmp($userRoleForKpi, 'Sanitation Director') === 0 || strcasecmp($userRoleForKpi, 'Inspector') === 0 || strcasecmp($userRoleForKpi, 'Permit Clerk') === 0) {
+            } elseif ($_isSanRole) {
                 $moduleSummaryCards = [
                     [
                         'name' => 'Sanitation Permits',
@@ -1112,13 +1115,153 @@ document.addEventListener('DOMContentLoaded', function() {
                             <i class="fas fa-exclamation-circle text-[8px] mr-1" aria-hidden="true"></i> 4 New
                         </span>
                     </div>
-                    <button onclick="markAllRead()" 
+                    <button onclick="markAllRead()"
                             class="text-[10px] text-c2 hover:text-c3 font-semibold transition-colors"
                             aria-label="Mark all notifications as read">
                         <i class="fas fa-check-circle text-[10px] mr-1" aria-hidden="true"></i> Mark all read
                     </button>
                 </div>
                 <div class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scroll">
+
+                    <?php if ($_isSanRole): ?>
+
+                    <!-- SANITATION ALERTS -->
+
+                    <!-- Alert 1: Critical - Permit Expiry -->
+                    <div class="p-3 bg-rose-50 border-l-4 border-rose-500 rounded-xl" role="alert">
+                        <div class="flex items-start gap-2.5">
+                            <div class="w-7 h-7 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle text-rose-500 text-sm" aria-hidden="true"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="text-xs font-bold text-rose-700">Permit Expiry Alert</p>
+                                        <span class="px-1.5 py-0.5 bg-rose-200 text-rose-800 rounded text-[7px] font-bold">CRITICAL</span>
+                                    </div>
+                                    <span class="text-[9px] text-rose-500 flex-shrink-0">1 hour ago</span>
+                                </div>
+                                <p class="text-[10px] text-rose-600 mt-0.5">5 sanitation permits expire within 7 days</p>
+                                <div class="flex gap-2 mt-2">
+                                    <button class="px-2.5 py-1 bg-rose-600 text-white rounded text-[9px] font-semibold hover:bg-rose-700 transition">
+                                        <i class="fas fa-eye text-[8px] mr-1" aria-hidden="true"></i> View
+                                    </button>
+                                    <button class="px-2.5 py-1 bg-white text-rose-600 rounded text-[9px] font-semibold border border-rose-200 hover:bg-rose-50 transition">
+                                        <i class="fas fa-times text-[8px] mr-1" aria-hidden="true"></i> Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alert 2: Warning - Compliance Violation -->
+                    <div class="p-3 bg-amber-50 border-l-4 border-amber-500 rounded-xl" role="alert">
+                        <div class="flex items-start gap-2.5">
+                            <div class="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-exclamation-circle text-amber-500 text-sm" aria-hidden="true"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="text-xs font-bold text-amber-700">Compliance Violation Found</p>
+                                        <span class="px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded text-[7px] font-bold">WARNING</span>
+                                    </div>
+                                    <span class="text-[9px] text-amber-500 flex-shrink-0">2 hours ago</span>
+                                </div>
+                                <p class="text-[10px] text-amber-600 mt-0.5">2 establishments failed sanitary inspection — Brgy. Poblacion</p>
+                                <div class="flex gap-2 mt-2">
+                                    <button class="px-2.5 py-1 bg-amber-600 text-white rounded text-[9px] font-semibold hover:bg-amber-700 transition">
+                                        <i class="fas fa-gavel text-[8px] mr-1" aria-hidden="true"></i> Issue Order
+                                    </button>
+                                    <button class="px-2.5 py-1 bg-white text-amber-600 rounded text-[9px] font-semibold border border-amber-200 hover:bg-amber-50 transition">
+                                        <i class="fas fa-times text-[8px] mr-1" aria-hidden="true"></i> Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alert 3: Info - Inspection Schedule -->
+                    <div class="p-3 bg-blue-50 border-l-4 border-blue-500 rounded-xl" role="alert">
+                        <div class="flex items-start gap-2.5">
+                            <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-calendar-check text-blue-500 text-sm" aria-hidden="true"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="text-xs font-bold text-blue-700">Inspection Schedule Tomorrow</p>
+                                        <span class="px-1.5 py-0.5 bg-blue-200 text-blue-800 rounded text-[7px] font-bold">INFO</span>
+                                    </div>
+                                    <span class="text-[9px] text-blue-500 flex-shrink-0">3 hours ago</span>
+                                </div>
+                                <p class="text-[10px] text-blue-600 mt-0.5">12 field inspections scheduled for Brgy. San Miguel & Sta. Cruz</p>
+                                <div class="flex gap-2 mt-2">
+                                    <button class="px-2.5 py-1 bg-blue-600 text-white rounded text-[9px] font-semibold hover:bg-blue-700 transition">
+                                        <i class="fas fa-eye text-[8px] mr-1" aria-hidden="true"></i> View
+                                    </button>
+                                    <button class="px-2.5 py-1 bg-white text-blue-600 rounded text-[9px] font-semibold border border-blue-200 hover:bg-blue-50 transition">
+                                        <i class="fas fa-times text-[8px] mr-1" aria-hidden="true"></i> Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alert 4: Success - New Permit Application -->
+                    <div class="p-3 bg-emerald-50 border-l-4 border-emerald-500 rounded-xl" role="alert">
+                        <div class="flex items-start gap-2.5">
+                            <div class="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-check-circle text-emerald-500 text-sm" aria-hidden="true"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="text-xs font-bold text-emerald-700">New Permit Application</p>
+                                        <span class="px-1.5 py-0.5 bg-emerald-200 text-emerald-800 rounded text-[7px] font-bold">SUCCESS</span>
+                                    </div>
+                                    <span class="text-[9px] text-emerald-500 flex-shrink-0">15 min ago</span>
+                                </div>
+                                <p class="text-[10px] text-emerald-600 mt-0.5">Permit #SP-2026-0189 submitted — Aling Maria's Carinderia</p>
+                                <div class="flex gap-2 mt-2">
+                                    <button class="px-2.5 py-1 bg-emerald-600 text-white rounded text-[9px] font-semibold hover:bg-emerald-700 transition">
+                                        <i class="fas fa-eye text-[8px] mr-1" aria-hidden="true"></i> Review
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alert 5: Desludging Request -->
+                    <div class="p-3 bg-purple-50 border-l-4 border-purple-500 rounded-xl" role="alert">
+                        <div class="flex items-start gap-2.5">
+                            <div class="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-water text-purple-500 text-sm" aria-hidden="true"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="text-xs font-bold text-purple-700">Desludging Request Pending</p>
+                                        <span class="px-1.5 py-0.5 bg-purple-200 text-purple-800 rounded text-[7px] font-bold">PENDING</span>
+                                    </div>
+                                    <span class="text-[9px] text-purple-500 flex-shrink-0">30 min ago</span>
+                                </div>
+                                <p class="text-[10px] text-purple-600 mt-0.5">5 wastewater desludging requests awaiting assignment</p>
+                                <div class="flex gap-2 mt-2">
+                                    <button class="px-2.5 py-1 bg-purple-600 text-white rounded text-[9px] font-semibold hover:bg-purple-700 transition">
+                                        <i class="fas fa-tasks text-[8px] mr-1" aria-hidden="true"></i> Assign
+                                    </button>
+                                    <button class="px-2.5 py-1 bg-white text-purple-600 rounded text-[9px] font-semibold border border-purple-200 hover:bg-purple-50 transition">
+                                        <i class="fas fa-times text-[8px] mr-1" aria-hidden="true"></i> Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <?php else: ?>
+
+                    <!-- HEALTH CENTER / DEFAULT ALERTS -->
 
                     <!-- Alert 1: Critical -->
                     <div class="p-3 bg-rose-50 border-l-4 border-rose-500 rounded-xl" role="alert">
@@ -1249,13 +1392,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
 
+                    <?php endif; ?>
+
                 </div>
             </div>
 
             <!-- ============================================================ -->
-            <!-- COLUMN 3: Triage Status (Health Roles) / System Health (Admin)-->
+            <!-- COLUMN 3: Role-Specific Right Panel -->
             <!-- ============================================================ -->
-            <?php if (strcasecmp($currentRole, 'Health Center Director') === 0 || strcasecmp($currentRole, 'Doctor') === 0 || strcasecmp($currentRole, 'Nurse') === 0): ?>
+            <?php if ($_isHcRole): ?>
             <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
                 <div class="flex items-center justify-between mb-3 flex-shrink-0">
                     <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
@@ -1348,6 +1493,126 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
             <?php else: ?>
+            <?php if ($_isSanRole): ?>
+            <!-- SANITATION: Compliance & Permit Status Panel -->
+            <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
+                <div class="flex items-center justify-between mb-3 flex-shrink-0">
+                    <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
+                        <i class="fas fa-clipboard-check text-amber-500" aria-hidden="true"></i> Sanitation Compliance Status
+                        <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-bold flex items-center gap-1">
+                            <span class="w-1 h-1 rounded-full bg-emerald-500 animate-pulse2" aria-hidden="true"></span>
+                            <i class="fas fa-check-circle text-[8px]" aria-hidden="true"></i> Operational
+                        </span>
+                    </div>
+                    <a href="<?= site_url('modules/sanitation/permit_applications.php') ?>" class="text-[10px] text-c2 font-semibold hover:underline">
+                        View Permits <i class="fas fa-arrow-right text-[8px] ml-0.5"></i>
+                    </a>
+                </div>
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scroll">
+
+                    <!-- Permit Processing -->
+                    <div class="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-file-signature text-amber-600 text-sm" aria-hidden="true"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-amber-900">Permit Processing</p>
+                                    <p class="text-[10px] text-amber-700">156 active &bull; 3 pending approval</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-amber-500 text-white font-black text-xs rounded-lg shadow-sm">87%</span>
+                        </div>
+                        <div class="mt-2">
+                            <div class="w-full bg-amber-200 h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-amber-500 h-full rounded-full" style="width:87%"></div>
+                            </div>
+                            <p class="text-[9px] text-amber-700 mt-1"><i class="fas fa-clock mr-1"></i>Avg. processing: 3.2 days</p>
+                        </div>
+                    </div>
+
+                    <!-- Field Inspections -->
+                    <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-search text-emerald-600 text-sm" aria-hidden="true"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-emerald-900">Field Inspections</p>
+                                    <p class="text-[10px] text-emerald-700">89 completed &bull; 12 scheduled today</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-emerald-600 text-white font-black text-xs rounded-lg shadow-sm">90%</span>
+                        </div>
+                        <div class="mt-2">
+                            <div class="w-full bg-emerald-200 h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-emerald-500 h-full rounded-full" style="width:90%"></div>
+                            </div>
+                            <p class="text-[9px] text-emerald-700 mt-1"><i class="fas fa-map-marker-alt mr-1"></i>2 follow-ups pending &bull; 87 passing</p>
+                        </div>
+                    </div>
+
+                    <!-- Compliance Violations -->
+                    <div class="p-3 bg-rose-50 rounded-xl border border-rose-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-gavel text-rose-600 text-sm" aria-hidden="true"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-rose-900">Compliance Violations</p>
+                                    <p class="text-[10px] text-rose-700">5 corrective orders &bull; 2 unresolved</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-rose-600 text-white font-black text-xs rounded-lg shadow-sm">2 Open</span>
+                        </div>
+                        <div class="mt-1.5 text-[9px] text-rose-800 flex items-center justify-between border-t border-rose-200/60 pt-1.5">
+                            <span><i class="fas fa-exclamation-triangle mr-1"></i>Enforcement active</span>
+                            <span class="font-bold text-rose-900">3 Corrected</span>
+                        </div>
+                    </div>
+
+                    <!-- Wastewater & Septic -->
+                    <div class="p-3 bg-purple-50 rounded-xl border border-purple-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-water text-purple-600 text-sm" aria-hidden="true"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-purple-900">Wastewater & Septic</p>
+                                    <p class="text-[10px] text-purple-700">23 requests &bull; 1,284 registered tanks</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-purple-600 text-white font-black text-xs rounded-lg shadow-sm">5 Pending</span>
+                        </div>
+                        <div class="mt-1.5 text-[9px] text-purple-800 flex items-center justify-between border-t border-purple-200/60 pt-1.5">
+                            <span><i class="fas fa-flask mr-1"></i>Septic registry current</span>
+                            <span class="font-bold text-purple-900">+4.1% this month</span>
+                        </div>
+                    </div>
+
+                    <!-- Compliance Rate Summary -->
+                    <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-chart-line text-blue-600 text-xs"></i>
+                                <span class="text-xs font-bold text-slate-800">Overall Compliance Rate</span>
+                            </div>
+                            <span class="text-[10px] font-bold text-blue-600">92% Compliant</span>
+                        </div>
+                        <div class="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                            <div class="bg-blue-500 h-full rounded-full" style="width: 92%"></div>
+                        </div>
+                        <p class="text-[9px] text-slate-500 mt-1"><i class="fas fa-calendar mr-1"></i>This month vs. 88% last month</p>
+                    </div>
+
+                </div>
+            </div>
+            <?php elseif (hasPermission('dashboard.system_admin')): ?>
+            <!-- DEFAULT: System Health Status (Admin ONLY) -->
             <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
                 <div class="flex items-center justify-between mb-3 flex-shrink-0">
                     <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
@@ -1500,6 +1765,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
             <?php endif; ?>
+            <?php endif; ?>
+
 
         </div>
 
@@ -1566,6 +1833,18 @@ document.addEventListener('DOMContentLoaded', function() {
        <!-- ============================================================ -->
 <!-- QUICK ACTION BAR - Right Aligned with Clean Animation        -->
 <!-- ============================================================ -->
+<?php
+use App\Constants\Permissions;
+
+$hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
+    || hasPermission(Permissions::PERMITS_CREATE)
+    || hasPermission(Permissions::IMMUNIZATION_CREATE)
+    || hasPermission(Permissions::COMPLIANCE_VIEW)
+    || hasPermission(Permissions::INSPECTIONS_CONDUCT)
+    || hasPermission(Permissions::REPORTS_VIEW);
+?>
+
+<?php if ($hasAnyQuickAction): ?>
 <div id="bottomActionBar" 
       class="fixed bottom-6 left-1/2 z-40 hidden lg:block transition-all duration-500 ease-out"
      style="opacity: 0 !important; transform: translateX(-50%) translateY(30px) !important; margin-left: 200px; pointer-events: none !important;">
@@ -1584,7 +1863,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             <div class="w-px h-6 bg-slate-200/60 mx-0.5"></div>
             
-            <!-- Action 1: New Patient -->
+            <!-- Action 1: New Patient (RBAC Guarded) -->
+            <?php if (hasPermission(Permissions::PATIENTS_CREATE)): ?>
             <button onclick="openModal('new-patient')" 
                     class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-emerald-50 transition-all duration-200"
                     aria-label="Register new patient"
@@ -1596,8 +1876,10 @@ document.addEventListener('DOMContentLoaded', function() {
                    New Patient
                 </span>
             </button>
+            <?php endif; ?>
             
-            <!-- Action 2: New Permit -->
+            <!-- Action 2: New Permit (RBAC Guarded) -->
+            <?php if (hasPermission(Permissions::PERMITS_CREATE)): ?>
             <button onclick="openModal('new-permit')" 
                     class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-amber-50 transition-all duration-200"
                     aria-label="Issue new sanitation permit"
@@ -1609,8 +1891,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   New Permit
                 </span>
             </button>
+            <?php endif; ?>
             
-            <!-- Action 3: Vaccinate (Highlighted) -->
+            <!-- Action 3: Vaccinate (RBAC Guarded - Highlighted) -->
+            <?php if (hasPermission(Permissions::IMMUNIZATION_CREATE)): ?>
             <button onclick="openModal('vaccinate')" 
                     class="action-btn group relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg shadow-blue-200 transition-all duration-200 group hover:scale-105 -my-0.5"
                     aria-label="Record vaccination"
@@ -1623,8 +1907,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 </span>
                 <span class="absolute -top-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-pulse2"></span>
             </button>
+            <?php endif; ?>
             
-            <!-- Action 4: Report Case -->
+            <!-- Action 4: Report Case (RBAC Guarded) -->
+            <?php if (hasPermission(Permissions::COMPLIANCE_VIEW)): ?>
             <button onclick="openModal('report-case')" 
                     class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-rose-50 transition-all duration-200"
                     aria-label="Report new health case"
@@ -1633,11 +1919,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="fas fa-flag text-rose-600 text-xs" aria-hidden="true"></i>
                 </div>
                 <span class="action-label text-[9px] font-medium text-slate-700 group-hover:text-rose-700 transition-all duration-300 max-w-0 opacity-0 group-hover:max-w-[60px] group-hover:opacity-100 overflow-hidden whitespace-nowrap">
-                   flag Report
+                   Flag Report
                 </span>
             </button>
+            <?php endif; ?>
             
-            <!-- Action 5: Schedule -->
+            <!-- Action 5: Schedule (RBAC Guarded) -->
+            <?php if (hasPermission(Permissions::INSPECTIONS_CONDUCT)): ?>
             <button onclick="openModal('schedule')" 
                     class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-purple-50 transition-all duration-200"
                     aria-label="Schedule inspection"
@@ -1649,10 +1937,12 @@ document.addEventListener('DOMContentLoaded', function() {
                    New Schedule
                 </span>
             </button>
+            <?php endif; ?>
             
+            <?php if (hasPermission(Permissions::REPORTS_VIEW)): ?>
             <div class="w-px h-6 bg-slate-200/60 mx-0.5"></div>
             
-            <!-- Action 6: More (Dropdown) -->
+            <!-- Action 6: More (Dropdown RBAC Guarded) -->
             <div class="relative">
                 <button onclick="toggleDesktopMenu()" 
                         class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-slate-100 transition-all duration-200"
@@ -1668,7 +1958,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="fas fa-chevron-down text-[7px] text-slate-400 ml-0.5" aria-hidden="true"></i>
                 </button>
                 
-                <!-- Dropdown Menu - Adjusted for right alignment -->
+                <!-- Dropdown Menu -->
                 <div id="desktopMoreMenu" 
                      class="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 min-w-[180px] hidden opacity-0 scale-95 transition-all duration-200"
                      style="transform-origin: bottom right;">
@@ -1686,7 +1976,50 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
         </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<!-- QUICK ACTION MODAL OVERLAY -->
+<div id="quickActionModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden transform transition-all duration-300 scale-95 opacity-0" id="quickActionModalBox">
+        
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <div class="flex items-center space-x-3">
+                <div id="quickActionModalIconContainer" class="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-100 text-emerald-600">
+                    <i id="quickActionModalIcon" class="fas fa-plus text-sm"></i>
+                </div>
+                <div>
+                    <h3 id="quickActionModalTitle" class="text-base font-bold text-slate-800">Quick Action</h3>
+                    <p id="quickActionModalSubtitle" class="text-xs text-slate-500">Fill in the required information to proceed</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeQuickActionModal()" class="w-8 h-8 rounded-lg hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 flex items-center justify-center transition">
+                <i class="fas fa-xmark text-sm"></i>
+            </button>
+        </div>
+
+        <!-- Modal Body (Dynamic Form) -->
+        <form id="quickActionForm" onsubmit="handleQuickActionSubmit(event)" class="p-6 space-y-4">
+            <input type="hidden" id="quickActionType" name="action_type" value="" />
+            
+            <div id="quickActionDynamicFields" class="space-y-4">
+                <!-- Dynamic form fields injected here -->
+            </div>
+
+            <!-- Modal Footer Buttons -->
+            <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
+                <button type="button" onclick="closeQuickActionModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                    Cancel
+                </button>
+                <button type="submit" id="quickActionSubmitBtn" class="px-5 py-2 text-xs font-semibold text-white bg-brand-medium hover:bg-brand-dark rounded-xl shadow-md transition flex items-center space-x-2">
+                    <span id="quickActionSubmitText">Submit Request</span>
+                </button>
+            </div>
+        </form>
     </div>
 </div>     
        
@@ -1786,20 +2119,270 @@ document.addEventListener('keydown', e => {
         showToast('All notifications marked as read', 'success');
     }
 
-    // ===== MODAL HANDLER =====
+    // ===== DYNAMIC QUICK ACTION MODAL & RBAC SYSTEM =====
+    window.USER_PERMISSIONS = <?= json_encode(getUserGrantedPermissions()) ?>;
+    window.IS_ADMIN = <?= (hasPermission(App\Constants\Permissions::ROLES_MANAGE) || getPermissionService()->isAdminRole($_SESSION['role'] ?? '')) ? 'true' : 'false' ?>;
+
+    const QUICK_ACTION_SCHEMAS = {
+        'new-patient': {
+            title: 'Register New Patient',
+            subtitle: 'Add a new patient profile to Health Center Services',
+            icon: 'fas fa-user-plus text-emerald-600',
+            color: 'bg-emerald-100 text-emerald-600',
+            submitText: 'Save Patient Profile',
+            permission: 'patients.create',
+            fields: `
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-600">Full Name</label>
+                    <input type="text" name="full_name" required placeholder="e.g. Maria Clara Santos" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-brand-medium outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Birth Date</label>
+                        <input type="date" name="birth_date" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-brand-medium outline-none">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Gender</label>
+                        <select name="gender" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-brand-medium outline-none">
+                            <option value="Female">Female</option>
+                            <option value="Male">Male</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-600">Contact Number</label>
+                    <input type="text" name="contact" placeholder="0917-000-0000" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-brand-medium outline-none">
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-600">Barangay / Address</label>
+                    <input type="text" name="address" placeholder="Barangay 1, City Center" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-brand-medium outline-none">
+                </div>
+            `
+        },
+        'new-permit': {
+            title: 'Issue Sanitation Permit',
+            subtitle: 'Create a new business sanitation permit application',
+            icon: 'fas fa-file-circle-plus text-amber-600',
+            color: 'bg-amber-100 text-amber-600',
+            submitText: 'Submit Application',
+            permission: 'permits.create',
+            fields: `
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-600">Establishment Name</label>
+                    <input type="text" name="establishment" required placeholder="e.g. City Health Diner & Grill" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none">
+                </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-600">Owner Name</label>
+                    <input type="text" name="owner" required placeholder="Juan Dela Cruz" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Business Category</label>
+                        <select name="category" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none">
+                            <option value="Food Establishment">Food Establishment</option>
+                            <option value="Service Industry">Service Industry</option>
+                            <option value="Industrial & Water">Industrial & Water</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Contact Number</label>
+                        <input type="text" name="contact" placeholder="0917-123-4567" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none">
+                    </div>
+                </div>
+            `
+        },
+        'vaccinate': {
+            title: 'Record Vaccination',
+            subtitle: 'Log immunization dose for child or adult patient',
+            icon: 'fas fa-syringe text-blue-600',
+            color: 'bg-blue-100 text-blue-600',
+            submitText: 'Record Dose',
+            permission: 'immunization.create',
+            fields: `
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-600">Patient Name / ID</label>
+                    <input type="text" name="patient_name" required placeholder="Patient Name or ID" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Vaccine Type</label>
+                        <select name="vaccine" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+                            <option value="BCG">BCG</option>
+                            <option value="Hepatitis B">Hepatitis B</option>
+                            <option value="Pentavalent">Pentavalent (DPT-HepB-Hib)</option>
+                            <option value="OPV/IPV">Polio (OPV / IPV)</option>
+                            <option value="MMR">Measles, Mumps, Rubella (MMR)</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Dose Number</label>
+                        <select name="dose" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+                            <option value="Dose 1">Dose 1</option>
+                            <option value="Dose 2">Dose 2</option>
+                            <option value="Dose 3">Dose 3</option>
+                            <option value="Booster 1">Booster 1</option>
+                        </select>
+                    </div>
+                </div>
+            `
+        },
+        'report-case': {
+            title: 'Report Health Case',
+            subtitle: 'Flag disease outbreak or health surveillance case',
+            icon: 'fas fa-flag text-rose-600',
+            color: 'bg-rose-100 text-rose-600',
+            submitText: 'File Case Report',
+            permission: 'compliance.view',
+            fields: `
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-600">Case Condition / Disease</label>
+                    <input type="text" name="disease" required placeholder="e.g. Dengue, Acute Gastroenteritis" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-rose-500 outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Barangay Location</label>
+                        <input type="text" name="location" required placeholder="Barangay 5" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-rose-500 outline-none">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Severity Level</label>
+                        <select name="severity" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-rose-500 outline-none">
+                            <option value="Low">Low Risk</option>
+                            <option value="Medium">Medium Alert</option>
+                            <option value="High">High Outbreak Alert</option>
+                        </select>
+                    </div>
+                </div>
+            `
+        },
+        'schedule': {
+            title: 'Schedule Sanitation Inspection',
+            subtitle: 'Assign field inspector for facility compliance audit',
+            icon: 'fas fa-calendar-plus text-purple-600',
+            color: 'bg-purple-100 text-purple-600',
+            submitText: 'Schedule Audit',
+            permission: 'inspections.conduct',
+            fields: `
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-600">Facility / Business Name</label>
+                    <input type="text" name="facility" required placeholder="Facility Name" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Inspection Date</label>
+                        <input type="date" name="date" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Inspector Assigned</label>
+                        <input type="text" name="inspector" placeholder="Sanitation Inspector Name" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none">
+                    </div>
+                </div>
+            `
+        },
+        'report': {
+            title: 'Generate Custom Report',
+            subtitle: 'Compile departmental summary & export analytics',
+            icon: 'fas fa-file-pdf text-indigo-600',
+            color: 'bg-indigo-100 text-indigo-600',
+            submitText: 'Generate & Download',
+            permission: 'reports.view',
+            fields: `
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-600">Report Scope</label>
+                    <select name="report_type" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
+                        <option value="Health Services Summary">Health Services & Patient Census</option>
+                        <option value="Sanitation Permits Issued">Sanitation Permits & Compliance</option>
+                        <option value="Immunization Coverage">Immunization & Growth Tracking</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Format</label>
+                        <select name="format" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
+                            <option value="PDF Document">PDF Document</option>
+                            <option value="Excel Spreadsheet">Excel Spreadsheet (.xlsx)</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-600">Period</label>
+                        <select name="period" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
+                            <option value="This Month">This Month</option>
+                            <option value="This Quarter">This Quarter</option>
+                            <option value="Year-to-Date">Year-to-Date</option>
+                        </select>
+                    </div>
+                </div>
+            `
+        },
+        'export-data': {
+            title: 'Export Data Records',
+            subtitle: 'Download raw CSV/JSON dataset for offline archiving',
+            icon: 'fas fa-download text-emerald-600',
+            color: 'bg-emerald-100 text-emerald-600',
+            submitText: 'Download Dataset',
+            permission: 'reports.view',
+            fields: `
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-600">Dataset Scope</label>
+                    <select name="dataset" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 outline-none">
+                        <option value="Patients Masterlist">Patients Masterlist</option>
+                        <option value="Sanitation Permit Registry">Sanitation Permit Registry</option>
+                        <option value="Vaccination Logs">Vaccination Logs</option>
+                    </select>
+                </div>
+            `
+        }
+    };
+
     function openModal(modalId) {
-        const modalNames = {
-            'new-patient': 'Register New Patient',
-            'new-permit': 'Issue New Sanitation Permit',
-            'vaccinate': 'Record Vaccination',
-            'report-case': 'Report New Health Case',
-            'schedule': 'Schedule Inspection',
-            'report': 'Generate Report',
-            'export-data': 'Export Data',
-            'bulk-action': 'Bulk Actions',
-            'settings': 'Settings'
-        };
-        showToast(`Opening: ${modalNames[modalId] || modalId}`, 'info');
+        const schema = QUICK_ACTION_SCHEMAS[modalId];
+        if (!schema) return;
+
+        // Client-side RBAC Permission Guard
+        if (!window.IS_ADMIN && schema.permission && !window.USER_PERMISSIONS.includes(schema.permission)) {
+            showToast(`Access Denied: You do not have permission [${schema.permission}] to perform this action.`, 'error');
+            return;
+        }
+
+        // Render Dynamic Modal Content
+        document.getElementById('quickActionType').value = modalId;
+        document.getElementById('quickActionModalTitle').textContent = schema.title;
+        document.getElementById('quickActionModalSubtitle').textContent = schema.subtitle;
+        document.getElementById('quickActionSubmitText').textContent = schema.submitText;
+        document.getElementById('quickActionModalIcon').className = schema.icon;
+        document.getElementById('quickActionModalIconContainer').className = `w-9 h-9 rounded-xl flex items-center justify-center ${schema.color}`;
+        document.getElementById('quickActionDynamicFields').innerHTML = schema.fields;
+
+        const modal = document.getElementById('quickActionModal');
+        const box = document.getElementById('quickActionModalBox');
+        if (!modal || !box) return;
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            box.classList.remove('opacity-0', 'scale-95');
+            box.classList.add('opacity-100', 'scale-100');
+        }, 20);
+    }
+
+    function closeQuickActionModal() {
+        const modal = document.getElementById('quickActionModal');
+        const box = document.getElementById('quickActionModalBox');
+        if (!modal || !box) return;
+
+        box.classList.remove('opacity-100', 'scale-100');
+        box.classList.add('opacity-0', 'scale-95');
+        setTimeout(() => {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }, 200);
+    }
+
+    function handleQuickActionSubmit(event) {
+        event.preventDefault();
+        const actionId = document.getElementById('quickActionType').value;
+        const schema = QUICK_ACTION_SCHEMAS[actionId];
+        showToast(`Successfully submitted: ${schema ? schema.title : 'Quick Action'}`, 'success');
+        closeQuickActionModal();
     }
 
     // ===== REAL-TIME DATA AGE COUNTER =====

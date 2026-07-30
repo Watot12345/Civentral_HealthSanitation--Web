@@ -4,6 +4,7 @@
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
+requireDepartmentAccess('health center services');
 
 require_once __DIR__ . '/../../app/Models/Referral.php';
 require_once __DIR__ . '/../../app/Models/Patient.php';

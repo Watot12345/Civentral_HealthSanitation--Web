@@ -26,6 +26,9 @@ try {
     $roleModel = new Role();
     $logModel = new ActivityLog();
 
+    $isSystemAdmin = hasPermission(App\Constants\Permissions::ROLES_MANAGE) || getPermissionService()->isAdminRole($_SESSION['role'] ?? '');
+    $userDept = getDepartmentResolver()->resolveDepartmentName();
+
     switch ($action) {
 
         // ==========================================================
@@ -45,6 +48,22 @@ try {
                 $response = ['success' => false, 'message' => 'Full name and password are required.'];
                 break;
             }
+
+            // Departmental Scoping Guard: Non-admin department heads can only create users in their department
+            if (!$isSystemAdmin && !empty($userDept)) {
+                $submittedDept = trim($_POST['department'] ?? '');
+                if (!empty($submittedDept) && strcasecmp($submittedDept, $userDept) !== 0) {
+                    $response = ['success' => false, 'message' => "Access Denied: You cannot create users for another department ({$submittedDept}). Your department is {$userDept}."];
+                    break;
+                }
+                $department = $userDept;
+                $targetRoleName = $roleDescription ?: $role;
+                if (!getDepartmentResolver()->isRoleInDepartment($targetRoleName, $userDept)) {
+                    $response = ['success' => false, 'message' => "Access Denied: You can only register position roles within your department ({$userDept})."];
+                    break;
+                }
+            }
+
 
             if (empty($username)) {
                 $username = $employeeModel->generateNextEmployeeId($role, $department);
@@ -81,7 +100,7 @@ try {
             // Log activity
             $logModel->log("Created user: {$fullName}", [
                 'module'  => 'User Management',
-                'details' => "Username: {$username}, Role: {$role}",
+                'details' => "Username: {$username}, Role: {$role}, Dept: {$department}",
             ]);
 
             $response = ['success' => true, 'message' => 'User registered successfully!', 'data' => $result];
@@ -110,6 +129,27 @@ try {
                 $response = ['success' => false, 'message' => 'User ID, full name, and username are required.'];
                 break;
             }
+
+            // Departmental Scoping Guard: Non-admin department heads can only edit users within their department
+            if (!$isSystemAdmin && !empty($userDept)) {
+                $submittedDept = trim($_POST['department'] ?? '');
+                if (!empty($submittedDept) && !canAccessDepartment($submittedDept)) {
+                    $response = ['success' => false, 'message' => "Access Denied: You cannot reassign users to a different department ({$submittedDept}). Your department is {$userDept}."];
+                    break;
+                }
+
+                $targetUser = $employeeModel->find($id);
+                if (!empty($targetUser)) {
+                    $targetDept = trim($targetUser['department'] ?? '');
+                    $targetRole = trim($targetUser['role_description'] ?? $targetUser['role'] ?? '');
+                    if (!getDepartmentResolver()->isRoleInDepartment($targetRole, $userDept) && !canAccessDepartment($targetDept)) {
+                        $response = ['success' => false, 'message' => "Access Denied: You can only edit users within your department ({$userDept})."];
+                        break;
+                    }
+                }
+                $department = $userDept;
+            }
+
 
             $data = [
                 'full_name'        => $fullName,
@@ -144,19 +184,22 @@ try {
             $id = (int) ($_POST['user_id'] ?? 0);
             $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
             if ($id && $currentUserId && $id === $currentUserId) {
-                $response = ['success' => false, 'message' => 'You cannot delete your own logged-in account.'];
+                $response = ['success' => false, 'message' => 'You cannot delete your own account.'];
                 break;
             }
 
-            if (!$id) {
-                $response = ['success' => false, 'message' => 'User ID is required.'];
+            if (!$isSystemAdmin) {
+                $response = ['success' => false, 'message' => 'Access Denied: Only System Administrators are authorized to permanently delete employee accounts. Department Heads may set status to Inactive or Suspended instead.'];
                 break;
             }
 
-            // Get user name for log before deleting
             $user = $employeeModel->find($id);
-            $userName = $user['full_name'] ?? "ID {$id}";
+            if (empty($user)) {
+                $response = ['success' => false, 'message' => 'User not found.'];
+                break;
+            }
 
+            $userName = $user['full_name'] ?? "ID {$id}";
             $employeeModel->deleteById($id);
 
             $logModel->log("Deleted user: {$userName} (ID: {$id})", [
@@ -182,14 +225,28 @@ try {
                 break;
             }
 
-            $result = $employeeModel->toggleStatus($id);
-            $newStatus = $result['status'] ?? 'Unknown';
+            $user = $employeeModel->find($id);
+            if (!$isSystemAdmin && !empty($userDept) && !empty($user)) {
+                $targetDept = trim($user['department'] ?? '');
+                $targetRole = trim($user['role_description'] ?? $user['role'] ?? '');
+                if (!getDepartmentResolver()->isRoleInDepartment($targetRole, $userDept) && strcasecmp($targetDept, $userDept) !== 0) {
+                    $response = ['success' => false, 'message' => "Access Denied: You can only modify status for users within your department ({$userDept})."];
+                    break;
+                }
+            }
 
-            $logModel->log("Toggled user status to {$newStatus} (ID: {$id})", [
-                'module' => 'User Management',
+            $currentStatus = $user['status'] ?? 'Active';
+            $newStatus = ($currentStatus === 'Active') ? 'Inactive' : 'Active';
+
+            $employeeModel->updateById($id, ['status' => $newStatus]);
+
+            $userName = $user['full_name'] ?? "ID {$id}";
+            $logModel->log("Changed user status: {$userName} to {$newStatus}", [
+                'module'  => 'User Management',
+                'details' => "Status toggled from {$currentStatus} to {$newStatus}"
             ]);
 
-            $response = ['success' => true, 'message' => "Status changed to {$newStatus}.", 'data' => $result];
+            $response = ['success' => true, 'message' => "Status for {$userName} updated to {$newStatus}.", 'new_status' => $newStatus];
             break;
 
         // ==========================================================
@@ -204,8 +261,59 @@ try {
                 break;
             }
 
+            // Departmental Scoping & Escalation Protection Guard
+            if (!$isSystemAdmin && !empty($userDept)) {
+                $rolesList = $roleModel->all();
+                $targetRoleObj = null;
+                foreach ($rolesList as $r) {
+                    if ((int)($r['id'] ?? 0) === $roleId) {
+                        $targetRoleObj = $r;
+                        break;
+                    }
+                }
+
+                if ($targetRoleObj) {
+                    $targetRoleName = trim($targetRoleObj['name']);
+                    $actorRole = trim($_SESSION['role_description'] ?? $_SESSION['role'] ?? '');
+
+                    // 1. Department Boundary Check
+                    if (!getDepartmentResolver()->isRoleInDepartment($targetRoleName, $userDept)) {
+                        $response = ['success' => false, 'message' => "Access Denied: You can only modify permission matrices for position roles within your department ({$userDept})."];
+                        break;
+                    }
+
+                    // 2. Self-Role / Director-Role Privilege Edit Restriction
+                    if (strcasecmp($targetRoleName, $actorRole) === 0 || preg_match('/director|coordinator|lead/i', $targetRoleName)) {
+                        $response = ['success' => false, 'message' => "Access Denied: Department Heads cannot edit permissions for Director/Lead roles (including their own). Only subordinate roles may be modified."];
+                        break;
+                    }
+                }
+
+                // 3. Strip Administrative Escalation Slugs from non-admin grant attempts
+                $forbiddenSlugs = [
+                    \App\Constants\Permissions::ROLES_MANAGE,
+                    \App\Constants\Permissions::USERS_DELETE,
+                    \App\Constants\Permissions::SETTINGS_MANAGE,
+                    \App\Constants\Permissions::LOGS_VIEW,
+                    \App\Constants\Permissions::SYSTEM_ADMIN_DASHBOARD
+                ];
+                $allDbPerms = $roleModel->getPermissionsForRole($roleId);
+                $forbiddenIds = [];
+                foreach ($allDbPerms as $p) {
+                    if (in_array($p['slug'] ?? '', $forbiddenSlugs, true)) {
+                        $forbiddenIds[] = (int) $p['id'];
+                    }
+                }
+                $permissionIds = array_values(array_diff(array_map('intval', $permissionIds), $forbiddenIds));
+            }
+
+
             $roleModel->syncPermissions($roleId, $permissionIds);
-            unset($_SESSION['granted_permission_slugs']);
+
+            // Invalidate cache
+            if (class_exists('App\Services\PermissionService')) {
+                \App\Services\PermissionService::getInstance()->invalidateCache();
+            }
 
             // Resolve target role name for clear audit trail
             $targetRoleName = "Role ID #{$roleId}";
@@ -217,8 +325,8 @@ try {
                 }
             }
 
-            $actorName = $_SESSION['full_name'] ?? 'System Administrator';
-            $actorRole = $_SESSION['role_description'] ?? $_SESSION['role'] ?? 'System Administrator';
+            $actorName = $_SESSION['full_name'] ?? 'Department Director';
+            $actorRole = $_SESSION['role_description'] ?? $_SESSION['role'] ?? 'Department Director';
 
             $logModel->log("Updated permissions for role: {$targetRoleName}", [
                 'user_name' => $actorName,
@@ -242,10 +350,24 @@ try {
 
             $permissions = $roleModel->getPermissionsForRole($roleId);
 
-            // Group by module
+            // Group by module & filter sections for non-admin Department Heads
             $grouped = [];
+            $resolver = getDepartmentResolver();
+
             foreach ($permissions as $perm) {
                 $module = $perm['module'] ?? 'Other';
+
+                if (!$isSystemAdmin && !empty($userDept)) {
+                    $modLower = strtolower(trim($module));
+                    $isMainControls = ($modLower === 'main controls');
+                    $isSystemManagement = ($modLower === 'system management');
+                    $isOwnDept = ($resolver->normalizeDepartmentName($module) === $resolver->normalizeDepartmentName($userDept));
+
+                    if (!$isMainControls && !$isSystemManagement && !$isOwnDept) {
+                        continue;
+                    }
+                }
+
                 if (!isset($grouped[$module])) {
                     $grouped[$module] = [];
                 }
@@ -255,13 +377,22 @@ try {
             $response = ['success' => true, 'data' => $grouped];
             break;
 
+
         // ==========================================================
         // GET ALL DATA — Return users, roles, and logs for live refresh
         // ==========================================================
         case 'get_all_data':
-            $users = $employeeModel->all(['order' => 'created_at.desc']);
-            $roles = $roleModel->all();
+            $allUsers = $employeeModel->all(['order' => 'created_at.desc']);
+            $allRoles = $roleModel->all();
             $logs = $logModel->all(['limit' => 20, 'order' => 'created_at.desc']);
+
+            if (!$isSystemAdmin && !empty($userDept)) {
+                $users = getDepartmentResolver()->filterUsersForDepartment($allUsers, $userDept);
+                $roles = getDepartmentResolver()->filterRolesForDepartment($allRoles, $userDept);
+            } else {
+                $users = $allUsers;
+                $roles = $allRoles;
+            }
 
             $response = [
                 'success' => true,
@@ -277,6 +408,10 @@ try {
         // CLEAR LOGS — Delete all activity logs
         // ==========================================================
         case 'clear_logs':
+            if (!$isSystemAdmin) {
+                $response = ['success' => false, 'message' => 'Access Denied: Only System Administrators can clear activity logs.'];
+                break;
+            }
             $logModel->clearAll();
             $response = ['success' => true, 'message' => 'Activity logs cleared.'];
             break;
