@@ -209,6 +209,14 @@ try {
                         </option>
                     <?php endforeach; ?>
                 </select>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>From</span>
+                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>To</span>
+                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -530,10 +538,18 @@ try {
         const status = document.getElementById('filterStatus').value;
         const result = document.getElementById('filterResult').value;
         const inspector = document.getElementById('filterInspector').value;
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+            showToast('The start date cannot be after the end date', 'danger');
+            return null;
+        }
         if (q) params.set('q', q);
         if (status) params.set('status', status);
         if (result) params.set('result', result);
         if (inspector) params.set('inspector', inspector);
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
         return params;
     }
 
@@ -542,7 +558,9 @@ try {
             document.getElementById('searchInspection').value.trim() ||
             document.getElementById('filterStatus').value ||
             document.getElementById('filterResult').value ||
-            document.getElementById('filterInspector').value
+            document.getElementById('filterInspector').value ||
+            document.getElementById('filterDateFrom').value ||
+            document.getElementById('filterDateTo').value
         );
     }
 
@@ -553,6 +571,7 @@ try {
 
         try {
             const params = buildQueryParams(page);
+            if (!params) return;
             const res = await fetch(`${API_URL}?${params.toString()}`);
             const json = await res.json();
 
@@ -694,12 +713,17 @@ try {
     ['filterStatus', 'filterResult', 'filterInspector'].forEach(id => {
         document.getElementById(id).addEventListener('change', () => loadInspections(1));
     });
+    ['filterDateFrom', 'filterDateTo'].forEach(id => {
+        document.getElementById(id).addEventListener('change', () => loadInspections(1));
+    });
 
     function resetFilters() {
         document.getElementById('searchInspection').value = '';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterResult').value = '';
         document.getElementById('filterInspector').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         loadInspections(1);
     }
 

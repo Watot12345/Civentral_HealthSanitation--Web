@@ -282,7 +282,7 @@ $title = 'Patient Management';
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">First Name</label><input type="text" id="edit_first_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Name</label><input type="text" id="edit_last_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Email</label><input type="email" id="edit_email" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
-<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact Number</label><input type="text" id="edit_contact" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
+<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact Number</label><input type="text" id="edit_contact" required minlength="12" maxlength="12" pattern="[0-9]{12}" inputmode="numeric" placeholder="639XXXXXXXXX" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Gender</label><select id="edit_gender" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="Male">Male</option><option value="Female">Female</option></select></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Age</label><input type="number" id="edit_age" min="0" max="120" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Blood Type</label><select id="edit_blood_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><?php foreach(['O+','O-','A+','A-','B+','B-','AB+','AB-'] as $bt): ?><option value="<?php echo $bt; ?>"><?php echo $bt; ?></option><?php endforeach; ?></select></div>
@@ -305,7 +305,7 @@ $title = 'Patient Management';
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">First Name</label><input type="text" id="add_first_name" required class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Name</label><input type="text" id="add_last_name" required class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Email</label><input type="email" id="add_email" required class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
-<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact Number</label><input type="text" id="add_contact" required placeholder="09XXXXXXXXX" class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
+<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact Number</label><input type="text" id="add_contact" required minlength="12" maxlength="12" pattern="[0-9]{12}" inputmode="numeric" placeholder="639XXXXXXXXX" class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Gender</label><select id="add_gender" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="Male">Male</option><option value="Female">Female</option></select></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Age</label><input type="number" id="add_age" min="0" max="120" required class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Blood Type</label><select id="add_blood_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><?php foreach(['O+','O-','A+','A-','B+','B-','AB+','AB-'] as $bt): ?><option value="<?php echo $bt; ?>"><?php echo $bt; ?></option><?php endforeach; ?></select></div>
@@ -586,6 +586,11 @@ td .text-slate-600.maskable.masked::after {
         ModalSystem.toast.error('Please fill in all required fields (First Name, Last Name, Contact)');
         return;
     }
+
+    if (!/^\d{12}$/.test(contact)) {
+        ModalSystem.toast.error('Contact number must contain exactly 12 digits (example: 639171234567)');
+        return;
+    }
     
     console.log('📝 Add Patient Data:', {
         firstName,
@@ -696,6 +701,11 @@ td .text-slate-600.maskable.masked::after {
         const allergies = getRealVal('edit_allergies') || 'None';
         const conditions = getRealVal('edit_conditions') || 'None';
         const age = parseInt(document.getElementById('edit_age').value) || 0;
+
+        if (!/^\d{12}$/.test(contact)) {
+            ModalSystem.toast.error('Contact number must contain exactly 12 digits (example: 639171234567)');
+            return;
+        }
         
         // DEBUG: Log the real values being retrieved
         console.log('📝 Real values retrieved:', {
@@ -953,8 +963,9 @@ function prepAddPatientModal() {
     // ============================================================
     function initPatientValidation(){
         if(typeof ModalSystem==='undefined'||!ModalSystem.validateForm){ setTimeout(initPatientValidation,100); return; }
-        ModalSystem.validateForm('addPatientModal',{ fields:{ 'add_first_name':{label:'First Name'}, 'add_last_name':{label:'Last Name'}, 'add_email':{label:'Email'}, 'add_contact':{label:'Contact'}, 'add_age':{label:'Age'}, 'add_address':{label:'Address'} }, onSubmit:saveNewPatient });
-        ModalSystem.validateForm('editPatientModal',{ fields:{ 'edit_first_name':{label:'First Name'}, 'edit_last_name':{label:'Last Name'}, 'edit_email':{label:'Email'}, 'edit_contact':{label:'Contact'}, 'edit_age':{label:'Age'} }, onSubmit:saveEditedPatient });
+        const contactValidator = value => /^\d{12}$/.test(value) || 'Contact number must contain exactly 12 digits';
+        ModalSystem.validateForm('addPatientModal',{ fields:{ 'add_first_name':{label:'First Name'}, 'add_last_name':{label:'Last Name'}, 'add_email':{label:'Email'}, 'add_contact':{label:'Contact', validator:contactValidator}, 'add_age':{label:'Age'}, 'add_address':{label:'Address'} }, onSubmit:saveNewPatient });
+        ModalSystem.validateForm('editPatientModal',{ fields:{ 'edit_first_name':{label:'First Name'}, 'edit_last_name':{label:'Last Name'}, 'edit_email':{label:'Email'}, 'edit_contact':{label:'Contact', validator:contactValidator}, 'edit_age':{label:'Age'} }, onSubmit:saveEditedPatient });
         console.log('✅ Patient form validation initialized');
     }
     if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',initPatientValidation); }else{ initPatientValidation(); }

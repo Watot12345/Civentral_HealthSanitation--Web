@@ -213,6 +213,14 @@ $limit = 5;
                     <option value="bank_transfer">Bank Transfer</option>
                     <option value="over_the_counter">Over-the-Counter</option>
                 </select>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>From</span>
+                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>To</span>
+                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -287,7 +295,7 @@ $limit = 5;
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Amount</label>
-                <input type="number" id="payment_amount" required step="0.01" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none maskable">
+                <input type="number" id="payment_amount" required min="0.01" max="1000000" step="0.01" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none maskable">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Method</label>
@@ -491,7 +499,14 @@ async function loadPayments(page = currentPage) {
             status: document.getElementById('filterStatus').value,
             method: document.getElementById('filterMethod').value,
             search: document.getElementById('searchPayment').value,
+            date_from: document.getElementById('filterDateFrom').value,
+            date_to: document.getElementById('filterDateTo').value,
         };
+
+        if (filters.date_from && filters.date_to && filters.date_from > filters.date_to) {
+            showToast('The start date cannot be after the end date', 'danger');
+            return;
+        }
 
         const result = await paymentApi.getPayments(filters);
         totalPages = result.total_pages || 1;
@@ -511,6 +526,8 @@ function hasActiveFilters() {
         document.getElementById('searchPayment').value.trim() ||
         document.getElementById('filterStatus').value ||
         document.getElementById('filterMethod').value
+        || document.getElementById('filterDateFrom').value
+        || document.getElementById('filterDateTo').value
     );
 }
 
@@ -852,6 +869,11 @@ async function savePayment(event) {
         reference_number: document.getElementById('payment_reference').value || null,
         notes: document.getElementById('payment_notes').value || null
     };
+
+    if (!Number.isFinite(data.amount) || data.amount < 0.01 || data.amount > 1000000) {
+        showToast('Amount must be between ₱0.01 and ₱1,000,000.00', 'danger');
+        return;
+    }
     
     try {
         await paymentApi.createPayment(data);
@@ -972,11 +994,15 @@ document.getElementById('searchPayment').addEventListener('input', function() {
 
 document.getElementById('filterStatus').addEventListener('change', () => loadPayments(1));
 document.getElementById('filterMethod').addEventListener('change', () => loadPayments(1));
+document.getElementById('filterDateFrom').addEventListener('change', () => loadPayments(1));
+document.getElementById('filterDateTo').addEventListener('change', () => loadPayments(1));
 
 function resetFilters() {
     document.getElementById('searchPayment').value = '';
     document.getElementById('filterStatus').value = '';
     document.getElementById('filterMethod').value = '';
+    document.getElementById('filterDateFrom').value = '';
+    document.getElementById('filterDateTo').value = '';
     loadPayments(1);
 }
 

@@ -41,13 +41,26 @@ class Payment
             // Also search by permit applicant name
             $options['select'] = '*,permits!inner(applicant)';
         }
+        $dateFrom = $filters['date_from'] ?? '';
+        $dateTo = $filters['date_to'] ?? '';
 
-        // Get total count
-        $total = $this->db->count('payments', $apiFilters);
-        
-        // Get paginated results with permit info
         $options['select'] = $options['select'] ?? '*,permits(permit_id,applicant,business_name)';
-        $payments = $this->db->select('payments', $apiFilters, $options);
+
+        if ($dateFrom || $dateTo) {
+            // Fetch the filtered base set first because the query builder cannot
+            // represent two bounds for the same column in one filter array.
+            unset($options['offset'], $options['limit']);
+            $allPayments = $this->db->select('payments', $apiFilters, $options);
+            $payments = array_values(array_filter($allPayments, function (array $payment) use ($dateFrom, $dateTo): bool {
+                $paymentDate = substr((string)($payment['created_at'] ?? ''), 0, 10);
+                return (!$dateFrom || $paymentDate >= $dateFrom) && (!$dateTo || $paymentDate <= $dateTo);
+            }));
+            $total = count($payments);
+            $payments = array_slice($payments, ($page - 1) * $limit, $limit);
+        } else {
+            $total = $this->db->count('payments', $apiFilters);
+            $payments = $this->db->select('payments', $apiFilters, $options);
+        }
 
         return [
             'payments' => $payments,

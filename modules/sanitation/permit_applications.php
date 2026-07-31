@@ -92,6 +92,14 @@ $title = 'Permit Applications';
                     <option value="Agricultural">Agricultural</option>
                     <option value="Office/Commercial">Office/Commercial</option>
                 </select>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>From</span>
+                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>To</span>
+                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -191,7 +199,7 @@ $title = 'Permit Applications';
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
-                    <input type="text" id="permit_contact" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <input type="text" id="permit_contact" required minlength="12" maxlength="12" pattern="[0-9]{12}" inputmode="numeric" placeholder="639XXXXXXXXX" class="permit-contact w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Email</label>
@@ -350,7 +358,7 @@ $title = 'Permit Applications';
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
-                    <input type="text" id="edit_contact" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <input type="text" id="edit_contact" required minlength="12" maxlength="12" pattern="[0-9]{12}" inputmode="numeric" placeholder="639XXXXXXXXX" class="permit-contact w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Email</label>
@@ -599,11 +607,20 @@ async function loadPermits(page = 1) {
     const search = document.getElementById('searchPermit').value;
     const status = document.getElementById('filterStatus').value;
     const type = document.getElementById('filterType').value;
+    const dateFrom = document.getElementById('filterDateFrom').value;
+    const dateTo = document.getElementById('filterDateTo').value;
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+        ModalSystem.toast.error('The start date cannot be after the end date');
+        return;
+    }
 
     let url = API_BASE + '?page=' + page + '&limit=' + PAGE_LIMIT;
     if (search) url += '&q=' + encodeURIComponent(search);
     if (status) url += '&status=' + encodeURIComponent(status);
     if (type) url += '&type=' + encodeURIComponent(type);
+    if (dateFrom) url += '&date_from=' + encodeURIComponent(dateFrom);
+    if (dateTo) url += '&date_to=' + encodeURIComponent(dateTo);
 
     try {
         const result = await apiRequest(url);
@@ -640,8 +657,10 @@ function renderTable(permits) {
     const search = document.getElementById('searchPermit').value;
     const status = document.getElementById('filterStatus').value;
     const type = document.getElementById('filterType').value;
+    const dateFrom = document.getElementById('filterDateFrom').value;
+    const dateTo = document.getElementById('filterDateTo').value;
 
-    const hasActiveFilters = search || status || type;
+    const hasActiveFilters = search || status || type || dateFrom || dateTo;
 
     if (permits.length === 0) {
         tbody.innerHTML = '';
@@ -787,11 +806,21 @@ function changePage(page) {
 document.getElementById('searchPermit').addEventListener('input', debounce(() => loadPermits(1), 300));
 document.getElementById('filterStatus').addEventListener('change', () => loadPermits(1));
 document.getElementById('filterType').addEventListener('change', () => loadPermits(1));
+document.getElementById('filterDateFrom').addEventListener('change', () => loadPermits(1));
+document.getElementById('filterDateTo').addEventListener('change', () => loadPermits(1));
+
+document.addEventListener('input', event => {
+    if (event.target.matches('.permit-contact')) {
+        event.target.value = event.target.value.replace(/\D/g, '').slice(0, 12);
+    }
+});
 
 function resetFilters() {
     document.getElementById('searchPermit').value = '';
     document.getElementById('filterStatus').value = '';
     document.getElementById('filterType').value = '';
+    document.getElementById('filterDateFrom').value = '';
+    document.getElementById('filterDateTo').value = '';
     loadPermits(1);
 }
 
@@ -1066,6 +1095,10 @@ document.getElementById('newPermitForm').addEventListener('submit', async functi
         ModalSystem.toast.error('Please fill in all required fields');
         return;
     }
+    if (!/^\d{12}$/.test(data.contact)) {
+        ModalSystem.toast.error('Contact number must contain exactly 12 digits');
+        return;
+    }
 
     try {
         const result = await apiRequest(API_BASE, {
@@ -1127,6 +1160,10 @@ document.getElementById('editPermitForm').addEventListener('submit', async funct
 
     if (!data.applicant || !data.owner_name || !data.business_type || !data.address || !data.contact || data.fee <= 0) {
         ModalSystem.toast.error('Please fill in all required fields');
+        return;
+    }
+    if (!/^\d{12}$/.test(data.contact)) {
+        ModalSystem.toast.error('Contact number must contain exactly 12 digits');
         return;
     }
 

@@ -384,7 +384,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date <span class="text-rose-500">*</span></label><input type="date" id="add_date" value="<?php echo date('Y-m-d'); ?>" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Time <span class="text-rose-500">*</span></label><input type="time" id="add_time" value="<?php echo date('H:i'); ?>" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Chief Complaints / Symptoms</label><input type="text" id="add_symptoms" placeholder="e.g., Fever, persistent cough, headache" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Diagnosis <span class="text-rose-500">*</span></label><input type="text" id="add_diagnosis" required placeholder="Primary diagnosis" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ICD-10 Code</label><input type="text" id="add_icd_code" placeholder="e.g., J06.9, I10" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none font-mono uppercase"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="add_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="referred">Referred</option><option value="follow_up">Follow-up Needed</option></select></div></div>
-<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50"><label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1.5"><i class="fa-solid fa-heart-pulse text-rose-500"></i> Vital Signs (Optional)</label><div class="grid grid-cols-2 sm:grid-cols-4 gap-3"><div><span class="text-[10px] text-slate-500">BP (mmHg)</span><input type="text" id="add_bp" placeholder="120/80" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Heart Rate (bpm)</span><input type="text" id="add_hr" placeholder="72" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Temp (°C)</span><input type="text" id="add_temp" placeholder="36.5" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Weight (kg)</span><input type="text" id="add_weight" placeholder="65" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div></div></div>
+<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50"><label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1.5"><i class="fa-solid fa-heart-pulse text-rose-500"></i> Vital Signs (Optional)</label><div class="grid grid-cols-2 sm:grid-cols-4 gap-3"><div><span class="text-[10px] text-slate-500">BP (mmHg)</span><input type="text" id="add_bp" maxlength="7" pattern="[0-9]{2,3}/[0-9]{2,3}" inputmode="numeric" placeholder="120/80" class="vital-bp w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Heart Rate (bpm)</span><input type="text" id="add_hr" maxlength="3" inputmode="numeric" placeholder="72" class="vital-number w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Temp (°C)</span><input type="text" id="add_temp" maxlength="5" inputmode="decimal" placeholder="36.5" class="vital-decimal w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Weight (kg)</span><input type="text" id="add_weight" maxlength="5" inputmode="decimal" placeholder="65" class="vital-decimal w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div></div></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Treatment Plan & Prescriptions</label><textarea id="add_treatment_plan" rows="2" placeholder="Medications prescribed, rest, lab tests ordered..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></textarea></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Follow-up Date</label><input type="date" id="add_follow_up_date" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Clinical Notes</label><input type="text" id="add_notes" placeholder="Additional observations" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
 <div class="flex justify-end gap-2 pt-3 border-t border-slate-100"><button type="button" onclick="ModalSystem.close('addConsultationModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button><button type="submit" id="submitAddBtn" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5"><i class="fa-solid fa-check"></i> Save Consultation</button></div>
@@ -399,7 +399,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label><input type="date" id="edit_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Time</label><input type="time" id="edit_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Symptoms</label><input type="text" id="edit_symptoms" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Diagnosis</label><input type="text" id="edit_diagnosis" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ICD-10 Code</label><input type="text" id="edit_icd_code" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none font-mono uppercase"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="referred">Referred</option><option value="follow_up">Follow-up Needed</option></select></div></div>
-<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50"><label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1.5"><i class="fa-solid fa-heart-pulse text-rose-500"></i> Vital Signs</label><div class="grid grid-cols-2 sm:grid-cols-4 gap-3"><div><span class="text-[10px] text-slate-500">BP (mmHg)</span><input type="text" id="edit_bp" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Heart Rate (bpm)</span><input type="text" id="edit_hr" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Temp (°C)</span><input type="text" id="edit_temp" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Weight (kg)</span><input type="text" id="edit_weight" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div></div></div>
+<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50"><label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1.5"><i class="fa-solid fa-heart-pulse text-rose-500"></i> Vital Signs</label><div class="grid grid-cols-2 sm:grid-cols-4 gap-3"><div><span class="text-[10px] text-slate-500">BP (mmHg)</span><input type="text" id="edit_bp" maxlength="7" pattern="[0-9]{2,3}/[0-9]{2,3}" inputmode="numeric" placeholder="120/80" class="vital-bp w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Heart Rate (bpm)</span><input type="text" id="edit_hr" maxlength="3" inputmode="numeric" placeholder="72" class="vital-number w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Temp (°C)</span><input type="text" id="edit_temp" maxlength="5" inputmode="decimal" placeholder="36.5" class="vital-decimal w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Weight (kg)</span><input type="text" id="edit_weight" maxlength="5" inputmode="decimal" placeholder="65" class="vital-decimal w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div></div></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Treatment Plan</label><textarea id="edit_treatment_plan" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></textarea></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Follow-up Date</label><input type="date" id="edit_follow_up_date" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Clinical Notes</label><input type="text" id="edit_notes" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
 <div class="flex justify-end gap-2 pt-3 border-t border-slate-100"><button type="button" onclick="ModalSystem.close('editConsultationModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button><button type="submit" id="submitEditBtn" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5"><i class="fa-solid fa-check"></i> Save Changes</button></div>
@@ -499,16 +499,56 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     // ============================================================
     // ADD CONSULTATION
     // ============================================================
+    function validateVitalSigns({ bp, hr, temp, weight }) {
+        if (bp && !/^\d{2,3}\/\d{2,3}$/.test(bp)) return 'Blood pressure must use the format 120/80';
+        if (bp) {
+            const [systolic, diastolic] = bp.split('/').map(Number);
+            if (systolic < 50 || systolic > 300 || diastolic < 30 || diastolic > 200) {
+                return 'Blood pressure must be between 50/30 and 300/200 mmHg';
+            }
+        }
+        if (hr && (!/^\d+$/.test(hr) || Number(hr) < 20 || Number(hr) > 250)) {
+            return 'Heart rate must be between 20 and 250 bpm';
+        }
+        if (temp && (!/^\d+(\.\d{1,2})?$/.test(temp) || Number(temp) < 25 || Number(temp) > 45)) {
+            return 'Temperature must be between 25 and 45 °C';
+        }
+        if (weight && (!/^\d+(\.\d{1,2})?$/.test(weight) || Number(weight) < 0.1 || Number(weight) > 500)) {
+            return 'Weight must be between 0.1 and 500 kg';
+        }
+        return null;
+    }
+
+    document.addEventListener('input', event => {
+        const input = event.target;
+        if (input.matches('.vital-bp')) {
+            input.value = input.value.replace(/[^\d/]/g, '').slice(0, 7);
+        } else if (input.matches('.vital-number')) {
+            input.value = input.value.replace(/\D/g, '').slice(0, 3);
+        } else if (input.matches('.vital-decimal')) {
+            const cleaned = input.value.replace(/[^\d.]/g, '');
+            const parts = cleaned.split('.');
+            input.value = parts.shift() + (parts.length ? '.' + parts.join('').slice(0, 2) : '');
+        }
+    });
+
     async function saveNewConsultation(event) {
         event.preventDefault();
-        const submitBtn = document.getElementById('submitAddBtn');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saving...`;
 
         const bp = document.getElementById('add_bp').value.trim();
         const hr = document.getElementById('add_hr').value.trim();
         const temp = document.getElementById('add_temp').value.trim();
         const weight = document.getElementById('add_weight').value.trim();
+
+        const vitalError = validateVitalSigns({ bp, hr, temp, weight });
+        if (vitalError) {
+            ModalSystem.toast.error(vitalError);
+            return;
+        }
+
+        const submitBtn = document.getElementById('submitAddBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saving...`;
 
         let vitalSigns = null;
         if (bp || hr || temp || weight) { vitalSigns = { bp, hr, temp, weight }; }
@@ -598,14 +638,21 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     async function saveEditedConsultation(event) {
         event.preventDefault();
         const id = document.getElementById('edit_id').value;
-        const submitBtn = document.getElementById('submitEditBtn');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saving...`;
 
         const bp = document.getElementById('edit_bp').value.trim();
         const hr = document.getElementById('edit_hr').value.trim();
         const temp = document.getElementById('edit_temp').value.trim();
         const weight = document.getElementById('edit_weight').value.trim();
+
+        const vitalError = validateVitalSigns({ bp, hr, temp, weight });
+        if (vitalError) {
+            ModalSystem.toast.error(vitalError);
+            return;
+        }
+
+        const submitBtn = document.getElementById('submitEditBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saving...`;
         let vitalSigns = null;
         if (bp || hr || temp || weight) { vitalSigns = { bp, hr, temp, weight }; }
 

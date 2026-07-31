@@ -79,6 +79,11 @@ class PatientController extends BaseController
             if (empty($dbData['contact'])) {
                 return ['success' => false, 'message' => 'Contact number is required', 'code' => 400];
             }
+
+            $dbData['contact'] = preg_replace('/\D+/', '', (string)$dbData['contact']);
+            if (!preg_match('/^\d{12}$/', $dbData['contact'])) {
+                return ['success' => false, 'message' => 'Contact number must contain exactly 12 digits', 'code' => 422];
+            }
             
             // Make sure birth_date is set for new patient
             if (empty($dbData['birth_date'])) {
@@ -133,6 +138,13 @@ class PatientController extends BaseController
             
             // DEBUG
             error_log('UPDATE dbData=' . json_encode($dbData));
+
+            if (isset($dbData['contact'])) {
+                $dbData['contact'] = preg_replace('/\D+/', '', (string)$dbData['contact']);
+                if (!preg_match('/^\d{12}$/', $dbData['contact'])) {
+                    return ['success' => false, 'message' => 'Contact number must contain exactly 12 digits', 'code' => 422];
+                }
+            }
             
             $result = $this->patientModel->updateById($id, $dbData);
             

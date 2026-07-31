@@ -277,6 +277,14 @@ $totalShared = count(array_filter($medicalRecords, fn($r) => count($r['shared_wi
                     <option value="completed">Completed</option>
                     <option value="pending">Pending</option>
                 </select>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>From</span>
+                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>To</span>
+                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -293,6 +301,7 @@ $totalShared = count(array_filter($medicalRecords, fn($r) => count($r['shared_wi
              data-patient-id="<?php echo strtolower($record['patient_code'] ?: ('patient-' . $record['patient_id'])); ?>"
              data-type="<?php echo $record['record_type']; ?>"
              data-title="<?php echo strtolower($record['title']); ?>"
+             data-date="<?php echo htmlspecialchars($record['date']); ?>"
              data-status="<?php echo $record['status']; ?>">
             
             <!-- Header -->
@@ -1007,26 +1016,38 @@ $totalShared = count(array_filter($medicalRecords, fn($r) => count($r['shared_wi
     document.getElementById('filterTitle').addEventListener('change', filterRecords);
     document.getElementById('filterType').addEventListener('change', filterRecords);
     document.getElementById('filterStatus').addEventListener('change', filterRecords);
+    document.getElementById('filterDateFrom').addEventListener('change', filterRecords);
+    document.getElementById('filterDateTo').addEventListener('change', filterRecords);
 
     function filterRecords() {
         const search = document.getElementById('searchRecord').value.toLowerCase();
         const title = document.getElementById('filterTitle').value.toLowerCase();
         const type = document.getElementById('filterType').value.toLowerCase();
         const status = document.getElementById('filterStatus').value.toLowerCase();
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
         let visibleCount = 0;
+
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+            notify('error', 'The start date cannot be after the end date', 'Invalid Date Range');
+            return;
+        }
 
         document.querySelectorAll('.record-card').forEach(card => {
             const cardPatient = card.dataset.patient;
             const cardPatientId = card.dataset.patientId;
             const cardTitle = card.dataset.title;
             const cardType = card.dataset.type;
+            const cardDate = card.dataset.date;
             const cardStatus = card.dataset.status;
 
             const matchesSearch = cardPatient.includes(search) || cardPatientId.includes(search) || cardTitle.includes(search) || cardType.includes(search);
             const matchesTitle = !title || cardTitle === title;
             const matchesType = !type || cardType === type;
+            const matchesDateFrom = !dateFrom || cardDate >= dateFrom;
+            const matchesDateTo = !dateTo || cardDate <= dateTo;
             const matchesStatus = !status || cardStatus === status;
-            const isVisible = matchesSearch && matchesTitle && matchesType && matchesStatus;
+            const isVisible = matchesSearch && matchesTitle && matchesType && matchesDateFrom && matchesDateTo && matchesStatus;
 
             card.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -1040,6 +1061,8 @@ $totalShared = count(array_filter($medicalRecords, fn($r) => count($r['shared_wi
         document.getElementById('filterTitle').value = '';
         document.getElementById('filterType').value = '';
         document.getElementById('filterStatus').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.record-card').forEach(card => card.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
     }

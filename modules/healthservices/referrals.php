@@ -197,6 +197,14 @@ $currentUserId = $_SESSION['user_id'] ?? 1;
                     <option value="medium">Medium</option>
                     <option value="low">Low</option>
                 </select>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>From</span>
+                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>To</span>
+                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
                 <button onclick="resetFilters()" title="Reset"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 transition text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -614,8 +622,11 @@ function renderTable() {
         emptyState.classList.remove('hidden');
         emptyState.style.display = 'flex';
         const search = document.getElementById('searchReferral').value;
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
         const hasFilter = search || document.getElementById('filterStatus').value
-            || document.getElementById('filterType').value || document.getElementById('filterUrgency').value;
+            || document.getElementById('filterType').value || document.getElementById('filterUrgency').value
+            || dateFrom || dateTo;
         document.getElementById('emptyStateMsg').textContent = hasFilter
             ? 'No referrals match your filters' : 'No referrals found';
     } else {
@@ -786,12 +797,21 @@ document.getElementById('searchReferral').addEventListener('input', filterReferr
 document.getElementById('filterStatus').addEventListener('change', filterReferrals);
 document.getElementById('filterType').addEventListener('change', filterReferrals);
 document.getElementById('filterUrgency').addEventListener('change', filterReferrals);
+document.getElementById('filterDateFrom').addEventListener('change', filterReferrals);
+document.getElementById('filterDateTo').addEventListener('change', filterReferrals);
 
 function filterReferrals() {
     const search  = document.getElementById('searchReferral').value.toLowerCase().trim();
     const status  = document.getElementById('filterStatus').value;
     const type    = document.getElementById('filterType').value;
     const urgency = document.getElementById('filterUrgency').value;
+    const dateFrom = document.getElementById('filterDateFrom').value;
+    const dateTo = document.getElementById('filterDateTo').value;
+
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+        ModalSystem.toast.error('The start date cannot be after the end date');
+        return;
+    }
 
     filteredReferrals = allReferrals.filter(r => {
         const matchSearch = !search ||
@@ -805,7 +825,10 @@ function filterReferrals() {
         const matchStatus  = !status  || r.status        === status;
         const matchType    = !type    || r.referral_type === type;
         const matchUrgency = !urgency || r.urgency       === urgency;
-        return matchSearch && matchStatus && matchType && matchUrgency;
+        const referralDate = String(r.date || r.created_at || '').slice(0, 10);
+        const matchDateFrom = !dateFrom || referralDate >= dateFrom;
+        const matchDateTo = !dateTo || referralDate <= dateTo;
+        return matchSearch && matchStatus && matchType && matchUrgency && matchDateFrom && matchDateTo;
     });
 
     currentPage = 1;
@@ -817,6 +840,8 @@ function resetFilters() {
     document.getElementById('filterStatus').value   = '';
     document.getElementById('filterType').value     = '';
     document.getElementById('filterUrgency').value  = '';
+    document.getElementById('filterDateFrom').value = '';
+    document.getElementById('filterDateTo').value = '';
     filteredReferrals = [...allReferrals];
     currentPage = 1;
     renderTable();

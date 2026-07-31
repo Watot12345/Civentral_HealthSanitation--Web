@@ -111,6 +111,10 @@ class PaymentController extends BaseController
                 }
             }
 
+            if (!is_numeric($data['amount'] ?? null) || (float)$data['amount'] < 0.01 || (float)$data['amount'] > 1000000) {
+                $errors['amount'] = 'Amount must be between 0.01 and 1,000,000.00';
+            }
+
             if (!empty($data['permit_id'])) {
                 $permit = $this->permitModel->find($data['permit_id']);
                 if (!$permit) {

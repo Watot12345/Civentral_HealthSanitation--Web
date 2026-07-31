@@ -38,8 +38,11 @@ class PermitController extends BaseController
         $search = trim($_GET['q'] ?? '');
         $status = trim($_GET['status'] ?? '');
         $type = trim($_GET['type'] ?? '');
+        $dateFrom = trim($_GET['date_from'] ?? '');
+        $dateTo = trim($_GET['date_to'] ?? '');
+        $barangay = trim($_GET['barangay'] ?? '');
 
-        $this->handle(function() use ($page, $limit, $offset, $search, $status, $type) {
+        $this->handle(function() use ($page, $limit, $offset, $search, $status, $type, $dateFrom, $dateTo, $barangay) {
             $filters = [];
             $options = [
                 'order' => 'created_at.desc',
@@ -60,6 +63,10 @@ class PermitController extends BaseController
             foreach ($allPermits as $p) {
                 $passesStatus = empty($allowedStatuses) || in_array($p['status'] ?? '', $allowedStatuses);
                 $passesType = empty($type) || ($p['business_type'] ?? '') === $type;
+                $passesBarangay = empty($barangay) || ($p['barangay'] ?? '') === $barangay;
+                $permitDate = substr((string)($p['created_at'] ?? ''), 0, 10);
+                $passesDateFrom = empty($dateFrom) || $permitDate >= $dateFrom;
+                $passesDateTo = empty($dateTo) || $permitDate <= $dateTo;
 
                 $passesSearch = true;
                 if (!empty($search)) {
@@ -73,7 +80,7 @@ class PermitController extends BaseController
                     $passesSearch = str_contains($haystack, $needle);
                 }
 
-                if ($passesStatus && $passesType && $passesSearch) {
+                if ($passesStatus && $passesType && $passesBarangay && $passesSearch && $passesDateFrom && $passesDateTo) {
                     $filtered[] = $p;
                 }
             }
@@ -137,6 +144,12 @@ class PermitController extends BaseController
                 ];
             }
 
+            $contact = preg_replace('/\D+/', '', (string)$data['contact']);
+            if (!preg_match('/^\d{12}$/', $contact)) {
+                return ['success' => false, 'message' => 'Contact number must contain exactly 12 digits', 'code' => 422];
+            }
+            $data['contact'] = $contact;
+
             $dbData = $this->prepareDbData($data);
 
             if (empty($dbData['permit_id'])) {
@@ -166,6 +179,14 @@ class PermitController extends BaseController
                     'message' => 'Permit not found',
                     'code' => 404
                 ];
+            }
+
+            if (isset($data['contact'])) {
+                $contact = preg_replace('/\D+/', '', (string)$data['contact']);
+                if (!preg_match('/^\d{12}$/', $contact)) {
+                    return ['success' => false, 'message' => 'Contact number must contain exactly 12 digits', 'code' => 422];
+                }
+                $data['contact'] = $contact;
             }
 
             $dbData = $this->prepareDbData($data, true);

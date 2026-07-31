@@ -35,6 +35,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <main class="bg-white flex-1 h-full flex flex-col overflow-hidden" role="main" aria-label="Dashboard content">
 
+    <!-- PRINT HEADER (Hidden on screen, shown in print) -->
+    <div id="printHeader">
+        <img src="../assets/images/logo.png" alt="Logo">
+        <h1>Health Sanitation Management Caloocan</h1>
+        <h2>Dashboard Performance Report</h2>
+    </div>
+
     <!-- Dashboard Styles -->
     <style>
         /* ===== CSS VARIABLES ===== */
@@ -75,6 +82,132 @@ document.addEventListener('DOMContentLoaded', function() {
             --glass-bg: rgba(255,255,255,0.7);
             --glass-border: rgba(255,255,255,0.2);
         }
+
+        /* ===== PRINT STYLES ===== */
+        #printHeader {
+            display: none;
+        }
+
+        @page {
+            /* Formal report margins without browser-generated headers and footers. */
+            margin: 0.75in;
+        }
+
+        @media print {
+            /* Hide application chrome while keeping the formal report header. */
+            header,
+            aside,
+            .sidebar,
+            #sidebar,
+            footer,
+            .footer,
+            #footer,
+            #bottomActionBar,
+            .no-print,
+            #activityFeed,
+            #moduleActivitySummary > div:first-child a,
+            #alertsNotifications button,
+            #refreshBtn,
+            a[href="ai_insights.php"] {
+                display: none !important;
+            }
+
+            html,
+            body,
+            main {
+                height: auto !important;
+                min-height: auto !important;
+                overflow: visible !important;
+                background: #ffffff !important;
+            }
+
+            main {
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                float: none !important;
+            }
+
+            .dashboard-content {
+                display: block !important;
+                height: auto !important;
+                min-height: 0 !important;
+                flex: none !important;
+                overflow: visible !important;
+            }
+
+            .dashboard-content .overflow-y-auto,
+            .dashboard-content .overflow-hidden,
+            .dashboard-content .custom-scroll {
+                height: auto !important;
+                max-height: none !important;
+                overflow: visible !important;
+            }
+
+            .dashboard-content > .flex-shrink-0 {
+                flex-shrink: 1 !important;
+            }
+
+            .kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+
+            .dashboard-content [class~="lg:grid-cols-3"] {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+
+            .animate-fadeOverlay,
+            .kpi-updating {
+                animation: none !important;
+                filter: none !important;
+                opacity: 1 !important;
+                transform: none !important;
+            }
+
+            #printHeader {
+                display: block !important;
+                text-align: center;
+                font-family: "Times New Roman", Times, serif;
+                margin: 0 0 25px;
+                padding-bottom: 15px;
+                border-bottom: 2px solid #000;
+            }
+
+            #printHeader img {
+                width: 120px;
+                height: auto;
+                margin: 0 auto 10px;
+                display: block;
+            }
+
+            #printHeader h1 {
+                font-size: 20pt;
+                font-weight: bold;
+                color: #000;
+                margin: 0;
+                text-transform: uppercase;
+            }
+
+            #printHeader h2 {
+                font-size: 14pt;
+                font-weight: normal;
+                color: #000;
+                margin: 5px 0 0;
+            }
+
+            .kpi-card,
+            .dashboard-content .rounded-2xl {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                box-shadow: none !important;
+            }
+
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+
          /* Quick Action Bar - Compact Mode Styles */
     .action-btn {
         transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -1373,7 +1506,7 @@ else {
                 ];
             }
             ?>
-            <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
+            <div id="moduleActivitySummary" class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
                 <div class="flex items-center justify-between mb-3 flex-shrink-0">
                     <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
                         <i class="fas fa-puzzle-piece" aria-hidden="true"></i> Module Activity Summary
@@ -1427,7 +1560,7 @@ else {
             <!-- ============================================================ -->
             <!-- COLUMN 2: Alerts & Notifications                            -->
             <!-- ============================================================ -->
-            <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
+            <div id="alertsNotifications" class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
                 <div class="flex items-center justify-between mb-3 flex-shrink-0">
                     <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
                         <i class="fas fa-bell" aria-hidden="true"></i> Alerts &amp; Notifications
@@ -2275,7 +2408,7 @@ else {
         <!-- ============================================================ -->
         <!-- ACTIVITY FEED                                                 -->
         <!-- ============================================================ -->
-        <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm mt-4 flex-shrink-0">
+        <div id="activityFeed" class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm mt-4 flex-shrink-0">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
                     <i class="fas fa-clock-rotate-left" aria-hidden="true"></i> Activity Feed
@@ -2831,6 +2964,13 @@ document.addEventListener('keydown', e => {
                         <option value="Vaccination Logs">Vaccination Logs</option>
                     </select>
                 </div>
+                <div class="space-y-1.5">
+                    <label class="text-xs font-semibold text-slate-600">File Format</label>
+                    <select name="export_format" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 outline-none">
+                        <option value="csv">CSV Spreadsheet</option>
+                        <option value="json">JSON Data</option>
+                    </select>
+                </div>
             `
         }
     };
@@ -2879,10 +3019,93 @@ document.addEventListener('keydown', e => {
         }, 200);
     }
 
+    function downloadLocalFile(filename, content, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function getDashboardSnapshot(dataset) {
+        const rows = [];
+        document.querySelectorAll('.kpi-card').forEach(card => {
+            const title = card.querySelector('p.uppercase')?.textContent.trim() || '';
+            const value = card.querySelector('.kpi-number')?.textContent.trim() || '';
+            const label = card.querySelector('.kpi-number + p')?.textContent.trim() || '';
+
+            if (title || value || label) {
+                rows.push({
+                    dataset,
+                    metric: title,
+                    value,
+                    unit: label,
+                    captured_at: new Date().toISOString()
+                });
+            }
+        });
+        return rows;
+    }
+
+    function toCsv(rows) {
+        if (!rows.length) return 'Dataset,Metric,Value,Unit,Captured At\n';
+        const headers = Object.keys(rows[0]);
+        const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+        return [
+            headers.map(escapeCsv).join(','),
+            ...rows.map(row => headers.map(header => escapeCsv(row[header])).join(','))
+        ].join('\n') + '\n';
+    }
+
+    function downloadDashboardSnapshot(dataset, format, prefix) {
+        const rows = getDashboardSnapshot(dataset);
+        const stamp = new Date().toISOString().slice(0, 10);
+        const safePrefix = prefix.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+        if (format === 'json') {
+            downloadLocalFile(`${safePrefix}-${stamp}.json`, JSON.stringify(rows, null, 2), 'application/json');
+        } else {
+            downloadLocalFile(`${safePrefix}-${stamp}.csv`, toCsv(rows), 'text/csv;charset=utf-8');
+        }
+
+        showToast(`${prefix} saved to your Downloads folder`, 'success');
+    }
+
     function handleQuickActionSubmit(event) {
         event.preventDefault();
         const actionId = document.getElementById('quickActionType').value;
         const schema = QUICK_ACTION_SCHEMAS[actionId];
+        const formData = new FormData(event.target);
+
+        if (actionId === 'export-data') {
+            downloadDashboardSnapshot(
+                formData.get('dataset') || 'Dashboard Snapshot',
+                formData.get('export_format') || 'csv',
+                'dashboard-export'
+            );
+            closeQuickActionModal();
+            return;
+        }
+
+        if (actionId === 'report') {
+            const reportType = formData.get('report_type') || 'Dashboard Summary';
+            const format = formData.get('format') || 'PDF Document';
+
+            if (format === 'PDF Document') {
+                closeQuickActionModal();
+                showToast('Print dialog opened. Choose "Save as PDF" to save the report locally.', 'info', 5000);
+                setTimeout(() => window.print(), 250);
+            } else {
+                downloadDashboardSnapshot(reportType, 'csv', 'dashboard-report');
+                closeQuickActionModal();
+            }
+            return;
+        }
+
         showToast(`Successfully submitted: ${schema ? schema.title : 'Quick Action'}`, 'success');
         closeQuickActionModal();
     }

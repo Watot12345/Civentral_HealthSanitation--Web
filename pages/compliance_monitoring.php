@@ -1,13 +1,100 @@
-<?php include '../includes/header.php'; ?>
-<?php include '../includes/sidebar.php'; ?>
-
-<!-- ADD FONT AWESOME CDN (If not already in header.php) -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
-
-<!-- UPDATED -->
-<?php
+<?php 
 /* ============================================================
-   DUMMY DATA (simulates database records, avoids undefined errors)
+   REPORT GENERATOR FUNCTION (clean Excel-friendly CSV)
+   ============================================================ */
+function generateAuditReport($from, $to) {
+    global $violations, $actions, $permits, $stats, $violationTimestamps;
+
+    // Filter violations by date range
+    $filteredViolations = array_filter($violations, function($v) use ($from, $to) {
+        $vDate = date('Y-m-d', strtotime($v['timestamp']));
+        return $vDate >= $from && $vDate <= $to;
+    });
+
+    // Filter actions by their violation date
+    $filteredActions = array_filter($actions, function($a) use ($from, $to, $violationTimestamps) {
+        $vDate = isset($violationTimestamps[$a['violation_id']]) 
+            ? date('Y-m-d', strtotime($violationTimestamps[$a['violation_id']])) 
+            : '1970-01-01';
+        return $vDate >= $from && $vDate <= $to;
+    });
+
+    // Build CSV content - flat table structure (Excel-friendly)
+    $csv = [];
+    
+    // Header row
+    $csv[] = ['Section', 'ID', 'Title', 'Date', 'Status', 'Detail'];
+
+    // ---- Violations ----
+    foreach ($filteredViolations as $v) {
+        $csv[] = [
+            'Violation',
+            $v['id'],
+            $v['location'],
+            date('Y-m-d H:i', strtotime($v['timestamp'])),
+            $v['severity'],
+            $v['description']
+        ];
+    }
+
+    // ---- Corrective Actions ----
+    foreach ($filteredActions as $a) {
+        $csv[] = [
+            'Action',
+            $a['id'],
+            $a['assigned_to'],
+            date('Y-m-d H:i', strtotime($a['due_date'])),
+            $a['status'],
+            'Violation #' . $a['violation_id']
+        ];
+    }
+
+    // ---- Permits ----
+    foreach ($permits as $p) {
+        $csv[] = [
+            'Permit',
+            '',
+            $p['name'],
+            $p['expiry'],
+            $p['status'],
+            ''
+        ];
+    }
+
+    // ---- Summary Stats ----
+    $summaryItems = [
+        ['Compliance Score', $stats['compliance_score'] . '%'],
+        ['Open Violations', $stats['open_violations']],
+        ['Overdue Actions', $stats['overdue_actions']],
+        ['Pending Inspections', $stats['pending_inspections']]
+    ];
+    foreach ($summaryItems as $item) {
+        $csv[] = [
+            'Summary',
+            '',
+            $item[0],
+            '',
+            '',
+            $item[1]
+        ];
+    }
+
+    // Output CSV with UTF-8 BOM (Excel-friendly)
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="audit_report_' . date('Y-m-d') . '.csv"');
+
+    $output = fopen('php://output', 'w');
+    // Add UTF-8 BOM for proper character display in Excel
+    fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+    foreach ($csv as $row) {
+        fputcsv($output, $row);
+    }
+    fclose($output);
+    exit;
+}
+
+/* ============================================================
+   DUMMY DATA (simulates database records)
    ============================================================ */
  $stats = [
     'compliance_score' => 94,
@@ -75,10 +162,16 @@
     ],
 ];
 
+/* Build lookup for violation dates (used for action filtering) */
+$violationTimestamps = [];
+foreach ($violations as $v) {
+    $violationTimestamps[$v['id']] = $v['timestamp'];
+}
+
  $permits = [
     ['name' => 'Food Service License', 'expiry' => '2026-12-31', 'status' => 'active'],
     ['name' => 'Pool Sanitation Permit', 'expiry' => '2026-08-15', 'status' => 'expiring_soon'],
-    ['name' => 'Waste Disposal Certificate', 'expiry' => '2025-11-01', 'status' => 'active'],
+    ['name' => 'Waste Disposal Certificate', 'expiry' => '2025-11-01', 'status' => 'expired'],
 ];
 
 /* Helper to get action status badge color (Semantic Colors) */
@@ -91,10 +184,27 @@ function getActionBadge($status) {
         default       => 'bg-gray-100 text-gray-800',
     };
 }
+
+/* ============================================================
+   HANDLE REPORT GENERATION REQUEST
+   ============================================================ */
+if (isset($_GET['generate_report']) && isset($_GET['from']) && isset($_GET['to'])) {
+    $from = $_GET['from'];
+    $to = $_GET['to'];
+    if ($from && $to) {
+        generateAuditReport($from, $to);
+    }
+}
+
+include '../includes/header.php'; 
+include '../includes/sidebar.php'; 
 ?>
 
+<!-- ADD FONT AWESOME CDN -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
 <style>
-    /* ===== CSS VARIABLES (From System Overview) ===== */
+    /* ===== CSS VARIABLES ===== */
     :root {
         --color-primary: #176B87;
         --color-primary-dark: #0F4A5E;
@@ -121,7 +231,6 @@ function getActionBadge($status) {
         --glass-border: rgba(255,255,255,0.2);
     }
 
-    /* ===== BASE CARD STYLES ===== */
     .report-card {
         background: rgba(255, 255, 255, 0.8);
         backdrop-filter: blur(12px);
@@ -135,7 +244,6 @@ function getActionBadge($status) {
         box-shadow: 0 15px 40px -10px rgba(23, 107, 135, 0.15);
     }
 
-    /* Tab Animations */
     .tab-content {
         animation: fadeInSlide 0.5s ease-in-out;
     }
@@ -144,11 +252,9 @@ function getActionBadge($status) {
         to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Table Hover */
     .table-row-hover { transition: background-color 0.2s ease; }
     .table-row-hover:hover { background-color: rgba(180, 212, 255, 0.1); }
 
-    /* Modal Animations */
     .modal-overlay {
         background: rgba(23, 107, 135, 0.4);
         backdrop-filter: blur(4px);
@@ -163,13 +269,11 @@ function getActionBadge($status) {
         to { opacity: 1; transform: scale(1); }
     }
 
-    /* Toast Animation Trigger */
     .toast-show {
         transform: translateY(0) !important;
         opacity: 1 !important;
     }
 
-    /* Form Inputs */
     select, input[type="date"], input[type="time"], input[type="text"], input[type="datetime-local"] {
         background: rgba(255, 255, 255, 0.7);
         border: 1px solid rgba(180, 212, 255, 0.5);
@@ -182,7 +286,6 @@ function getActionBadge($status) {
         background: #fff;
     }
 
-    /* ===== KPI CARDS (Applied from System Overview) ===== */
     .kpi-card {
         position: relative;
         overflow: hidden;
@@ -245,7 +348,6 @@ function getActionBadge($status) {
         transform: scale(1.08);
     }
 
-    /* Staggered entrance */
     .kpi-grid > a {
         opacity: 0;
         animation: slideUp 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards;
@@ -263,7 +365,6 @@ function getActionBadge($status) {
     .kpi-grid > a:nth-child(4) { animation-delay: 0.26s; }
     .kpi-grid > a:nth-child(4) .kpi-ring-progress { animation-delay: 0.56s; }
 
-    /* Glow effects */
     .glow-emerald { border-color: rgba(16, 185, 129, 0.1); }
     .glow-emerald:hover { border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 15px 40px -10px rgba(16, 185, 129, 0.15); }
     .glow-red { border-color: rgba(239, 68, 68, 0.1); }
@@ -276,9 +377,7 @@ function getActionBadge($status) {
 
 <main class="flex-1 m-5 overflow-hidden rounded-2xl font-sans scrollbar-track-transparent">
 
-    <!-- ============================================================
-         ROW 1: KPI STATS CARDS (Enhanced with Icons & Semantic Colors)
-         ============================================================ -->
+    <!-- ROW 1: KPI STATS CARDS -->
     <div class="kpi-grid grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         
         <!-- KPI 1: Compliance Score -->
@@ -408,7 +507,7 @@ function getActionBadge($status) {
     </div>
 
     <!-- ============================================================
-         ROW 2: VIOLATION TRACKING (Full Width)
+         ROW 2: VIOLATION TRACKING
          ============================================================ -->
     <div class="report-card rounded-xl p-4 mb-6">
         <div class="flex flex-wrap items-center justify-between mb-3 gap-2">
@@ -416,24 +515,19 @@ function getActionBadge($status) {
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-[#176B87]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 Violations & Corrective Actions
             </h2>
-            <!-- Filter & Export Controls -->
             <div class="flex flex-wrap items-center gap-2">
-                <!-- Date Range Filters -->
                 <div class="flex items-center gap-1 text-xs">
                     <label for="dateFrom" class="text-[#0d4f64] font-medium">From</label>
                     <input type="date" id="dateFrom" class="border rounded-md px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-transparent transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] outline-none">
                     <label for="dateTo" class="text-[#0d4f64] font-medium ml-1">To</label>
-                    <input type="date" id="dateTo" class="border rounded-md px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-transparent transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] outline-none">
+                    <input type="date" id="dateTo" value="2026-07-31" class="border rounded-md px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-transparent transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] outline-none">
                 </div>
-                <!-- Search -->
                 <input type="text" id="tableSearch" placeholder="Search location..." class="text-sm border rounded-md px-3 py-1 bg-white focus:ring-2 focus:ring-transparent transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] outline-none">
-                <!-- Severity Filter -->
                 <select id="severityFilter" class="text-sm border rounded-md px-2 py-1 bg-white focus:ring-2 focus:ring-transparent transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] outline-none">
                     <option value="all">All</option>
                     <option value="critical">Critical</option>
                     <option value="non-critical">Non‑Critical</option>
                 </select>
-                <!-- Export Button -->
                 <button id="exportCsvBtn" class="text-sm font-medium border px-3 py-1 rounded-md transition-all duration-200 hover:bg-[#176B87] hover:text-white hover:border-[#176B87] hover:shadow-sm text-[#0d4f64] border-[#86B6F6] bg-transparent flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     Export
@@ -456,7 +550,6 @@ function getActionBadge($status) {
                 </thead>
                 <tbody id="violationTableBody">
                     <?php foreach ($violations as $v): ?>
-                    <!-- ADD data-date attribute for filtering by date -->
                     <tr class="border-b transition-all duration-150 hover:bg-[#EEF5FF] violation-row border-[#B4D4FF]" 
                         data-severity="<?= $v['severity'] ?>" 
                         data-location="<?= strtolower(htmlspecialchars($v['location'])) ?>"
@@ -469,13 +562,11 @@ function getActionBadge($status) {
                             <?= date('M d, Y g:i A', strtotime($v['timestamp'])) ?>
                         </td>
                         <td class="px-3 py-3 text-center">
-                            <!-- Semantic Severity Colors -->
                             <span class="inline-block px-2 py-1 rounded-full text-xs font-semibold transition-all duration-200 hover:scale-105 <?= $v['severity'] === 'critical' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800' ?>">
                                 <?= ucfirst($v['severity']) ?>
                             </span>
                         </td>
                         <td class="px-3 py-3 text-center">
-                            <!-- Semantic Status Colors -->
                             <?php 
                                 $statusClass = 'bg-gray-100 text-gray-800';
                                 if ($v['status'] == 'open') $statusClass = 'bg-red-100 text-red-800';
@@ -501,8 +592,11 @@ function getActionBadge($status) {
         <div class="mt-4 pt-3 border-t border-[#B4D4FF]">
             <p class="text-xs mb-2 text-[#176B87] font-medium">Pending Corrective Actions</p>
             <div class="flex flex-wrap gap-2" id="actionsContainer">
-                <?php foreach ($actions as $a): ?>
-                <div class="border rounded-md px-3 py-1.5 text-xs flex items-center gap-2 transition-all duration-200 hover:scale-105 hover:shadow-sm bg-[#EEF5FF] border-[#B4D4FF]">
+                <?php foreach ($actions as $a): 
+                    $vTimestamp = $violationTimestamps[$a['violation_id']] ?? '2026-07-31';
+                    $dataDate = date('Y-m-d', strtotime($vTimestamp));
+                ?>
+                <div class="action-pill border rounded-md px-3 py-1.5 text-xs flex items-center gap-2 transition-all duration-200 hover:scale-105 hover:shadow-sm bg-[#EEF5FF] border-[#B4D4FF]" data-date="<?= $dataDate ?>">
                     <span class="font-medium text-[#0d4f64]">#<?= $a['id'] ?></span>
                     <span class="text-[#176B87]"><?= htmlspecialchars($a['assigned_to']) ?></span>
                     <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold <?= getActionBadge($a['status']) ?>">
@@ -533,6 +627,8 @@ function getActionBadge($status) {
                         <span class="text-sm text-gray-500">Exp: <?= date('M d, Y', strtotime($p['expiry'])) ?></span>
                         <?php if ($p['status'] === 'expiring_soon'): ?>
                             <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-yellow-100 text-yellow-800">EXPIRING SOON</span>
+                        <?php elseif ($p['status'] === 'expired'): ?>
+                            <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-red-100 text-red-800">EXPIRED</span>
                         <?php else: ?>
                             <span class="text-[10px] font-bold px-2 py-1 rounded-full bg-green-100 text-green-800">ACTIVE</span>
                         <?php endif; ?>
@@ -553,26 +649,26 @@ function getActionBadge($status) {
             </h2>
             <div class="rounded-lg p-4 border transition-all duration-200 hover:bg-[#e6f0fa] bg-[#EEF5FF] border-[#B4D4FF]">
                 <p class="text-sm mb-3 text-[#176B87]">Generate a complete audit trail with all monitoring logs, violations, and corrective actions for any date range.</p>
-                <div class="flex flex-wrap items-center gap-3">
+                <form method="get" action="" class="flex flex-wrap items-center gap-3">
+                    <input type="hidden" name="generate_report" value="1">
                     <div>
                         <label class="text-xs block text-[#176B87]">From</label>
-                        <input type="date" id="reportFrom" value="2026-07-01" class="border rounded-md px-2 py-1 text-sm transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] bg-white">
+                        <input type="date" name="from" id="reportFrom" value="2026-07-01" class="border rounded-md px-2 py-1 text-sm transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] bg-white">
                     </div>
                     <div>
                         <label class="text-xs block text-[#176B87]">To</label>
-                        <input type="date" id="reportTo" value="2026-07-18" class="border rounded-md px-2 py-1 text-sm transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] bg-white">
+                        <input type="date" name="to" id="reportTo" value="2026-07-31" class="border rounded-md px-2 py-1 text-sm transition-all duration-200 hover:border-[#176B87] border-[#B4D4FF] text-[#0d4f64] bg-white">
                     </div>
-                    <button id="generateReportBtn" class="mt-1 text-white text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center gap-2 bg-[#176B87]">
-                        Generate Report
+                    <button type="submit" class="mt-1 text-white text-sm font-medium px-4 py-2 rounded-md transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center gap-2 bg-[#176B87]">
+                        <i class="fas fa-file-csv"></i> Generate Report
                     </button>
-                </div>
-                <div id="reportStatus" class="mt-3 text-sm hidden"></div>
+                </form>
             </div>
             <div class="mt-3 flex items-center justify-between text-xs border-t pt-3 border-[#B4D4FF] text-gray-500">
-                <span>Last audit: July 17, 2026 (all clear)</span>
-                <span class="font-medium flex items-center gap-1 text-green-600">
-                    <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                    Compliant
+                <span>Last audit: July 16, 2026 (all clear)</span>
+                <span class="font-medium flex items-center gap-1 text-amber-600">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Attention Needed
                 </span>
             </div>
         </div>
@@ -581,7 +677,7 @@ function getActionBadge($status) {
 </main>
 
 <!-- ============================================================
-     MODAL: Assign Corrective Action (hidden by default)
+     MODAL: Assign Corrective Action
      ============================================================ -->
 <div id="actionModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 hidden transition-all duration-300">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 animate-fadeIn scale-95 transition-all duration-300">
@@ -621,7 +717,7 @@ function getActionBadge($status) {
 <div id="toastContainer" class="fixed bottom-6 right-6 z-[100] space-y-3"></div>
 
 <!-- ============================================================
-     JAVASCRIPT (Enhanced with Date Filter & Export)
+     JAVASCRIPT
      ============================================================ -->
 <script>
     (function() {
@@ -682,19 +778,16 @@ function getActionBadge($status) {
         function applyFilters() {
             const filterVal = filterSelect.value;
             const searchVal = searchInput.value.toLowerCase();
-            const fromVal = dateFrom.value;   // YYYY-MM-DD
+            const fromVal = dateFrom.value;
             const toVal = dateTo.value;
 
             rows.forEach(row => {
                 const sev = row.getAttribute('data-severity');
                 const loc = row.getAttribute('data-location');
-                const rowDate = row.getAttribute('data-date'); // YYYY-MM-DD
+                const rowDate = row.getAttribute('data-date');
 
-                // Severity filter
                 const matchesFilter = (filterVal === 'all' || sev === filterVal);
-                // Search filter
                 const matchesSearch = loc.includes(searchVal);
-                // Date filter
                 let matchesDate = true;
                 if (fromVal && rowDate < fromVal) matchesDate = false;
                 if (toVal && rowDate > toVal) matchesDate = false;
@@ -705,15 +798,24 @@ function getActionBadge($status) {
                     row.style.display = 'none';
                 }
             });
+
+            // Filter action pills
+            const pills = document.querySelectorAll('.action-pill');
+            pills.forEach(pill => {
+                const pillDate = pill.getAttribute('data-date');
+                let matchesDate = true;
+                if (fromVal && pillDate < fromVal) matchesDate = false;
+                if (toVal && pillDate > toVal) matchesDate = false;
+                pill.style.display = matchesDate ? '' : 'none';
+            });
         }
 
-        // Attach events
         if (filterSelect) filterSelect.addEventListener('change', applyFilters);
         if (searchInput) searchInput.addEventListener('input', applyFilters);
         if (dateFrom) dateFrom.addEventListener('change', applyFilters);
         if (dateTo) dateTo.addEventListener('change', applyFilters);
 
-        // ----- 4. MODAL LOGIC (Assign Corrective Action) -----
+        // ----- 4. MODAL LOGIC -----
         const modal = document.getElementById('actionModal');
         const openBtns = document.querySelectorAll('.assignActionBtn');
         const closeModalBtn = document.getElementById('closeModalBtn');
@@ -723,6 +825,7 @@ function getActionBadge($status) {
         const assignedTo = document.getElementById('assignedTo');
         const dueDate = document.getElementById('dueDate');
         const submitBtn = document.getElementById('submitActionBtn');
+        const proofUpload = document.getElementById('proofUpload');
 
         function openModal(violationId, location) {
             let desc = 'Violation #' + violationId;
@@ -737,6 +840,7 @@ function getActionBadge($status) {
             modalViolationDesc.textContent = location + ' – ' + desc;
             assignedTo.value = '';
             dueDate.value = '';
+            proofUpload.value = '';
             modal.classList.remove('hidden');
             const modalContent = modal.querySelector('.bg-white');
             modalContent.style.transform = 'scale(1)';
@@ -765,7 +869,7 @@ function getActionBadge($status) {
             if (e.target === this) closeModal();
         });
 
-        // ----- 5. SUBMIT ACTION (simulated) -----
+        // ----- 5. SUBMIT ACTION -----
         if (submitBtn) {
             submitBtn.addEventListener('click', function() {
                 const id = modalViolationId.value;
@@ -779,8 +883,10 @@ function getActionBadge($status) {
 
                 const container = document.getElementById('actionsContainer');
                 if (container) {
+                    const dueFormatted = new Date(due).toISOString().split('T')[0];
                     const newPill = document.createElement('div');
-                    newPill.className = 'border rounded-md px-3 py-1.5 text-xs flex items-center gap-2 transition-all duration-200 hover:scale-105 hover:shadow-sm bg-[#EEF5FF] border-[#B4D4FF]';
+                    newPill.className = 'action-pill border rounded-md px-3 py-1.5 text-xs flex items-center gap-2 transition-all duration-200 hover:scale-105 hover:shadow-sm bg-[#EEF5FF] border-[#B4D4FF]';
+                    newPill.setAttribute('data-date', dueFormatted);
                     newPill.innerHTML = `
                         <span class="font-medium text-[#0d4f64]">NEW</span>
                         <span class="text-[#176B87]">${assign}</span>
@@ -788,6 +894,7 @@ function getActionBadge($status) {
                         <span class="text-[#86B6F6]">due ${new Date(due).toLocaleDateString()}</span>
                     `;
                     container.prepend(newPill);
+                    applyFilters();
                 }
 
                 closeModal();
@@ -795,49 +902,21 @@ function getActionBadge($status) {
             });
         }
 
-        // ----- 6. REPORT GENERATOR (simulated) -----
-        const genBtn = document.getElementById('generateReportBtn');
-        const reportStatus = document.getElementById('reportStatus');
-
-        if (genBtn) {
-            genBtn.addEventListener('click', function() {
-                const from = document.getElementById('reportFrom').value;
-                const to = document.getElementById('reportTo').value;
-                if (!from || !to) {
-                    showToast('Please select both date ranges.', 'error');
-                    return;
-                }
-
-                reportStatus.classList.remove('hidden');
-                reportStatus.textContent = '⏳ Generating audit report from ' + from + ' to ' + to + ' ...';
-                reportStatus.className = 'mt-3 text-sm text-yellow-600';
-
-                setTimeout(() => {
-                    reportStatus.textContent = '✅ Audit report generated – includes 4 violations, 3 actions.';
-                    reportStatus.className = 'mt-3 text-sm font-medium text-green-600';
-                    showToast('Audit report generated successfully!', 'success');
-                }, 1500);
-            });
-        }
-
-        // ----- 7. EXPORT CSV (fully functional) -----
+        // ----- 6. EXPORT CSV (table export) -----
         const exportBtn = document.getElementById('exportCsvBtn');
         if (exportBtn) {
             exportBtn.addEventListener('click', function() {
-                // Get only visible rows (those not hidden by filters)
                 const visibleRows = document.querySelectorAll('.violation-row:not([style*="display: none"])');
                 if (visibleRows.length === 0) {
                     showToast('No rows to export. Adjust your filters.', 'error');
                     return;
                 }
 
-                // Build CSV content
                 const headers = ['Location', 'Description', 'Date Detected', 'Severity', 'Status'];
                 const rowsData = [];
 
                 visibleRows.forEach(row => {
                     const cols = row.querySelectorAll('td');
-                    // Columns: 0:Location, 1:Description, 2:Date, 3:Severity, 4:Status
                     const location = cols[0] ? cols[0].textContent.trim() : '';
                     const description = cols[1] ? cols[1].textContent.trim() : '';
                     const date = cols[2] ? cols[2].textContent.trim() : '';
@@ -846,7 +925,6 @@ function getActionBadge($status) {
                     rowsData.push([location, description, date, severity, status]);
                 });
 
-                // Convert to CSV string (simple quoting for fields with commas)
                 let csvContent = headers.join(',') + '\n';
                 rowsData.forEach(row => {
                     const escaped = row.map(cell => {
@@ -858,8 +936,8 @@ function getActionBadge($status) {
                     csvContent += escaped.join(',') + '\n';
                 });
 
-                // Create Blob and download
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                // UTF-8 BOM for Excel
+                const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
                 const link = document.createElement('a');
                 const url = URL.createObjectURL(blob);
                 link.href = url;
@@ -873,14 +951,14 @@ function getActionBadge($status) {
             });
         }
 
-        // ----- 8. KEYBOARD SHORTCUT: ESC to close modal -----
+        // ----- 7. KEYBOARD SHORTCUT: ESC -----
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
                 closeModal();
             }
         });
 
-        console.log('Health Sanitation Dashboard initialized with date filter and CSV export.');
+        console.log('Health Sanitation Dashboard initialized with clean Excel export.');
     })();
 </script>
 

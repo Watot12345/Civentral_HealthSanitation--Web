@@ -218,6 +218,14 @@ requireDepartmentAccess('health center services');
                         <option value="pending">Pending</option>
                         <option value="cancelled">Cancelled</option>
                     </select>
+                    <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                        <span>From</span>
+                        <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                    </label>
+                    <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                        <span>To</span>
+                        <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                    </label>
                     <button onclick="resetFilters()" title="Reset filters"
                             class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                         <i class="fa-solid fa-rotate-right"></i>
@@ -924,8 +932,10 @@ requireDepartmentAccess('health center services');
         // Update empty state message based on whether filters are active
         const searchValue = document.getElementById('searchPrescription')?.value || '';
         const statusValue = document.getElementById('filterStatus')?.value || '';
+        const dateFromValue = document.getElementById('filterDateFrom')?.value || '';
+        const dateToValue = document.getElementById('filterDateTo')?.value || '';
         
-        if (searchValue || statusValue) {
+        if (searchValue || statusValue || dateFromValue || dateToValue) {
             emptyState.innerHTML = `
                 <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
                     <i class="fa-solid fa-filter-circle-xmark text-slate-400"></i>
@@ -1130,10 +1140,19 @@ requireDepartmentAccess('health center services');
         // ============================================================
         document.getElementById('searchPrescription').addEventListener('input', filterPrescriptions);
         document.getElementById('filterStatus').addEventListener('change', filterPrescriptions);
+        document.getElementById('filterDateFrom').addEventListener('change', filterPrescriptions);
+        document.getElementById('filterDateTo').addEventListener('change', filterPrescriptions);
 
         function filterPrescriptions() {
             const search = document.getElementById('searchPrescription').value.toLowerCase().trim();
             const status = document.getElementById('filterStatus').value;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+
+            if (dateFrom && dateTo && dateFrom > dateTo) {
+                ModalSystem.toast.error('The start date cannot be after the end date');
+                return;
+            }
             
             filteredPrescriptions = allPrescriptions.filter(p => {
                 const matchesSearch = !search || 
@@ -1144,8 +1163,11 @@ requireDepartmentAccess('health center services');
                     (p.medications || []).some(m => (m.name || '').toLowerCase().includes(search));
                 
                 const matchesStatus = !status || (p.status || '') === status;
+                const prescriptionDate = String(p.date || '').slice(0, 10);
+                const matchesDateFrom = !dateFrom || prescriptionDate >= dateFrom;
+                const matchesDateTo = !dateTo || prescriptionDate <= dateTo;
                 
-                return matchesSearch && matchesStatus;
+                return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo;
             });
             
             currentPage = 1;
@@ -1155,6 +1177,8 @@ requireDepartmentAccess('health center services');
         function resetFilters() {
             document.getElementById('searchPrescription').value = '';
             document.getElementById('filterStatus').value = '';
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value = '';
             filteredPrescriptions = [...allPrescriptions];
             currentPage = 1;
             renderTable();

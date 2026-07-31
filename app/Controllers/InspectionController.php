@@ -45,8 +45,10 @@ class InspectionController extends BaseController
         $status = trim($_GET['status'] ?? '');
         $result = trim($_GET['result'] ?? '');
         $inspector = trim($_GET['inspector'] ?? '');
+        $dateFrom = trim($_GET['date_from'] ?? '');
+        $dateTo = trim($_GET['date_to'] ?? '');
 
-        $this->handle(function() use ($page, $limit, $offset, $search, $status, $result, $inspector) {
+        $this->handle(function() use ($page, $limit, $offset, $search, $status, $result, $inspector, $dateFrom, $dateTo) {
             $allInspections = $this->inspectionModel->all(['order' => 'created_at.desc']);
             $filtered = [];
 
@@ -58,6 +60,9 @@ class InspectionController extends BaseController
 
                 $passesStatus = empty($status) || ($i['status'] ?? '') === $status;
                 $passesResult = empty($result) || ($i['overall_status'] ?? '') === $result;
+                $inspectionDate = substr((string)($i['scheduled_date'] ?? ''), 0, 10);
+                $passesDateFrom = empty($dateFrom) || $inspectionDate >= $dateFrom;
+                $passesDateTo = empty($dateTo) || $inspectionDate <= $dateTo;
 
                 // Inspector filter by ID (since inspector is numeric FK)
                 $passesInspector = true;
@@ -78,7 +83,7 @@ class InspectionController extends BaseController
                     $passesSearch = str_contains($haystack, $needle);
                 }
 
-                if ($passesStatus && $passesResult && $passesInspector && $passesSearch) {
+                if ($passesStatus && $passesResult && $passesInspector && $passesSearch && $passesDateFrom && $passesDateTo) {
                     $filtered[] = $i;
                 }
             }

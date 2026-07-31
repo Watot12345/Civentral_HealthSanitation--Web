@@ -75,6 +75,11 @@ class ConsultationController extends BaseController
             return ['success' => false, 'message' => 'Patient selection is required', 'code' => 400];
         }
 
+        $vitalError = $this->validateVitalSigns($data['vital_signs'] ?? null);
+        if ($vitalError) {
+            return ['success' => false, 'message' => $vitalError, 'code' => 422];
+        }
+
         $dbData = $this->prepareDbData($data);
         
         error_log('STORE dbData: ' . json_encode($dbData));
@@ -113,6 +118,11 @@ class ConsultationController extends BaseController
                     'message' => 'Consultation not found',
                     'code' => 404
                 ];
+            }
+
+            $vitalError = $this->validateVitalSigns($data['vital_signs'] ?? null);
+            if ($vitalError) {
+                return ['success' => false, 'message' => $vitalError, 'code' => 422];
             }
 
             $dbData = $this->prepareDbData($data, true);
@@ -181,6 +191,48 @@ class ConsultationController extends BaseController
                 'total' => count($results)
             ];
         });
+    }
+
+    private function validateVitalSigns($vitalSigns): ?string
+    {
+        if ($vitalSigns === null || $vitalSigns === '') {
+            return null;
+        }
+
+        if (is_string($vitalSigns)) {
+            $vitalSigns = json_decode($vitalSigns, true);
+        }
+
+        if (!is_array($vitalSigns)) {
+            return 'Vital Signs must be provided as valid fields';
+        }
+
+        $bp = trim((string)($vitalSigns['bp'] ?? ''));
+        $hr = trim((string)($vitalSigns['hr'] ?? ''));
+        $temp = trim((string)($vitalSigns['temp'] ?? ''));
+        $weight = trim((string)($vitalSigns['weight'] ?? ''));
+
+        if ($bp !== '') {
+            if (!preg_match('/^\d{2,3}\/\d{2,3}$/', $bp)) {
+                return 'Blood pressure must use the format 120/80';
+            }
+            [$systolic, $diastolic] = array_map('intval', explode('/', $bp));
+            if ($systolic < 50 || $systolic > 300 || $diastolic < 30 || $diastolic > 200) {
+                return 'Blood pressure must be between 50/30 and 300/200 mmHg';
+            }
+        }
+
+        if ($hr !== '' && (!preg_match('/^\d+$/', $hr) || (int)$hr < 20 || (int)$hr > 250)) {
+            return 'Heart rate must be between 20 and 250 bpm';
+        }
+        if ($temp !== '' && (!preg_match('/^\d+(\.\d{1,2})?$/', $temp) || (float)$temp < 25 || (float)$temp > 45)) {
+            return 'Temperature must be between 25 and 45 C';
+        }
+        if ($weight !== '' && (!preg_match('/^\d+(\.\d{1,2})?$/', $weight) || (float)$weight < 0.1 || (float)$weight > 500)) {
+            return 'Weight must be between 0.1 and 500 kg';
+        }
+
+        return null;
     }
 
    private function prepareDbData(array $data, bool $isUpdate = false): array

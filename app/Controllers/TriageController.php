@@ -94,6 +94,11 @@ class TriageController extends BaseController
                 ];
             }
 
+            $vitalError = $this->validateVitalSigns($data);
+            if ($vitalError) {
+                return ['success' => false, 'message' => $vitalError, 'code' => 422];
+            }
+
             $dbData = $this->prepareDbData($data);
 
             if (empty($dbData['triage_id'])) {
@@ -123,6 +128,11 @@ class TriageController extends BaseController
                     'message' => 'Triage record not found',
                     'code' => 404
                 ];
+            }
+
+            $vitalError = $this->validateVitalSigns($data);
+            if ($vitalError) {
+                return ['success' => false, 'message' => $vitalError, 'code' => 422];
             }
 
             $dbData = $this->prepareDbData($data);
@@ -289,6 +299,37 @@ class TriageController extends BaseController
                 'data' => $enriched
             ];
         });
+    }
+
+    private function validateVitalSigns(array $data): ?string
+    {
+        $bp = trim((string)($data['blood_pressure'] ?? ''));
+        if ($bp !== '') {
+            if (!preg_match('/^\d{2,3}\/\d{2,3}$/', $bp)) return 'Blood pressure must use the format 120/80';
+            [$systolic, $diastolic] = array_map('intval', explode('/', $bp));
+            if ($systolic < 50 || $systolic > 300 || $diastolic < 30 || $diastolic > 200) return 'Blood pressure must be between 50/30 and 300/200 mmHg';
+        }
+
+        $ranges = [
+            'heart_rate' => [20, 250, 'Heart rate must be between 20 and 250 bpm'],
+            'temperature' => [25, 45, 'Temperature must be between 25 and 45 C'],
+            'respiratory_rate' => [5, 80, 'Respiratory rate must be between 5 and 80'],
+            'oxygen_saturation' => [50, 100, 'O2 saturation must be between 50 and 100%'],
+            'weight' => [0.1, 500, 'Weight must be between 0.1 and 500 kg'],
+            'height' => [30, 250, 'Height must be between 30 and 250 cm'],
+            'blood_sugar' => [20, 1000, 'Blood sugar must be between 20 and 1000 mg/dL'],
+            'gcs_eye' => [1, 4, 'GCS eye score must be between 1 and 4'],
+            'gcs_verbal' => [1, 5, 'GCS verbal score must be between 1 and 5'],
+            'gcs_motor' => [1, 6, 'GCS motor score must be between 1 and 6']
+        ];
+
+        foreach ($ranges as $field => [$minimum, $maximum, $message]) {
+            $value = $data[$field] ?? '';
+            if ($value === '') continue;
+            if (!is_numeric($value) || (float)$value < $minimum || (float)$value > $maximum) return $message;
+        }
+
+        return null;
     }
 
     private function prepareDbData(array $data): array

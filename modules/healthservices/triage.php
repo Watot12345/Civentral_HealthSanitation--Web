@@ -200,6 +200,7 @@ foreach ($rawTriage as $t) {
         'queue_number' => $qNum++,
         'bmi' => isset($t['bmi']) ? $t['bmi'] : (isset($t['weight'], $t['height']) && $t['height'] > 0 ? round($t['weight'] / (($t['height']/100) * ($t['height']/100)), 1) : null),
         'queue_status' => ($status === 'waiting' || $status === 'in_triage') ? 'waiting' : 'completed',
+        'date' => isset($t['created_at']) ? date('Y-m-d', strtotime($t['created_at'])) : date('Y-m-d'),
         'arrival_time' => isset($t['created_at']) ? date('h:i A', strtotime($t['created_at'])) : date('h:i A'),
         'wait_time' => '15 mins',
         'vital_signs' => [
@@ -430,9 +431,11 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             </div>
             <div class="flex items-center gap-2">
                 <span class="text-xs text-slate-400">Next: <span id="nextPatientLabel" class="font-semibold text-brand-dark"><?php echo htmlspecialchars($nextCheckinPatient['queue_number'] ?? 'N/A'); ?></span></span>
-                <button onclick="callNextPatient()" class="px-3 py-1 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition">
-                    <i class="fa-solid fa-bullhorn mr-1"></i> Call Next
-                </button>
+                <?php if ($nextCheckinPatient && ($nextCheckinPatient['status'] ?? '') === 'waiting'): ?>
+                    <button onclick="callNextPatient()" class="px-3 py-1 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition">
+                        <i class="fa-solid fa-bullhorn mr-1"></i> Call Next
+                    </button>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -515,6 +518,14 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     <option value="completed">Completed</option>
                     <option value="sent_to_doctor">Sent to Doctor</option>
                 </select>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>From</span>
+                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
+                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                    <span>To</span>
+                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                </label>
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -544,6 +555,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors triage-row <?php echo $triage['priority'] === 'critical' ? 'bg-rose-50/50' : ''; ?>"
                         data-patient="<?php echo strtolower($triage['patient_name']); ?>"
                         data-priority="<?php echo $triage['priority']; ?>"
+                        data-date="<?php echo htmlspecialchars($triage['date']); ?>"
                         data-status="<?php echo $triage['status']; ?>">
                         <td class="px-4 py-3 font-mono text-xs font-bold <?php echo $triage['priority'] === 'critical' ? 'text-rose-600' : 'text-slate-400'; ?>">
                             #<?php echo $triage['queue_number']; ?>
@@ -772,35 +784,35 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">BP (Systolic/Diastolic)</label>
-                        <input type="text" id="triage_bp" placeholder="120/80" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_bp" maxlength="7" inputmode="numeric" placeholder="120/80" class="triage-bp w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Heart Rate (bpm)</label>
-                        <input type="number" id="triage_hr" placeholder="72" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_hr" maxlength="3" inputmode="numeric" placeholder="72" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Temperature (°C)</label>
-                        <input type="text" id="triage_temp" placeholder="36.5" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_temp" maxlength="5" inputmode="decimal" placeholder="36.5" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">O2 Saturation (%)</label>
-                        <input type="number" id="triage_o2" placeholder="98" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_o2" maxlength="3" inputmode="numeric" placeholder="98" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Respiratory Rate</label>
-                        <input type="number" id="triage_rr" placeholder="18" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_rr" maxlength="2" inputmode="numeric" placeholder="18" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Weight (kg)</label>
-                        <input type="text" id="triage_weight" placeholder="65.0" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_weight" maxlength="5" inputmode="decimal" placeholder="65.0" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Height (cm)</label>
-                        <input type="text" id="triage_height" placeholder="165" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_height" maxlength="5" inputmode="decimal" placeholder="165" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar</label>
-                        <input type="text" id="triage_blood_sugar" placeholder="100" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_blood_sugar" maxlength="4" inputmode="decimal" placeholder="100" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar Type</label>
@@ -813,15 +825,15 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Eye</label>
-                        <input type="number" id="triage_gcs_eye" min="1" max="4" placeholder="1-4" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_gcs_eye" maxlength="1" inputmode="numeric" placeholder="1-4" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Verbal</label>
-                        <input type="number" id="triage_gcs_verbal" min="1" max="5" placeholder="1-5" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_gcs_verbal" maxlength="1" inputmode="numeric" placeholder="1-5" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Motor</label>
-                        <input type="number" id="triage_gcs_motor" min="1" max="6" placeholder="1-6" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_gcs_motor" maxlength="1" inputmode="numeric" placeholder="1-6" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                 </div>
             </div>
@@ -921,35 +933,35 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">BP</label>
-                        <input type="text" id="edit_triage_bp" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_bp" maxlength="7" inputmode="numeric" class="triage-bp w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Heart Rate</label>
-                        <input type="number" id="edit_triage_hr" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_hr" maxlength="3" inputmode="numeric" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Temperature</label>
-                        <input type="text" id="edit_triage_temp" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_temp" maxlength="5" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">O2 Saturation</label>
-                        <input type="number" id="edit_triage_o2" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_o2" maxlength="3" inputmode="numeric" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Respiratory Rate</label>
-                        <input type="number" id="edit_triage_rr" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_rr" maxlength="2" inputmode="numeric" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Weight (kg)</label>
-                        <input type="text" id="edit_triage_weight" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_weight" maxlength="5" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Height (cm)</label>
-                        <input type="text" id="edit_triage_height" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_height" maxlength="5" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar</label>
-                        <input type="text" id="edit_triage_blood_sugar" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_blood_sugar" maxlength="4" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar Type</label>
@@ -962,15 +974,15 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Eye</label>
-                        <input type="number" id="edit_triage_gcs_eye" min="1" max="4" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_gcs_eye" maxlength="1" inputmode="numeric" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Verbal</label>
-                        <input type="number" id="edit_triage_gcs_verbal" min="1" max="5" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_gcs_verbal" maxlength="1" inputmode="numeric" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Motor</label>
-                        <input type="number" id="edit_triage_gcs_motor" min="1" max="6" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_gcs_motor" maxlength="1" inputmode="numeric" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                 </div>
             </div>
@@ -1296,6 +1308,40 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
     // ============================================================
     // UPDATE TRIAGE (Save Edit)
     // ============================================================
+    function validateTriageVitals(values) {
+        const { bp, hr, temp, o2, rr, weight, height, bloodSugar, gcsEye, gcsVerbal, gcsMotor } = values;
+        if (bp && !/^\d{2,3}\/\d{2,3}$/.test(bp)) return 'Blood pressure must use the format 120/80';
+        if (bp) {
+            const [systolic, diastolic] = bp.split('/').map(Number);
+            if (systolic < 50 || systolic > 300 || diastolic < 30 || diastolic > 200) return 'Blood pressure must be between 50/30 and 300/200 mmHg';
+        }
+        if (hr !== '' && (Number(hr) < 20 || Number(hr) > 250)) return 'Heart rate must be between 20 and 250 bpm';
+        if (temp !== '' && (Number(temp) < 25 || Number(temp) > 45)) return 'Temperature must be between 25 and 45 °C';
+        if (o2 !== '' && (Number(o2) < 50 || Number(o2) > 100)) return 'O2 saturation must be between 50 and 100%';
+        if (rr !== '' && (Number(rr) < 5 || Number(rr) > 80)) return 'Respiratory rate must be between 5 and 80';
+        if (weight !== '' && (Number(weight) < 0.1 || Number(weight) > 500)) return 'Weight must be between 0.1 and 500 kg';
+        if (height !== '' && (Number(height) < 30 || Number(height) > 250)) return 'Height must be between 30 and 250 cm';
+        if (bloodSugar !== '' && (Number(bloodSugar) < 20 || Number(bloodSugar) > 1000)) return 'Blood sugar must be between 20 and 1000 mg/dL';
+        if (gcsEye !== '' && (Number(gcsEye) < 1 || Number(gcsEye) > 4)) return 'GCS eye score must be between 1 and 4';
+        if (gcsVerbal !== '' && (Number(gcsVerbal) < 1 || Number(gcsVerbal) > 5)) return 'GCS verbal score must be between 1 and 5';
+        if (gcsMotor !== '' && (Number(gcsMotor) < 1 || Number(gcsMotor) > 6)) return 'GCS motor score must be between 1 and 6';
+        return null;
+    }
+
+    document.addEventListener('input', event => {
+        const input = event.target;
+        if (input.matches('.triage-bp')) {
+            input.value = input.value.replace(/[^\d/]/g, '').slice(0, 7);
+        } else if (input.matches('.triage-integer')) {
+            input.value = input.value.replace(/\D/g, '').slice(0, input.id.includes('_rr') ? 2 : 3);
+        } else if (input.matches('.triage-gcs')) {
+            input.value = input.value.replace(/\D/g, '').slice(0, 1);
+        } else if (input.matches('.triage-decimal')) {
+            const parts = input.value.replace(/[^\d.]/g, '').split('.');
+            input.value = parts.shift() + (parts.length ? '.' + parts.join('').slice(0, 2) : '');
+        }
+    });
+
     async function updateTriage(event) {
         event.preventDefault();
 
@@ -1303,6 +1349,24 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         if (!id) return;
 
         const selectedSymptoms = Array.from(document.querySelectorAll('#editSymptomCheckboxes input[type="checkbox"]:checked')).map(cb => cb.value);
+
+        const vitalError = validateTriageVitals({
+            bp: document.getElementById('edit_triage_bp').value.trim(),
+            hr: document.getElementById('edit_triage_hr').value.trim(),
+            temp: document.getElementById('edit_triage_temp').value.trim(),
+            o2: document.getElementById('edit_triage_o2').value.trim(),
+            rr: document.getElementById('edit_triage_rr').value.trim(),
+            weight: document.getElementById('edit_triage_weight').value.trim(),
+            height: document.getElementById('edit_triage_height').value.trim(),
+            bloodSugar: document.getElementById('edit_triage_blood_sugar').value.trim(),
+            gcsEye: document.getElementById('edit_triage_gcs_eye').value.trim(),
+            gcsVerbal: document.getElementById('edit_triage_gcs_verbal').value.trim(),
+            gcsMotor: document.getElementById('edit_triage_gcs_motor').value.trim()
+        });
+        if (vitalError) {
+            ModalSystem.toast.error(vitalError);
+            return;
+        }
 
         const payload = {
             blood_pressure: document.getElementById('edit_triage_bp').value,
@@ -1398,6 +1462,12 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
 
         if (!patientId) {
             ModalSystem.toast.warning('Please select a patient');
+            return;
+        }
+
+        const vitalError = validateTriageVitals({ bp, hr, temp, o2, rr, weight, height, bloodSugar, gcsEye, gcsVerbal, gcsMotor });
+        if (vitalError) {
+            ModalSystem.toast.error(vitalError);
             return;
         }
 
@@ -1655,22 +1725,34 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
     document.getElementById('searchTriage').addEventListener('input', filterTriage);
     document.getElementById('filterPriority').addEventListener('change', filterTriage);
     document.getElementById('filterStatus').addEventListener('change', filterTriage);
+    document.getElementById('filterDateFrom').addEventListener('change', filterTriage);
+    document.getElementById('filterDateTo').addEventListener('change', filterTriage);
 
     function filterTriage() {
         const search = document.getElementById('searchTriage').value.toLowerCase();
         const priority = document.getElementById('filterPriority').value;
         const status = document.getElementById('filterStatus').value;
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
         let visibleCount = 0;
+
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+            ModalSystem.toast.error('The start date cannot be after the end date');
+            return;
+        }
 
         document.querySelectorAll('.triage-row').forEach(row => {
             const patient = row.dataset.patient;
             const rowPriority = row.dataset.priority;
             const rowStatus = row.dataset.status;
+            const rowDate = row.dataset.date;
 
             const matchesSearch = patient.includes(search);
             const matchesPriority = !priority || rowPriority === priority;
             const matchesStatus = !status || rowStatus === status;
-            const isVisible = matchesSearch && matchesPriority && matchesStatus;
+            const matchesDateFrom = !dateFrom || rowDate >= dateFrom;
+            const matchesDateTo = !dateTo || rowDate <= dateTo;
+            const isVisible = matchesSearch && matchesPriority && matchesStatus && matchesDateFrom && matchesDateTo;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -1683,6 +1765,8 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         document.getElementById('searchTriage').value = '';
         document.getElementById('filterPriority').value = '';
         document.getElementById('filterStatus').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.triage-row').forEach(row => row.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
     }
