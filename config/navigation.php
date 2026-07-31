@@ -208,19 +208,19 @@ return [
                     'label'       => 'Health Surveillance',
                     'icon'        => 'fa-solid fa-shield-virus',
                     'match_path'  => 'modules/surveillence',
-                    'permissions' => [Permissions::COMPLIANCE_VIEW, Permissions::ANALYTICS_VIEW, Permissions::PATIENTS_VIEW, Permissions::INSPECTIONS_VIEW],
+                    'permissions' => [Permissions::SURVEILLANCE_VIEW, Permissions::SURVEILLANCE_MANAGE, Permissions::COMPLIANCE_VIEW, Permissions::ANALYTICS_VIEW],
                     'children'    => [
                         [
                             'label'      => 'Outbreak Monitoring',
                             'icon'       => 'fa-solid fa-virus',
                             'route'      => 'modules/surveillence/outbreak_monitoring.php',
-                            'permission' => Permissions::COMPLIANCE_VIEW,
+                            'permission' => Permissions::SURVEILLANCE_VIEW,
                         ],
                         [
                             'label'      => 'Disease Tracking',
                             'icon'       => 'fa-solid fa-chart-pie',
                             'route'      => 'modules/surveillence/disease_tracking.php',
-                            'permission' => Permissions::ANALYTICS_VIEW,
+                            'permission' => Permissions::SURVEILLANCE_VIEW,
                         ],
                     ],
                 ],

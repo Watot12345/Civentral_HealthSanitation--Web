@@ -57,8 +57,10 @@ try {
                 'Health Center Director',
                 'Sanitation Director',
                 'Immunization Lead',
+                'Immunization Coordinator',
                 'Wastewater Lead',
-                'Surveillance Lead'
+                'Surveillance Lead',
+                'Surveillance Coordinator'
             ];
             if (in_array($role, $deptHeads, true)) return 2;
             return 3;

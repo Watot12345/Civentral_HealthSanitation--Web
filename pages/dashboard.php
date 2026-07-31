@@ -416,6 +416,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 $dashTitle = 'System Overview';
                 $dashSubtitle = 'Real-time snapshot across all modules and system health';
                 $dashBadge = 'System Administrator';
+            } elseif (hasPermission('dashboard.surveillance') || str_contains(strtolower($currentRole), 'surveillance') || (isset($_SESSION['department']) && strcasecmp($_SESSION['department'], 'health surveillance') === 0)) {
+                $dashTitle = 'Health Surveillance Command Center';
+                $dashSubtitle = 'Disease monitoring, outbreak detection & epidemiological analytics';
+                $dashBadge = htmlspecialchars($currentRole);
             } elseif (hasPermission('dashboard.health_center')) {
                 $dashTitle = 'Health Center Services Dashboard';
                 $dashSubtitle = 'Operational analytics, patient consultations & health center performance overview';
@@ -483,10 +487,15 @@ document.addEventListener('DOMContentLoaded', function() {
         <!-- KPI ROW (Role-Specific 6 Dedicated Cards)                    -->
         <!-- ============================================================ -->
         <?php
-// Use permission-based checks with admin precedence — single source of truth
-$_isHcRole  = !$isSysAdmin && hasPermission('dashboard.health_center');
-$_isSanRole = !$isSysAdmin && hasPermission('dashboard.sanitation');
-
+// Use permission-based and role/department checks with admin precedence — single source of truth
+$_isSurvRole = !$isSysAdmin && (
+    hasPermission('dashboard.surveillance') 
+    || str_contains(strtolower($currentRole), 'surveillance')
+    || (isset($_SESSION['department']) && strcasecmp($_SESSION['department'], 'health surveillance') === 0)
+);
+$_isHcRole   = !$isSysAdmin && !$_isSurvRole && hasPermission('dashboard.health_center');
+$_isSanRole  = !$isSysAdmin && !$_isSurvRole && hasPermission('dashboard.sanitation');
+$_isImmRole  = !$isSysAdmin && !$_isSurvRole && hasPermission('dashboard.immunization');
 
 if ($_isHcRole) {
     $kpiCards = [
@@ -662,6 +671,184 @@ elseif ($_isSanRole) {
             'border_color' => 'from-rose-400 to-rose-600',
             'offset' => '20',
             'pct' => '80%'
+        ],
+    ];
+}
+// Immunization & Nutrition KPI cards
+elseif ($_isImmRole) {
+    $kpiCards = [
+        [
+            'title' => 'Immunized Children',
+            'value' => '1,924',
+            'label' => 'Total Immunizations',
+            'badge' => '92% coverage',
+            'badge_bg' => 'bg-blue-100 text-blue-700',
+            'sub' => 'vs last month',
+            'url' => site_url('modules/immunization/child_records.php'),
+            'icon' => 'fa-syringe',
+            'color' => 'blue-600',
+            'border_color' => 'from-blue-400 to-blue-600',
+            'offset' => '8',
+            'pct' => '92%'
+        ],
+        [
+            'title' => 'Growth Monitoring',
+            'value' => '842',
+            'label' => 'Children Assessed',
+            'badge' => '+5.2%',
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'active records',
+            'url' => site_url('modules/immunization/growth_monitoring.php'),
+            'icon' => 'fa-weight-scale',
+            'color' => 'emerald-600',
+            'border_color' => 'from-emerald-400 to-emerald-600',
+            'offset' => '12',
+            'pct' => '88%'
+        ],
+        [
+            'title' => 'Vaccine Stock',
+            'value' => '3,450',
+            'label' => 'Doses in Inventory',
+            'badge' => '2 low stock',
+            'badge_bg' => 'bg-rose-100 text-rose-700',
+            'sub' => 'cold chain active',
+            'url' => site_url('modules/immunization/vaccine_inventory.php'),
+            'icon' => 'fa-vial-circle-check',
+            'color' => 'purple-600',
+            'border_color' => 'from-purple-400 to-purple-600',
+            'offset' => '15',
+            'pct' => '85%'
+        ],
+        [
+            'title' => 'Nutrition Alerts',
+            'value' => '18',
+            'label' => 'Malnutrition Cases',
+            'badge' => '4 critical',
+            'badge_bg' => 'bg-amber-100 text-amber-700',
+            'sub' => 'under surveillance',
+            'url' => site_url('modules/immunization/nutrition_records.php'),
+            'icon' => 'fa-apple-whole',
+            'color' => 'amber-600',
+            'border_color' => 'from-amber-400 to-amber-600',
+            'offset' => '20',
+            'pct' => '80%'
+        ],
+        [
+            'title' => 'Defaulter Tracing',
+            'value' => '34',
+            'label' => 'Missed Second Doses',
+            'badge' => '12 contacted',
+            'badge_bg' => 'bg-teal-100 text-teal-700',
+            'sub' => 'follow-up pending',
+            'url' => site_url('modules/immunization/defaulter_tracking.php'),
+            'icon' => 'fa-user-clock',
+            'color' => 'teal-600',
+            'border_color' => 'from-teal-400 to-teal-600',
+            'offset' => '10',
+            'pct' => '90%'
+        ],
+        [
+            'title' => 'Target Coverage',
+            'value' => '94.8%',
+            'label' => 'Barangay Target',
+            'badge' => 'On Track',
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'annual goal',
+            'url' => site_url('modules/immunization/coverage_reports.php'),
+            'icon' => 'fa-bullseye',
+            'color' => 'indigo-600',
+            'border_color' => 'from-indigo-400 to-indigo-600',
+            'offset' => '5',
+            'pct' => '95%'
+        ],
+    ];
+}
+// Health Surveillance Lead KPI cards
+elseif ($_isSurvRole) {
+    $kpiCards = [
+        [
+            'title' => 'Active Cases',
+            'value' => '234',
+            'label' => 'Cases Under Monitoring',
+            'badge' => '+12.3%',
+            'badge_bg' => 'bg-rose-100 text-rose-700',
+            'sub' => 'vs last month',
+            'url' => site_url('modules/surveillence/case_reports.php'),
+            'icon' => 'fa-binoculars',
+            'color' => 'rose-600',
+            'border_color' => 'from-rose-400 to-rose-600',
+            'offset' => '32',
+            'pct' => '68%'
+        ],
+        [
+            'title' => 'Outbreak Alerts',
+            'value' => '3',
+            'label' => 'Active Outbreak Watches',
+            'badge' => '1 Critical',
+            'badge_bg' => 'bg-red-100 text-red-700',
+            'sub' => 'immediate response',
+            'url' => site_url('modules/surveillence/alerts.php'),
+            'icon' => 'fa-bell',
+            'color' => 'red-600',
+            'border_color' => 'from-red-400 to-red-600',
+            'offset' => '8',
+            'pct' => '92%'
+        ],
+        [
+            'title' => 'Investigations',
+            'value' => '47',
+            'label' => 'Active Field Investigations',
+            'badge' => '15 new',
+            'badge_bg' => 'bg-amber-100 text-amber-700',
+            'sub' => 'this week',
+            'url' => site_url('modules/surveillence/investigations.php'),
+            'icon' => 'fa-magnifying-glass',
+            'color' => 'amber-600',
+            'border_color' => 'from-amber-400 to-amber-600',
+            'offset' => '10',
+            'pct' => '90%'
+        ],
+        [
+            'title' => 'Lab Results',
+            'value' => '89',
+            'label' => 'Pending Lab Confirmations',
+            'badge' => '23 urgent',
+            'badge_bg' => 'bg-blue-100 text-blue-700',
+            'sub' => 'awaiting results',
+            'url' => site_url('modules/surveillence/lab_results.php'),
+            'icon' => 'fa-flask-vial',
+            'color' => 'blue-600',
+            'border_color' => 'from-blue-400 to-blue-600',
+            'offset' => '15',
+            'pct' => '85%'
+        ],
+        [
+            'title' => 'Contact Tracing',
+            'value' => '412',
+            'label' => 'Contacts Tracked',
+            'badge' => '94% reached',
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'active monitoring',
+            'url' => site_url('modules/surveillence/contact_tracing.php'),
+            'icon' => 'fa-people-arrows',
+            'color' => 'emerald-600',
+            'border_color' => 'from-emerald-400 to-emerald-600',
+            'offset' => '6',
+            'pct' => '94%'
+        ],
+        [
+            'title' => 'Reports Filed',
+            'value' => '156',
+            'label' => 'Epi Reports This Month',
+            'badge' => '+8.2%',
+            'badge_bg' => 'bg-purple-100 text-purple-700',
+            'sub' => 'epidemiological data',
+            'url' => site_url('modules/surveillence/reports.php'),
+            'icon' => 'fa-file-medical',
+            'color' => 'purple-600',
+            'border_color' => 'from-purple-400 to-purple-600',
+            'offset' => '12',
+            'pct' => '88%'
         ],
     ];
 }
@@ -980,6 +1167,132 @@ else {
                         'bar_width' => '80%'
                     ]
                 ];
+            } elseif ($_isSurvRole) {
+                $moduleSummaryCards = [
+                    [
+                        'name' => 'Disease Surveillance',
+                        'icon' => 'fa-binoculars',
+                        'color' => 'rose-600',
+                        'bg' => 'bg-rose-50',
+                        'total' => '234 active cases',
+                        'today' => '71 monitoring',
+                        'pct' => '68%',
+                        'bar' => 'bg-rose-500',
+                        'badge' => 'Active',
+                        'badge_bg' => 'bg-rose-100 text-rose-700',
+                        'stat1' => '1 outbreak watch',
+                        'stat2' => '166 resolved',
+                        'bar_width' => '68%'
+                    ],
+                    [
+                        'name' => 'Field Investigations',
+                        'icon' => 'fa-magnifying-glass',
+                        'color' => 'amber-600',
+                        'bg' => 'bg-amber-50',
+                        'total' => '47 ongoing',
+                        'today' => '15 new this week',
+                        'pct' => '72%',
+                        'bar' => 'bg-amber-500',
+                        'badge' => 'Priority',
+                        'badge_bg' => 'bg-amber-100 text-amber-700',
+                        'stat1' => '5 critical',
+                        'stat2' => '42 routine',
+                        'bar_width' => '72%'
+                    ],
+                    [
+                        'name' => 'Laboratory Network',
+                        'icon' => 'fa-flask-vial',
+                        'color' => 'blue-600',
+                        'bg' => 'bg-blue-50',
+                        'total' => '89 pending',
+                        'today' => '23 urgent tests',
+                        'pct' => '85%',
+                        'bar' => 'bg-blue-500',
+                        'badge' => 'Processing',
+                        'badge_bg' => 'bg-blue-100 text-blue-700',
+                        'stat1' => '3 labs active',
+                        'stat2' => '156 processed',
+                        'bar_width' => '85%'
+                    ],
+                    [
+                        'name' => 'Contact Tracing',
+                        'icon' => 'fa-people-arrows',
+                        'color' => 'emerald-600',
+                        'bg' => 'bg-emerald-50',
+                        'total' => '412 contacts',
+                        'today' => '388 reached',
+                        'pct' => '94%',
+                        'bar' => 'bg-emerald-500',
+                        'badge' => 'Effective',
+                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                        'stat1' => '24 unreachable',
+                        'stat2' => '12 tracers active',
+                        'bar_width' => '94%'
+                    ],
+                    [
+                        'name' => 'Epidemiological Reports',
+                        'icon' => 'fa-file-medical',
+                        'color' => 'purple-600',
+                        'bg' => 'bg-purple-50',
+                        'total' => '156 filed',
+                        'today' => '8 this week',
+                        'pct' => '88%',
+                        'bar' => 'bg-purple-500',
+                        'badge' => 'On Track',
+                        'badge_bg' => 'bg-purple-100 text-purple-700',
+                        'stat1' => '12 pending review',
+                        'stat2' => '144 approved',
+                        'bar_width' => '88%'
+                    ]
+                ];
+            } elseif ($_isImmRole) {
+                $moduleSummaryCards = [
+                    [
+                        'name' => 'Child Immunizations',
+                        'icon' => 'fa-syringe',
+                        'color' => 'blue-600',
+                        'bg' => 'bg-blue-50',
+                        'total' => '1,924 records',
+                        'today' => '42 today',
+                        'pct' => '92%',
+                        'bar' => 'bg-blue-500',
+                        'badge' => 'On Track',
+                        'badge_bg' => 'bg-blue-100 text-blue-700',
+                        'stat1' => '34 defaulters',
+                        'stat2' => '92% coverage',
+                        'bar_width' => '92%'
+                    ],
+                    [
+                        'name' => 'Growth & Nutrition',
+                        'icon' => 'fa-weight-scale',
+                        'color' => 'emerald-600',
+                        'bg' => 'bg-emerald-50',
+                        'total' => '842 children',
+                        'today' => '18 monitoring',
+                        'pct' => '88%',
+                        'bar' => 'bg-emerald-500',
+                        'badge' => 'Healthy',
+                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
+                        'stat1' => '4 critical malnutrition',
+                        'stat2' => '838 normal',
+                        'bar_width' => '88%'
+                    ],
+                    [
+                        'name' => 'Vaccine Stock Control',
+                        'icon' => 'fa-vial-circle-check',
+                        'color' => 'purple-600',
+                        'bg' => 'bg-purple-50',
+                        'total' => '3,450 doses',
+                        'today' => '2 reorders',
+                        'pct' => '85%',
+                        'bar' => 'bg-purple-500',
+                        'badge' => 'Sufficient',
+                        'badge_bg' => 'bg-purple-100 text-purple-700',
+                        'stat1' => '2 low stock alerts',
+                        'stat2' => 'Cold chain 2.8°C',
+                        'bar_width' => '85%'
+                    ]
+                ];
             } else {
                 $moduleSummaryCards = [
                     [
@@ -1130,7 +1443,78 @@ else {
                 </div>
                 <div class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scroll">
 
-                    <?php if ($_isSanRole): ?>
+                    <?php if ($_isSurvRole): ?>
+
+                    <!-- SURVEILLANCE LEAD ALERTS -->
+
+                    <!-- Alert 1: Outbreak - Critical -->
+                    <div class="p-3 bg-red-50 border-l-4 border-red-500 rounded-xl animate-pulse" role="alert">
+                        <div class="flex items-start gap-2.5">
+                            <div class="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-biohazard text-red-500 text-sm" aria-hidden="true"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="text-xs font-bold text-red-700">Dengue Outbreak Alert</p>
+                                        <span class="px-1.5 py-0.5 bg-red-200 text-red-800 rounded text-[7px] font-bold">PRIORITY 1</span>
+                                    </div>
+                                    <span class="text-[9px] text-red-500 flex-shrink-0">30 min ago</span>
+                                </div>
+                                <p class="text-[10px] text-red-600 mt-0.5">Cluster detected in Brgy. San Jose — 12 cases in 48 hours</p>
+                                <div class="flex gap-2 mt-2">
+                                    <button class="px-2.5 py-1 bg-red-600 text-white rounded text-[9px] font-semibold hover:bg-red-700 transition">
+                                        <i class="fas fa-bullhorn text-[8px] mr-1" aria-hidden="true"></i> Activate Response
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alert 2: Lab Confirmation Urgent -->
+                    <div class="p-3 bg-amber-50 border-l-4 border-amber-500 rounded-xl" role="alert">
+                        <div class="flex items-start gap-2.5">
+                            <div class="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-flask-vial text-amber-500 text-sm" aria-hidden="true"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="text-xs font-bold text-amber-700">Lab Confirmation Needed</p>
+                                        <span class="px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded text-[7px] font-bold">URGENT</span>
+                                    </div>
+                                    <span class="text-[9px] text-amber-500 flex-shrink-0">1 hour ago</span>
+                                </div>
+                                <p class="text-[10px] text-amber-600 mt-0.5">5 suspected Measles cases awaiting lab results</p>
+                                <div class="flex gap-2 mt-2">
+                                    <button class="px-2.5 py-1 bg-amber-600 text-white rounded text-[9px] font-semibold hover:bg-amber-700 transition">
+                                        <i class="fas fa-paper-plane text-[8px] mr-1" aria-hidden="true"></i> Expedite
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Alert 3: Investigation Update -->
+                    <div class="p-3 bg-blue-50 border-l-4 border-blue-500 rounded-xl" role="alert">
+                        <div class="flex items-start gap-2.5">
+                            <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-magnifying-glass text-blue-500 text-sm" aria-hidden="true"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="text-xs font-bold text-blue-700">Field Investigation Update</p>
+                                        <span class="px-1.5 py-0.5 bg-blue-200 text-blue-800 rounded text-[7px] font-bold">UPDATE</span>
+                                    </div>
+                                    <span class="text-[9px] text-blue-500 flex-shrink-0">2 hours ago</span>
+                                </div>
+                                <p class="text-[10px] text-blue-600 mt-0.5">Investigation #INV-2026-047 completed — Foodborne illness, Brgy. Poblacion</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <?php elseif ($_isSanRole): ?>
 
                     <!-- SANITATION ALERTS -->
 
@@ -1499,8 +1883,7 @@ else {
 
                 </div>
             </div>
-            <?php else: ?>
-            <?php if ($_isSanRole): ?>
+            <?php elseif ($_isSanRole): ?>
             <!-- SANITATION: Compliance & Permit Status Panel -->
             <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
                 <div class="flex items-center justify-between mb-3 flex-shrink-0">
@@ -1614,6 +1997,119 @@ else {
                             <div class="bg-blue-500 h-full rounded-full" style="width: 92%"></div>
                         </div>
                         <p class="text-[9px] text-slate-500 mt-1"><i class="fas fa-calendar mr-1"></i>This month vs. 88% last month</p>
+                    </div>
+
+                </div>
+            </div>
+            <?php elseif ($_isSurvRole): ?>
+            <!-- SURVEILLANCE LEAD RIGHT PANEL (Column 3) -->
+            <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
+                <div class="flex items-center justify-between mb-3 flex-shrink-0">
+                    <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
+                        <i class="fas fa-chart-map text-rose-500" aria-hidden="true"></i> Surveillance Map &amp; Hotspots
+                        <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[9px] font-bold flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse2" aria-hidden="true"></span>
+                            Live Tracking
+                        </span>
+                    </div>
+                    <a href="<?= site_url('modules/surveillence/map.php') ?>" class="text-[10px] text-c2 font-semibold hover:underline">
+                        View Map <i class="fas fa-arrow-right text-[8px] ml-0.5"></i>
+                    </a>
+                </div>
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scroll">
+
+                    <!-- Disease Hotspots -->
+                    <div class="p-3 bg-rose-50 rounded-xl border border-rose-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center flex-shrink-0 font-black text-xs">
+                                    <i class="fas fa-location-dot text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-rose-900">Dengue Hotspots</p>
+                                    <p class="text-[10px] text-rose-700">3 Active Clusters • 28 Cases</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-rose-600 text-white font-black text-xs rounded-lg shadow-sm">P1 Alert</span>
+                        </div>
+                        <div class="mt-2 text-[9px] text-rose-800 space-y-1">
+                            <div class="flex justify-between">
+                                <span><i class="fas fa-map-pin mr-1"></i>Brgy. San Jose</span>
+                                <span class="font-bold">12 cases</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span><i class="fas fa-map-pin mr-1"></i>Brgy. Poblacion</span>
+                                <span class="font-bold">9 cases</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span><i class="fas fa-map-pin mr-1"></i>Brgy. Santa Cruz</span>
+                                <span class="font-bold">7 cases</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Investigations -->
+                    <div class="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center flex-shrink-0 font-black text-xs">
+                                    <i class="fas fa-magnifying-glass-chart text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-amber-900">Priority Investigations</p>
+                                    <p class="text-[10px] text-amber-700">5 Critical • 42 Routine</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-amber-500 text-white font-black text-xs rounded-lg shadow-sm">47 Active</span>
+                        </div>
+                        <div class="mt-2">
+                            <div class="w-full bg-amber-200 h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-amber-500 h-full rounded-full" style="width:72%"></div>
+                            </div>
+                            <p class="text-[9px] text-amber-700 mt-1"><i class="fas fa-user-md mr-1"></i>8 Field Epidemiologists deployed</p>
+                        </div>
+                    </div>
+
+                    <!-- Lab Network Status -->
+                    <div class="p-3 bg-blue-50 rounded-xl border border-blue-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center flex-shrink-0 font-black text-xs">
+                                    <i class="fas fa-flask-vial text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-blue-900">Laboratory Network</p>
+                                    <p class="text-[10px] text-blue-700">3 Labs Active • 89 Pending</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-blue-600 text-white font-black text-xs rounded-lg shadow-sm">85% Capacity</span>
+                        </div>
+                        <div class="mt-2">
+                            <div class="w-full bg-blue-200 h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-blue-500 h-full rounded-full" style="width:85%"></div>
+                            </div>
+                            <p class="text-[9px] text-blue-700 mt-1"><i class="fas fa-clock mr-1"></i>Avg. turnaround: 48 hours</p>
+                        </div>
+                    </div>
+
+                    <!-- Contact Tracing Metrics -->
+                    <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 font-black text-xs">
+                                    <i class="fas fa-people-arrows text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-emerald-900">Contact Tracing</p>
+                                    <p class="text-[10px] text-emerald-700">94% Contact Rate • 12 Tracers</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-emerald-600 text-white font-black text-xs rounded-lg shadow-sm">412 Traced</span>
+                        </div>
+                        <div class="mt-1.5 text-[9px] text-emerald-800 flex items-center justify-between border-t border-emerald-200/60 pt-1.5">
+                            <span><i class="fas fa-phone-volume mr-1"></i>388 reached</span>
+                            <span class="font-bold text-emerald-900">24 unreachable</span>
+                        </div>
                     </div>
 
                 </div>
@@ -1771,7 +2267,6 @@ else {
 
                 </div>
             </div>
-            <?php endif; ?>
             <?php endif; ?>
 
 

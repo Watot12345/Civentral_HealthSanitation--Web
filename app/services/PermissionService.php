@@ -40,7 +40,7 @@ class PermissionService
 
         $userRoleDesc = trim($_SESSION['role_description'] ?? '');
         $userRole = trim($_SESSION['role'] ?? 'employee');
-        $currentSessionRoleKey = $userRoleDesc . ':' . $userRole;
+        $currentSessionRoleKey = $userRoleDesc . ':' . $userRole . ':v4';
 
         // Return session cache if populated for current active role
         if (isset($_SESSION['granted_permission_slugs_key']) 
@@ -175,7 +175,8 @@ class PermissionService
             'Immunization Coordinator' => [
                 'dashboard.view', 'dashboard.immunization',
                 'analytics.view', 'reports.view',
-                'immunization.view', 'immunization.create', 'immunization.edit', 'patients.view'
+                'immunization.view', 'immunization.create', 'immunization.edit', 'patients.view',
+                'users.view', 'users.create', 'users.edit'
             ],
             'Midwife' => [
                 'dashboard.view', 'dashboard.immunization', 'reports.view',
@@ -197,14 +198,30 @@ class PermissionService
                 'inspections.view', 'inspections.conduct', 'permits.view'
             ],
             'Surveillance Officer' => [
-                'dashboard.view', 'dashboard.health_center',
+                'dashboard.view', 'dashboard.surveillance',
                 'analytics.view', 'reports.view', 'compliance.view',
-                'patients.view', 'consultations.view', 'inspections.view', 'logs.view'
+                'surveillance.view', 'surveillance.create', 'surveillance.edit', 'surveillance.manage',
+                'patients.view', 'consultations.view', 'inspections.view'
             ],
             'Surveillance Coordinator' => [
-                'dashboard.view', 'dashboard.health_center',
+                'dashboard.view', 'dashboard.surveillance',
                 'analytics.view', 'reports.view', 'compliance.view',
-                'patients.view', 'consultations.view', 'inspections.view', 'logs.view'
+                'surveillance.view', 'surveillance.create', 'surveillance.edit', 'surveillance.manage',
+                'patients.view', 'consultations.view', 'inspections.view',
+                'users.view', 'users.create', 'users.edit'
+            ],
+            'Surveillance Lead' => [
+                'dashboard.view', 'dashboard.surveillance',
+                'analytics.view', 'reports.view', 'compliance.view',
+                'surveillance.view', 'surveillance.create', 'surveillance.edit', 'surveillance.manage',
+                'patients.view', 'consultations.view', 'inspections.view',
+                'users.view', 'users.create', 'users.edit'
+            ],
+            'Epidemiologist' => [
+                'dashboard.view', 'dashboard.surveillance',
+                'analytics.view', 'reports.view', 'compliance.view',
+                'surveillance.view', 'surveillance.create', 'surveillance.edit', 'surveillance.manage',
+                'patients.view', 'consultations.view', 'inspections.view'
             ]
         ];
     }

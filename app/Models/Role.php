@@ -227,6 +227,11 @@ class Role
             ['id' => 21, 'module' => 'Immunization & Nutrition', 'slug' => 'immunization.create', 'label' => 'Create Records'],
             ['id' => 22, 'module' => 'Immunization & Nutrition', 'slug' => 'immunization.edit',   'label' => 'Edit Records'],
 
+            ['id' => 30, 'module' => 'Health Surveillance', 'slug' => 'surveillance.view',   'label' => 'View Disease Surveillance'],
+            ['id' => 31, 'module' => 'Health Surveillance', 'slug' => 'surveillance.create', 'label' => 'Create Case & Outbreak Alert'],
+            ['id' => 32, 'module' => 'Health Surveillance', 'slug' => 'surveillance.edit',   'label' => 'Edit Case & Investigation'],
+            ['id' => 33, 'module' => 'Health Surveillance', 'slug' => 'surveillance.manage', 'label' => 'Manage Surveillance & Tracing'],
+
             ['id' => 23, 'module' => 'System Management', 'slug' => 'users.view',       'label' => 'View Users'],
             ['id' => 24, 'module' => 'System Management', 'slug' => 'users.create',     'label' => 'Create Users'],
             ['id' => 25, 'module' => 'System Management', 'slug' => 'users.edit',       'label' => 'Edit Users'],

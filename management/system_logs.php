@@ -20,8 +20,13 @@ require_once '../includes/sidebar.php';
 require_once __DIR__ . '/../app/Models/ActivityLog.php';
 $activityLogModel = new ActivityLog();
 
-$isSystemAdmin = hasPermission(App\Constants\Permissions::ROLES_MANAGE) || getPermissionService()->isAdminRole($_SESSION['role'] ?? '');
+$isSystemAdmin = hasPermission(App\Constants\Permissions::ROLES_MANAGE) || getPermissionService()->isAdminRole($_SESSION['role'] ?? '') || getPermissionService()->isAdminRole($_SESSION['role_description'] ?? '');
 $userDept      = getDepartmentResolver()->resolveDepartmentName();
+
+if (!hasPermission(App\Constants\Permissions::LOGS_VIEW) && !$isSystemAdmin) {
+    header('Location: ' . site_url('pages/dashboard.php'));
+    exit;
+}
 
 $logOptions = ['limit' => 250, 'order' => 'created_at.desc'];
 if (!$isSystemAdmin && !empty($userDept)) {

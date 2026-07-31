@@ -11,10 +11,11 @@ class Permissions
     public const REPORTS_VIEW     = 'reports.view';
     public const COMPLIANCE_VIEW  = 'compliance.view';
 
-    // Role-specific Dashboard Views (4)
+    // Role-specific Dashboard Views (5)
     public const HEALTH_CENTER_DASHBOARD  = 'dashboard.health_center';
     public const SANITATION_DASHBOARD     = 'dashboard.sanitation';
     public const IMMUNIZATION_DASHBOARD   = 'dashboard.immunization';
+    public const SURVEILLANCE_DASHBOARD   = 'dashboard.surveillance';
     public const SYSTEM_ADMIN_DASHBOARD   = 'dashboard.system_admin';
 
     // Health Center Services (10)
@@ -40,6 +41,12 @@ class Permissions
     public const IMMUNIZATION_VIEW   = 'immunization.view';
     public const IMMUNIZATION_CREATE = 'immunization.create';
     public const IMMUNIZATION_EDIT   = 'immunization.edit';
+
+    // Health Surveillance (4)
+    public const SURVEILLANCE_VIEW   = 'surveillance.view';
+    public const SURVEILLANCE_CREATE = 'surveillance.create';
+    public const SURVEILLANCE_EDIT   = 'surveillance.edit';
+    public const SURVEILLANCE_MANAGE = 'surveillance.manage';
 
     // System Management (7)
     public const USERS_VIEW      = 'users.view';
@@ -78,6 +85,10 @@ class Permissions
             self::IMMUNIZATION_VIEW,
             self::IMMUNIZATION_CREATE,
             self::IMMUNIZATION_EDIT,
+            self::SURVEILLANCE_VIEW,
+            self::SURVEILLANCE_CREATE,
+            self::SURVEILLANCE_EDIT,
+            self::SURVEILLANCE_MANAGE,
             self::USERS_VIEW,
             self::USERS_CREATE,
             self::USERS_EDIT,
