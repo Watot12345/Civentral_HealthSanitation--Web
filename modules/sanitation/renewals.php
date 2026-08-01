@@ -26,6 +26,17 @@ const DEFAULT_LIMIT = 5;
 const GRACE_PERIOD_DAYS = 30;
 const LATE_FEE_PERCENTAGE = 25;
 const INTEREST_RATE = 2;
+const MAX_RENEWAL_FEE = '999999999999.00';
+
+function normalizeRenewalDateFilter(mixed $value): ?string
+{
+    if (!is_string($value) || $value === '') {
+        return null;
+    }
+
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+    return $date && $date->format('Y-m-d') === $value ? $value : null;
+}
 
 // Initialize models using your existing Database singleton
 $renewalModel = new Renewal();
@@ -44,9 +55,21 @@ $expiringCount = count($expiringSoon);
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : DEFAULT_PAGE;
 $limit = DEFAULT_LIMIT;
 $offset = ($page - 1) * $limit;
+$dateFrom = normalizeRenewalDateFilter($_GET['date_from'] ?? null);
+$dateTo = normalizeRenewalDateFilter($_GET['date_to'] ?? null);
+$renewalCriteria = [];
+if ($dateFrom !== null || $dateTo !== null) {
+    $renewalCriteria['date_applied'] = [];
+    if ($dateFrom !== null) {
+        $renewalCriteria['date_applied']['gte'] = $dateFrom;
+    }
+    if ($dateTo !== null) {
+        $renewalCriteria['date_applied']['lte'] = $dateTo;
+    }
+}
 
 // Get paginated renewals from model
-$renewals = $renewalModel->search([], $limit, $offset);
+$renewals = $renewalModel->search($renewalCriteria, $limit, $offset);
 $totalRenewals = $stats['total'];
 $totalPages = max(1, ceil($totalRenewals / $limit));
 
@@ -243,6 +266,12 @@ $title = 'Renewals';
                     <option value="grace_period">In Grace Period</option>
                     <option value="completed">Completed</option>
                 </select>
+                      <input type="date" id="filterDateFrom" value="<?php echo htmlspecialchars($dateFrom ?? ''); ?>"
+                          aria-label="Date applied from"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                      <input type="date" id="filterDateTo" value="<?php echo htmlspecialchars($dateTo ?? ''); ?>"
+                          aria-label="Date applied to"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -271,7 +300,8 @@ $title = 'Renewals';
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors renewal-row <?php echo $renewal['status'] === 'pending' ? 'bg-amber-50/30' : ''; ?>"
                         data-applicant="<?php echo htmlspecialchars(strtolower($renewal['applicant'] ?? '')); ?>"
                         data-status="<?php echo htmlspecialchars($renewal['status'] ?? 'pending'); ?>"
-                        data-id="<?php echo htmlspecialchars($renewal['renewal_id'] ?? ''); ?>">
+                        data-id="<?php echo htmlspecialchars($renewal['renewal_id'] ?? ''); ?>"
+                        data-date-applied="<?php echo htmlspecialchars($renewal['date_applied'] ?? ''); ?>">
                         <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo htmlspecialchars($renewal['renewal_id'] ?? ''); ?></td>
                         <td class="px-4 py-3">
                             <div>
@@ -417,7 +447,9 @@ $title = 'Renewals';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Renewal Fee</label>
-                <input type="number" id="renew_fee_amount" required step="0.01" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="renew_fee_amount" required min="0" max="<?php echo MAX_RENEWAL_FEE; ?>" step="0.01" inputmode="decimal"
+                      title="Renewal fee cannot exceed <?php echo number_format(MAX_RENEWAL_FEE, 2); ?>"
+                      class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Method</label>
@@ -772,6 +804,7 @@ $title = 'Renewals';
                 row.dataset.applicant = unmasked.toLowerCase();
                 row.dataset.status = renewal.status || 'pending';
                 row.dataset.id = renewal.renewal_id || '';
+                row.dataset.dateApplied = renewal.date_applied || '';
                 row.innerHTML = `
                     <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${escHtml(renewal.renewal_id || '')}</td>
                     <td class="px-4 py-3">
@@ -968,11 +1001,20 @@ $title = 'Renewals';
         const renewalFee = document.getElementById('renew_fee_amount').value;
         const paymentMethod = document.getElementById('renew_payment_method').value;
         const notes = document.getElementById('renew_notes').value;
+        const renewalFeeValue = Number(renewalFee);
 
         if (!permitId) {
             if (typeof toast !== 'undefined') {
                 toast.warning('Please select a permit');
             }
+            return;
+        }
+
+        if (!/^\d{1,12}(\.\d{1,2})?$/.test(renewalFee.trim()) || !Number.isFinite(renewalFeeValue) || renewalFeeValue < 0 || renewalFeeValue > Number('<?php echo MAX_RENEWAL_FEE; ?>')) {
+            if (typeof toast !== 'undefined') {
+                toast.warning('Renewal fee must be between 0 and <?php echo number_format(MAX_RENEWAL_FEE, 2); ?>.');
+            }
+            document.getElementById('renew_fee_amount').focus();
             return;
         }
 
@@ -987,7 +1029,7 @@ $title = 'Renewals';
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     permit_id: parseInt(permitId),
-                    renewal_fee: parseFloat(renewalFee),
+                    renewal_fee: renewalFeeValue,
                     payment_method: paymentMethod,
                     notes: notes || ''
                 })
@@ -1036,6 +1078,8 @@ $title = 'Renewals';
     document.getElementById('searchRenewal').addEventListener('input', filterRenewals);
     document.getElementById('filterStatus').addEventListener('change', filterRenewals);
     document.getElementById('quickFilter').addEventListener('change', filterRenewals);
+    document.getElementById('filterDateFrom').addEventListener('change', applyDateFilter);
+    document.getElementById('filterDateTo').addEventListener('change', applyDateFilter);
 
     function filterRenewals() {
         const search = document.getElementById('searchRenewal').value.toLowerCase();
@@ -1047,6 +1091,9 @@ $title = 'Renewals';
             const applicant = row.dataset.applicant;
             const rowStatus = row.dataset.status;
             const rowId = row.dataset.id.toLowerCase();
+            const dateApplied = row.dataset.dateApplied;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
 
             let matchesQuick = true;
             if (quick === 'expiring_soon') {
@@ -1059,7 +1106,9 @@ $title = 'Renewals';
 
             const matchesSearch = applicant.includes(search) || rowId.includes(search);
             const matchesStatus = !status || rowStatus === status;
-            const isVisible = matchesSearch && matchesStatus && matchesQuick;
+            const matchesDateFrom = !dateFrom || (dateApplied && dateApplied >= dateFrom);
+            const matchesDateTo = !dateTo || (dateApplied && dateApplied <= dateTo);
+            const isVisible = matchesSearch && matchesStatus && matchesQuick && matchesDateFrom && matchesDateTo;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -1076,9 +1125,19 @@ $title = 'Renewals';
     }
 
     function resetFilters() {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('date_from') || url.searchParams.has('date_to')) {
+            url.searchParams.delete('date_from');
+            url.searchParams.delete('date_to');
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+            return;
+        }
         document.getElementById('searchRenewal').value = '';
         document.getElementById('filterStatus').value = '';
         document.getElementById('quickFilter').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.renewal-row').forEach(row => row.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
         const tableWrapper = document.getElementById('tableWrapper');
@@ -1087,7 +1146,28 @@ $title = 'Renewals';
 
     function changePage(page) {
         if (page < 1 || page > <?php echo $totalPages; ?>) return;
-        window.location.href = '?page=' + page;
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', page);
+        window.location.href = url.toString();
+    }
+
+    function applyDateFilter() {
+        const url = new URL(window.location.href);
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+
+        if (dateFrom) {
+            url.searchParams.set('date_from', dateFrom);
+        } else {
+            url.searchParams.delete('date_from');
+        }
+        if (dateTo) {
+            url.searchParams.set('date_to', dateTo);
+        } else {
+            url.searchParams.delete('date_to');
+        }
+        url.searchParams.set('page', '1');
+        window.location.href = url.toString();
     }
 
 

@@ -140,6 +140,11 @@ class ChildController
             Response::error('No data provided', 400);
         }
 
+        $errors = $this->validate($data, []);
+        if (!empty($errors)) {
+            Response::error('Validation failed', 422, $errors);
+        }
+
         $preparedData = $this->prepareDbData($data, true);
         $result = $this->childModel->update($id, $preparedData);
 
@@ -239,6 +244,13 @@ class ChildController
 
         if (isset($data['nutrition_status']) && !in_array((string)$data['nutrition_status'], self::VALID_NUTRITION_STATUSES)) {
             $errors[] = "Invalid nutrition status. Must be: " . implode(', ', self::VALID_NUTRITION_STATUSES);
+        }
+
+        foreach (['birth_weight' => [0.1, 999, 'kg'], 'birth_height' => [20, 999, 'cm']] as $field => [$minimum, $maximum, $unit]) {
+            $value = $data[$field] ?? null;
+            if ($value !== null && $value !== '' && (!preg_match('/^\d{1,3}(?:\.\d{1,2})?$/', (string)$value) || (float)$value < $minimum || (float)$value > $maximum)) {
+                $errors[] = ucfirst(str_replace('_', ' ', $field)) . " must be between {$minimum} and {$maximum} {$unit}";
+            }
         }
 
         if (isset($data['vaccine_compliance'])) {

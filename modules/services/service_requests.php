@@ -295,7 +295,7 @@ $title = 'Service Requests';
                 <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                 <input type="text"
                        id="searchRequest"
-                       placeholder="Search by request ID, tank ID, or owner..."
+                       placeholder="Search by request ID, owner, or technician..."
                        class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
             </div>
             <div class="flex gap-2 flex-wrap">
@@ -319,6 +319,10 @@ $title = 'Service Requests';
                     <option value="medium">Medium</option>
                     <option value="high">High</option>
                 </select>
+                      <input type="date" id="filterDateFrom" aria-label="Preferred date from"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                      <input type="date" id="filterDateTo" aria-label="Preferred date to"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -346,10 +350,14 @@ $title = 'Service Requests';
                 <tbody id="requestTableBody">
                     <?php foreach ($serviceRequests as $request): ?>
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors request-row <?php echo $request['status'] === 'pending' ? 'bg-amber-50/30' : ''; ?>"
+                        data-request-id="<?php echo strtolower($request['request_id']); ?>"
                         data-owner="<?php echo strtolower($request['owner_name']); ?>"
                         data-tank="<?php echo $request['tank_id']; ?>"
+                        data-technician="<?php echo strtolower($request['assigned_to'] ?? ''); ?>"
                         data-status="<?php echo $request['status']; ?>"
-                        data-type="<?php echo $request['service_type']; ?>">
+                        data-type="<?php echo $request['service_type']; ?>"
+                        data-preferred-date="<?php echo $request['preferred_date']; ?>"
+                        data-id="<?php echo $request['id']; ?>">
                         <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo $request['request_id']; ?></td>
                         <td class="px-4 py-3">
                             <div>
@@ -535,6 +543,29 @@ $title = 'Service Requests';
 <!-- ============================================================ -->
 <!-- VIEW REQUEST MODAL                                           -->
 <!-- ============================================================ -->
+<div id="editRequestModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-pen text-brand-medium"></i> Edit Service Request</h3>
+            <button type="button" onclick="closeModal('editRequestModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="p-6 space-y-4" onsubmit="saveRequestEdit(event)">
+            <input type="hidden" id="edit_request_id">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID</label><input type="text" id="edit_request_tank" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Owner Name</label><input type="text" id="edit_request_owner" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Type</label><select id="edit_request_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="desludging">Desludging</option><option value="maintenance">Maintenance</option><option value="inspection">Inspection</option><option value="installation">Installation</option></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Preferred Date</label><input type="date" id="edit_request_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Preferred Time</label><input type="text" id="edit_request_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Priority</label><select id="edit_request_priority" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_request_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="pending">Pending</option><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
+            </div>
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label><textarea id="edit_request_notes" rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onclick="closeModal('editRequestModal')" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold">Cancel</button><button type="submit" class="px-4 py-2 bg-brand-dark text-white rounded-lg text-sm font-semibold">Save Changes</button></div>
+        </form>
+    </div>
+</div>
+
 <div id="viewRequestModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
@@ -642,7 +673,7 @@ $title = 'Service Requests';
 </div>
 
 <!-- Toast notification -->
-<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
+<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white items-center gap-2">
     <i class="fa-solid fa-circle-check"></i>
     <span id="toastMessage"></span>
 </div>
@@ -857,7 +888,44 @@ $title = 'Service Requests';
     // EDIT REQUEST
     // ============================================================
     function editRequest(id) {
-        showToast('Edit request ID: ' + id + ' (Edit modal coming soon)', 'info');
+        const request = REQUESTS[id];
+        if (!request) return;
+        document.getElementById('edit_request_id').value = request.id;
+        document.getElementById('edit_request_tank').value = request.tank_id;
+        document.getElementById('edit_request_owner').value = request.owner_name;
+        document.getElementById('edit_request_type').value = request.service_type;
+        document.getElementById('edit_request_date').value = request.preferred_date;
+        document.getElementById('edit_request_time').value = request.preferred_time;
+        document.getElementById('edit_request_priority').value = request.priority;
+        document.getElementById('edit_request_status').value = request.status;
+        document.getElementById('edit_request_notes').value = request.notes || '';
+        openModal('editRequestModal');
+    }
+
+    function saveRequestEdit(event) {
+        event.preventDefault();
+        const id = document.getElementById('edit_request_id').value;
+        const request = REQUESTS[id];
+        if (!request) return;
+        request.tank_id = document.getElementById('edit_request_tank').value.trim();
+        request.owner_name = document.getElementById('edit_request_owner').value.trim();
+        request.service_type = document.getElementById('edit_request_type').value;
+        request.preferred_date = document.getElementById('edit_request_date').value;
+        request.preferred_time = document.getElementById('edit_request_time').value;
+        request.priority = document.getElementById('edit_request_priority').value;
+        request.status = document.getElementById('edit_request_status').value;
+        request.notes = document.getElementById('edit_request_notes').value.trim();
+        const row = document.querySelector(`.request-row[data-id="${id}"]`);
+        if (row) {
+            row.dataset.owner = request.owner_name.toLowerCase();
+            row.dataset.tank = request.tank_id;
+            row.dataset.status = request.status;
+            row.dataset.type = request.service_type;
+            row.dataset.preferredDate = request.preferred_date;
+        }
+        closeModal('editRequestModal');
+        showToast('Service request updated successfully!', 'success');
+        filterRequests();
     }
 
     // ============================================================
@@ -898,26 +966,35 @@ $title = 'Service Requests';
     document.getElementById('filterStatus').addEventListener('change', filterRequests);
     document.getElementById('filterType').addEventListener('change', filterRequests);
     document.getElementById('filterPriority').addEventListener('change', filterRequests);
+    document.getElementById('filterDateFrom').addEventListener('change', filterRequests);
+    document.getElementById('filterDateTo').addEventListener('change', filterRequests);
 
     function filterRequests() {
-        const search = document.getElementById('searchRequest').value.toLowerCase();
+        const search = document.getElementById('searchRequest').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const type = document.getElementById('filterType').value;
         const priority = document.getElementById('filterPriority').value;
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
         let visibleCount = 0;
 
         document.querySelectorAll('.request-row').forEach(row => {
             const owner = row.dataset.owner;
             const tank = row.dataset.tank;
+            const requestId = row.dataset.requestId || '';
+            const technician = row.dataset.technician || '';
             const rowStatus = row.dataset.status;
             const rowType = row.dataset.type;
+            const preferredDate = row.dataset.preferredDate || '';
             const rowPriority = row.querySelector('.px-2.py-1.rounded-full:last-child')?.textContent?.toLowerCase().trim() || '';
 
-            const matchesSearch = owner.includes(search) || tank.includes(search);
+            const matchesSearch = !search || [requestId, owner, tank, technician].some(value => value.includes(search));
             const matchesStatus = !status || rowStatus === status;
             const matchesType = !type || rowType === type;
             const matchesPriority = !priority || rowPriority.includes(priority);
-            const isVisible = matchesSearch && matchesStatus && matchesType && matchesPriority;
+            const matchesDateFrom = !dateFrom || (preferredDate && preferredDate >= dateFrom);
+            const matchesDateTo = !dateTo || (preferredDate && preferredDate <= dateTo);
+            const isVisible = matchesSearch && matchesStatus && matchesType && matchesPriority && matchesDateFrom && matchesDateTo;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -931,6 +1008,8 @@ $title = 'Service Requests';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterType').value = '';
         document.getElementById('filterPriority').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.request-row').forEach(row => row.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
     }

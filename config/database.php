@@ -49,7 +49,19 @@ class Database
         
         // Handle filters with different operators
         foreach ($filters as $key => $value) {
-            if (is_string($value) && preg_match('/^(eq|gt|gte|lt|lte|neq|like|ilike|in|is)\..*/', $value)) {
+            if (is_array($value)) {
+                if (array_keys($value) !== range(0, count($value) - 1)) {
+                    foreach ($value as $operator => $operatorValue) {
+                        $queryParams[] = $key . '=' . $operator . '.' . rawurlencode((string) $operatorValue);
+                    }
+                } elseif (!empty($value)) {
+                    $encodedValues = array_map(
+                        static fn($item): string => rawurlencode((string) $item),
+                        $value
+                    );
+                    $queryParams[] = $key . '=in.(' . implode(',', $encodedValues) . ')';
+                }
+            } elseif (is_string($value) && preg_match('/^(eq|gt|gte|lt|lte|neq|like|ilike|in|is)\..*/', $value)) {
                 $queryParams[] = $key . '=' . rawurlencode($value);
             } else {
                 $queryParams[] = $key . '=eq.' . rawurlencode((string) $value);

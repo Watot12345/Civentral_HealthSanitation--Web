@@ -363,6 +363,10 @@ $title = 'Maintenance & Desludging';
                         <option value="<?php echo $tech['name']; ?>"><?php echo $tech['name']; ?></option>
                     <?php endforeach; ?>
                 </select>
+                      <input type="date" id="filterDateFrom" aria-label="Scheduled date from"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                      <input type="date" id="filterDateTo" aria-label="Scheduled date to"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -394,7 +398,9 @@ $title = 'Maintenance & Desludging';
                         data-tank="<?php echo $record['tank_id']; ?>"
                         data-status="<?php echo $record['status']; ?>"
                         data-type="<?php echo $record['service_type']; ?>"
-                        data-technician="<?php echo strtolower($record['technician']); ?>">
+                        data-technician="<?php echo strtolower($record['technician']); ?>"
+                        data-scheduled-date="<?php echo $record['scheduled_date']; ?>"
+                        data-id="<?php echo $record['id']; ?>">
                         <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo $record['service_id']; ?></td>
                         <td class="px-4 py-3">
                             <div>
@@ -538,7 +544,7 @@ $title = 'Maintenance & Desludging';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Estimated Cost (₱)</label>
-                <input type="number" id="schedule_cost" required min="0" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="schedule_cost" required min="0" max="99999999999" step="0.01" inputmode="decimal" oninput="limitCostInput(this)" title="Maximum 11 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
@@ -637,6 +643,30 @@ $title = 'Maintenance & Desludging';
 <!-- ============================================================ -->
 <!-- VIEW SERVICE MODAL                                           -->
 <!-- ============================================================ -->
+<div id="editServiceModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-pen text-brand-medium"></i> Edit Service</h3>
+            <button type="button" onclick="closeModal('editServiceModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="p-6 space-y-4" onsubmit="saveServiceEdit(event)">
+            <input type="hidden" id="edit_service_id">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID</label><input type="text" id="edit_service_tank" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Owner Name</label><input type="text" id="edit_service_owner" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Type</label><select id="edit_service_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="desludging">Desludging</option><option value="maintenance">Maintenance</option><option value="inspection">Inspection</option><option value="installation">Installation</option></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Technician</label><select id="edit_service_technician" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><?php foreach ($technicians as $tech): ?><option value="<?php echo $tech['name']; ?>"><?php echo $tech['name']; ?></option><?php endforeach; ?></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Scheduled Date</label><input type="date" id="edit_service_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Scheduled Time</label><input type="text" id="edit_service_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_service_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="scheduled">Scheduled</option><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Cost (PHP)</label><input type="number" id="edit_service_cost" min="0" max="99999999999" step="0.01" inputmode="decimal" oninput="limitCostInput(this)" title="Maximum 11 whole-number digits" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+            </div>
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label><textarea id="edit_service_notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onclick="closeModal('editServiceModal')" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold">Cancel</button><button type="submit" class="px-4 py-2 bg-brand-dark text-white rounded-lg text-sm font-semibold">Save Changes</button></div>
+        </form>
+    </div>
+</div>
+
 <div id="viewServiceModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
@@ -679,7 +709,7 @@ $title = 'Maintenance & Desludging';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Actual Cost (₱)</label>
-                <input type="number" id="complete_cost" required min="0" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="complete_cost" required min="0" max="99999999999" step="0.01" inputmode="decimal" oninput="limitCostInput(this)" title="Maximum 11 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
 
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -697,7 +727,7 @@ $title = 'Maintenance & Desludging';
 </div>
 
 <!-- Toast notification -->
-<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
+<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white items-center gap-2">
     <i class="fa-solid fa-circle-check"></i>
     <span id="toastMessage"></span>
 </div>
@@ -800,6 +830,10 @@ $title = 'Maintenance & Desludging';
 
     function saveCompletionReport(event) {
         event.preventDefault();
+        if (!isValidCost(document.getElementById('complete_cost').value)) {
+            showToast('Actual cost must contain no more than 11 whole-number digits.', 'warning');
+            return;
+        }
         const id = document.getElementById('complete_service_id').value;
         const s = SERVICES[id];
         if (!s) return;
@@ -839,8 +873,63 @@ $title = 'Maintenance & Desludging';
     // ============================================================
     // EDIT SERVICE
     // ============================================================
+    function limitCostInput(input) {
+        const parts = String(input.value || '').split('.');
+        const whole = parts[0].replace(/\D/g, '').slice(0, 11);
+        const fraction = parts[1] ? parts[1].replace(/\D/g, '').slice(0, 2) : '';
+        input.value = parts.length > 1 ? `${whole}.${fraction}` : whole;
+    }
+
+    function isValidCost(value) {
+        return /^\d{1,11}(\.\d{1,2})?$/.test(String(value)) && Number(value) >= 0 && Number(value) <= 99999999999.99;
+    }
+
     function editService(id) {
-        showToast('Edit service ID: ' + id + ' (Edit modal coming soon)', 'info');
+        const service = SERVICES[id];
+        if (!service) return;
+        document.getElementById('edit_service_id').value = service.id;
+        document.getElementById('edit_service_tank').value = service.tank_id;
+        document.getElementById('edit_service_owner').value = service.owner_name;
+        document.getElementById('edit_service_type').value = service.service_type;
+        document.getElementById('edit_service_technician').value = service.technician;
+        document.getElementById('edit_service_date').value = service.scheduled_date;
+        document.getElementById('edit_service_time').value = service.scheduled_time;
+        document.getElementById('edit_service_status').value = service.status;
+        document.getElementById('edit_service_cost').value = service.cost;
+        document.getElementById('edit_service_notes').value = service.notes || '';
+        openModal('editServiceModal');
+    }
+
+    function saveServiceEdit(event) {
+        event.preventDefault();
+        if (!isValidCost(document.getElementById('edit_service_cost').value)) {
+            showToast('Cost must contain no more than 11 whole-number digits.', 'warning');
+            return;
+        }
+        const id = document.getElementById('edit_service_id').value;
+        const service = SERVICES[id];
+        if (!service) return;
+        service.tank_id = document.getElementById('edit_service_tank').value.trim();
+        service.owner_name = document.getElementById('edit_service_owner').value.trim();
+        service.service_type = document.getElementById('edit_service_type').value;
+        service.technician = document.getElementById('edit_service_technician').value;
+        service.scheduled_date = document.getElementById('edit_service_date').value;
+        service.scheduled_time = document.getElementById('edit_service_time').value;
+        service.status = document.getElementById('edit_service_status').value;
+        service.cost = Number(document.getElementById('edit_service_cost').value);
+        service.notes = document.getElementById('edit_service_notes').value.trim();
+        const row = document.querySelector(`.maintenance-row[data-id="${id}"]`);
+        if (row) {
+            row.dataset.owner = service.owner_name.toLowerCase();
+            row.dataset.tank = service.tank_id;
+            row.dataset.status = service.status;
+            row.dataset.type = service.service_type;
+            row.dataset.technician = service.technician.toLowerCase();
+            row.dataset.scheduledDate = service.scheduled_date;
+        }
+        closeModal('editServiceModal');
+        showToast('Maintenance service updated successfully!', 'success');
+        filterMaintenance();
     }
 
     // ============================================================
@@ -869,6 +958,10 @@ $title = 'Maintenance & Desludging';
     // ============================================================
     function saveScheduleService(event) {
         event.preventDefault();
+        if (!isValidCost(document.getElementById('schedule_cost').value)) {
+            showToast('Estimated cost must contain no more than 11 whole-number digits.', 'warning');
+            return;
+        }
         showToast('Service scheduled successfully!', 'success');
         closeModal('scheduleServiceModal');
     }
@@ -902,12 +995,16 @@ $title = 'Maintenance & Desludging';
     document.getElementById('filterStatus').addEventListener('change', filterMaintenance);
     document.getElementById('filterType').addEventListener('change', filterMaintenance);
     document.getElementById('filterTechnician').addEventListener('change', filterMaintenance);
+    document.getElementById('filterDateFrom').addEventListener('change', filterMaintenance);
+    document.getElementById('filterDateTo').addEventListener('change', filterMaintenance);
 
     function filterMaintenance() {
-        const search = document.getElementById('searchMaintenance').value.toLowerCase();
+        const search = document.getElementById('searchMaintenance').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const type = document.getElementById('filterType').value;
         const technician = document.getElementById('filterTechnician').value.toLowerCase();
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
         let visibleCount = 0;
 
         document.querySelectorAll('.maintenance-row').forEach(row => {
@@ -916,12 +1013,15 @@ $title = 'Maintenance & Desludging';
             const rowStatus = row.dataset.status;
             const rowType = row.dataset.type;
             const rowTechnician = row.dataset.technician;
+            const scheduledDate = row.dataset.scheduledDate || '';
 
             const matchesSearch = owner.includes(search) || tank.includes(search);
             const matchesStatus = !status || rowStatus === status;
             const matchesType = !type || rowType === type;
             const matchesTechnician = !technician || rowTechnician.includes(technician);
-            const isVisible = matchesSearch && matchesStatus && matchesType && matchesTechnician;
+            const matchesDateFrom = !dateFrom || (scheduledDate && scheduledDate >= dateFrom);
+            const matchesDateTo = !dateTo || (scheduledDate && scheduledDate <= dateTo);
+            const isVisible = matchesSearch && matchesStatus && matchesType && matchesTechnician && matchesDateFrom && matchesDateTo;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -935,6 +1035,8 @@ $title = 'Maintenance & Desludging';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterType').value = '';
         document.getElementById('filterTechnician').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.maintenance-row').forEach(row => row.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
     }

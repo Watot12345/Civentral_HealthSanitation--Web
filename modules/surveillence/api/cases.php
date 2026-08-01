@@ -39,6 +39,16 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 $caseModel = new SurveillanceCase();
 $logModel = new ActivityLog();
 
+$validateCaseFields = static function (mixed $age, string $contact): ?string {
+    if (!preg_match('/^\d{1,2}$/', (string)$age) || (int)$age > 99) {
+        return 'Age must contain no more than 2 digits.';
+    }
+    if ($contact !== '' && !preg_match('/^\d{11}$/', $contact)) {
+        return 'Contact number must contain exactly 11 digits.';
+    }
+    return null;
+};
+
 try {
     switch ($action) {
         case 'create':
@@ -56,6 +66,12 @@ try {
 
             if (empty($disease) || empty($patientName) || empty($barangay)) {
                 echo json_encode(['success' => false, 'message' => 'Disease, patient name, and barangay are required.']);
+                exit;
+            }
+
+            $validationError = $validateCaseFields($age, $contact);
+            if ($validationError !== null) {
+                echo json_encode(['success' => false, 'message' => $validationError]);
                 exit;
             }
 
@@ -81,6 +97,34 @@ try {
             ]);
 
             echo json_encode(['success' => true, 'message' => 'Case report submitted successfully!', 'data' => $created]);
+            break;
+
+        case 'update':
+            $id = (int)($_POST['id'] ?? 0);
+            $age = $_POST['age'] ?? '';
+            $contact = trim($_POST['contact_number'] ?? '');
+            if (!$id) {
+                echo json_encode(['success' => false, 'message' => 'Case ID is required.']);
+                exit;
+            }
+            $validationError = $validateCaseFields($age, $contact);
+            if ($validationError !== null) {
+                echo json_encode(['success' => false, 'message' => $validationError]);
+                exit;
+            }
+            $updated = $caseModel->updateById($id, [
+                'disease' => trim($_POST['disease'] ?? ''),
+                'patient_name' => trim($_POST['patient_name'] ?? ''),
+                'age' => (int)$age,
+                'gender' => trim($_POST['gender'] ?? 'Unknown'),
+                'address' => trim($_POST['address'] ?? ''),
+                'barangay' => trim($_POST['barangay'] ?? ''),
+                'contact_number' => $contact,
+                'onset_date' => trim($_POST['onset_date'] ?? date('Y-m-d')),
+                'status' => trim($_POST['status'] ?? 'Reported'),
+                'severity' => trim($_POST['severity'] ?? 'Moderate')
+            ]);
+            echo json_encode(['success' => true, 'message' => 'Case updated successfully.', 'data' => $updated]);
             break;
 
         case 'investigate':

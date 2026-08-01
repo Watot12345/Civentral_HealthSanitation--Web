@@ -5,6 +5,28 @@ require_once __DIR__ . '/../../config/database.php';
 
 class Renewal
 {
+    public const MAX_RENEWAL_FEE = '999999999999.00';
+
+    public static function isValidRenewalFee(mixed $value): bool
+    {
+        if (!is_string($value) && !is_int($value) && !is_float($value)) {
+            return false;
+        }
+
+        $fee = trim((string)$value);
+        if (!preg_match('/^(\d{1,12})(?:\.(\d{1,2}))?$/', $fee, $matches)) {
+            return false;
+        }
+
+        $whole = ltrim($matches[1], '0');
+        $whole = $whole === '' ? '0' : $whole;
+        $fraction = str_pad($matches[2] ?? '', 2, '0');
+
+        return strlen($whole) < 12
+            || $whole < '999999999999'
+            || $fraction === '00';
+    }
+
     private Database $db;
     private string $table = 'renewals';
     private string $historyTable = 'renewal_history';
@@ -40,6 +62,13 @@ class Renewal
 
     public function create(array $data): array
     {
+        if (!isset($data['renewal_fee']) || !self::isValidRenewalFee($data['renewal_fee'])) {
+            throw new InvalidArgumentException('Renewal fee must be a valid number.');
+        }
+
+        $renewalFee = (float)$data['renewal_fee'];
+        $data['renewal_fee'] = $renewalFee;
+
         if (empty($data['renewal_id'])) {
             $data['renewal_id'] = $this->generateRenewalId();
         }
@@ -86,6 +115,10 @@ class Renewal
 
         if (!empty($criteria['permit_id'])) {
             $filters['permit_id'] = $criteria['permit_id'];
+        }
+
+        if (!empty($criteria['date_applied']) && is_array($criteria['date_applied'])) {
+            $filters['date_applied'] = $criteria['date_applied'];
         }
 
         // For search, we use 'or' to search across multiple fields

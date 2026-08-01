@@ -282,6 +282,12 @@ $title = 'Growth Charts';
                     <option value="alert">With Alerts</option>
                     <option value="normal">Normal</option>
                 </select>
+                      <input type="date" id="filterDateFrom" aria-label="Measurement date from"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"
+                          onchange="updateCharts()">
+                      <input type="date" id="filterDateTo" aria-label="Measurement date to"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"
+                          onchange="updateCharts()">
                 <button onclick="resetChildFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -398,11 +404,11 @@ $title = 'Growth Charts';
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Weight (kg)</label>
-                    <input type="number" id="growth_weight" step="0.1" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <input type="number" id="growth_weight" min="0.1" max="999" step="0.1" inputmode="decimal" oninput="limitGrowthMeasurement(this)" required title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Height (cm)</label>
-                    <input type="number" id="growth_height" step="0.1" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <input type="number" id="growth_height" min="20" max="999" step="0.1" inputmode="decimal" oninput="limitGrowthMeasurement(this)" required title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
             </div>
             <div>
@@ -607,6 +613,8 @@ $title = 'Growth Charts';
         document.getElementById('filterGenderGrowth').value = '';
         document.getElementById('filterAgeGroup').value = '';
         document.getElementById('filterAlertStatus').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         filterChildrenList();
     }
 
@@ -618,7 +626,17 @@ $title = 'Growth Charts';
         const child = getChildById(childId);
         if (!child) return;
 
-        const data = getGrowthDataForChild(childId);
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+            showToast('The start date must be before the end date.', 'warning');
+            return;
+        }
+
+        const data = getGrowthDataForChild(childId).filter(measurement =>
+            (!dateFrom || measurement.date >= dateFrom) &&
+            (!dateTo || measurement.date <= dateTo)
+        );
         if (data.length === 0) {
             document.getElementById('growthChart').innerHTML = '<div class="flex items-center justify-center h-full text-slate-400">No growth data available</div>';
             return;
@@ -756,8 +774,24 @@ $title = 'Growth Charts';
     // ============================================================
     // SAVE GROWTH MEASUREMENT
     // ============================================================
+    function limitGrowthMeasurement(input) {
+        const parts = String(input.value || '').split('.');
+        const whole = parts[0].replace(/\D/g, '').slice(0, 3);
+        const fraction = parts[1] ? parts[1].replace(/\D/g, '').slice(0, 2) : '';
+        input.value = parts.length > 1 ? `${whole}.${fraction}` : whole;
+    }
+
     function saveGrowthMeasurement(event) {
         event.preventDefault();
+        const weight = document.getElementById('growth_weight').value;
+        const height = document.getElementById('growth_height').value;
+        const validMeasurement = (value, minimum) =>
+            /^\d{1,3}(\.\d{1,2})?$/.test(value) && Number(value) >= minimum && Number(value) <= 999;
+
+        if (!validMeasurement(weight, 0.1) || !validMeasurement(height, 20)) {
+            showToast('Weight must be 0.1-999 kg and height must be 20-999 cm.', 'warning');
+            return;
+        }
         showToast('Growth measurement added successfully!', 'success');
         closeModal('addGrowthModal');
         setTimeout(updateCharts, 500);

@@ -26,6 +26,16 @@ const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 5;
 const EXPIRY_WARNING_DAYS = 30;
 
+function normalizeDateFilter(mixed $value): ?string
+{
+    if (!is_string($value) || $value === '') {
+        return null;
+    }
+
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+    return $date && $date->format('Y-m-d') === $value ? $value : null;
+}
+
 // Initialize models using your existing Database singleton
 $permitDocumentModel = new PermitDocument(Database::getInstance());
 $permitModel = new Permit(Database::getInstance());
@@ -42,9 +52,22 @@ $expiringCount = count($expiringDocuments);
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : DEFAULT_PAGE;
 $limit = DEFAULT_LIMIT;
 $offset = ($page - 1) * $limit;
+$expiryDateFrom = normalizeDateFilter($_GET['expiry_date_from'] ?? null);
+$expiryDateTo = normalizeDateFilter($_GET['expiry_date_to'] ?? null);
+$documentCriteria = [];
+
+if ($expiryDateFrom !== null || $expiryDateTo !== null) {
+    $documentCriteria['expiry_date'] = [];
+    if ($expiryDateFrom !== null) {
+        $documentCriteria['expiry_date']['gte'] = $expiryDateFrom;
+    }
+    if ($expiryDateTo !== null) {
+        $documentCriteria['expiry_date']['lte'] = $expiryDateTo;
+    }
+}
 
 // Get paginated documents from model
-$documents = $permitDocumentModel->search([], $limit, $offset);
+$documents = $permitDocumentModel->search($documentCriteria, $limit, $offset);
 $totalDocuments = $stats['total'];
 $totalPages = max(1, ceil($totalDocuments / $limit));
 
@@ -348,6 +371,12 @@ $title = 'Documents';
                     <option value="tax_clearance">Tax Clearance</option>
                     <option value="other">Other</option>
                 </select>
+                      <input type="date" id="filterExpiryFrom" value="<?php echo htmlspecialchars($expiryDateFrom ?? ''); ?>"
+                          aria-label="Expiry date from"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                      <input type="date" id="filterExpiryTo" value="<?php echo htmlspecialchars($expiryDateTo ?? ''); ?>"
+                          aria-label="Expiry date to"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -378,7 +407,8 @@ $title = 'Documents';
                         data-applicant="<?php echo htmlspecialchars(strtolower($document['applicant'])); ?>"
                         data-type="<?php echo htmlspecialchars(strtolower($document['document_type'])); ?>"
                         data-status="<?php echo htmlspecialchars($document['status']); ?>"
-                        data-id="<?php echo htmlspecialchars($document['document_id']); ?>">
+                        data-id="<?php echo htmlspecialchars($document['document_id']); ?>"
+                        data-expiry-date="<?php echo htmlspecialchars($document['expiry_date'] ?? ''); ?>">
                         <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">
                             <?php echo htmlspecialchars($document['document_id']); ?>
                         </td>
@@ -631,6 +661,7 @@ $title = 'Documents';
                 row.dataset.type = doc.document_type?.toLowerCase() || '';
                 row.dataset.status = doc.status || '';
                 row.dataset.id = doc.id;
+                row.dataset.expiryDate = doc.expiry_date || '';
                 row.innerHTML = `
                     <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${escHtml(doc.document_id)}</td>
                     <td class="px-4 py-3">
@@ -914,11 +945,15 @@ $title = 'Documents';
     document.getElementById('searchDocument').addEventListener('input', filterDocuments);
     document.getElementById('filterStatus').addEventListener('change', filterDocuments);
     document.getElementById('filterType').addEventListener('change', filterDocuments);
+    document.getElementById('filterExpiryFrom').addEventListener('change', applyDateFilter);
+    document.getElementById('filterExpiryTo').addEventListener('change', applyDateFilter);
 
     function filterDocuments() {
         const search = document.getElementById('searchDocument').value.toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const type = document.getElementById('filterType').value.toLowerCase();
+        const expiryFrom = document.getElementById('filterExpiryFrom').value;
+        const expiryTo = document.getElementById('filterExpiryTo').value;
         let visibleCount = 0;
 
         document.querySelectorAll('.document-row').forEach(row => {
@@ -926,24 +961,21 @@ $title = 'Documents';
             const rowType = row.dataset.type;
             const rowStatus = row.dataset.status;
             const docId = row.dataset.id.toLowerCase();
+            const expiryDate = row.dataset.expiryDate;
 
             let matchesStatus = true;
             if (status === 'expiring_soon') {
-                const expiryCell = row.querySelector('.px-4.py-3.text-slate-500.text-xs span');
-                if (expiryCell) {
-                    const daysText = expiryCell.textContent.match(/\d+/);
-                    const daysLeft = daysText ? parseInt(daysText[0]) : 999;
-                    matchesStatus = daysLeft <= 30 && rowStatus !== 'expired';
-                } else {
-                    matchesStatus = false;
-                }
+                const daysLeft = expiryDate ? (new Date(expiryDate) - new Date()) / 86400000 : 999;
+                matchesStatus = daysLeft >= 0 && daysLeft <= 30 && rowStatus !== 'expired';
             } else {
                 matchesStatus = !status || rowStatus === status;
             }
 
             const matchesSearch = applicant.includes(search) || docId.includes(search);
             const matchesType = !type || rowType === type;
-            const isVisible = matchesSearch && matchesStatus && matchesType;
+            const matchesExpiryFrom = !expiryFrom || (expiryDate && expiryDate >= expiryFrom);
+            const matchesExpiryTo = !expiryTo || (expiryDate && expiryDate <= expiryTo);
+            const isVisible = matchesSearch && matchesStatus && matchesType && matchesExpiryFrom && matchesExpiryTo;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -953,11 +985,41 @@ $title = 'Documents';
     }
 
     function resetFilters() {
+        const url = new URL(window.location.href);
+        const hasDateFilter = url.searchParams.has('expiry_date_from') || url.searchParams.has('expiry_date_to');
+        if (hasDateFilter) {
+            url.searchParams.delete('expiry_date_from');
+            url.searchParams.delete('expiry_date_to');
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+            return;
+        }
         document.getElementById('searchDocument').value = '';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterType').value = '';
+        document.getElementById('filterExpiryFrom').value = '';
+        document.getElementById('filterExpiryTo').value = '';
         document.querySelectorAll('.document-row').forEach(row => row.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
+    }
+
+    function applyDateFilter() {
+        const url = new URL(window.location.href);
+        const expiryFrom = document.getElementById('filterExpiryFrom').value;
+        const expiryTo = document.getElementById('filterExpiryTo').value;
+
+        if (expiryFrom) {
+            url.searchParams.set('expiry_date_from', expiryFrom);
+        } else {
+            url.searchParams.delete('expiry_date_from');
+        }
+        if (expiryTo) {
+            url.searchParams.set('expiry_date_to', expiryTo);
+        } else {
+            url.searchParams.delete('expiry_date_to');
+        }
+        url.searchParams.set('page', '1');
+        window.location.href = url.toString();
     }
 
     function changePage(page) {
