@@ -23,6 +23,16 @@ require_once __DIR__ . '/../../includes/toast.php';
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 5;
 
+function normalizeChildDateFilter(mixed $value): ?string
+{
+    if (!is_string($value) || $value === '') {
+        return null;
+    }
+
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+    return $date && $date->format('Y-m-d') === $value ? $value : null;
+}
+
 // Shared nutrition badge color map.
 // Defined ONCE here (previously redeclared on every loop iteration) and
 // also echoed as JSON below so the JS side reuses the exact same map
@@ -44,10 +54,22 @@ $stats = $childModel->getStats();
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : DEFAULT_PAGE;
 $limit = DEFAULT_LIMIT;
 $offset = ($page - 1) * $limit;
+$registrationDateFrom = normalizeChildDateFilter($_GET['registration_date_from'] ?? null);
+$registrationDateTo = normalizeChildDateFilter($_GET['registration_date_to'] ?? null);
+$childCriteria = [];
+if ($registrationDateFrom !== null || $registrationDateTo !== null) {
+    $childCriteria['registration_date'] = [];
+    if ($registrationDateFrom !== null) {
+        $childCriteria['registration_date']['gte'] = $registrationDateFrom;
+    }
+    if ($registrationDateTo !== null) {
+        $childCriteria['registration_date']['lte'] = $registrationDateTo;
+    }
+}
 
 // Get paginated children from model
-$children = $childModel->search([], $limit, $offset);
-$totalChildren = $stats['total'];
+$children = $childModel->search($childCriteria, $limit, $offset);
+$totalChildren = empty($childCriteria) ? $stats['total'] : $childModel->count($childCriteria);
 $totalPages = max(1, ceil($totalChildren / $limit));
 
 // Stats for display
@@ -229,10 +251,43 @@ $title = 'Child Records';
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                 </select>
+                <button type="button" onclick="openModal('childDateFilterModal')" title="Filter by registration date"
+                        class="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </button>
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Registration Date Filter Modal -->
+    <div id="childDateFilterModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days text-brand-medium"></i>
+                    Registration Date Filter
+                </h3>
+                <button type="button" onclick="closeModal('childDateFilterModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label for="registrationDateFrom" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Registered From</label>
+                    <input type="date" id="registrationDateFrom" value="<?php echo htmlspecialchars($registrationDateFrom ?? ''); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+                <div>
+                    <label for="registrationDateTo" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Registered To</label>
+                    <input type="date" id="registrationDateTo" value="<?php echo htmlspecialchars($registrationDateTo ?? ''); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="clearChildDateFilter()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition text-sm font-semibold">Clear</button>
+                    <button type="button" onclick="applyChildDateFilter()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">Apply Filter</button>
+                </div>
             </div>
         </div>
     </div>
@@ -282,7 +337,8 @@ $title = 'Child Records';
                         data-status="<?php echo htmlspecialchars($child['status']); ?>"
                         data-gender="<?php echo htmlspecialchars($child['gender']); ?>"
                         data-nutrition="<?php echo htmlspecialchars($child['nutrition_status']); ?>"
-                        data-barangay="<?php echo htmlspecialchars(strtolower($child['barangay'])); ?>">
+                        data-barangay="<?php echo htmlspecialchars(strtolower($child['barangay'])); ?>"
+                        data-registration-date="<?php echo htmlspecialchars($child['registration_date'] ?? ''); ?>">
                         <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold maskable" data-real="<?php echo htmlspecialchars($child['child_id']); ?>"><?php echo htmlspecialchars($child['child_id']); ?></td>
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-3">
@@ -451,11 +507,11 @@ $title = 'Child Records';
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Weight (kg)</label>
-                        <input type="number" id="child_birth_weight" step="0.1" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="number" id="child_birth_weight" min="0.1" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Height (cm)</label>
-                        <input type="number" id="child_birth_height" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="number" id="child_birth_height" min="20" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Blood Type</label>
@@ -614,11 +670,11 @@ $title = 'Child Records';
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Weight (kg)</label>
-                        <input type="number" id="edit_birth_weight" step="0.1" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="number" id="edit_birth_weight" min="0.1" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Height (cm)</label>
-                        <input type="number" id="edit_birth_height" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="number" id="edit_birth_height" min="20" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Blood Type</label>
@@ -750,6 +806,40 @@ $title = 'Child Records';
     </div>
 </div>
 
+<!-- ARCHIVE CONFIRMATION MODAL -->
+<div id="archiveChildModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div class="p-6 text-center">
+            <div class="w-14 h-14 mx-auto mb-4 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+                <i class="fa-solid fa-box-archive text-xl"></i>
+            </div>
+            <h3 class="font-bold text-slate-900 text-lg">Archive Child Record?</h3>
+            <p class="text-sm text-slate-500 mt-2">The record will be marked inactive.</p>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="resolveConfirmation(false)" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button>
+                <button type="button" onclick="resolveConfirmation(true)" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-semibold">Archive</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE CONFIRMATION MODAL -->
+<div id="deleteChildModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div class="p-6 text-center">
+            <div class="w-14 h-14 mx-auto mb-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
+                <i class="fa-solid fa-trash text-xl"></i>
+            </div>
+            <h3 class="font-bold text-slate-900 text-lg">Delete Child Record?</h3>
+            <p class="text-sm text-slate-500 mt-2">This action cannot be undone.</p>
+            <div class="flex justify-end gap-2 mt-6">
+                <button type="button" onclick="resolveConfirmation(false)" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button>
+                <button type="button" onclick="resolveConfirmation(true)" class="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition text-sm font-semibold">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- ============================================================ -->
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
@@ -800,6 +890,14 @@ $title = 'Child Records';
         if (days > 0 && years === 0) age += (age ? ' ' : '') + days + ' day' + (days > 1 ? 's' : '');
         return age || '0 days';
     };
+
+    function limitMeasurementInput(input) {
+        const value = input.value || '';
+        const parts = value.split('.');
+        const whole = parts[0].replace(/\D/g, '').slice(0, 3);
+        const fraction = parts[1] ? parts[1].replace(/\D/g, '').slice(0, 2) : '';
+        input.value = parts.length > 1 ? `${whole}.${fraction}` : whole;
+    }
 
     function escHtml(str) {
         if (!str) return '';
@@ -1111,20 +1209,28 @@ $title = 'Child Records';
                 <head>
                     <title>Child Record - ${escHtml(val(c.child_id))}</title>
                     <style>
-                        body { font-family: Arial, sans-serif; padding: 20px; }
-                        .header { text-align: center; border-bottom: 2px solid #0B4F4A; padding-bottom: 10px; margin-bottom: 20px; }
-                        .section { margin-bottom: 20px; padding: 10px; background: #f8f8f8; border-radius: 5px; }
-                        .section-title { font-weight: bold; color: #0B4F4A; margin-bottom: 10px; }
-                        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-                        .label { font-size: 12px; color: #666; }
-                        .value { font-size: 14px; font-weight: 600; }
+                        @page { margin: 0.75in; }
+                        * { box-sizing: border-box; }
+                        body { font-family: "Times New Roman", Times, serif; color: #000; margin: 0; font-size: 11pt; }
+                        .report-header { text-align: center; margin: 0 0 25px; padding-bottom: 15px; border-bottom: 2px solid #000; }
+                        .report-header img { width: 120px; height: auto; display: block; margin: 0 auto 10px; }
+                        .report-header h1 { margin: 0; font-size: 20pt; font-weight: bold; text-transform: uppercase; }
+                        .report-header h2 { margin: 5px 0 0; font-size: 14pt; font-weight: normal; }
+                        .report-meta { margin-top: 8px; font-size: 10pt; }
+                        .section { margin: 0 0 18px; padding: 0 0 12px; border-bottom: 1px solid #777; page-break-inside: avoid; }
+                        .section-title { font-weight: bold; font-size: 12pt; text-transform: uppercase; margin-bottom: 10px; }
+                        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }
+                        .label { font-size: 9pt; color: #444; }
+                        .value { font-size: 11pt; font-weight: 600; min-height: 15px; }
                         @media print { body { padding: 0; } }
                     </style>
                 </head>
                 <body>
-                    <div class="header">
-                        <h1>Child Health Record</h1>
-                        <p>${escHtml(val(c.child_id))} • Printed on ${new Date().toLocaleDateString()}</p>
+                    <div class="report-header">
+                        <img src="<?php echo site_url('assets/images/logo.png'); ?>" alt="Logo">
+                        <h1>Health Sanitation Management Caloocan</h1>
+                        <h2>Child Health Record</h2>
+                        <div class="report-meta">${escHtml(val(c.child_id))} | Printed on ${new Date().toLocaleDateString()}</div>
                     </div>
                     
                     <div class="section">
@@ -1262,6 +1368,16 @@ $title = 'Child Records';
     // differ only in HTTP method, URL, and the success/cleanup step.
     async function submitChildForm(event, { url, method, formData, onSuccess, successMessage }) {
         event.preventDefault();
+        const measurements = [
+            ['birth_weight', 0.1, 999, 'kg'],
+            ['birth_height', 20, 999, 'cm']
+        ];
+        for (const [field, minimum, maximum, unit] of measurements) {
+            if (formData[field] !== null && formData[field] !== '' && (!/^\d{1,3}(\.\d{1,2})?$/.test(String(formData[field])) || Number(formData[field]) < minimum || Number(formData[field]) > maximum)) {
+                toast.warning(`${field === 'birth_weight' ? 'Birth weight' : 'Birth height'} must be between ${minimum} and ${maximum} ${unit}.`);
+                return;
+            }
+        }
         const submitBtn = event.target.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
 
@@ -1436,6 +1552,7 @@ $title = 'Child Records';
                         gender: child.gender || '',
                         nutrition: child.nutrition_status || '',
                         barangay: (child.barangay || '').toLowerCase(),
+                        registrationDate: child.registration_date || '',
                     });
                     row.innerHTML = buildChildRowHTML(child);
                     tbody.appendChild(row);
@@ -1456,20 +1573,25 @@ $title = 'Child Records';
     document.getElementById('filterStatus').addEventListener('change', filterChildren);
 
     function filterChildren() {
-        const search = document.getElementById('searchChild').value.toLowerCase();
-        const gender = document.getElementById('filterGender').value;
-        const nutrition = document.getElementById('filterNutrition').value;
-        const status = document.getElementById('filterStatus').value;
+        const search = document.getElementById('searchChild').value.trim().toLowerCase();
+        const gender = document.getElementById('filterGender').value.trim().toLowerCase();
+        const nutrition = document.getElementById('filterNutrition').value.trim().toLowerCase();
+        const status = document.getElementById('filterStatus').value.trim().toLowerCase();
+        const dateFrom = document.getElementById('registrationDateFrom').value;
+        const dateTo = document.getElementById('registrationDateTo').value;
         let visibleCount = 0;
 
         document.querySelectorAll('.child-row').forEach(row => {
             const d = row.dataset;
-            const matchesSearch = !search ||
-                [d.name, d.id.toLowerCase(), d.mother, d.barangay].some(field => field.includes(search));
+            const searchableFields = [d.name, d.id, d.mother, d.barangay]
+                .map(value => String(value || '').toLowerCase());
+            const matchesSearch = !search || searchableFields.some(field => field.includes(search));
             const isVisible = matchesSearch &&
-                (!gender || d.gender === gender) &&
-                (!nutrition || d.nutrition === nutrition) &&
-                (!status || d.status === status);
+                (!gender || String(d.gender || '').toLowerCase() === gender) &&
+                (!nutrition || String(d.nutrition || '').toLowerCase() === nutrition) &&
+                (!status || String(d.status || '').toLowerCase() === status) &&
+                (!dateFrom || (d.registrationDate && d.registrationDate >= dateFrom)) &&
+                (!dateTo || (d.registrationDate && d.registrationDate <= dateTo));
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -1482,17 +1604,59 @@ $title = 'Child Records';
     }
 
     function resetFilters() {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('registration_date_from') || url.searchParams.has('registration_date_to')) {
+            url.searchParams.delete('registration_date_from');
+            url.searchParams.delete('registration_date_to');
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+            return;
+        }
         document.getElementById('searchChild').value = '';
         document.getElementById('filterGender').value = '';
         document.getElementById('filterNutrition').value = '';
         document.getElementById('filterStatus').value = '';
+        document.getElementById('registrationDateFrom').value = '';
+        document.getElementById('registrationDateTo').value = '';
         document.querySelectorAll('.child-row').forEach(row => row.style.display = '');
         setVisible(document.getElementById('emptySearchState'), false, 'flex');
     }
 
     function changePage(page) {
         if (page < 1 || page > <?php echo $totalPages; ?>) return;
-        window.location.href = '?page=' + page;
+        const url = new URL(window.location.href);
+        url.searchParams.set('page', page);
+        window.location.href = url.toString();
+    }
+
+    function applyChildDateFilter() {
+        const dateFrom = document.getElementById('registrationDateFrom').value;
+        const dateTo = document.getElementById('registrationDateTo').value;
+
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+            toast.warning('The start date must be before the end date.');
+            return;
+        }
+
+        const url = new URL(window.location.href);
+        if (dateFrom) {
+            url.searchParams.set('registration_date_from', dateFrom);
+        } else {
+            url.searchParams.delete('registration_date_from');
+        }
+        if (dateTo) {
+            url.searchParams.set('registration_date_to', dateTo);
+        } else {
+            url.searchParams.delete('registration_date_to');
+        }
+        url.searchParams.set('page', '1');
+        window.location.href = url.toString();
+    }
+
+    function clearChildDateFilter() {
+        document.getElementById('registrationDateFrom').value = '';
+        document.getElementById('registrationDateTo').value = '';
+        applyChildDateFilter();
     }
 
     // ============================================================
@@ -1522,7 +1686,9 @@ $title = 'Child Records';
     function quickFilter(type, value) {
         const targetMap = { gender: 'filterGender', nutrition: 'filterNutrition', status: 'filterStatus' };
         const el = document.getElementById(targetMap[type]);
-        if (el) el.value = value;
+        if (el) {
+            el.value = el.value === value ? '' : value;
+        }
         filterChildren();
     }
 
@@ -1558,8 +1724,26 @@ $title = 'Child Records';
     // ============================================================
     // ARCHIVE / DELETE (shared confirm + PATCH/DELETE flow)
     // ============================================================
+    let pendingConfirmation = null;
+
+    function requestConfirmation(modalId) {
+        return new Promise(resolve => {
+            pendingConfirmation = resolve;
+            openModal(modalId);
+        });
+    }
+
+    function resolveConfirmation(confirmed) {
+        const resolve = pendingConfirmation;
+        pendingConfirmation = null;
+        closeModal('archiveChildModal');
+        closeModal('deleteChildModal');
+        if (resolve) resolve(confirmed);
+    }
+
     async function confirmAndSend(id, { confirmMsg, method, body, successMsg, failMsg }) {
-        if (!confirm(confirmMsg)) return;
+        const modalId = method === 'DELETE' ? 'deleteChildModal' : 'archiveChildModal';
+        if (!await requestConfirmation(modalId)) return;
         try {
             const response = await fetch(`${API_BASE}?id=${id}`, {
                 method,

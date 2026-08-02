@@ -393,6 +393,10 @@ $title = 'Vaccination Tracking';
                         <option value="<?php echo $v; ?>"><?php echo $v; ?></option>
                     <?php endforeach; ?>
                 </select>
+                      <input type="date" id="filterDateFrom" aria-label="Administered date from"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                      <input type="date" id="filterDateTo" aria-label="Administered date to"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -422,7 +426,11 @@ $title = 'Vaccination Tracking';
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors vaccination-row <?php echo $immunization['status'] === 'missed' ? 'bg-rose-50/50' : ''; ?>"
                         data-child="<?php echo strtolower($immunization['child_name']); ?>"
                         data-vaccine="<?php echo strtolower($immunization['vaccine']); ?>"
-                        data-status="<?php echo $immunization['status']; ?>">
+                        data-status="<?php echo $immunization['status']; ?>"
+                        data-date="<?php echo htmlspecialchars($immunization['date'] ?? ''); ?>"
+                        data-next-due="<?php echo htmlspecialchars($immunization['next_due'] ?? ($immunization['due_date'] ?? '')); ?>"
+                        data-batch="<?php echo htmlspecialchars(strtolower($immunization['batch_number'] ?? '')); ?>"
+                        data-dose="<?php echo (int)$immunization['dose']; ?>">
                         <td class="px-4 py-3">
                             <div>
                                 <p class="font-semibold text-slate-800 text-sm"><?php echo $immunization['child_name']; ?></p>
@@ -594,7 +602,7 @@ $title = 'Vaccination Tracking';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Dose Number</label>
-                <input type="number" id="vacc_dose" min="1" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="vacc_dose" min="1" max="9999" step="1" required inputmode="numeric" oninput="limitDoseInput(this)" title="Dose number must be 1 to 9999" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date Administered</label>
@@ -752,8 +760,18 @@ $title = 'Vaccination Tracking';
         openModal('recordVaccinationModal');
     }
 
+    function limitDoseInput(input) {
+        input.value = String(input.value || '').replace(/\D/g, '').slice(0, 4);
+    }
+
     function saveVaccinationRecord(event) {
         event.preventDefault();
+        const dose = document.getElementById('vacc_dose').value;
+        if (!/^\d{1,4}$/.test(dose) || Number(dose) < 1 || Number(dose) > 9999) {
+            showToast('Dose number must be between 1 and 9999.', 'warning');
+            document.getElementById('vacc_dose').focus();
+            return;
+        }
         showToast('Vaccination recorded successfully!', 'success');
         closeModal('recordVaccinationModal');
     }
@@ -786,23 +804,33 @@ $title = 'Vaccination Tracking';
     document.getElementById('searchVaccination').addEventListener('input', filterVaccinations);
     document.getElementById('filterStatus').addEventListener('change', filterVaccinations);
     document.getElementById('filterVaccine').addEventListener('change', filterVaccinations);
+    document.getElementById('filterDateFrom').addEventListener('change', filterVaccinations);
+    document.getElementById('filterDateTo').addEventListener('change', filterVaccinations);
 
     function filterVaccinations() {
-        const search = document.getElementById('searchVaccination').value.toLowerCase();
+        const search = document.getElementById('searchVaccination').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const vaccine = document.getElementById('filterVaccine').value.toLowerCase();
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
         let visibleCount = 0;
 
         document.querySelectorAll('.vaccination-row').forEach(row => {
             const child = row.dataset.child;
             const rowVaccine = row.dataset.vaccine;
             const rowStatus = row.dataset.status;
+            const rowDate = row.dataset.date || '';
+            const rowBatch = row.dataset.batch || '';
+            const rowDose = row.dataset.dose || '';
 
-            const matchesSearch = child.includes(search);
+            const matchesSearch = !search || [child, rowVaccine, rowBatch, rowDose]
+                .some(value => String(value || '').toLowerCase().includes(search));
             const matchesStatus = !status || 
-                (status === 'due_soon' ? rowStatus === 'pending' : rowStatus === status);
+                (status === 'due_soon' ? isDueSoon(row) : rowStatus === status);
             const matchesVaccine = !vaccine || rowVaccine === vaccine;
-            const isVisible = matchesSearch && matchesStatus && matchesVaccine;
+            const matchesDateFrom = !dateFrom || (rowDate && rowDate >= dateFrom);
+            const matchesDateTo = !dateTo || (rowDate && rowDate <= dateTo);
+            const isVisible = matchesSearch && matchesStatus && matchesVaccine && matchesDateFrom && matchesDateTo;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -811,10 +839,19 @@ $title = 'Vaccination Tracking';
         document.getElementById('emptyState').style.display = visibleCount === 0 ? 'flex' : 'none';
     }
 
+    function isDueSoon(row) {
+        if (!row.dataset.nextDue) return false;
+        const dueDate = new Date(row.dataset.nextDue + 'T00:00:00');
+        const daysLeft = (dueDate - new Date()) / 86400000;
+        return daysLeft >= 0 && daysLeft <= 30;
+    }
+
     function resetFilters() {
         document.getElementById('searchVaccination').value = '';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterVaccine').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.vaccination-row').forEach(row => row.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
     }

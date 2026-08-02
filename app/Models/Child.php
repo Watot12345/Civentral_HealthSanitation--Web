@@ -106,6 +106,10 @@ class Child
             $filters['barangay'] = $criteria['barangay'];
         }
 
+        if (!empty($criteria['registration_date']) && is_array($criteria['registration_date'])) {
+            $filters['registration_date'] = $criteria['registration_date'];
+        }
+
         if (!empty($criteria['search'])) {
             $searchTerm = strtolower($criteria['search']);
             $options['or'] = "(first_name.ilike.%{$searchTerm}%,last_name.ilike.%{$searchTerm}%,child_id.ilike.%{$searchTerm}%,mother_name.ilike.%{$searchTerm}%)";

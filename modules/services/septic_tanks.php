@@ -289,6 +289,10 @@ $title = 'Septic Tank Registry';
                     <option value="Barangay San Roque">San Roque</option>
                     <option value="Barangay Sta. Cruz">Sta. Cruz</option>
                 </select>
+                      <input type="date" id="filterDateFrom" aria-label="Maintenance date from"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                      <input type="date" id="filterDateTo" aria-label="Maintenance date to"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -305,7 +309,8 @@ $title = 'Septic Tank Registry';
              data-id="<?php echo $tank['tank_id']; ?>"
              data-status="<?php echo $tank['status']; ?>"
              data-type="<?php echo $tank['type']; ?>"
-             data-barangay="<?php echo $tank['barangay']; ?>">
+             data-barangay="<?php echo $tank['barangay']; ?>"
+             data-maintenance-date="<?php echo $tank['last_maintenance']; ?>">
             
             <!-- Header -->
             <div class="flex items-center justify-between mb-3">
@@ -394,7 +399,7 @@ $title = 'Septic Tank Registry';
     </div>
 
     <!-- Pagination -->
-    <div class="mt-4 px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-white rounded-xl shadow-xs border border-slate-200">
+    <div class="mt-4 px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-white rounded-xl shadow-xs">
         <p class="text-xs text-slate-500">
             Showing <span class="font-semibold text-slate-700">1</span> to
             <span class="font-semibold text-slate-700"><?php echo $totalTanks; ?></span> of
@@ -509,6 +514,33 @@ $title = 'Septic Tank Registry';
 </div>
 
 <!-- ============================================================ -->
+<!-- EDIT TANK MODAL                                              -->
+<!-- ============================================================ -->
+<div id="editTankModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-pen text-brand-medium"></i> Edit Septic Tank</h3>
+            <button type="button" onclick="closeModal('editTankModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="p-6 space-y-4" onsubmit="saveTankEdit(event)">
+            <input type="hidden" id="edit_tank_id">
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Owner Name</label><input type="text" id="edit_tank_owner" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Address</label><input type="text" id="edit_tank_address" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label><select id="edit_tank_barangay" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option>Barangay San Jose</option><option>Barangay Poblacion</option><option>Barangay Riverside</option><option>Barangay San Roque</option><option>Barangay Sta. Cruz</option></select></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Capacity</label><select id="edit_tank_capacity" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option>500L</option><option>800L</option><option>1000L</option><option>1200L</option><option>1500L</option><option>2000L</option></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</label><select id="edit_tank_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option>Concrete</option><option>Plastic</option><option>Fiberglass</option></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Maintenance</label><input type="date" id="edit_tank_maintenance" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Frequency (months)</label><select id="edit_tank_frequency" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="6">6 months</option><option value="12">12 months</option><option value="18">18 months</option><option value="24">24 months</option></select></div>
+            </div>
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_tank_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="good">Good</option><option value="needs_maintenance">Needs Maintenance</option><option value="critical">Critical</option></select></div>
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label><textarea id="edit_tank_notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onclick="closeModal('editTankModal')" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold">Cancel</button><button type="submit" class="px-4 py-2 bg-brand-dark text-white rounded-lg text-sm font-semibold">Save Changes</button></div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- VIEW TANK MODAL                                              -->
 <!-- ============================================================ -->
 <div id="viewTankModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
@@ -581,7 +613,7 @@ $title = 'Septic Tank Registry';
 </div>
 
 <!-- Toast notification -->
-<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
+<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white items-center gap-2">
     <i class="fa-solid fa-circle-check"></i>
     <span id="toastMessage"></span>
 </div>
@@ -727,7 +759,48 @@ $title = 'Septic Tank Registry';
     // EDIT TANK
     // ============================================================
     function editTank(id) {
-        showToast('Edit tank ID: ' + id + ' (Edit modal coming soon)', 'info');
+        const tank = TANKS[id];
+        if (!tank) return;
+        document.getElementById('edit_tank_id').value = tank.id;
+        document.getElementById('edit_tank_owner').value = tank.owner_name;
+        document.getElementById('edit_tank_address').value = tank.address;
+        document.getElementById('edit_tank_barangay').value = tank.barangay;
+        document.getElementById('edit_tank_capacity').value = tank.capacity;
+        document.getElementById('edit_tank_type').value = tank.type;
+        document.getElementById('edit_tank_maintenance').value = tank.last_maintenance;
+        document.getElementById('edit_tank_frequency').value = tank.maintenance_frequency;
+        document.getElementById('edit_tank_status').value = tank.status;
+        document.getElementById('edit_tank_notes').value = tank.notes || '';
+        openModal('editTankModal');
+    }
+
+    function saveTankEdit(event) {
+        event.preventDefault();
+        const id = document.getElementById('edit_tank_id').value;
+        const tank = TANKS[id];
+        if (!tank) return;
+        tank.owner_name = document.getElementById('edit_tank_owner').value.trim();
+        tank.address = document.getElementById('edit_tank_address').value.trim();
+        tank.barangay = document.getElementById('edit_tank_barangay').value;
+        tank.capacity = document.getElementById('edit_tank_capacity').value;
+        tank.type = document.getElementById('edit_tank_type').value;
+        tank.last_maintenance = document.getElementById('edit_tank_maintenance').value;
+        tank.maintenance_frequency = Number(document.getElementById('edit_tank_frequency').value);
+        tank.status = document.getElementById('edit_tank_status').value;
+        tank.notes = document.getElementById('edit_tank_notes').value.trim();
+        const card = document.querySelector(`.tank-card[data-id="${id}"]`);
+        if (card) {
+            card.dataset.owner = tank.owner_name.toLowerCase();
+            card.dataset.status = tank.status;
+            card.dataset.type = tank.type;
+            card.dataset.barangay = tank.barangay;
+            card.dataset.maintenanceDate = tank.last_maintenance;
+            const owner = card.querySelector('.font-semibold.text-slate-800.text-sm');
+            if (owner) owner.textContent = tank.owner_name;
+        }
+        closeModal('editTankModal');
+        showToast('Septic tank updated successfully!', 'success');
+        filterTanks();
     }
 
     // ============================================================
@@ -768,12 +841,16 @@ $title = 'Septic Tank Registry';
     document.getElementById('filterStatus').addEventListener('change', filterTanks);
     document.getElementById('filterType').addEventListener('change', filterTanks);
     document.getElementById('filterBarangay').addEventListener('change', filterTanks);
+    document.getElementById('filterDateFrom').addEventListener('change', filterTanks);
+    document.getElementById('filterDateTo').addEventListener('change', filterTanks);
 
     function filterTanks() {
-        const search = document.getElementById('searchTank').value.toLowerCase();
+        const search = document.getElementById('searchTank').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const type = document.getElementById('filterType').value;
         const barangay = document.getElementById('filterBarangay').value;
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
         let visibleCount = 0;
 
         document.querySelectorAll('.tank-card').forEach(card => {
@@ -782,12 +859,15 @@ $title = 'Septic Tank Registry';
             const cardStatus = card.dataset.status;
             const cardType = card.dataset.type;
             const cardBarangay = card.dataset.barangay;
+            const maintenanceDate = card.dataset.maintenanceDate || '';
 
             const matchesSearch = owner.includes(search) || id.includes(search);
             const matchesStatus = !status || cardStatus === status;
             const matchesType = !type || cardType === type;
             const matchesBarangay = !barangay || cardBarangay === barangay;
-            const isVisible = matchesSearch && matchesStatus && matchesType && matchesBarangay;
+            const matchesDateFrom = !dateFrom || (maintenanceDate && maintenanceDate >= dateFrom);
+            const matchesDateTo = !dateTo || (maintenanceDate && maintenanceDate <= dateTo);
+            const isVisible = matchesSearch && matchesStatus && matchesType && matchesBarangay && matchesDateFrom && matchesDateTo;
 
             card.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -801,6 +881,8 @@ $title = 'Septic Tank Registry';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterType').value = '';
         document.getElementById('filterBarangay').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.tank-card').forEach(card => card.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
     }

@@ -353,6 +353,10 @@ $title = 'Wastewater Billing';
                     <option value="Bank Transfer">Bank Transfer</option>
                     <option value="Cash">Cash</option>
                 </select>
+                      <input type="date" id="filterDateFrom" aria-label="Invoice date from"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                      <input type="date" id="filterDateTo" aria-label="Invoice date to"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -383,7 +387,8 @@ $title = 'Wastewater Billing';
                         data-client="<?php echo strtolower($invoice['client_name']); ?>"
                         data-id="<?php echo $invoice['invoice_id']; ?>"
                         data-status="<?php echo $invoice['status']; ?>"
-                        data-method="<?php echo $invoice['payment_method'] ?? ''; ?>">
+                        data-method="<?php echo $invoice['payment_method'] ?? ''; ?>"
+                        data-invoice-date="<?php echo $invoice['invoice_date']; ?>">
                         <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo $invoice['invoice_id']; ?></td>
                         <td class="px-4 py-3">
                             <div>
@@ -552,6 +557,29 @@ $title = 'Wastewater Billing';
 <!-- ============================================================ -->
 <!-- PAYMENT PROCESSING MODAL                                     -->
 <!-- ============================================================ -->
+<div id="editInvoiceModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-pen text-brand-medium"></i> Edit Invoice</h3>
+            <button type="button" onclick="closeModal('editInvoiceModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="p-6 space-y-4" onsubmit="saveInvoiceEdit(event)">
+            <input type="hidden" id="edit_invoice_id">
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Client Name</label><input type="text" id="edit_invoice_client" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID</label><input type="text" id="edit_invoice_tank" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Type</label><input type="text" id="edit_invoice_service" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Fee Amount</label><input type="number" id="edit_invoice_amount" min="0" max="99999999999" step="0.01" inputmode="decimal" oninput="limitFeeInput(this)" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tax</label><input type="number" id="edit_invoice_tax" min="0" max="99999999999" step="0.01" inputmode="decimal" oninput="limitFeeInput(this)" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Due Date</label><input type="date" id="edit_invoice_due_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_invoice_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"><option value="paid">Paid</option><option value="pending">Pending</option><option value="overdue">Overdue</option></select></div>
+            </div>
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label><textarea id="edit_invoice_notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onclick="closeModal('editInvoiceModal')" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold">Cancel</button><button type="submit" class="px-4 py-2 bg-brand-dark text-white rounded-lg text-sm font-semibold">Save Changes</button></div>
+        </form>
+    </div>
+</div>
+
 <div id="paymentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
@@ -624,7 +652,7 @@ $title = 'Wastewater Billing';
                         <p class="text-xs text-slate-400"><?php echo $fee['description']; ?></p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <input type="number" id="fee_<?php echo $index; ?>" value="<?php echo $fee['base_fee']; ?>" 
+                        <input type="number" id="fee_<?php echo $index; ?>" value="<?php echo $fee['base_fee']; ?>" min="0" max="99999999999" step="0.01" inputmode="decimal" oninput="limitFeeInput(this)" title="Maximum 11 whole-number digits"
                                class="w-24 px-2 py-1 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                         <button onclick="updateFee(<?php echo $index; ?>)" class="text-xs text-brand-medium hover:text-brand-dark transition">
                             <i class="fa-solid fa-check"></i>
@@ -644,7 +672,7 @@ $title = 'Wastewater Billing';
 </div>
 
 <!-- Toast notification -->
-<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
+<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white items-center gap-2">
     <i class="fa-solid fa-circle-check"></i>
     <span id="toastMessage"></span>
 </div>
@@ -816,8 +844,23 @@ $title = 'Wastewater Billing';
     // ============================================================
     // FEE STRUCTURE
     // ============================================================
+    function limitFeeInput(input) {
+        const parts = String(input.value || '').split('.');
+        const whole = parts[0].replace(/\D/g, '').slice(0, 11);
+        const fraction = parts[1] ? parts[1].replace(/\D/g, '').slice(0, 2) : '';
+        input.value = parts.length > 1 ? `${whole}.${fraction}` : whole;
+    }
+
+    function isValidFee(value) {
+        return /^\d{1,11}(\.\d{1,2})?$/.test(String(value)) && Number(value) >= 0 && Number(value) <= 99999999999.99;
+    }
+
     function updateFee(index) {
         const value = document.getElementById('fee_' + index).value;
+        if (!isValidFee(value)) {
+            showToast('Fee must contain no more than 11 whole-number digits.', 'warning');
+            return;
+        }
         showToast('Fee updated to ₱' + parseFloat(value).toFixed(2), 'success');
     }
 
@@ -825,14 +868,98 @@ $title = 'Wastewater Billing';
     // DOWNLOAD INVOICE
     // ============================================================
     function downloadInvoice(invoiceId) {
-        showToast('Downloading invoice: ' + invoiceId, 'success');
+        const invoice = Object.values(INVOICES).find(item => item.invoice_id === invoiceId);
+        if (!invoice) {
+            showToast('Invoice not found', 'danger');
+            return;
+        }
+
+        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        if (!printWindow) {
+            showToast('Please allow popups to download the invoice', 'warning');
+            return;
+        }
+
+        const formatMoney = value => 'PHP ' + Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const formatDate = value => value ? new Date(value).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+        const items = (invoice.items || []).map(item => `
+            <tr><td>${item.description}</td><td class="number">${item.quantity}</td><td class="number">${formatMoney(item.unit_price)}</td><td class="number">${formatMoney(item.total)}</td></tr>
+        `).join('');
+
+        printWindow.document.write(`<!DOCTYPE html><html><head><title>${invoice.invoice_id} - Wastewater Billing</title><style>
+            @page { margin: .75in; } * { box-sizing: border-box; }
+            body { margin: 0; color: #000; font-family: "Times New Roman", Times, serif; font-size: 11pt; }
+            .report-header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #000; }
+            .report-header img { width: 120px; display: block; margin: 0 auto 10px; }
+            h1 { margin: 0; font-size: 20pt; text-transform: uppercase; } h2 { margin: 5px 0 0; font-size: 14pt; font-weight: normal; }
+            .meta { margin-top: 8px; font-size: 10pt; } .section { margin-bottom: 20px; page-break-inside: avoid; }
+            .section-title { font-size: 12pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #777; padding-bottom: 6px; margin-bottom: 10px; }
+            .details { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; } .label { color: #444; font-size: 9pt; } .value { font-weight: 600; }
+            table { width: 100%; border-collapse: collapse; } th, td { padding: 9px 7px; border-bottom: 1px solid #999; text-align: left; } th { border-top: 1px solid #000; font-size: 10pt; text-transform: uppercase; } .number { text-align: right; }
+            .totals { margin-left: auto; width: 280px; margin-top: 15px; } .totals div { display: flex; justify-content: space-between; padding: 5px 0; } .grand-total { border-top: 2px solid #000; font-size: 13pt; font-weight: bold; }
+            .notes { border: 1px solid #777; padding: 10px; min-height: 45px; } @media print { body { padding: 0; } }
+        </style></head><body>
+            <header class="report-header"><img src="<?php echo site_url('assets/images/logo.png'); ?>" alt="Logo"><h1>Health Sanitation Management Caloocan</h1><h2>Wastewater Billing Invoice</h2><div class="meta">${invoice.invoice_id} | Issued ${formatDate(invoice.invoice_date)}</div></header>
+            <section class="section"><div class="section-title">Bill To</div><div class="details"><div><div class="label">Client</div><div class="value">${invoice.client_name}</div></div><div><div class="label">Tank ID</div><div class="value">${invoice.tank_id}</div></div><div><div class="label">Service</div><div class="value">${invoice.service_type}</div></div><div><div class="label">Due Date</div><div class="value">${formatDate(invoice.due_date)}</div></div></div></section>
+            <section class="section"><div class="section-title">Charges</div><table><thead><tr><th>Description</th><th class="number">Qty</th><th class="number">Unit Price</th><th class="number">Total</th></tr></thead><tbody>${items || `<tr><td>${invoice.service_type}</td><td class="number">1</td><td class="number">${formatMoney(invoice.amount)}</td><td class="number">${formatMoney(invoice.amount)}</td></tr>`}</tbody></table><div class="totals"><div><span>Subtotal</span><span>${formatMoney(invoice.amount)}</span></div><div><span>Tax</span><span>${formatMoney(invoice.tax)}</span></div><div class="grand-total"><span>Total</span><span>${formatMoney(invoice.total_amount)}</span></div></div></section>
+            <section class="section"><div class="section-title">Payment Status</div><div class="details"><div><div class="label">Status</div><div class="value">${invoice.status.toUpperCase()}</div></div><div><div class="label">Payment Method</div><div class="value">${invoice.payment_method || 'Unpaid'}</div></div></div></section>
+            <section class="section"><div class="section-title">Notes</div><div class="notes">${invoice.notes || 'No additional notes.'}</div></section>
+            <script>window.onload = function() { window.print(); }<\/script>
+        </body></html>`);
+        printWindow.document.close();
+        showToast('Invoice print view opened', 'success');
     }
 
     // ============================================================
     // EDIT INVOICE
     // ============================================================
     function editInvoice(id) {
-        showToast('Edit invoice ID: ' + id + ' (Edit modal coming soon)', 'info');
+        const invoice = INVOICES[id];
+        if (!invoice) return;
+        document.getElementById('edit_invoice_id').value = invoice.id;
+        document.getElementById('edit_invoice_client').value = invoice.client_name;
+        document.getElementById('edit_invoice_tank').value = invoice.tank_id;
+        document.getElementById('edit_invoice_service').value = invoice.service_type;
+        document.getElementById('edit_invoice_amount').value = invoice.amount;
+        document.getElementById('edit_invoice_tax').value = invoice.tax;
+        document.getElementById('edit_invoice_due_date').value = invoice.due_date;
+        document.getElementById('edit_invoice_status').value = invoice.status;
+        document.getElementById('edit_invoice_notes').value = invoice.notes || '';
+        openModal('editInvoiceModal');
+    }
+
+    function saveInvoiceEdit(event) {
+        event.preventDefault();
+        const amount = document.getElementById('edit_invoice_amount').value;
+        const tax = document.getElementById('edit_invoice_tax').value;
+        if (!isValidFee(amount) || !isValidFee(tax)) {
+            showToast('Fee and tax must contain no more than 11 whole-number digits.', 'warning');
+            return;
+        }
+        const id = document.getElementById('edit_invoice_id').value;
+        const invoice = INVOICES[id];
+        if (!invoice) return;
+        invoice.client_name = document.getElementById('edit_invoice_client').value.trim();
+        invoice.tank_id = document.getElementById('edit_invoice_tank').value.trim();
+        invoice.service_type = document.getElementById('edit_invoice_service').value.trim();
+        invoice.amount = Number(amount);
+        invoice.tax = Number(tax);
+        invoice.total_amount = invoice.amount + invoice.tax;
+        invoice.due_date = document.getElementById('edit_invoice_due_date').value;
+        invoice.status = document.getElementById('edit_invoice_status').value;
+        invoice.notes = document.getElementById('edit_invoice_notes').value.trim();
+        const row = document.querySelector(`.invoice-row[data-id="${invoice.invoice_id}"]`);
+        if (row) {
+            row.dataset.client = invoice.client_name.toLowerCase();
+            row.dataset.status = invoice.status;
+            const client = row.querySelector('.font-semibold.text-slate-800.text-sm');
+            if (client) client.textContent = invoice.client_name;
+            const amountCell = row.querySelector('.text-sm.font-bold.text-slate-800');
+            if (amountCell) amountCell.textContent = '₱' + invoice.total_amount.toFixed(2);
+        }
+        closeModal('editInvoiceModal');
+        showToast('Invoice updated successfully!', 'success');
+        filterInvoices();
     }
 
     // ============================================================
@@ -863,11 +990,15 @@ $title = 'Wastewater Billing';
     document.getElementById('searchInvoice').addEventListener('input', filterInvoices);
     document.getElementById('filterStatus').addEventListener('change', filterInvoices);
     document.getElementById('filterMethod').addEventListener('change', filterInvoices);
+    document.getElementById('filterDateFrom').addEventListener('change', filterInvoices);
+    document.getElementById('filterDateTo').addEventListener('change', filterInvoices);
 
     function filterInvoices() {
-        const search = document.getElementById('searchInvoice').value.toLowerCase();
+        const search = document.getElementById('searchInvoice').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const method = document.getElementById('filterMethod').value.toLowerCase();
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
         let visibleCount = 0;
 
         document.querySelectorAll('.invoice-row').forEach(row => {
@@ -875,11 +1006,14 @@ $title = 'Wastewater Billing';
             const id = row.dataset.id.toLowerCase();
             const rowStatus = row.dataset.status;
             const rowMethod = row.dataset.method.toLowerCase();
+            const invoiceDate = row.dataset.invoiceDate || '';
 
             const matchesSearch = client.includes(search) || id.includes(search);
             const matchesStatus = !status || rowStatus === status;
             const matchesMethod = !method || rowMethod === method;
-            const isVisible = matchesSearch && matchesStatus && matchesMethod;
+            const matchesDateFrom = !dateFrom || (invoiceDate && invoiceDate >= dateFrom);
+            const matchesDateTo = !dateTo || (invoiceDate && invoiceDate <= dateTo);
+            const isVisible = matchesSearch && matchesStatus && matchesMethod && matchesDateFrom && matchesDateTo;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -892,6 +1026,8 @@ $title = 'Wastewater Billing';
         document.getElementById('searchInvoice').value = '';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterMethod').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.invoice-row').forEach(row => row.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
     }

@@ -61,15 +61,31 @@ class RenewalController
 
         $status = $this->getQueryParamOrNull('status');
         $search = $this->getQueryParamOrNull('q');
+        $dateFrom = $this->getQueryParamOrNull('date_from');
+        $dateTo = $this->getQueryParamOrNull('date_to');
+        $dateFilter = [];
+        if ($dateFrom !== null) {
+            $dateFilter['gte'] = $dateFrom;
+        }
+        if ($dateTo !== null) {
+            $dateFilter['lte'] = $dateTo;
+        }
 
-        $renewals = $this->renewalModel->search([
+        $criteria = [
             'status' => $status,
             'search' => $search
-        ], $limit, $offset);
+        ];
+        if (!empty($dateFilter)) {
+            $criteria['date_applied'] = $dateFilter;
+        }
 
-        $total = $this->renewalModel->count(
-            $status ? ['status' => $status] : []
-        );
+        $renewals = $this->renewalModel->search($criteria, $limit, $offset);
+
+        $countFilters = $status ? ['status' => $status] : [];
+        if (!empty($dateFilter)) {
+            $countFilters['date_applied'] = $dateFilter;
+        }
+        $total = $this->renewalModel->count($countFilters);
         $totalPages = max(1, ceil($total / $limit));
 
         Response::success('Renewals retrieved', $renewals, 200, [
@@ -374,6 +390,17 @@ class RenewalController
 
         if (isset($data['status']) && !in_array((string)$data['status'], self::VALID_STATUSES)) {
             $errors[] = "Invalid status. Must be one of: " . implode(', ', self::VALID_STATUSES);
+        }
+
+        if (isset($data['renewal_fee'])) {
+            if (!Renewal::isValidRenewalFee($data['renewal_fee'])) {
+                $errors[] = 'renewal_fee must be a valid number';
+            } else {
+                $fee = (float)$data['renewal_fee'];
+                if ($fee < 0 || $fee > (float)Renewal::MAX_RENEWAL_FEE) {
+                    $errors[] = 'renewal_fee must not exceed 999999999999.00';
+                }
+            }
         }
 
         return $errors;

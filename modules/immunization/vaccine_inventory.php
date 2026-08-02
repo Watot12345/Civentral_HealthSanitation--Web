@@ -449,6 +449,10 @@ $title = 'Vaccine Inventory';
                     <option value="Refrigerator C1">Refrigerator C1</option>
                     <option value="Refrigerator C2">Refrigerator C2</option>
                 </select>
+                  <input type="date" id="filterDateFrom" aria-label="Expiry date from"
+                      class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                  <input type="date" id="filterDateTo" aria-label="Expiry date to"
+                      class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -483,6 +487,7 @@ $title = 'Vaccine Inventory';
                         data-supplier="<?php echo strtolower($item['supplier']); ?>"
                         data-status="<?php echo $item['status']; ?>"
                         data-location="<?php echo $item['storage_location']; ?>"
+                        data-expiry-date="<?php echo $item['expiry_date']; ?>"
                         data-id="<?php echo $item['id']; ?>">
                         <td class="px-4 py-3">
                             <div>
@@ -639,11 +644,11 @@ $title = 'Vaccine Inventory';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Quantity</label>
-                <input type="number" id="edit_quantity" required min="0" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="edit_quantity" required min="0" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" title="Maximum 8 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Minimum Stock</label>
-                <input type="number" id="edit_minimum_stock" required min="1" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="edit_minimum_stock" required min="1" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" title="Maximum 8 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Expiry Date</label>
@@ -651,7 +656,7 @@ $title = 'Vaccine Inventory';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Temperature (°C)</label>
-                <input type="number" id="edit_temperature" step="0.1" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="edit_temperature" min="-999" max="999" step="0.1" inputmode="decimal" oninput="limitTemperatureInput(this)" required title="Maximum 3 whole-number digits with decimals" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Storage Location</label>
@@ -721,11 +726,11 @@ $title = 'Vaccine Inventory';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Quantity</label>
-                <input type="number" id="stock_qty" required min="1" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="stock_qty" required min="1" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" title="Maximum 8 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Minimum Stock</label>
-                <input type="number" id="stock_min" required min="1" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="stock_min" required min="1" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" title="Maximum 8 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Expiry Date</label>
@@ -733,7 +738,7 @@ $title = 'Vaccine Inventory';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Temperature (°C)</label>
-                <input type="number" id="stock_temp" step="0.1" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="stock_temp" min="-999" max="999" step="0.1" inputmode="decimal" oninput="limitTemperatureInput(this)" required title="Maximum 3 whole-number digits with decimals" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Storage Location</label>
@@ -803,7 +808,7 @@ $title = 'Vaccine Inventory';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Quantity</label>
-                <input type="number" id="adjust_qty" required min="1" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="adjust_qty" required min="1" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" title="Maximum 8 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reason</label>
@@ -851,7 +856,7 @@ $title = 'Vaccine Inventory';
             
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reorder Quantity</label>
-                <input type="number" id="reorderQuantity" value="100" min="1" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="number" id="reorderQuantity" value="100" min="1" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" title="Maximum 8 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             
             <div>
@@ -908,6 +913,27 @@ $title = 'Vaccine Inventory';
             modal.classList.remove('flex');
             document.body.classList.remove('overflow-hidden');
         }
+    }
+
+    function limitInventoryInteger(input) {
+        input.value = String(input.value || '').replace(/\D/g, '').slice(0, 8);
+    }
+
+    function limitTemperatureInput(input) {
+        const raw = String(input.value || '');
+        const sign = raw.startsWith('-') ? '-' : '';
+        const parts = raw.replace(/^-/, '').split('.');
+        const whole = parts[0].replace(/\D/g, '').slice(0, 3);
+        const fraction = parts[1] ? parts[1].replace(/\D/g, '').slice(0, 2) : '';
+        input.value = sign + whole + (parts.length > 1 ? '.' + fraction : '');
+    }
+
+    function isValidInventoryInteger(value, minimum = 0) {
+        return /^\d{1,8}$/.test(String(value)) && Number(value) >= minimum && Number(value) <= 99999999;
+    }
+
+    function isValidTemperature(value) {
+        return /^-?\d{1,3}(\.\d{1,2})?$/.test(String(value)) && Number(value) >= -999 && Number(value) <= 999;
     }
 
     // Close modal on backdrop click
@@ -998,6 +1024,13 @@ $title = 'Vaccine Inventory';
 
     function saveEditVaccine(event) {
         event.preventDefault();
+        const quantity = document.getElementById('edit_quantity').value;
+        const minimumStock = document.getElementById('edit_minimum_stock').value;
+        const temperature = document.getElementById('edit_temperature').value;
+        if (!isValidInventoryInteger(quantity) || !isValidInventoryInteger(minimumStock, 1) || !isValidTemperature(temperature)) {
+            showToast('Quantity and minimum stock allow up to 8 digits; temperature allows up to 3 digits with decimals.', 'warning');
+            return;
+        }
         const id = parseInt(document.getElementById('edit_vaccine_id').value);
         const v = INVENTORY[id];
         if (!v) return;
@@ -1100,6 +1133,10 @@ $title = 'Vaccine Inventory';
         }
         
         const quantity = parseInt(document.getElementById('reorderQuantity').value) || 100;
+        if (!isValidInventoryInteger(String(quantity), 1)) {
+            showToast('Reorder quantity must be between 1 and 99999999.', 'warning');
+            return;
+        }
         const notes = document.getElementById('reorderNotes').value.trim() || 'Reorder requested';
         
         showToast('✅ Reorder request for ' + v.vaccine_name + ' (' + quantity + ' units) submitted successfully!', 'success');
@@ -1113,6 +1150,12 @@ $title = 'Vaccine Inventory';
     // ============================================================
     function saveAddStock(event) {
         event.preventDefault();
+        if (!isValidInventoryInteger(document.getElementById('stock_qty').value, 1) ||
+            !isValidInventoryInteger(document.getElementById('stock_min').value, 1) ||
+            !isValidTemperature(document.getElementById('stock_temp').value)) {
+            showToast('Quantity and minimum stock allow up to 8 digits; temperature allows up to 3 digits with decimals.', 'warning');
+            return;
+        }
         showToast('Stock added successfully!', 'success');
         closeModal('addStockModal');
     }
@@ -1122,6 +1165,10 @@ $title = 'Vaccine Inventory';
     // ============================================================
     function saveAdjustStock(event) {
         event.preventDefault();
+        if (!isValidInventoryInteger(document.getElementById('adjust_qty').value, 1)) {
+            showToast('Adjustment quantity must be between 1 and 99999999.', 'warning');
+            return;
+        }
         showToast('Stock adjusted successfully!', 'success');
         closeModal('adjustStockModal');
     }
@@ -1160,11 +1207,15 @@ $title = 'Vaccine Inventory';
     if (searchInput) searchInput.addEventListener('input', filterInventory);
     if (filterStatus) filterStatus.addEventListener('change', filterInventory);
     if (filterLocation) filterLocation.addEventListener('change', filterInventory);
+    document.getElementById('filterDateFrom').addEventListener('change', filterInventory);
+    document.getElementById('filterDateTo').addEventListener('change', filterInventory);
 
     function filterInventory() {
-        const search = document.getElementById('searchVaccine').value.toLowerCase();
+        const search = document.getElementById('searchVaccine').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const location = document.getElementById('filterLocation').value;
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
         let visibleCount = 0;
 
         document.querySelectorAll('.inventory-row').forEach(row => {
@@ -1173,13 +1224,14 @@ $title = 'Vaccine Inventory';
             const supplier = row.dataset.supplier || '';
             const rowStatus = row.dataset.status || '';
             const rowLocation = row.dataset.location || '';
+            const expiryDate = row.dataset.expiryDate || '';
 
             const matchesSearch = name.includes(search) || batch.includes(search) || supplier.includes(search);
             
             let matchesStatus = true;
             if (status === 'expiring') {
-                const expiryCell = row.querySelector('.px-4.py-3 .text-xs');
-                matchesStatus = expiryCell ? expiryCell.textContent.includes('days left') : false;
+                const daysLeft = expiryDate ? (new Date(expiryDate + 'T00:00:00') - new Date()) / 86400000 : -1;
+                matchesStatus = daysLeft >= 0 && daysLeft <= 30 && rowStatus !== 'out_of_stock';
             } else if (status === 'alert') {
                 matchesStatus = rowStatus === 'low_stock' || rowStatus === 'critical' || rowStatus === 'out_of_stock';
             } else {
@@ -1187,7 +1239,9 @@ $title = 'Vaccine Inventory';
             }
             
             const matchesLocation = !location || rowLocation === location;
-            const isVisible = matchesSearch && matchesStatus && matchesLocation;
+            const matchesDateFrom = !dateFrom || (expiryDate && expiryDate >= dateFrom);
+            const matchesDateTo = !dateTo || (expiryDate && expiryDate <= dateTo);
+            const isVisible = matchesSearch && matchesStatus && matchesLocation && matchesDateFrom && matchesDateTo;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -1203,6 +1257,8 @@ $title = 'Vaccine Inventory';
         document.getElementById('searchVaccine').value = '';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterLocation').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.inventory-row').forEach(row => row.style.display = '');
         const emptyState = document.getElementById('emptyState');
         if (emptyState) emptyState.style.display = 'none';

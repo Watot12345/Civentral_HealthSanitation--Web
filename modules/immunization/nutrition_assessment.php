@@ -343,6 +343,10 @@ $title = 'Nutrition Assessment';
                     <option value="medium">Medium</option>
                     <option value="high">High</option>
                 </select>
+                <button type="button" onclick="openModal('assessmentDateFilterModal')" title="Filter by assessment date"
+                        class="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors text-sm">
+                    <i class="fa-solid fa-calendar-days"></i>
+                </button>
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -372,7 +376,9 @@ $title = 'Nutrition Assessment';
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors nutrition-row <?php echo $assessment['nutrition_status'] === 'critical' ? 'bg-rose-50/50' : ''; ?>"
                         data-child="<?php echo strtolower($assessment['child_name']); ?>"
                         data-status="<?php echo $assessment['nutrition_status']; ?>"
-                        data-risk="<?php echo $assessment['risk_level']; ?>">
+                        data-risk="<?php echo $assessment['risk_level']; ?>"
+                        data-date="<?php echo htmlspecialchars($assessment['date']); ?>"
+                        data-id="<?php echo htmlspecialchars($assessment['child_id']); ?>">
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-2.5">
                                 <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
@@ -484,6 +490,7 @@ $title = 'Nutrition Assessment';
         </div>
         <form id="nutritionScreeningForm" class="p-6 space-y-4" onsubmit="saveNutritionScreening(event)">
             <div>
+
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Child</label>
                 <select id="screen_child" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="">Select Child</option>
@@ -499,11 +506,11 @@ $title = 'Nutrition Assessment';
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Weight (kg)</label>
-                    <input type="number" id="screen_weight" step="0.1" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <input type="number" id="screen_weight" min="0.1" max="999" step="0.1" inputmode="decimal" oninput="limitNutritionMeasurement(this)" required title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Height (cm)</label>
-                    <input type="number" id="screen_height" step="0.1" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <input type="number" id="screen_height" min="20" max="999" step="0.1" inputmode="decimal" oninput="limitNutritionMeasurement(this)" required title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
             </div>
             <div>
@@ -542,6 +549,58 @@ $title = 'Nutrition Assessment';
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- ASSESSMENT DATE FILTER MODAL -->
+<div id="assessmentDateFilterModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-calendar-days text-brand-medium"></i> Assessment Date Filter</h3>
+            <button type="button" onclick="closeModal('assessmentDateFilterModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div><label for="assessmentDateFrom" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">From</label><input type="date" id="assessmentDateFrom" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
+            <div><label for="assessmentDateTo" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">To</label><input type="date" id="assessmentDateTo" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="clearAssessmentDateFilter()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition text-sm font-semibold">Clear</button>
+                <button type="button" onclick="applyAssessmentDateFilter()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">Apply Filter</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT ASSESSMENT MODAL -->
+<div id="editAssessmentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-pen text-brand-medium"></i> Edit Assessment</h3>
+            <button type="button" onclick="closeModal('editAssessmentModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="p-6 space-y-4" onsubmit="saveEditedAssessment(event)">
+            <input type="hidden" id="edit_assessment_id">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Assessment Date</label><input type="date" id="edit_assessment_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Weight (kg)</label><input type="number" id="edit_assessment_weight" min="0.1" max="999" step="0.1" required oninput="limitNutritionMeasurement(this)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Height (cm)</label><input type="number" id="edit_assessment_height" min="20" max="999" step="0.1" required oninput="limitNutritionMeasurement(this)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_assessment_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="normal">Normal</option><option value="moderate">Moderate</option><option value="critical">Critical</option></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Risk Level</label><select id="edit_assessment_risk" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
+            </div>
+            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Assessment Notes</label><textarea id="edit_assessment_notes" rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></textarea></div>
+            <div class="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onclick="closeModal('editAssessmentModal')" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold">Cancel</button><button type="submit" class="px-4 py-2 bg-brand-dark text-white rounded-lg text-sm font-semibold">Save Changes</button></div>
+        </form>
+    </div>
+</div>
+
+<!-- EMERGENCY INTERVENTION MODAL -->
+<div id="emergencyInterventionModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div class="p-6">
+            <div class="flex items-center gap-3"><div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center"><i class="fa-solid fa-truck-medical text-xl"></i></div><div><h3 class="font-bold text-slate-900">Emergency Intervention</h3><p id="emergencyAssessmentChild" class="text-sm text-slate-500"></p></div></div>
+            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mt-5 mb-1">Intervention Notes</label>
+            <textarea id="emergencyInterventionNotes" rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="Describe the immediate action...">Immediate nutrition intervention required.</textarea>
+            <div class="flex justify-end gap-2 mt-5"><button type="button" onclick="closeModal('emergencyInterventionModal')" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold">Cancel</button><button type="button" onclick="confirmEmergencyIntervention()" class="px-4 py-2 bg-rose-600 text-white rounded-lg text-sm font-semibold">Initiate Intervention</button></div>
+        </div>
     </div>
 </div>
 
@@ -631,7 +690,7 @@ $title = 'Nutrition Assessment';
 </div>
 
 <!-- Toast notification -->
-<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
+<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white items-center gap-2">
     <i class="fa-solid fa-circle-check"></i>
     <span id="toastMessage"></span>
 </div>
@@ -738,7 +797,41 @@ $title = 'Nutrition Assessment';
     // EDIT ASSESSMENT
     // ============================================================
     function editAssessment(id) {
-        showToast('Edit assessment ID: ' + id + ' (Edit modal coming soon)', 'info');
+        const a = ASSESSMENTS[id];
+        if (!a) return;
+        document.getElementById('edit_assessment_id').value = a.id;
+        document.getElementById('edit_assessment_date').value = a.date;
+        document.getElementById('edit_assessment_weight').value = a.weight;
+        document.getElementById('edit_assessment_height').value = a.height;
+        document.getElementById('edit_assessment_status').value = a.nutrition_status;
+        document.getElementById('edit_assessment_risk').value = a.risk_level;
+        document.getElementById('edit_assessment_notes').value = a.assessment_notes || '';
+        openModal('editAssessmentModal');
+    }
+
+    function saveEditedAssessment(event) {
+        event.preventDefault();
+        const id = document.getElementById('edit_assessment_id').value;
+        const weight = document.getElementById('edit_assessment_weight').value;
+        const height = document.getElementById('edit_assessment_height').value;
+        const validMeasurement = (value, minimum) =>
+            /^\d{1,3}(\.\d{1,2})?$/.test(value) && Number(value) >= minimum && Number(value) <= 999;
+        if (!validMeasurement(weight, 0.1) || !validMeasurement(height, 20)) {
+            showToast('Weight must be 0.1-999 kg and height must be 20-999 cm.', 'warning');
+            return;
+        }
+        const assessment = ASSESSMENTS[id];
+        if (assessment) {
+            assessment.date = document.getElementById('edit_assessment_date').value;
+            assessment.weight = Number(weight);
+            assessment.height = Number(height);
+            assessment.nutrition_status = document.getElementById('edit_assessment_status').value;
+            assessment.risk_level = document.getElementById('edit_assessment_risk').value;
+            assessment.assessment_notes = document.getElementById('edit_assessment_notes').value.trim();
+        }
+        closeModal('editAssessmentModal');
+        showToast('Nutrition assessment updated successfully!', 'success');
+        filterAssessments();
     }
 
     // ============================================================
@@ -747,9 +840,20 @@ $title = 'Nutrition Assessment';
     function emergencyIntervention(id) {
         const a = ASSESSMENTS[id];
         if (!a) return;
-        if (confirm('🚨 Initiate emergency nutrition intervention for ' + a.child_name + '?')) {
-            showToast('Emergency intervention initiated for ' + a.child_name + '!', 'success');
-        }
+        document.getElementById('emergencyInterventionModal').dataset.assessmentId = id;
+        document.getElementById('emergencyAssessmentChild').textContent = a.child_name + ' requires immediate attention.';
+        document.getElementById('emergencyInterventionNotes').value = a.plan_of_action || 'Immediate nutrition intervention required.';
+        openModal('emergencyInterventionModal');
+    }
+
+    function confirmEmergencyIntervention() {
+        const modal = document.getElementById('emergencyInterventionModal');
+        const id = modal.dataset.assessmentId;
+        const a = ASSESSMENTS[id];
+        if (!a) return;
+        a.plan_of_action = document.getElementById('emergencyInterventionNotes').value.trim();
+        closeModal('emergencyInterventionModal');
+        showToast('Emergency intervention initiated for ' + a.child_name + '!', 'success');
     }
 
     // ============================================================
@@ -757,8 +861,23 @@ $title = 'Nutrition Assessment';
     // ============================================================
     function saveNutritionScreening(event) {
         event.preventDefault();
+        const weight = document.getElementById('screen_weight').value;
+        const height = document.getElementById('screen_height').value;
+        const validMeasurement = (value, minimum) =>
+            /^\d{1,3}(\.\d{1,2})?$/.test(value) && Number(value) >= minimum && Number(value) <= 999;
+        if (!validMeasurement(weight, 0.1) || !validMeasurement(height, 20)) {
+            showToast('Weight must be 0.1-999 kg and height must be 20-999 cm.', 'warning');
+            return;
+        }
         showToast('Nutrition assessment saved successfully!', 'success');
         closeModal('nutritionScreeningModal');
+    }
+
+    function limitNutritionMeasurement(input) {
+        const parts = String(input.value || '').split('.');
+        const whole = parts[0].replace(/\D/g, '').slice(0, 3);
+        const fraction = parts[1] ? parts[1].replace(/\D/g, '').slice(0, 2) : '';
+        input.value = parts.length > 1 ? `${whole}.${fraction}` : whole;
     }
 
     // ============================================================
@@ -798,20 +917,26 @@ $title = 'Nutrition Assessment';
     document.getElementById('filterRisk').addEventListener('change', filterAssessments);
 
     function filterAssessments() {
-        const search = document.getElementById('searchNutrition').value.toLowerCase();
+        const search = document.getElementById('searchNutrition').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const risk = document.getElementById('filterRisk').value;
+        const dateFrom = document.getElementById('assessmentDateFrom').value;
+        const dateTo = document.getElementById('assessmentDateTo').value;
         let visibleCount = 0;
 
         document.querySelectorAll('.nutrition-row').forEach(row => {
             const child = row.dataset.child;
             const rowStatus = row.dataset.status;
             const rowRisk = row.dataset.risk;
+            const rowDate = row.dataset.date || '';
+            const rowId = (row.dataset.id || '').toLowerCase();
 
-            const matchesSearch = child.includes(search);
+            const matchesSearch = !search || child.includes(search) || rowId.includes(search);
             const matchesStatus = !status || rowStatus === status;
             const matchesRisk = !risk || rowRisk === risk;
-            const isVisible = matchesSearch && matchesStatus && matchesRisk;
+            const matchesDateFrom = !dateFrom || (rowDate && rowDate >= dateFrom);
+            const matchesDateTo = !dateTo || (rowDate && rowDate <= dateTo);
+            const isVisible = matchesSearch && matchesStatus && matchesRisk && matchesDateFrom && matchesDateTo;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -824,8 +949,28 @@ $title = 'Nutrition Assessment';
         document.getElementById('searchNutrition').value = '';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterRisk').value = '';
+        document.getElementById('assessmentDateFrom').value = '';
+        document.getElementById('assessmentDateTo').value = '';
         document.querySelectorAll('.nutrition-row').forEach(row => row.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
+    }
+
+    function applyAssessmentDateFilter() {
+        const dateFrom = document.getElementById('assessmentDateFrom').value;
+        const dateTo = document.getElementById('assessmentDateTo').value;
+        if (dateFrom && dateTo && dateFrom > dateTo) {
+            showToast('The start date must be before the end date.', 'warning');
+            return;
+        }
+        closeModal('assessmentDateFilterModal');
+        filterAssessments();
+    }
+
+    function clearAssessmentDateFilter() {
+        document.getElementById('assessmentDateFrom').value = '';
+        document.getElementById('assessmentDateTo').value = '';
+        closeModal('assessmentDateFilterModal');
+        filterAssessments();
     }
 
     // ESC to close modals

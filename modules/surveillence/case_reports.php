@@ -227,6 +227,10 @@ $title = 'Case Reports';
                     <option value="Barangay San Roque">San Roque</option>
                     <option value="Barangay Sta. Cruz">Sta. Cruz</option>
                 </select>
+                      <input type="date" id="filterDateFrom" aria-label="Reported date from"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                      <input type="date" id="filterDateTo" aria-label="Reported date to"
+                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -258,7 +262,10 @@ $title = 'Case Reports';
                         data-disease="<?php echo strtolower($case['disease']); ?>"
                         data-status="<?php echo $case['status']; ?>"
                         data-severity="<?php echo $case['severity']; ?>"
-                        data-barangay="<?php echo $case['barangay']; ?>">
+                        data-barangay="<?php echo $case['barangay']; ?>"
+                        data-db-id="<?php echo (int)$case['id']; ?>"
+                        data-case-id="<?php echo htmlspecialchars(strtolower($case['case_id'])); ?>"
+                        data-created-date="<?php echo htmlspecialchars(substr($case['created_at'], 0, 10)); ?>">
                         <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo $case['case_id']; ?></td>
                         <td class="px-4 py-3">
                             <div>
@@ -385,7 +392,7 @@ $title = 'Case Reports';
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Age</label>
-                    <input type="number" id="case_age" required min="0" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <input type="number" id="case_age" required min="0" max="99" step="1" inputmode="numeric" oninput="limitCaseAge(this)" title="Maximum 2 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Gender</label>
@@ -417,7 +424,7 @@ $title = 'Case Reports';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
-                <input type="text" id="case_contact" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="text" id="case_contact" inputmode="numeric" maxlength="11" oninput="limitCaseContact(this)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Onset Date</label>
@@ -487,7 +494,7 @@ $title = 'Case Reports';
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Age</label>
-                    <input type="number" id="edit_age" required min="0" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <input type="number" id="edit_age" required min="0" max="99" step="1" inputmode="numeric" oninput="limitCaseAge(this)" title="Maximum 2 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Gender</label>
@@ -517,7 +524,7 @@ $title = 'Case Reports';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
-                <input type="text" id="edit_contact" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="text" id="edit_contact" inputmode="numeric" maxlength="11" oninput="limitCaseContact(this)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Onset Date</label>
@@ -817,23 +824,44 @@ $title = 'Case Reports';
         const id = parseInt(document.getElementById('edit_case_id').value);
         const c = CASES[id];
         if (!c) return;
+
+        const age = document.getElementById('edit_age').value;
+        const contact = document.getElementById('edit_contact').value;
+        if (!/^\d{1,2}$/.test(age) || Number(age) > 99 || (contact && !/^\d{11}$/.test(contact))) {
+            showToast('Age must be 2 digits maximum and contact must contain 11 digits.', 'warning');
+            return;
+        }
         
         c.patient_name = document.getElementById('edit_patient').value;
-        c.age = parseInt(document.getElementById('edit_age').value);
+        c.age = parseInt(age);
         c.gender = document.getElementById('edit_gender').value;
         c.disease = document.getElementById('edit_disease').value;
         c.address = document.getElementById('edit_address').value;
         c.barangay = document.getElementById('edit_barangay').value;
-        c.contact = document.getElementById('edit_contact').value;
+        c.contact = contact;
         c.onset_date = document.getElementById('edit_onset').value;
         c.status = document.getElementById('edit_status').value;
         c.severity = document.getElementById('edit_severity').value;
         c.updated_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
-        
-        // Update the table row
-        updateCaseRow(c);
-        closeModal('editCaseModal');
-        showToast('Case #' + c.case_id + ' updated successfully!', 'success');
+
+        postCaseApi('update', {
+            id: c.db_id || c.id,
+            disease: c.disease,
+            patient_name: c.patient_name,
+            age: c.age,
+            gender: c.gender,
+            address: c.address,
+            barangay: c.barangay,
+            contact_number: c.contact,
+            onset_date: c.onset_date,
+            status: c.status,
+            severity: c.severity
+        }).then(res => {
+            if (!res.success) throw new Error(res.message || 'Failed to update case');
+            updateCaseRow(c);
+            closeModal('editCaseModal');
+            showToast('Case #' + c.case_id + ' updated successfully!', 'success');
+        }).catch(err => showToast(err.message, 'danger'));
     }
 
     // ============================================================
@@ -941,7 +969,11 @@ $title = 'Case Reports';
     function updateCaseRow(c) {
         const rows = document.querySelectorAll('.case-row');
         rows.forEach(row => {
-            if (row.dataset.caseId == c.id || row.dataset.patient === c.patient_name) {
+            if (row.dataset.dbId == c.id || row.dataset.patient === c.patient_name) {
+                row.dataset.patient = c.patient_name.toLowerCase();
+                row.dataset.status = c.status;
+                row.dataset.severity = c.severity;
+                row.dataset.barangay = c.barangay;
                 const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
                 if (statusBadge) {
                     const statusColors = {
@@ -963,7 +995,7 @@ $title = 'Case Reports';
     function saveCaseReport(event) {
         event.preventDefault();
         const disease = document.getElementById('case_disease')?.value;
-        const patientName = document.getElementById('case_patient_name')?.value;
+        const patientName = document.getElementById('case_patient')?.value;
         const age = document.getElementById('case_age')?.value;
         const gender = document.getElementById('case_gender')?.value;
         const barangay = document.getElementById('case_barangay')?.value;
@@ -971,6 +1003,12 @@ $title = 'Case Reports';
         const contact = document.getElementById('case_contact')?.value;
         const onsetDate = document.getElementById('case_onset')?.value;
         const facility = document.getElementById('case_facility')?.value;
+
+        if (!/^\d{1,2}$/.test(age) || Number(age) > 99 || (contact && !/^\d{11}$/.test(contact))) {
+            showToast('Age must be 2 digits maximum and contact must contain 11 digits.', 'warning');
+            return;
+        }
+
 
         postCaseApi('create', {
             disease: disease,
@@ -997,6 +1035,14 @@ $title = 'Case Reports';
     // ============================================================
     // TOAST NOTIFICATIONS
     // ============================================================
+    function limitCaseAge(input) {
+        input.value = String(input.value || '').replace(/\D/g, '').slice(0, 2);
+    }
+
+    function limitCaseContact(input) {
+        input.value = String(input.value || '').replace(/\D/g, '').slice(0, 11);
+    }
+
     let toastTimer = null;
 
     function showToast(message, type = 'success') {
@@ -1023,12 +1069,16 @@ $title = 'Case Reports';
     document.getElementById('filterStatus').addEventListener('change', filterCases);
     document.getElementById('filterSeverity').addEventListener('change', filterCases);
     document.getElementById('filterBarangay').addEventListener('change', filterCases);
+    document.getElementById('filterDateFrom').addEventListener('change', filterCases);
+    document.getElementById('filterDateTo').addEventListener('change', filterCases);
 
     function filterCases() {
-        const search = document.getElementById('searchCase').value.toLowerCase();
+        const search = document.getElementById('searchCase').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const severity = document.getElementById('filterSeverity').value;
         const barangay = document.getElementById('filterBarangay').value;
+        const dateFrom = document.getElementById('filterDateFrom').value;
+        const dateTo = document.getElementById('filterDateTo').value;
         let visibleCount = 0;
 
         document.querySelectorAll('.case-row').forEach(row => {
@@ -1037,12 +1087,16 @@ $title = 'Case Reports';
             const rowStatus = row.dataset.status;
             const rowSeverity = row.dataset.severity;
             const rowBarangay = row.dataset.barangay;
+            const caseId = row.dataset.caseId || '';
+            const createdDate = row.dataset.createdDate || '';
 
-            const matchesSearch = patient.includes(search) || disease.includes(search);
+            const matchesSearch = !search || [patient, disease, caseId].some(value => value.includes(search));
             const matchesStatus = !status || rowStatus === status;
             const matchesSeverity = !severity || rowSeverity === severity;
             const matchesBarangay = !barangay || rowBarangay === barangay;
-            const isVisible = matchesSearch && matchesStatus && matchesSeverity && matchesBarangay;
+            const matchesDateFrom = !dateFrom || (createdDate && createdDate >= dateFrom);
+            const matchesDateTo = !dateTo || (createdDate && createdDate <= dateTo);
+            const isVisible = matchesSearch && matchesStatus && matchesSeverity && matchesBarangay && matchesDateFrom && matchesDateTo;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -1056,6 +1110,8 @@ $title = 'Case Reports';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterSeverity').value = '';
         document.getElementById('filterBarangay').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.case-row').forEach(row => row.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
     }

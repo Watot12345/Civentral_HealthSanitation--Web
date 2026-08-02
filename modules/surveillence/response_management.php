@@ -188,7 +188,7 @@ $title = 'Response Management';
             </div>
         </div>
         <div class="mt-3 flex items-center gap-2">
-            <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">🔄 In Progress</span>
+            <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-rotate"></i> In Progress</span>
             <span class="text-[10px] text-slate-400"><?php echo $completedInterventions; ?> Completed</span>
         </div>
     </div>
@@ -230,7 +230,7 @@ $title = 'Response Management';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-bold">📈 <?php echo $effectivenessMetrics['containment_rate'] > 70 ? 'Good' : 'Needs Improvement'; ?></span>
+                    <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-arrow-trend-up"></i> <?php echo $effectivenessMetrics['containment_rate'] > 70 ? 'Good' : 'Needs Improvement'; ?></span>
                     <span class="text-[10px] text-slate-400">Target: 80%</span>
                 </div>
             </div>
@@ -263,32 +263,32 @@ $title = 'Response Management';
                         'Standby' => 'bg-slate-100 text-slate-700'
                     ];
                     $statusBadges = [
-                        'Available' => '🟢 Available',
-                        'Deployed' => '🟡 Deployed',
-                        'Standby' => '⚪ Standby'
+                        'Available' => '<i class="fa-solid fa-circle text-[8px] text-emerald-500"></i> Available',
+                        'Deployed' => '<i class="fa-solid fa-circle text-[8px] text-amber-500"></i> Deployed',
+                        'Standby' => '<i class="fa-solid fa-circle text-[8px] text-slate-400"></i> Standby'
                     ];
                 ?>
-                <div class="border border-slate-200 rounded-xl p-4 hover:shadow-md transition team-card" data-status="<?php echo $team['status']; ?>">
+                <div class="border border-slate-200 rounded-xl p-4 hover:shadow-md transition team-card" data-team-id="<?php echo $team['id']; ?>" data-status="<?php echo $team['status']; ?>">
                     <div class="flex items-start justify-between">
                         <div>
                             <h4 class="font-bold text-slate-800 text-sm"><?php echo $team['name']; ?></h4>
                             <p class="text-xs text-slate-500"><?php echo $team['specialization']; ?></p>
-                            <p class="text-xs text-slate-500 mt-1">👨‍⚕️ Lead: <?php echo $team['leader']; ?></p>
+                            <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-user-doctor"></i> Lead: <?php echo $team['leader']; ?></p>
                         </div>
-                        <span class="px-2 py-0.5 <?php echo $statusColors[$team['status']] ?? 'bg-slate-100 text-slate-700'; ?> rounded-full text-[10px] font-bold">
+                        <span class="team-status-badge px-2 py-0.5 <?php echo $statusColors[$team['status']] ?? 'bg-slate-100 text-slate-700'; ?> rounded-full text-[10px] font-bold">
                             <?php echo $statusBadges[$team['status']] ?? $team['status']; ?>
                         </span>
                     </div>
                     <div class="mt-2">
                         <p class="text-xs text-slate-600">Members: <?php echo implode(', ', array_slice($team['members'], 0, 3)); ?><?php echo count($team['members']) > 3 ? ' +' . (count($team['members']) - 3) . ' more' : ''; ?></p>
                         <?php if ($team['deployed_to']): ?>
-                        <p class="text-xs text-amber-600 mt-1">📍 Deployed to: <?php echo $team['deployed_to']; ?></p>
+                        <p class="text-xs text-amber-600 mt-1"><i class="fa-solid fa-location-dot"></i> Deployed to: <?php echo $team['deployed_to']; ?></p>
                         <?php endif; ?>
-                        <p class="text-xs text-slate-400 mt-1">📞 <?php echo $team['contact']; ?></p>
+                        <p class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-phone"></i> <?php echo $team['contact']; ?></p>
                     </div>
                     <div class="mt-3 flex gap-2">
                         <?php if ($team['status'] == 'Available'): ?>
-                        <button onclick="deployTeam('<?php echo $team['id']; ?>')" class="flex-1 px-3 py-1.5 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold">
+                        <button onclick="deployTeam('<?php echo $team['id']; ?>')" class="deploy-btn flex-1 px-3 py-1.5 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold">
                             <i class="fa-solid fa-rocket"></i> Deploy
                         </button>
                         <?php endif; ?>
@@ -408,27 +408,27 @@ $title = 'Response Management';
                         'Completed' => 'bg-emerald-500'
                     ];
                 ?>
-                <div class="border-l-4 <?php echo $statusColors[$intervention['status']] ?? 'bg-slate-100 text-slate-700 border-slate-500'; ?> rounded-lg p-4 hover:shadow-md transition intervention-item" data-status="<?php echo $intervention['status']; ?>">
+                <div class="border-l-4 <?php echo $statusColors[$intervention['status']] ?? 'bg-slate-100 text-slate-700 border-slate-500'; ?> rounded-lg p-4 hover:shadow-md transition intervention-item" data-intervention-id="<?php echo $intervention['id']; ?>" data-status="<?php echo $intervention['status']; ?>">
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <div class="flex-1">
                             <div class="flex items-center gap-2">
                                 <h4 class="font-bold text-slate-800"><?php echo $intervention['title']; ?></h4>
-                                <span class="px-2 py-0.5 <?php echo $statusColors[$intervention['status']] ?? 'bg-slate-100 text-slate-700'; ?> rounded-full text-[10px] font-semibold">
+                                <span class="intervention-status-badge px-2 py-0.5 <?php echo $statusColors[$intervention['status']] ?? 'bg-slate-100 text-slate-700'; ?> rounded-full text-[10px] font-semibold">
                                     <?php echo $intervention['status']; ?>
                                 </span>
                             </div>
                             <div class="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                                <span>📍 <?php echo $intervention['location']; ?></span>
-                                <span>👨‍⚕️ <?php echo $intervention['team_lead']; ?></span>
-                                <span>📅 <?php echo date('M d', strtotime($intervention['start_date'])); ?> - <?php echo date('M d', strtotime($intervention['end_date'])); ?></span>
-                                <span>🏷️ <?php echo $intervention['type']; ?></span>
+                                <span><i class="fa-solid fa-location-dot"></i> <?php echo $intervention['location']; ?></span>
+                                <span><i class="fa-solid fa-user-doctor"></i> <?php echo $intervention['team_lead']; ?></span>
+                                <span><i class="fa-solid fa-calendar-days"></i> <?php echo date('M d', strtotime($intervention['start_date'])); ?> - <?php echo date('M d', strtotime($intervention['end_date'])); ?></span>
+                                <span><i class="fa-solid fa-tag"></i> <?php echo $intervention['type']; ?></span>
                             </div>
                         </div>
                         <div class="flex items-center gap-3">
                             <div class="text-right">
-                                <span class="text-sm font-bold text-slate-700"><?php echo $intervention['progress']; ?>%</span>
+                                <span class="intervention-progress-label text-sm font-bold text-slate-700"><?php echo $intervention['progress']; ?>%</span>
                                 <div class="w-24 bg-slate-200 rounded-full h-1.5">
-                                    <div class="<?php echo $progressColors[$intervention['status']] ?? 'bg-slate-500'; ?> h-1.5 rounded-full" style="width: <?php echo $intervention['progress']; ?>%"></div>
+                                    <div class="intervention-progress-bar <?php echo $progressColors[$intervention['status']] ?? 'bg-slate-500'; ?> h-1.5 rounded-full" style="width: <?php echo $intervention['progress']; ?>%"></div>
                                 </div>
                             </div>
                             <button onclick="viewInterventionDetails('<?php echo $intervention['id']; ?>')" class="px-3 py-1.5 bg-brand-light text-brand-dark rounded-lg hover:bg-brand-dark hover:text-white transition text-xs font-semibold">
@@ -445,7 +445,7 @@ $title = 'Response Management';
                     </div>
                     <?php if ($intervention['status'] == 'Completed'): ?>
                     <div class="mt-2 p-2 bg-emerald-50 rounded-lg">
-                        <p class="text-xs text-emerald-700">✅ <?php echo implode(' • ', $intervention['outcomes']); ?></p>
+                        <p class="text-xs text-emerald-700"><i class="fa-solid fa-circle-check"></i> <?php echo implode(' • ', $intervention['outcomes']); ?></p>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -464,7 +464,7 @@ $title = 'Response Management';
                 Effectiveness Reports
                 <span class="text-xs font-normal text-slate-400">(Performance metrics)</span>
             </h3>
-            <button onclick="generateReport()" class="px-3 py-1.5 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5">
+            <button onclick="openModal('reportModal')" class="px-3 py-1.5 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5">
                 <i class="fa-solid fa-file-pdf"></i> Generate Full Report
             </button>
         </div>
@@ -478,7 +478,7 @@ $title = 'Response Management';
                     <p class="text-2xl font-black text-slate-900"><?php echo $effectivenessMetrics['response_time_avg']; ?><span class="text-sm text-slate-400">m</span></p>
                     <p class="text-xs font-medium text-slate-500">Avg Response Time</p>
                     <span class="text-[10px] <?php echo $effectivenessMetrics['response_time_avg'] < 60 ? 'text-emerald-600' : 'text-amber-600'; ?> font-semibold">
-                        <?php echo $effectivenessMetrics['response_time_avg'] < 60 ? '✅ Within target' : '⚠️ Needs improvement'; ?>
+                        <?php echo $effectivenessMetrics['response_time_avg'] < 60 ? '<i class="fa-solid fa-circle-check"></i> Within target' : '<i class="fa-solid fa-triangle-exclamation"></i> Needs improvement'; ?>
                     </span>
                 </div>
 
@@ -490,7 +490,7 @@ $title = 'Response Management';
                     <p class="text-2xl font-black text-slate-900"><?php echo $effectivenessMetrics['containment_rate']; ?>%</p>
                     <p class="text-xs font-medium text-slate-500">Containment Rate</p>
                     <span class="text-[10px] <?php echo $effectivenessMetrics['containment_rate'] > 70 ? 'text-emerald-600' : 'text-amber-600'; ?> font-semibold">
-                        <?php echo $effectivenessMetrics['containment_rate'] > 70 ? '✅ Good' : '⚠️ Needs improvement'; ?>
+                        <?php echo $effectivenessMetrics['containment_rate'] > 70 ? '<i class="fa-solid fa-circle-check"></i> Good' : '<i class="fa-solid fa-triangle-exclamation"></i> Needs improvement'; ?>
                     </span>
                 </div>
 
@@ -501,7 +501,7 @@ $title = 'Response Management';
                     </div>
                     <p class="text-2xl font-black text-slate-900"><?php echo $effectivenessMetrics['recovery_rate']; ?>%</p>
                     <p class="text-xs font-medium text-slate-500">Recovery Rate</p>
-                    <span class="text-[10px] text-emerald-600 font-semibold">✅ Good</span>
+                    <span class="text-[10px] text-emerald-600 font-semibold"><i class="fa-solid fa-circle-check"></i> Good</span>
                 </div>
 
                 <!-- Metric 4: Community Coverage -->
@@ -512,7 +512,7 @@ $title = 'Response Management';
                     <p class="text-2xl font-black text-slate-900"><?php echo $effectivenessMetrics['community_coverage']; ?>%</p>
                     <p class="text-xs font-medium text-slate-500">Community Coverage</p>
                     <span class="text-[10px] <?php echo $effectivenessMetrics['community_coverage'] > 60 ? 'text-emerald-600' : 'text-amber-600'; ?> font-semibold">
-                        <?php echo $effectivenessMetrics['community_coverage'] > 60 ? '✅ Good' : '⚠️ Needs improvement'; ?>
+                        <?php echo $effectivenessMetrics['community_coverage'] > 60 ? '<i class="fa-solid fa-circle-check"></i> Good' : '<i class="fa-solid fa-triangle-exclamation"></i> Needs improvement'; ?>
                     </span>
                 </div>
 
@@ -523,7 +523,7 @@ $title = 'Response Management';
                     </div>
                     <p class="text-2xl font-black text-brand-dark"><?php echo round(($effectivenessMetrics['containment_rate'] + $effectivenessMetrics['recovery_rate'] + $effectivenessMetrics['community_coverage']) / 3); ?>%</p>
                     <p class="text-xs font-medium text-slate-500">Overall Score</p>
-                    <span class="text-[10px] text-emerald-600 font-semibold">✅ Effective</span>
+                    <span class="text-[10px] text-emerald-600 font-semibold"><i class="fa-solid fa-circle-check"></i> Effective</span>
                 </div>
             </div>
         </div>
@@ -576,9 +576,9 @@ $title = 'Response Management';
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Priority Level</label>
                         <select class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                            <option value="High">🚨 High Priority</option>
-                            <option value="Medium">⚠️ Medium Priority</option>
-                            <option value="Low">ℹ️ Low Priority</option>
+                            <option value="High"><i class="fa-solid fa-triangle-exclamation"></i> High Priority</option>
+                            <option value="Medium">Medium Priority</option>
+                            <option value="Low">Low Priority</option>
                         </select>
                     </div>
                 </div>
@@ -645,9 +645,9 @@ $title = 'Response Management';
                     <div>
                         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Priority Level</label>
                         <select class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                            <option value="High">🚨 High Priority</option>
-                            <option value="Medium">⚠️ Medium Priority</option>
-                            <option value="Low">ℹ️ Low Priority</option>
+                            <option value="High"><i class="fa-solid fa-triangle-exclamation"></i> High Priority</option>
+                            <option value="Medium">Medium Priority</option>
+                            <option value="Low">Low Priority</option>
                         </select>
                     </div>
                 </div>
@@ -680,6 +680,104 @@ $title = 'Response Management';
         </div>
         <div class="p-6" id="interventionDetailsContent">
             <!-- Dynamic content loaded via JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TEAM DETAILS MODAL                                         -->
+<!-- ============================================================ -->
+<div id="teamDetailsModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-user-group text-brand-medium"></i>
+                Team Details
+            </h3>
+            <button onclick="closeModal('teamDetailsModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6" id="teamDetailsContent">
+            <!-- Dynamic content loaded via JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- UPDATE STATUS MODAL                                        -->
+<!-- ============================================================ -->
+<div id="updateStatusModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-pen text-brand-medium"></i>
+                Update Intervention Status
+            </h3>
+            <button onclick="closeModal('updateStatusModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6">
+            <form onsubmit="submitStatusUpdate(event)">
+                <input type="hidden" id="updateStatusInterventionId">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label>
+                        <select id="updateStatusSelect" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <option value="Active">Active</option>
+                            <option value="Completed">Completed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Progress (%)</label>
+                        <input id="updateStatusProgress" type="number" min="0" max="100" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="0-100" required oninput="this.value = Math.max(0, Math.min(100, this.value))">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
+                        <textarea rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Status update notes..."></textarea>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-4 border-t border-slate-100 mt-4">
+                    <button type="button" onclick="closeModal('updateStatusModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                        <i class="fa-solid fa-check mr-1.5"></i> Save Update
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- GENERATE REPORT MODAL                                      -->
+<!-- ============================================================ -->
+<div id="reportModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-file-pdf text-brand-medium"></i>
+                Generate Full Report
+            </h3>
+            <button onclick="closeModal('reportModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-3">
+            <button onclick="generateReport('pdf')" class="w-full flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition text-sm font-semibold text-slate-700">
+                <i class="fa-solid fa-file-pdf text-red-500"></i> Export as PDF
+            </button>
+            <button onclick="generateReport('docx')" class="w-full flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition text-sm font-semibold text-slate-700">
+                <i class="fa-solid fa-file-word text-blue-600"></i> Export as DOCX
+            </button>
+            <button onclick="generateReport('excel')" class="w-full flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition text-sm font-semibold text-slate-700">
+                <i class="fa-solid fa-file-excel text-emerald-600"></i> Export as CSV (Excel)
+            </button>
+            <button onclick="closeModal('reportModal')" class="w-full px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                Cancel
+            </button>
         </div>
     </div>
 </div>
@@ -776,7 +874,33 @@ $title = 'Response Management';
     // DEPLOY TEAM
     // ============================================================
     function deployTeam(teamId) {
-        showToast('🚀 Team ' + teamId + ' deployed successfully!', 'success');
+        const team = TEAMS.find(t => t.id === teamId);
+        if (!team) {
+            showToast('Team not found.', 'danger');
+            return;
+        }
+        if (team.status !== 'Available') {
+            showToast(team.name + ' is not currently available for deployment.', 'warning');
+            return;
+        }
+
+        team.status = 'Deployed';
+        team.deployed_to = team.deployed_to || 'San Jose';
+        team.last_deployment = new Date().toISOString().slice(0, 10);
+
+        const card = document.querySelector(`.team-card[data-team-id="${teamId}"]`);
+        if (card) {
+            card.dataset.status = 'Deployed';
+            const badge = card.querySelector('.team-status-badge');
+            if (badge) {
+                badge.className = 'team-status-badge px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold';
+                badge.innerHTML = '<i class="fa-solid fa-circle text-[8px] text-amber-500"></i> Deployed';
+            }
+            const deployBtn = card.querySelector('.deploy-btn');
+            if (deployBtn) deployBtn.remove();
+        }
+
+        showToast(team.name + ' deployed successfully!', 'success');
     }
 
     // ============================================================
@@ -784,9 +908,62 @@ $title = 'Response Management';
     // ============================================================
     function viewTeamDetails(teamId) {
         const team = TEAMS.find(t => t.id === teamId);
-        if (team) {
-            showToast('👨‍⚕️ Viewing details for ' + team.name, 'info');
+        const content = document.getElementById('teamDetailsContent');
+        if (!team || !content) {
+            showToast('Team not found.', 'danger');
+            return;
         }
+
+        content.innerHTML = `
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <h4 class="font-bold text-slate-800 text-lg">${team.name}</h4>
+                    <span class="px-2 py-1 ${team.status === 'Available' ? 'bg-emerald-100 text-emerald-700' : team.status === 'Deployed' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-700'} rounded-full text-xs font-semibold">
+                        ${team.status}
+                    </span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <p class="text-xs text-slate-500">Specialization</p>
+                        <p class="font-medium text-slate-700">${team.specialization}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">Team Leader</p>
+                        <p class="font-medium text-slate-700">${team.leader}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">Contact</p>
+                        <p class="font-medium text-slate-700"><i class="fa-solid fa-phone"></i> ${team.contact}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500">Last Deployment</p>
+                        <p class="font-medium text-slate-700">${new Date(team.last_deployment).toLocaleDateString()}</p>
+                    </div>
+                    ${team.deployed_to ? `
+                    <div class="col-span-2">
+                        <p class="text-xs text-slate-500">Deployed To</p>
+                        <p class="font-medium text-amber-600"><i class="fa-solid fa-location-dot"></i> ${team.deployed_to}</p>
+                    </div>` : ''}
+                </div>
+                <div class="border-t border-slate-100 pt-3">
+                    <p class="text-xs text-slate-500 mb-1">Members</p>
+                    <div class="flex flex-wrap gap-1">
+                        ${team.members.map(m => `<span class="px-2 py-1 bg-slate-100 rounded-full text-xs">${m}</span>`).join('')}
+                    </div>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button onclick="closeModal('teamDetailsModal')" class="flex-1 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                        Close
+                    </button>
+                    ${team.status === 'Available' ? `
+                    <button onclick="closeModal('teamDetailsModal'); deployTeam('${team.id}')" class="flex-1 px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                        <i class="fa-solid fa-rocket"></i> Deploy
+                    </button>` : ''}
+                </div>
+            </div>
+        `;
+
+        openModal('teamDetailsModal');
     }
 
     // ============================================================
@@ -798,7 +975,7 @@ $title = 'Response Management';
 
     function allocateResourceSubmit(e) {
         e.preventDefault();
-        showToast('✅ Resources allocated successfully!', 'success');
+        showToast('Resources allocated successfully!', 'success');
         closeModal('allocateResourceModal');
     }
 
@@ -807,7 +984,7 @@ $title = 'Response Management';
     // ============================================================
     function activateTeam(e) {
         e.preventDefault();
-        showToast('✅ Team activated successfully!', 'success');
+        showToast('Team activated successfully!', 'success');
         closeModal('activateTeamModal');
     }
 
@@ -890,27 +1067,276 @@ $title = 'Response Management';
     // UPDATE INTERVENTION
     // ============================================================
     function updateIntervention(interventionId) {
-        showToast('📊 Updating intervention ' + interventionId, 'info');
+        const intervention = INTERVENTIONS.find(i => i.id === interventionId);
+        if (!intervention) {
+            showToast('Intervention not found.', 'danger');
+            return;
+        }
+        document.getElementById('updateStatusInterventionId').value = interventionId;
+        document.getElementById('updateStatusSelect').value = intervention.status;
+        document.getElementById('updateStatusProgress').value = intervention.progress;
+        closeModal('interventionDetailsModal');
+        openModal('updateStatusModal');
+    }
+
+    function submitStatusUpdate(e) {
+        e.preventDefault();
+        const interventionId = document.getElementById('updateStatusInterventionId').value;
+        const newStatus = document.getElementById('updateStatusSelect').value;
+        const newProgress = Math.max(0, Math.min(100, parseInt(document.getElementById('updateStatusProgress').value, 10) || 0));
+
+        const intervention = INTERVENTIONS.find(i => i.id === interventionId);
+        if (!intervention) {
+            showToast('Intervention not found.', 'danger');
+            return;
+        }
+        intervention.status = newStatus;
+        intervention.progress = newProgress;
+
+        const item = document.querySelector(`.intervention-item[data-intervention-id="${interventionId}"]`);
+        if (item) {
+            item.dataset.status = newStatus;
+            const badge = item.querySelector('.intervention-status-badge');
+            const badgeColor = newStatus === 'Active' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+            if (badge) {
+                badge.className = 'intervention-status-badge px-2 py-0.5 ' + badgeColor + ' rounded-full text-[10px] font-semibold';
+                badge.textContent = newStatus;
+            }
+            const borderColor = newStatus === 'Active' ? 'border-amber-500' : 'border-emerald-500';
+            item.className = item.className.replace(/border-(amber|emerald|slate)-500/, borderColor);
+
+            const progressLabel = item.querySelector('.intervention-progress-label');
+            if (progressLabel) progressLabel.textContent = newProgress + '%';
+            const progressBar = item.querySelector('.intervention-progress-bar');
+            if (progressBar) {
+                progressBar.style.width = newProgress + '%';
+                progressBar.className = 'intervention-progress-bar ' + (newStatus === 'Active' ? 'bg-amber-500' : 'bg-emerald-500') + ' h-1.5 rounded-full';
+            }
+        }
+
+        closeModal('updateStatusModal');
+        showToast('Intervention status updated!', 'success');
     }
 
     // ============================================================
     // GENERATE REPORT
     // ============================================================
-    function generateReport() {
-        showToast('📄 Generating effectiveness report...', 'info');
-        setTimeout(() => {
-            showToast('✅ Report generated successfully!', 'success');
-        }, 2000);
+    function generateReport(format) {
+        closeModal('reportModal');
+        if (format === 'pdf') {
+            const reportHTML = buildReportHTML();
+            const printWindow = window.open('', '_blank', 'width=1000,height=800');
+            printWindow.document.open();
+            printWindow.document.write(reportHTML);
+            printWindow.document.close();
+
+            printWindow.onload = function() {
+                setTimeout(() => {
+                    printWindow.focus();
+                    printWindow.print();
+                }, 250);
+            };
+            showToast('PDF report opened in a new tab. Choose "Save as PDF" in the print dialog.', 'info');
+        } else if (format === 'docx') {
+            const reportHTML = buildReportHTML();
+            const blob = new Blob([reportHTML], { type: 'application/msword' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Response_Management_Report.doc';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('DOCX report downloaded!', 'success');
+        } else if (format === 'excel') {
+            let csv = "Team ID,Name,Specialization,Status,Leader,Contact\n";
+            TEAMS.forEach(t => {
+                csv += `${t.id},"${t.name}",${t.specialization},${t.status},"${t.leader}",${t.contact}\n`;
+            });
+            csv += "\nResource ID,Name,Category,Quantity,Unit,Location,Status\n";
+            RESOURCES.forEach(r => {
+                csv += `${r.id},"${r.name}",${r.category},${r.quantity},${r.unit},"${r.location}",${r.status}\n`;
+            });
+            csv += "\nIntervention ID,Title,Type,Location,Status,Progress,Team Lead\n";
+            INTERVENTIONS.forEach(i => {
+                csv += `${i.id},"${i.title}",${i.type},"${i.location}",${i.status},${i.progress}%,"${i.team_lead}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Response_Management_Report.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('CSV (Excel) report downloaded!', 'success');
+        }
+    }
+
+    // ============================================================
+    // BUILD REPORT HTML for PDF / DOCX
+    // ============================================================
+    function buildReportHTML() {
+        const teamRows = TEAMS.map((t, i) => `
+            <tr style="background:${i % 2 === 1 ? '#f5fafa' : '#ffffff'};">
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${t.id}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${t.name}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${t.specialization}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${t.leader}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${t.status}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${t.deployed_to || '—'}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${t.contact}</td>
+            </tr>
+        `).join('');
+
+        const resourceRows = RESOURCES.map((r, i) => `
+            <tr style="background:${i % 2 === 1 ? '#f5fafa' : '#ffffff'};">
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${r.id}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${r.name}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${r.category}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${r.quantity} ${r.unit}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${r.location}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${r.status}</td>
+            </tr>
+        `).join('');
+
+        const interventionRows = INTERVENTIONS.map((int, i) => `
+            <tr style="background:${i % 2 === 1 ? '#f5fafa' : '#ffffff'};">
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${int.id}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${int.title}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${int.type}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${int.location}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${int.status}</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${int.progress}%</td>
+                <td style="padding:5px 9px; border:1px solid #cccccc;">${int.team_lead}</td>
+            </tr>
+        `).join('');
+
+        return `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+            <meta charset="UTF-8">
+            <title>Response Management Report</title>
+            <!--[if gte mso 9]>
+            <xml>
+                <w:WordDocument>
+                    <w:View>Print</w:View>
+                    <w:Zoom>90</w:Zoom>
+                    <w:DoNotOptimizeForBrowser/>
+                </w:WordDocument>
+            </xml>
+            <![endif]-->
+            <style>
+                @page WordSection1 {
+                    size: 297mm 210mm;
+                    mso-page-orientation: landscape;
+                    margin: 15mm 12mm;
+                }
+                div.WordSection1 { page: WordSection1; }
+                body { font-family: 'Times New Roman', serif; margin: 0; background: #fff; }
+                .report-wrapper { max-width: 1100px; margin: 0 auto; }
+                .header { text-align: center; margin-bottom: 28px; }
+                .logo-img { width: 64px; height: 64px; margin: 0 auto 12px; display: block; object-fit: contain; }
+                h1 {
+                    font-size: 17px; font-weight: 900; color: #1a1a1a;
+                    letter-spacing: 1.5px; text-transform: uppercase;
+                    margin: 0 0 6px; font-family: 'Times New Roman', serif;
+                }
+                .report-subtitle {
+                    font-size: 14px; font-weight: 700; color: #14807A;
+                    margin: 0 0 14px; font-family: 'Times New Roman', serif;
+                    letter-spacing: 0.5px;
+                }
+                .header-divider { border: none; border-top: 1.5px solid #1a1a1a; margin: 0 0 18px; }
+                .generated-on { font-size: 12px; color: #555; margin: 0; }
+                .summary { margin-bottom: 25px; font-size: 14px; }
+                .summary p { margin: 4px 0; }
+                h3 {
+                    font-size: 14pt; font-weight: 700; color: #0B4F4A;
+                    margin: 28px 0 8px; border-bottom: 1px solid #aaa;
+                    padding-bottom: 4px; font-family: 'Times New Roman', serif;
+                }
+                table { width: 100%; border-collapse: collapse; font-size: 9pt; margin-bottom: 28px; }
+                th {
+                    background-color: #0B4F4A; color: #ffffff;
+                    padding: 7px 9px; text-align: left;
+                    border: 1px solid #0B4F4A; font-size: 8.5pt; letter-spacing: 0.3px;
+                }
+                td { padding: 5px 9px; border: 1px solid #cccccc; vertical-align: top; }
+                .footer {
+                    text-align: center; font-size: 9pt; color: #888;
+                    margin-top: 28px; border-top: 1px solid #ccc; padding-top: 12px;
+                }
+            </style>
+        </head>
+        <body>
+        <div class="WordSection1">
+        <div class="report-wrapper">
+            <div class="header">
+                <img class="logo-img" src="${window.location.origin}/capstone/assets/images/logo.png" alt="Logo" width="64" height="64" style="width:64px; height:64px;">
+                <h1>Health Sanitation Management Caloocan</h1>
+                <p class="report-subtitle">Response Management</p>
+                <hr class="header-divider">
+                <p class="generated-on">Generated on: ${new Date().toLocaleString()}</p>
+            </div>
+
+            <div class="summary">
+                <p><strong>Total Teams:</strong> ${TEAMS.length}</p>
+                <p><strong>Available Teams:</strong> ${TEAMS.filter(t => t.status === 'Available').length}</p>
+                <p><strong>Deployed Teams:</strong> ${TEAMS.filter(t => t.status === 'Deployed').length}</p>
+                <p><strong>Active Interventions:</strong> ${INTERVENTIONS.filter(i => i.status === 'Active').length}</p>
+                <p><strong>Completed Interventions:</strong> ${INTERVENTIONS.filter(i => i.status === 'Completed').length}</p>
+            </div>
+
+            <h3>Response Teams</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Name</th><th>Specialization</th><th>Leader</th>
+                        <th>Status</th><th>Deployed To</th><th>Contact</th>
+                    </tr>
+                </thead>
+                <tbody>${teamRows}</tbody>
+            </table>
+
+            <h3>Resource Inventory</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Name</th><th>Category</th><th>Quantity</th>
+                        <th>Location</th><th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>${resourceRows}</tbody>
+            </table>
+
+            <h3>Interventions</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th><th>Title</th><th>Type</th><th>Location</th>
+                        <th>Status</th><th>Progress</th><th>Team Lead</th>
+                    </tr>
+                </thead>
+                <tbody>${interventionRows}</tbody>
+            </table>
+
+            <div class="footer">This is a computer-generated report. For official use only.</div>
+        </div>
+        </div>
+        </body>
+        </html>
+        `;
     }
 
     // ============================================================
     // REFRESH DATA
     // ============================================================
     function refreshData() {
-        showToast('🔄 Refreshing data...', 'info');
-        setTimeout(() => {
-            showToast('✅ Data refreshed!', 'success');
-        }, 1000);
+        showToast('Refreshing data...', 'info');
+        window.location.reload();
     }
 
     // ============================================================

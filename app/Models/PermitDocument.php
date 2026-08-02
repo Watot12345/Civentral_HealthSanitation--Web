@@ -159,6 +159,10 @@ class PermitDocument
         if (!empty($criteria['permit_id'])) {
             $filters['permit_id'] = $criteria['permit_id'];
         }
+
+        if (!empty($criteria['expiry_date']) && is_array($criteria['expiry_date'])) {
+            $filters['expiry_date'] = $criteria['expiry_date'];
+        }
         
         try {
             return $this->db->select($this->table, $filters, $options);

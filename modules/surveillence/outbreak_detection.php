@@ -120,7 +120,6 @@ $patternData = [
 
 $title = 'Outbreak Detection';
 ?>
-
 <!-- ============================================================ -->
 <!-- 2. HTML + PHP EMBEDDED + Tailwind CSS                       -->
 <!-- ============================================================ -->
@@ -136,8 +135,8 @@ $title = 'Outbreak Detection';
                     <i class="fa-solid fa-location-dot"></i> Caloocan City
                 </span>
                 <?php if ($totalAlerts > 0): ?>
-                <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold flex items-center gap-1 animate-pulse">
-                    <i class="fa-solid fa-circle text-[6px]"></i> <?php echo $totalAlerts; ?> Active Alerts
+                <span id="activeAlertsBadge" class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold flex items-center gap-1 animate-pulse">
+                    <i class="fa-solid fa-circle text-[6px]"></i> <span id="totalAlertsBadgeCount"><?php echo $totalAlerts; ?></span> Active Alerts
                 </span>
                 <?php endif; ?>
             </div>
@@ -166,7 +165,7 @@ $title = 'Outbreak Detection';
                         <i class="fa-solid fa-bell text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black <?php echo $totalAlerts > 0 ? 'text-red-600' : 'text-emerald-600'; ?>"><?php echo $totalAlerts; ?></p>
+                        <p id="totalAlertsKPI" class="text-2xl font-black <?php echo $totalAlerts > 0 ? 'text-red-600' : 'text-emerald-600'; ?>"><?php echo $totalAlerts; ?></p>
                         <p class="text-xs font-medium text-slate-500">Active Alerts</p>
                     </div>
                 </div>
@@ -174,7 +173,7 @@ $title = 'Outbreak Detection';
                     <span class="px-2 py-0.5 <?php echo $totalAlerts > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'; ?> rounded-full text-[10px] font-bold">
                         <?php echo $totalAlerts > 0 ? '⚠️ Needs Action' : '✅ All Clear'; ?>
                     </span>
-                    <span class="text-[10px] text-slate-400"><?php echo $criticalAlerts; ?> critical</span>
+                    <span id="criticalAlertsKPI" class="text-[10px] text-slate-400"><?php echo $criticalAlerts; ?> critical</span>
                 </div>
             </div>
         </div>
@@ -208,7 +207,7 @@ $title = 'Outbreak Detection';
                         <i class="fa-solid fa-chart-bar text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-amber-600"><?php echo count($barangayAlerts); ?></p>
+                        <p id="thresholdBreachesKPI" class="text-2xl font-black text-amber-600"><?php echo count($barangayAlerts); ?></p>
                         <p class="text-xs font-medium text-slate-500">Threshold Breaches</p>
                     </div>
                 </div>
@@ -236,7 +235,7 @@ $title = 'Outbreak Detection';
                     <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold flex items-center gap-1">
                         <i class="fa-solid fa-circle text-[6px]"></i> Active
                     </span>
-                    <span class="text-[10px] text-slate-400">Real-time monitoring</span>
+                    <span id="lastDetectionTime" class="text-[10px] text-slate-400">Real-time monitoring</span>
                 </div>
             </div>
         </div>
@@ -250,21 +249,21 @@ $title = 'Outbreak Detection';
             <h3 class="font-semibold text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-bell text-brand-medium"></i>
                 Real-time Alerts
-                <span class="text-xs font-normal text-slate-400">(<?php echo $totalAlerts; ?> active)</span>
+                <span id="alertCountLabel" class="text-xs font-normal text-slate-400">(<?php echo $totalAlerts; ?> active)</span>
             </h3>
             <div class="flex items-center gap-3">
-                <button onclick="markAllRead()" class="text-xs text-brand-dark hover:text-brand-medium font-medium">
+                <button onclick="confirmMarkAllRead()" class="text-xs text-brand-dark hover:text-brand-medium font-medium">
                     Mark all read
                 </button>
-                <button onclick="clearAlerts()" class="text-xs text-slate-400 hover:text-slate-600 font-medium">
+                <button onclick="confirmClearAlerts()" class="text-xs text-slate-400 hover:text-slate-600 font-medium">
                     Clear all
                 </button>
             </div>
         </div>
-        <div class="p-4 max-h-[300px] overflow-y-auto">
+        <div id="alertListContainer" class="p-4 max-h-[300px] overflow-y-auto">
             <?php if ($totalAlerts > 0): ?>
                 <?php foreach ($alerts as $alert): ?>
-                <div class="flex items-start gap-3 p-3 <?php echo $alert['severity'] == 'Critical' ? 'bg-red-50 border-l-4 border-red-500' : 'bg-amber-50 border-l-4 border-amber-500'; ?> rounded-lg mb-2 hover:shadow-sm transition">
+                <div class="flex items-start gap-3 p-3 <?php echo $alert['severity'] == 'Critical' ? 'bg-red-50 border-l-4 border-red-500' : 'bg-amber-50 border-l-4 border-amber-500'; ?> rounded-lg mb-2 hover:shadow-sm transition" data-alert-id="<?php echo md5($alert['disease'].$alert['barangay']); ?>">
                     <div class="flex-1">
                         <div class="flex items-center gap-2">
                             <span class="w-2 h-2 <?php echo $alert['severity'] == 'Critical' ? 'bg-red-500' : 'bg-amber-500'; ?> rounded-full inline-block animate-pulse"></span>
@@ -300,7 +299,7 @@ $title = 'Outbreak Detection';
     <!-- ============================================================ -->
     <!-- DISEASE MONITORING CARDS                                   -->
     <!-- ============================================================ -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div id="diseaseCardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <?php foreach ($diseaseData as $disease => $data): 
             $statusColors = [
                 'Critical' => 'border-red-500 bg-red-50',
@@ -313,7 +312,7 @@ $title = 'Outbreak Detection';
                 'Normal' => 'bg-emerald-500 text-white'
             ];
         ?>
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-lg transition disease-card" data-disease="<?php echo $disease; ?>">
             <div class="px-5 py-4 <?php echo $statusColors[$data['status']] ?? 'bg-slate-50'; ?> border-b flex items-center justify-between">
                 <div>
                     <h3 class="font-bold text-slate-800"><?php echo $disease; ?></h3>
@@ -329,7 +328,7 @@ $title = 'Outbreak Detection';
             <div class="p-4">
                 <div class="flex items-center gap-4 mb-3">
                     <div>
-                        <p class="text-2xl font-black text-slate-900"><?php echo $data['total']; ?></p>
+                        <p class="text-2xl font-black text-slate-900 disease-total" data-disease="<?php echo $disease; ?>"><?php echo $data['total']; ?></p>
                         <p class="text-xs text-slate-500">total cases</p>
                     </div>
                     <div class="flex-1">
@@ -348,13 +347,13 @@ $title = 'Outbreak Detection';
                 </div>
                 <div class="space-y-1.5">
                     <?php foreach ($data['barangays'] as $b): ?>
-                    <div class="flex items-center justify-between text-xs">
+                    <div class="flex items-center justify-between text-xs barangay-row" data-disease="<?php echo $disease; ?>" data-barangay="<?php echo $b['name']; ?>">
                         <div class="flex items-center gap-2">
                             <span class="w-1.5 h-1.5 rounded-full <?php echo $b['status'] == 'Critical' ? 'bg-red-500' : ($b['status'] == 'Warning' ? 'bg-amber-500' : 'bg-emerald-500'); ?>"></span>
                             <span class="text-slate-700"><?php echo $b['name']; ?></span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="font-semibold <?php echo $b['cases'] >= $b['threshold'] ? 'text-red-600' : 'text-slate-700'; ?>">
+                            <span class="font-semibold <?php echo $b['cases'] >= $b['threshold'] ? 'text-red-600' : 'text-slate-700'; ?> barangay-cases" data-disease="<?php echo $disease; ?>" data-barangay="<?php echo $b['name']; ?>">
                                 <?php echo $b['cases']; ?>
                             </span>
                             <span class="text-slate-400">/ <?php echo $b['threshold']; ?></span>
@@ -424,9 +423,9 @@ $title = 'Outbreak Detection';
                 <i class="fa-solid fa-robot text-brand-medium"></i>
                 Automated Detection Log
             </h3>
-            <span class="text-xs text-slate-400">Last run: <?php echo date('h:i A'); ?></span>
+            <span id="lastLogTimestamp" class="text-xs text-slate-400">Last run: <?php echo date('h:i A'); ?></span>
         </div>
-        <div class="p-4 max-h-[200px] overflow-y-auto">
+        <div id="detectionLogContainer" class="p-4 max-h-[200px] overflow-y-auto">
             <div class="space-y-2 text-sm">
                 <div class="flex items-start gap-3 p-2 bg-slate-50 rounded-lg">
                     <span class="text-emerald-500 mt-0.5"><i class="fa-solid fa-check-circle"></i></span>
@@ -468,6 +467,29 @@ $title = 'Outbreak Detection';
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- MODAL OVERLAY (for Mark all read / Clear all)               -->
+<!-- ============================================================ -->
+<div id="confirmationModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 transform transition-all scale-95">
+        <div class="flex items-start justify-between mb-4">
+            <h3 id="modalTitle" class="text-lg font-bold text-slate-800">Confirm Action</h3>
+            <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+        <p id="modalMessage" class="text-sm text-slate-600 mb-6">Are you sure you want to proceed?</p>
+        <div class="flex justify-end gap-3">
+            <button onclick="closeModal()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition text-sm font-semibold">
+                Cancel
+            </button>
+            <button id="modalConfirmBtn" onclick="executeModalAction()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                Confirm
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
     <i class="fa-solid fa-circle-check"></i>
@@ -483,20 +505,63 @@ $title = 'Outbreak Detection';
     // PHP Data to JavaScript
     const PATTERN_DATA = <?php echo json_encode($patternData); ?>;
     const WEEKS = <?php echo json_encode($weeks); ?>;
-    const DISEASE_DATA = <?php echo json_encode($diseaseData); ?>;
+    let DISEASE_DATA = <?php echo json_encode($diseaseData); ?>;  // Make it mutable
 
     let patternChart = null;
     let thresholdChart = null;
     let thresholdViewMode = 'barangay';
 
     // ============================================================
-    // PATTERN RECOGNITION CHART - Enhanced
+    // MODAL CONTROLS
+    // ============================================================
+    let modalConfirmCallback = null;
+
+    function showModal(title, message, confirmCallback) {
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalMessage').textContent = message;
+        modalConfirmCallback = confirmCallback;
+        document.getElementById('confirmationModal').classList.remove('hidden');
+        document.getElementById('confirmationModal').classList.add('flex');
+        // animate in
+        document.querySelector('#confirmationModal > div').classList.remove('scale-95');
+        document.querySelector('#confirmationModal > div').classList.add('scale-100');
+    }
+
+    function closeModal() {
+        document.getElementById('confirmationModal').classList.add('hidden');
+        document.getElementById('confirmationModal').classList.remove('flex');
+        modalConfirmCallback = null;
+    }
+
+    function executeModalAction() {
+        if (typeof modalConfirmCallback === 'function') {
+            modalConfirmCallback();
+        }
+        closeModal();
+    }
+
+    // ============================================================
+    // CONFIRMATION WRAPPERS
+    // ============================================================
+    function confirmMarkAllRead() {
+        showModal('Mark All as Read', 'This will dismiss all active alerts. Are you sure?', function() {
+            markAllRead();
+        });
+    }
+
+    function confirmClearAlerts() {
+        showModal('Clear All Alerts', 'This will permanently remove all alerts from the list. Continue?', function() {
+            clearAlerts();
+        });
+    }
+
+    // ============================================================
+    // PATTERN RECOGNITION CHART
     // ============================================================
     function initPatternChart() {
         const el = document.getElementById('pattern-chart');
         if (!el) return;
 
-        // Calculate trend lines (simple moving average)
         const calculateTrend = (data, window = 3) => {
             const trend = [];
             for (let i = 0; i < data.length; i++) {
@@ -521,15 +586,11 @@ $title = 'Outbreak Detection';
         Object.keys(PATTERN_DATA).forEach(disease => {
             const data = PATTERN_DATA[disease];
             const trend = calculateTrend(data);
-            
-            // Main data line
             series.push({
                 name: disease,
                 data: data,
                 color: colors[disease]
             });
-            
-            // Trend line (dashed)
             series.push({
                 name: disease + ' Trend',
                 data: trend,
@@ -605,7 +666,7 @@ $title = 'Outbreak Detection';
     }
 
     // ============================================================
-    // THRESHOLD MONITORING CHART - Enhanced
+    // THRESHOLD MONITORING CHART
     // ============================================================
     function initThresholdChart() {
         renderThresholdChart('barangay');
@@ -621,7 +682,6 @@ $title = 'Outbreak Detection';
         let barColors = [];
 
         if (mode === 'barangay') {
-            // Show by barangay with color coding
             Object.keys(DISEASE_DATA).forEach(disease => {
                 DISEASE_DATA[disease].barangays.forEach(b => {
                     categories.push(b.name);
@@ -634,7 +694,6 @@ $title = 'Outbreak Detection';
                 });
             });
         } else {
-            // Disease view - aggregate by disease
             categories = Object.keys(DISEASE_DATA);
             currentData = categories.map(d => DISEASE_DATA[d].total);
             thresholdData = categories.map(d => {
@@ -644,7 +703,6 @@ $title = 'Outbreak Detection';
             barColors = ['#ef4444', '#3b82f6', '#8b5cf6'];
         }
 
-        // Destroy existing chart
         if (thresholdChart) {
             thresholdChart.destroy();
         }
@@ -746,50 +804,344 @@ $title = 'Outbreak Detection';
     }
 
     // ============================================================
-    // FUNCTIONS
+    // RUN DETECTION
     // ============================================================
     function runDetection() {
         showToast('🔍 Running outbreak detection...', 'info');
+        // Simulate detection process (re‑evaluate thresholds and refresh UI)
         setTimeout(() => {
-            showToast('✅ Detection complete! ' + <?php echo $totalAlerts; ?> + ' alerts found', 'success');
-        }, 1500);
+            // Re‑generate alerts from current DISEASE_DATA
+            const alerts = generateAlerts(DISEASE_DATA);
+            const total = alerts.length;
+            const critical = alerts.filter(a => a.severity === 'Critical').length;
+
+            // Update KPI
+            document.getElementById('totalAlertsKPI').textContent = total;
+            document.getElementById('criticalAlertsKPI').textContent = critical + ' critical';
+            document.getElementById('alertCountLabel').textContent = `(${total} active)`;
+            document.getElementById('totalAlertsBadgeCount').textContent = total;
+
+            // Update active badge visibility
+            const badge = document.getElementById('activeAlertsBadge');
+            if (badge) {
+                if (total > 0) {
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+
+            // Update alert list
+            renderAlertList(alerts);
+
+            // Update threshold breaches KPI (number of barangays with alerts)
+            const breachedBarangays = new Set();
+            alerts.forEach(a => breachedBarangays.add(a.barangay));
+            document.getElementById('thresholdBreachesKPI').textContent = breachedBarangays.size;
+
+            // Update threshold chart (data may have changed)
+            renderThresholdChart(thresholdViewMode);
+
+            // Update disease cards (total cases, barangay cases, statuses)
+            updateDiseaseCards(DISEASE_DATA);
+
+            // Update log
+            updateDetectionLog(alerts, 'Detection scan completed (manual run)');
+
+            // Update timestamp
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('lastDetectionTime').textContent = 'Last run: ' + timeStr;
+            document.getElementById('lastLogTimestamp').textContent = 'Last run: ' + timeStr;
+
+            showToast('✅ Detection complete! ' + total + ' alerts found', 'success');
+        }, 1200);
     }
 
+    // ============================================================
+    // REFRESH DATA
+    // ============================================================
     function refreshData() {
         showToast('🔄 Refreshing data...', 'info');
         setTimeout(() => {
-            if (patternChart) {
-                patternChart.updateOptions({
-                    animations: { enabled: true }
-                });
-            }
-            if (thresholdChart) {
-                thresholdChart.updateOptions({
-                    animations: { enabled: true }
-                });
-            }
-            showToast('✅ Data refreshed!', 'success');
-        }, 1000);
+            location.reload();
+        }, 600);
     }
 
+    // ============================================================
+    // MARK ALL READ
+    // ============================================================
     function markAllRead() {
+        // Remove all alerts from list and update counters
+        const container = document.getElementById('alertListContainer');
+        container.innerHTML = `
+            <div class="text-center py-8 text-slate-400">
+                <i class="fa-solid fa-check-circle text-3xl block mb-2 text-emerald-500"></i>
+                <p class="text-sm font-medium">No active alerts</p>
+                <p class="text-xs">All alerts have been marked as read</p>
+            </div>
+        `;
+        document.getElementById('totalAlertsKPI').textContent = '0';
+        document.getElementById('criticalAlertsKPI').textContent = '0 critical';
+        document.getElementById('alertCountLabel').textContent = '(0 active)';
+        document.getElementById('totalAlertsBadgeCount').textContent = '0';
+        document.getElementById('activeAlertsBadge').classList.add('hidden');
+        document.getElementById('thresholdBreachesKPI').textContent = '0';
+
+        // Also update log
+        const log = document.getElementById('detectionLogContainer');
+        const entry = document.createElement('div');
+        entry.className = 'flex items-start gap-3 p-2 bg-slate-50 rounded-lg';
+        entry.innerHTML = `
+            <span class="text-blue-500 mt-0.5"><i class="fa-solid fa-check-double"></i></span>
+            <div>
+                <span class="font-medium text-slate-700">All alerts marked as read</span>
+                <span class="text-slate-400 text-xs ml-2">${new Date().toLocaleTimeString()}</span>
+            </div>
+        `;
+        log.prepend(entry);
+
         showToast('✅ All alerts marked as read', 'success');
     }
 
+    // ============================================================
+    // CLEAR ALL ALERTS
+    // ============================================================
     function clearAlerts() {
-        if (confirm('Are you sure you want to clear all alerts?')) {
-            showToast('🗑️ Alerts cleared', 'info');
+        // Same as markAllRead but with a different message
+        markAllRead(); // reuse, but we can change the log message
+        const log = document.getElementById('detectionLogContainer');
+        // Remove the last entry (which is "All alerts marked as read") and replace with "Cleared all alerts"
+        const firstEntry = log.querySelector('.flex');
+        if (firstEntry) {
+            firstEntry.querySelector('.font-medium').textContent = 'All alerts cleared';
+            firstEntry.querySelector('.fa-check-double').className = 'fa-solid fa-trash-can text-rose-500';
+            firstEntry.querySelector('span.text-blue-500').className = 'text-rose-500 mt-0.5';
         }
+        showToast('🗑️ All alerts cleared', 'info');
     }
 
+    // ============================================================
+    // DISMISS SINGLE ALERT
+    // ============================================================
     function dismissAlert(btn) {
         const alertDiv = btn.closest('.flex');
         alertDiv.style.opacity = '0';
         alertDiv.style.transform = 'translateX(20px)';
         setTimeout(() => {
             alertDiv.remove();
+            // Update counters
+            const remaining = document.querySelectorAll('#alertListContainer .flex').length;
+            document.getElementById('totalAlertsKPI').textContent = remaining;
+            document.getElementById('alertCountLabel').textContent = `(${remaining} active)`;
+            document.getElementById('totalAlertsBadgeCount').textContent = remaining;
+            if (remaining === 0) {
+                document.getElementById('activeAlertsBadge').classList.add('hidden');
+                document.getElementById('criticalAlertsKPI').textContent = '0 critical';
+                document.getElementById('thresholdBreachesKPI').textContent = '0';
+                // Show empty state
+                const container = document.getElementById('alertListContainer');
+                if (container.children.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-slate-400">
+                            <i class="fa-solid fa-check-circle text-3xl block mb-2 text-emerald-500"></i>
+                            <p class="text-sm font-medium">No active alerts</p>
+                            <p class="text-xs">All diseases are within normal thresholds</p>
+                        </div>
+                    `;
+                }
+            }
             showToast('Alert dismissed', 'info');
         }, 300);
+    }
+
+    // ============================================================
+    // HELPERS: Generate alerts from data
+    // ============================================================
+    function generateAlerts(data) {
+        const alerts = [];
+        Object.keys(data).forEach(disease => {
+            data[disease].barangays.forEach(b => {
+                if (b.cases >= b.threshold) {
+                    const severity = b.cases >= b.threshold * 1.5 ? 'Critical' : 'Warning';
+                    alerts.push({
+                        disease: disease,
+                        barangay: b.name,
+                        cases: b.cases,
+                        threshold: b.threshold,
+                        severity: severity,
+                        message: b.cases >= b.threshold * 1.5 
+                            ? `Critical outbreak detected in ${b.name}!` 
+                            : `Alert: ${b.name} has exceeded threshold for ${disease}`
+                    });
+                }
+            });
+        });
+        // Sort: Critical first
+        alerts.sort((a, b) => {
+            const order = { 'Critical': 0, 'Warning': 1 };
+            return order[a.severity] - order[b.severity];
+        });
+        return alerts;
+    }
+
+    // ============================================================
+    // RENDER ALERT LIST
+    // ============================================================
+    function renderAlertList(alerts) {
+        const container = document.getElementById('alertListContainer');
+        if (alerts.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-slate-400">
+                    <i class="fa-solid fa-check-circle text-3xl block mb-2 text-emerald-500"></i>
+                    <p class="text-sm font-medium">No active alerts</p>
+                    <p class="text-xs">All diseases are within normal thresholds</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        alerts.forEach(alert => {
+            const severityClass = alert.severity === 'Critical' ? 'bg-red-50 border-l-4 border-red-500' : 'bg-amber-50 border-l-4 border-amber-500';
+            const textColor = alert.severity === 'Critical' ? 'text-red-700' : 'text-amber-700';
+            const badgeColor = alert.severity === 'Critical' ? 'bg-red-200 text-red-700' : 'bg-amber-200 text-amber-700';
+            const dotColor = alert.severity === 'Critical' ? 'bg-red-500' : 'bg-amber-500';
+            const id = alert.disease + alert.barangay;
+            html += `
+                <div class="flex items-start gap-3 p-3 ${severityClass} rounded-lg mb-2 hover:shadow-sm transition" data-alert-id="${id}">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 ${dotColor} rounded-full inline-block animate-pulse"></span>
+                            <span class="text-sm font-bold ${textColor}">${alert.message}</span>
+                            <span class="px-2 py-0.5 ${badgeColor} rounded-full text-[10px] font-bold">${alert.severity}</span>
+                        </div>
+                        <div class="mt-1 flex items-center gap-4 text-xs text-slate-600">
+                            <span>📍 ${alert.barangay}</span>
+                            <span>🦟 ${alert.disease}</span>
+                            <span>📊 ${alert.cases} cases (Threshold: ${alert.threshold})</span>
+                            <span class="text-slate-400">${new Date().toLocaleTimeString()}</span>
+                        </div>
+                    </div>
+                    <button onclick="dismissAlert(this)" class="text-slate-400 hover:text-slate-600 transition">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
+    // ============================================================
+    // UPDATE DISEASE CARDS (totals and barangay rows)
+    // ============================================================
+    function updateDiseaseCards(data) {
+        // Update total cases per disease
+        document.querySelectorAll('.disease-total').forEach(el => {
+            const disease = el.dataset.disease;
+            if (data[disease]) {
+                el.textContent = data[disease].total;
+            }
+        });
+
+        // Update each barangay cases
+        document.querySelectorAll('.barangay-cases').forEach(el => {
+            const disease = el.dataset.disease;
+            const barangay = el.dataset.barangay;
+            if (data[disease]) {
+                const b = data[disease].barangays.find(b => b.name === barangay);
+                if (b) {
+                    el.textContent = b.cases;
+                    // Update color based on threshold
+                    const threshold = b.threshold;
+                    if (b.cases >= threshold) {
+                        el.classList.add('text-red-600');
+                        el.classList.remove('text-slate-700');
+                    } else {
+                        el.classList.add('text-slate-700');
+                        el.classList.remove('text-red-600');
+                    }
+                }
+            }
+        });
+
+        // Update status dot for each barangay (the small circle)
+        document.querySelectorAll('.barangay-row').forEach(row => {
+            const disease = row.dataset.disease;
+            const barangay = row.dataset.barangay;
+            if (data[disease]) {
+                const b = data[disease].barangays.find(b => b.name === barangay);
+                if (b) {
+                    const dot = row.querySelector('.w-1\\.5');
+                    if (dot) {
+                        dot.className = 'w-1.5 h-1.5 rounded-full ' + (
+                            b.status === 'Critical' ? 'bg-red-500' :
+                            b.status === 'Warning' ? 'bg-amber-500' : 'bg-emerald-500'
+                        );
+                    }
+                }
+            }
+        });
+
+        // Update card header status badges and trend (if changed, but we keep original)
+        // For simplicity we don't update status badges as they depend on overall disease status,
+        // which we don't recalculate here. Could be added.
+    }
+
+    // ============================================================
+    // UPDATE DETECTION LOG
+    // ============================================================
+    function updateDetectionLog(alerts, scanMessage) {
+        const container = document.getElementById('detectionLogContainer');
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString();
+
+        // Remove old "scan completed" entry if exists (first entry)
+        const firstEntry = container.querySelector('.flex');
+        if (firstEntry) {
+            // We'll keep it and prepend new entry
+        }
+
+        // Prepend new scan entry
+        const entry = document.createElement('div');
+        entry.className = 'flex items-start gap-3 p-2 bg-slate-50 rounded-lg';
+        entry.innerHTML = `
+            <span class="text-emerald-500 mt-0.5"><i class="fa-solid fa-check-circle"></i></span>
+            <div>
+                <span class="font-medium text-slate-700">${scanMessage}</span>
+                <span class="text-slate-400 text-xs ml-2">${timeStr}</span>
+                <p class="text-slate-500 text-xs mt-0.5">Scanned ${Object.keys(DISEASE_DATA).length} diseases across ${DISEASE_DATA[Object.keys(DISEASE_DATA)[0]].barangays.length} barangays</p>
+            </div>
+        `;
+        container.prepend(entry);
+
+        // Update alerts summary entry (second entry if exists)
+        const alertSummary = container.querySelectorAll('.flex')[1];
+        if (alertSummary) {
+            // Update it if it's the alert summary
+            if (alertSummary.querySelector('.text-amber-500') || alertSummary.querySelector('.text-emerald-500')) {
+                if (alerts.length > 0) {
+                    const critical = alerts.filter(a => a.severity === 'Critical').length;
+                    alertSummary.innerHTML = `
+                        <span class="text-amber-500 mt-0.5"><i class="fa-solid fa-exclamation-triangle"></i></span>
+                        <div>
+                            <span class="font-medium text-amber-700">${alerts.length} alerts generated</span>
+                            <span class="text-slate-400 text-xs ml-2">${timeStr}</span>
+                            <p class="text-slate-500 text-xs mt-0.5">${critical} critical, ${alerts.length - critical} warnings</p>
+                        </div>
+                    `;
+                } else {
+                    alertSummary.innerHTML = `
+                        <span class="text-emerald-500 mt-0.5"><i class="fa-solid fa-shield-halved"></i></span>
+                        <div>
+                            <span class="font-medium text-emerald-700">All clear - No threats detected</span>
+                            <span class="text-slate-400 text-xs ml-2">${timeStr}</span>
+                            <p class="text-slate-500 text-xs mt-0.5">All diseases are within normal thresholds</p>
+                        </div>
+                    `;
+                }
+            }
+        }
     }
 
     // ============================================================
@@ -831,6 +1183,12 @@ $title = 'Outbreak Detection';
     @keyframes pulse {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.5; }
+    }
+    #confirmationModal {
+        transition: opacity 0.2s ease;
+    }
+    #confirmationModal > div {
+        transition: transform 0.2s ease;
     }
 </style>
 
