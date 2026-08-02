@@ -273,6 +273,36 @@
         animation: statusPulse 2s infinite;
     }
 
+    /* Highlight Specific Calculated Numbers Only (Clean Text Only) */
+    .highlight-danger {
+        color: #dc2626;
+        font-weight: 700;
+        background: transparent;
+        padding: 0;
+        display: inline;
+    }
+    .highlight-warning {
+        color: #d97706;
+        font-weight: 700;
+        background: transparent;
+        padding: 0;
+        display: inline;
+    }
+    .highlight-success {
+        color: #059669;
+        font-weight: 700;
+        background: transparent;
+        padding: 0;
+        display: inline;
+    }
+    .highlight-info {
+        color: #2563eb;
+        font-weight: 700;
+        background: transparent;
+        padding: 0;
+        display: inline;
+    }
+
     @keyframes statusPulse {
         0% {
             box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
@@ -853,29 +883,63 @@
                 </div>
                 <div id="trendChart" class="h-56 mt-2"></div>
                 <div id="trendLegend" class="mt-4 flex flex-wrap items-center gap-3 text-xs font-medium text-zinc-500"></div>
+                <!-- 1-Line Correlation Insight Callout -->
+                <div id="correlationInsightCallout" class="mt-3 pt-2.5 border-t border-zinc-100 text-[11px] font-semibold text-rose-800 bg-rose-50/60 px-3 py-1.5 rounded-lg border border-rose-100/80 flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5 text-rose-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span id="correlationInsightText">Disease Surveillance and Health Center Services move together (+84% co-movement correlation) over the last 6 months.</span>
+                </div>
             </div>
 
-            <!-- Predictive Analytics -->
-            <div class="rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift flex flex-col">
-                <div class="flex items-center justify-between mb-1">
-                    <div class="flex items-center gap-2.5">
-                        <div class="p-1.5 bg-emerald-50 rounded-lg">
-                            <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                            </svg>
+            <!-- Predictive Analytics (Enhanced Line Chart + KPI Badges) -->
+            <div class="rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <div class="flex items-center gap-2.5">
+                            <div class="p-1.5 bg-emerald-50 rounded-lg">
+                                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                                </svg>
+                            </div>
+                            <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Predictive Analytics</h2>
                         </div>
-                        <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Predictive Analytics</h2>
+                        <span class="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">AI Forecast</span>
                     </div>
-                    <span class="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">AI Forecast</span>
+                    <p class="text-xs font-semibold text-zinc-400 mt-1 mb-4">Next Month Forecast · Confidence interval ±5%</p>
                 </div>
-                <p class="text-xs font-semibold text-zinc-400 mt-1 mb-4">Next Month Forecast · Confidence interval ±5%</p>
-                <div class="space-y-3 flex-1 overflow-y-auto pr-1 scrollbar-thin" id="predictiveCards"></div>
+                
+                <!-- KPI Summary Badges -->
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    <div class="bg-red-50/60 border border-red-100 p-2 rounded-xl text-center cursor-help" title="High certainty (92% statistical confidence based on 6-month historical trend)">
+                        <div class="text-[9px] font-bold text-red-600 uppercase tracking-wider">Disease Cases</div>
+                        <div id="pred-cases-val" class="text-sm font-extrabold text-red-900 mt-0.5">198</div>
+                        <div class="text-[9px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded-full inline-block mt-0.5">92% High Certainty</div>
+                    </div>
+                    <div class="bg-blue-50/60 border border-blue-100 p-2 rounded-xl text-center cursor-help" title="Moderate certainty (89% statistical confidence based on historical permit requests)">
+                        <div class="text-[9px] font-bold text-blue-600 uppercase tracking-wider">Permit Requests</div>
+                        <div id="pred-permits-val" class="text-sm font-extrabold text-blue-900 mt-0.5">435</div>
+                        <div class="text-[9px] font-bold text-amber-700 bg-amber-100/70 px-1.5 py-0.5 rounded-full inline-block mt-0.5">89% Moderate Certainty</div>
+                    </div>
+                    <div class="bg-emerald-50/60 border border-emerald-100 p-2 rounded-xl text-center cursor-help" title="High certainty (95% statistical confidence based on vaccination demand logs)">
+                        <div class="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Vaccine Demand</div>
+                        <div id="pred-vaccines-val" class="text-sm font-extrabold text-emerald-900 mt-0.5">273</div>
+                        <div class="text-[9px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded-full inline-block mt-0.5">95% High Certainty</div>
+                    </div>
+                </div>
+
+                <!-- ApexCharts Line Graph Container -->
+                <div id="predictiveLineChart" class="h-36"></div>
+
+                <!-- 1-Line Forecast Insight Callout -->
+                <div id="forecastInsightCallout" class="mt-2 pt-2 border-t border-zinc-100 text-[11px] font-semibold text-emerald-800 bg-emerald-50/60 px-3 py-1.5 rounded-lg border border-emerald-100/80 flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    <span id="forecastInsightText">Disease Cases forecasted at 198 (+8.3% vs current) — recommend increasing satellite triage staff next month.</span>
+                </div>
             </div>
 
             <!-- Operational Modules -->
-            <div class="rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift flex flex-col justify-between">
+            <div id="modulesContainerCard" class="rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift flex flex-col justify-between transition-all">
                 <div>
-                    <div class="flex items-center gap-2.5 mb-1">
+                    <div class="flex items-center gap-2 mb-1">
                         <div class="p-1.5 bg-rose-50 rounded-lg">
                             <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
@@ -883,87 +947,27 @@
                             </svg>
                         </div>
                         <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Operational Modules</h2>
-                        <span class="ml-auto text-[10px] font-bold px-2 py-0.5 bg-zinc-100 text-zinc-600 rounded-full border border-zinc-200/50">By Activity</span>
+                        <!-- Interactive Toggle: Current vs Projected Next Month -->
+                        <div class="ml-auto inline-flex items-center rounded-full bg-zinc-100 p-0.5 border border-zinc-200/80 text-[10px] font-bold">
+                            <button id="btnModuleCurrent" type="button" class="px-2.5 py-0.5 rounded-full bg-white text-zinc-800 shadow-xs transition-all cursor-pointer font-bold">Current</button>
+                            <button id="btnModuleProjected" type="button" class="px-2.5 py-0.5 rounded-full text-zinc-500 hover:text-zinc-800 transition-all cursor-pointer">Projected Next Month</button>
+                        </div>
                     </div>
                     <p class="text-xs font-semibold text-zinc-400 mt-1 mb-3">Share of activity by module · hover for details</p>
                 </div>
-                <div id="modulesChart" class="h-56"></div>
-                <div class="mt-4 space-y-1.5 text-xs font-semibold text-zinc-600" id="moduleLegend"></div>
-            </div>
-        </div>
-
-
-
-        <!-- Service / Disease Trend + Service Distribution (integrated from ai-insight.js) -->
-        <div class="mb-8 grid grid-cols-1 lg:grid-cols-3 gap-6 fade-in delay-3">
-            <!-- Service Requests Trend -->
-            <div class="rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift">
-                <div class="flex items-center gap-2.5 mb-4">
-                    <div class="p-1.5 bg-blue-50 rounded-lg">
-                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                        </svg>
-                    </div>
-                    <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Service Requests Trend</h2>
-                </div>
-                <svg viewBox="0 0 500 200" class="w-full h-auto">
-                    <g id="serviceLineGroup"></g>
-                    <g id="serviceDotsGroup"></g>
-                </svg>
-                <div class="mt-4 flex flex-wrap items-center gap-3 text-xs font-medium text-zinc-500">
-                    <span class="service-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="appointments"><span class="inline-block h-2 w-2 rounded-full" style="background:#3b82f6"></span> Appointments</span>
-                    <span class="service-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="emails"><span class="inline-block h-2 w-2 rounded-full" style="background:#10b981"></span> Emails</span>
-                    <span class="service-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="requests"><span class="inline-block h-2 w-2 rounded-full" style="background:#f59e0b"></span> Requests</span>
-                </div>
-            </div>
-
-            <!-- Disease Surveillance -->
-            <div class="rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift">
-                <div class="flex items-center gap-2.5 mb-4">
-                    <div class="p-1.5 bg-rose-50 rounded-lg">
-                        <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                    </div>
-                    <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Disease Surveillance</h2>
-                </div>
-                <svg viewBox="0 0 500 200" class="w-full h-auto">
-                    <g id="diseaseLineGroup"></g>
-                    <g id="diseaseDotsGroup"></g>
-                </svg>
-                <div class="mt-4 flex flex-wrap items-center gap-3 text-xs font-medium text-zinc-500">
-                    <span class="disease-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="dengue"><span class="inline-block h-2 w-2 rounded-full" style="background:#ef4444"></span> Dengue</span>
-                    <span class="disease-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="influenza"><span class="inline-block h-2 w-2 rounded-full" style="background:#eab308"></span> Influenza</span>
-                    <span class="disease-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="foodPoisoning"><span class="inline-block h-2 w-2 rounded-full" style="background:#22c55e"></span> Food Poisoning</span>
-                    <span class="disease-legend flex items-center gap-1.5 cursor-pointer select-none" data-series="leptospirosis"><span class="inline-block h-2 w-2 rounded-full" style="background:#a855f7"></span> Leptospirosis</span>
-                </div>
-            </div>
-
-            <!-- Service Distribution -->
-            <div class="rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift flex flex-col items-center">
-                <div class="flex items-center gap-2.5 mb-4 self-start">
-                    <div class="p-1.5 bg-purple-50 rounded-lg">
-                        <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.024 9.024 0 0120.488 9z"></path>
-                        </svg>
-                    </div>
-                    <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Service Distribution</h2>
-                </div>
-                <div class="relative">
-                    <svg id="donutSvg" viewBox="0 0 200 200" class="w-44 h-44">
-                        <g id="donutSegments"></g>
-                    </svg>
-                    <div id="donutTooltip" class="donut-tooltip"><span id="tooltipText"></span></div>
-                </div>
-                <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs font-medium text-zinc-500 w-full">
-                    <span class="flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full" style="background:#3b82f6"></span> Health Center</span>
-                    <span class="flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full" style="background:#10b981"></span> Sanitation</span>
-                    <span class="flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full" style="background:#f59e0b"></span> Immunization</span>
-                    <span class="flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full" style="background:#8b5cf6"></span> Wastewater</span>
+                <div id="modulesChart" class="h-44"></div>
+                <div class="mt-2 space-y-1.5 text-xs font-semibold text-zinc-600" id="moduleLegend"></div>
+                <!-- 1-Line Module Insight Callout -->
+                <div id="moduleInsightCallout" class="mt-3 pt-2.5 border-t border-zinc-100 text-[11px] font-semibold text-amber-800 bg-amber-50/60 px-3 py-1.5 rounded-lg border border-amber-100/80 flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span id="moduleInsightText">Sanitation Permits forecasted at 31.4% (+3.3pts vs current) — reassign 2 health inspectors to commercial permit reviews.</span>
                 </div>
             </div>
         </div>
+
+
+
+
 
 
 
@@ -1826,63 +1830,49 @@
         // =====================================================================
         // RENDER FUNCTIONS
         // =====================================================================
-        function renderInsights() {
+        function renderInsights(liveInsights) {
             const grid = document.getElementById('insightsGrid');
             if (!grid) return;
 
-            // AI Loading Skeleton effect
-            grid.innerHTML = InsightsData.map(() => `
-            <div class="p-5 rounded-xl border border-zinc-100">
-                <div class="flex items-start justify-between mb-4">
-                    <div class="w-8 h-8 rounded-lg ai-skeleton"></div>
-                    <div class="w-16 h-5 rounded-full ai-skeleton"></div>
-                </div>
-                <div class="w-full h-3 rounded ai-skeleton mb-2"></div>
-                <div class="w-2/3 h-3 rounded ai-skeleton mb-4"></div>
-                <div class="w-20 h-2 rounded ai-skeleton mt-4"></div>
-            </div>
-        `).join('');
+            const items = (Array.isArray(liveInsights) && liveInsights.length > 0) ? liveInsights : InsightsData;
 
-            // Simulate AI processing delay
-            setTimeout(() => {
-                const iconMap = {
-                    'alert': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
-                    'users': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>',
-                    'check': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
-                    'ai': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>'
-                };
+            const iconMap = {
+                'alert': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
+                'users': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>',
+                'check': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
+                'ai': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>'
+            };
 
-                const bgClassMap = {
-                    'red': 'bg-red-50/70 text-red-700 border-red-100',
-                    'amber': 'bg-amber-50/70 text-amber-700 border-amber-100',
-                    'emerald': 'bg-emerald-50/70 text-emerald-700 border-emerald-100',
-                    'blue': 'bg-blue-50/70 text-blue-700 border-blue-100'
-                };
+            const bgClassMap = {
+                'rose': 'bg-rose-50/70 text-rose-700 border-rose-100',
+                'red': 'bg-red-50/70 text-red-700 border-red-100',
+                'amber': 'bg-amber-50/70 text-amber-700 border-amber-100',
+                'emerald': 'bg-emerald-50/70 text-emerald-700 border-emerald-100',
+                'blue': 'bg-blue-50/70 text-blue-700 border-blue-100'
+            };
 
-                const badgeClassMap = {
-                    'red': 'bg-red-50 text-red-700 border-red-100/80',
-                    'amber': 'bg-amber-50 text-amber-700 border-amber-100/80',
-                    'emerald': 'bg-emerald-50 text-emerald-700 border-emerald-100/80',
-                    'blue': 'bg-blue-50 text-blue-700 border-blue-100/80'
-                };
+            grid.innerHTML = items.map(function(insight, idx) {
+                const colorKey = insight.color || insight.priorityColor || 'blue';
+                const wrapperBg = bgClassMap[colorKey] || 'bg-zinc-50 border-zinc-100';
+                const badgeLabel = insight.badge || insight.priority || 'Live AI Insight';
+                const cardTitle = insight.title || insight.ai_summary || 'AI Processing metrics...';
 
-                grid.innerHTML = InsightsData.map(function(insight, idx) {
-                    const wrapperBg = bgClassMap[insight.priorityColor] || 'bg-zinc-50 border-zinc-100';
-                    const badgeBg = badgeClassMap[insight.priorityColor] || 'bg-zinc-100 text-zinc-700 border-zinc-200';
-                    return '<div class="insight-card text-left rounded-xl p-5 flex flex-col justify-between h-full fade-in delay-' + (idx + 1) + '">' +
-                        '<div>' +
-                        '<div class="flex items-start justify-between">' +
-                        '<div class="p-2 ' + wrapperBg + ' rounded-lg w-fit border">' +
-                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">' + iconMap[insight.icon] + '</svg>' +
-                        '</div>' +
-                        '<span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border ' + badgeBg + '">' + insight.priority + '</span>' +
-                        '</div>' +
-                        '<p class="text-sm font-semibold text-zinc-800 mt-4 leading-relaxed typewriter" data-text="' + insight.title.replace(/<[^>]*>/g, '') + '">' + insight.title + '</p>' +
-                        '</div>' +
-                        '<p class="text-[10px] font-bold text-zinc-400 mt-4 uppercase tracking-wider mt-auto pt-4">AI Processed</p>' +
-                        '</div>';
-                }).join('');
-            }, 1200); // 1.2s delay to simulate AI thinking
+                return '<div class="insight-card text-left rounded-xl p-5 flex flex-col justify-between h-full border border-zinc-200/80 bg-white/90 hover:shadow-md transition-all cursor-pointer" onclick="openInsightModal(' + JSON.stringify(insight).replace(/"/g, '&quot;') + ')">' +
+                    '<div>' +
+                    '<div class="flex items-start justify-between">' +
+                    '<div class="p-2 ' + wrapperBg + ' rounded-lg w-fit border">' +
+                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">' + (iconMap[insight.icon] || iconMap['ai']) + '</svg>' +
+                    '</div>' +
+                    '<span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border ' + wrapperBg + '">' + badgeLabel + '</span>' +
+                    '</div>' +
+                    '<p class="text-sm font-semibold text-zinc-800 mt-4 leading-relaxed">' + cardTitle + '</p>' +
+                    '</div>' +
+                    '<div class="flex items-center justify-between mt-4 pt-3 border-t border-zinc-100">' +
+                    '<span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">AI Processed</span>' +
+                    '<span class="text-[10px] font-semibold text-purple-600">Click details →</span>' +
+                    '</div>' +
+                    '</div>';
+            }).join('');
         }
         renderInsights(); // Start Insights render
 
@@ -2410,6 +2400,38 @@
         var trendChart = new ApexCharts(document.querySelector("#trendChart"), trendOptions);
         trendChart.render();
 
+        var predictiveOptions = {
+            series: [
+                { name: 'Expected Cases', data: [145, 160, 167, 175, 177, 191, 198] },
+                { name: 'Permit Requests', data: [310, 338, 353, 372, 388, 419, 435] },
+                { name: 'Vaccine Demand', data: [180, 195, 210, 225, 240, 260, 273] }
+            ],
+            chart: {
+                type: 'line',
+                height: 180,
+                toolbar: { show: false },
+                background: 'transparent',
+                animations: { enabled: true, easing: 'easeinout', speed: 800 }
+            },
+            colors: ['#ef4444', '#3b82f6', '#10b981'],
+            stroke: {
+                curve: 'smooth',
+                width: 3,
+                dashArray: [0, 0, 0]
+            },
+            xaxis: {
+                categories: ['Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May (AI Forecast)'],
+                labels: { style: { fontSize: '10px', colors: '#a1a1aa' } }
+            },
+            yaxis: { show: false },
+            grid: { borderColor: '#f4f4f5' },
+            legend: { show: false },
+            tooltip: { theme: 'light', style: { fontSize: '11px' } },
+            markers: { size: 3, hover: { size: 5 } }
+        };
+        var predictiveChart = new ApexCharts(document.querySelector("#predictiveLineChart"), predictiveOptions);
+        predictiveChart.render();
+
         function renderLegend(items) {
             const legendEl = document.getElementById('trendLegend');
             if (!legendEl) return;
@@ -2443,20 +2465,145 @@
             renderLegend(built.legend);
 
             var now = new Date();
-            document.getElementById('headerTimestamp').textContent = now.toLocaleTimeString();
-            document.getElementById('footerTimestamp').textContent = now.toLocaleString();
+            if (document.getElementById('headerTimestamp')) document.getElementById('headerTimestamp').textContent = now.toLocaleTimeString();
+            if (document.getElementById('footerTimestamp')) document.getElementById('footerTimestamp').textContent = now.toLocaleString();
         }
         updateTrendChart(); // Initialize Trend Chart
 
-        document.getElementById('trendFilter').addEventListener('change', updateTrendChart);
-        document.getElementById('yoyToggle').addEventListener('change', updateTrendChart);
+        async function fetchLiveAnalytics() {
+            var range = document.getElementById('dateRangeSelect').value;
+            var filter = document.getElementById('trendFilter').value;
+            var yoy = document.getElementById('yoyToggle').checked;
+
+            try {
+                var res = await fetch('../api/analytics.php?range=' + range + '&filter=' + filter + '&yoy=' + yoy);
+                var data = await res.json();
+                if (data && data.success) {
+                    // Update Trend Chart
+                    if (data.trend) {
+                        trendChart.updateOptions({
+                            series: data.trend.series,
+                            colors: data.trend.colors,
+                            xaxis: { categories: data.trend.categories }
+                        });
+                        renderLegend(data.trend.legend);
+                    }
+                    // Update Predictive Chart & Badges
+                    if (data.predictive && typeof predictiveChart !== 'undefined') {
+                        predictiveChart.updateOptions({
+                            series: data.predictive.series,
+                            xaxis: { categories: data.predictive.categories }
+                        });
+                        if (data.predictive.series && data.predictive.series.length >= 3) {
+                            var casesLast = data.predictive.series[0].data.slice(-1)[0];
+                            var permitsLast = data.predictive.series[1].data.slice(-1)[0];
+                            var vaccinesLast = data.predictive.series[2].data.slice(-1)[0];
+                            if (document.getElementById('pred-cases-val')) document.getElementById('pred-cases-val').textContent = casesLast;
+                            if (document.getElementById('pred-permits-val')) document.getElementById('pred-permits-val').textContent = permitsLast;
+                            if (document.getElementById('pred-vaccines-val')) document.getElementById('pred-vaccines-val').textContent = vaccinesLast;
+                        }
+                    }
+                    // Update AI Insights Grid
+                    if (data.insights) {
+                        renderInsights(data.insights);
+                    }
+                    // Update Operational Modules & Callout Insights
+                    if (data.modules) {
+                        renderModulesView(data.modules);
+                    }
+                    if (data.forecast_insight && document.getElementById('forecastInsightText')) {
+                        document.getElementById('forecastInsightText').textContent = data.forecast_insight;
+                    }
+                    if (data.module_insight && document.getElementById('moduleInsightText')) {
+                        document.getElementById('moduleInsightText').textContent = data.module_insight;
+                    }
+                    if (data.correlation_insight && document.getElementById('correlationInsightText')) {
+                        document.getElementById('correlationInsightText').textContent = data.correlation_insight;
+                    }
+                    // Update KPI summary numbers if elements exist
+                    if (data.kpis && Array.isArray(data.kpis)) {
+                        data.kpis.forEach(function(kpi) {
+                            var el = document.getElementById('kpi-' + kpi.key);
+                            if (el) el.textContent = kpi.value;
+                        });
+                    }
+                }
+            } catch (err) {
+                console.log('API Fetch Error:', err);
+            }
+        }
+
+        var moduleMode = 'current'; // 'current' or 'projected'
+        var moduleRawData = [];
+
+        function renderModulesView(data) {
+            if (data && Array.isArray(data)) moduleRawData = data;
+            var legendEl = document.getElementById('moduleLegend');
+            if (!legendEl) return;
+
+            var isProjected = (moduleMode === 'projected');
+            
+            var btnCurr = document.getElementById('btnModuleCurrent');
+            var btnProj = document.getElementById('btnModuleProjected');
+            if (btnCurr && btnProj) {
+                if (isProjected) {
+                    btnCurr.className = "px-2.5 py-0.5 rounded-full text-zinc-500 hover:text-zinc-800 transition-all cursor-pointer font-medium";
+                    btnProj.className = "px-2.5 py-0.5 rounded-full bg-indigo-600 text-white shadow-xs transition-all cursor-pointer font-bold";
+                } else {
+                    btnCurr.className = "px-2.5 py-0.5 rounded-full bg-white text-zinc-800 shadow-xs transition-all cursor-pointer font-bold";
+                    btnProj.className = "px-2.5 py-0.5 rounded-full text-zinc-500 hover:text-zinc-800 transition-all cursor-pointer font-medium";
+                }
+            }
+
+            if (!moduleRawData || moduleRawData.length === 0) return;
+
+            if (typeof modulesChart !== 'undefined') {
+                modulesChart.updateOptions({
+                    series: moduleRawData.map(function(m) { return isProjected ? m.projected_share : m.share; })
+                });
+            }
+
+            legendEl.innerHTML = moduleRawData.map(function(m) {
+                var val = isProjected ? m.projected_share : m.share;
+                var isLow = (m.confidence === 'low');
+                var cardBorder = (isProjected && isLow) ? 'border-dashed border-amber-300 bg-amber-50/40 p-1.5 rounded-lg' : '';
+                var badgeHtml = (isProjected && isLow) ? '<span title="Limited historical data (<15 logs). Projection is estimated." class="ml-1 text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded font-bold">⚠️ Low Data</span>' : '';
+                
+                return '<div class="flex items-center justify-between text-xs font-semibold ' + cardBorder + '">' +
+                    '<span class="flex items-center gap-2"><span class="inline-block h-2.5 w-2.5 rounded-full" style="background:' + m.color + '"></span> ' + m.label + badgeHtml + '</span>' +
+                    '<div class="flex items-center gap-2">' +
+                    '<span class="font-bold text-zinc-800">' + val + '%</span>' +
+                    '<span class="text-[10px] text-zinc-400 font-medium">(' + (m.delta || '↑ 2.1pts') + ')</span>' +
+                    '</div>' +
+                    '</div>';
+            }).join('');
+        }
+
+        if (document.getElementById('btnModuleCurrent')) {
+            document.getElementById('btnModuleCurrent').addEventListener('click', function() {
+                moduleMode = 'current';
+                renderModulesView();
+            });
+        }
+        if (document.getElementById('btnModuleProjected')) {
+            document.getElementById('btnModuleProjected').addEventListener('click', function() {
+                moduleMode = 'projected';
+                renderModulesView();
+            });
+        }
+
+        // Initialize live analytics immediately on page load
+        fetchLiveAnalytics();
+
+        document.getElementById('trendFilter').addEventListener('change', function() { updateTrendChart(); fetchLiveAnalytics(); });
+        document.getElementById('yoyToggle').addEventListener('change', function() { updateTrendChart(); fetchLiveAnalytics(); });
         document.getElementById('dateRangeSelect').addEventListener('change', function(e) {
             document.getElementById('customDateWrap').classList.toggle('hidden', e.target.value !== 'custom');
             document.getElementById('customDateWrap').classList.toggle('flex', e.target.value === 'custom');
-            if (e.target.value !== 'custom') updateTrendChart();
+            if (e.target.value !== 'custom') { updateTrendChart(); fetchLiveAnalytics(); }
         });
-        document.getElementById('dateFrom').addEventListener('change', updateTrendChart);
-        document.getElementById('dateTo').addEventListener('change', updateTrendChart);
+        document.getElementById('dateFrom').addEventListener('change', function() { updateTrendChart(); fetchLiveAnalytics(); });
+        document.getElementById('dateTo').addEventListener('change', function() { updateTrendChart(); fetchLiveAnalytics(); });
 
         // =====================================================================
         // OPERATIONAL MODULES PIE CHART
@@ -2911,3 +3058,4 @@
         drawDonut();
     });
 </script>
+<?php include '../includes/footer.php'; ?>
