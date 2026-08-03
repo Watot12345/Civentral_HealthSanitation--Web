@@ -92,7 +92,7 @@ $title = 'Child Records';
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
             <h2 class="text-2xl font-black text-slate-900 tracking-tight">Child Records</h2>
-            <p class="text-sm text-slate-500 mt-0.5">Manage child registration, demographics & health records</p>
+            <p class="text-sm text-slate-500 mt-0.5">Manage child registration, demographics &amp; health records</p>
         </div>
         <div class="flex gap-3">
             <button onclick="openModal('registerChildModal')"
@@ -773,7 +773,7 @@ $title = 'Child Records';
 <!-- ============================================================ -->
 <div id="vaccinationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
             <h3 class="font-bold text-slate-900">Vaccination Records</h3>
             <button onclick="closeModal('vaccinationModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
                 <i class="fa-solid fa-xmark"></i>
@@ -784,6 +784,103 @@ $title = 'Child Records';
                 <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
             </div>
         </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- RECORD VACCINATION MODAL (uses ModalSystem)                   -->
+<!-- ============================================================ -->
+<div id="recordVaccinationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-brand-light flex items-center justify-center text-brand-dark">
+                    <i class="fa-solid fa-syringe text-sm"></i>
+                </div>
+                <h3 class="font-bold text-slate-900">Record Vaccination</h3>
+            </div>
+            <button type="button" onclick="closeModal('recordVaccinationModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="recordVaccinationForm" class="p-6 space-y-4" onsubmit="saveVaccinationRecord(event)">
+            <input type="hidden" id="add_vacc_child_id" value="">
+            
+            <!-- Child Header Summary -->
+            <div id="vaccChildBanner" class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
+                <div class="w-9 h-9 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0" id="vaccChildInitials">
+                    --
+                </div>
+                <div>
+                    <p class="font-semibold text-slate-800 text-sm" id="vaccChildName">Loading Child...</p>
+                    <p class="text-xs text-slate-400" id="vaccChildSub">ID: --</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="col-span-2 sm:col-span-1">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Vaccine Name <span class="text-rose-500">*</span></label>
+                    <select id="add_vacc_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <option value="">Select Vaccine</option>
+                        <option value="BCG">BCG (Tuberculosis)</option>
+                        <option value="Hepatitis B">Hepatitis B</option>
+                        <option value="Pentavalent (DPT-HepB-Hib)">Pentavalent (DPT-HepB-Hib)</option>
+                        <option value="OPV (Oral Polio Vaccine)">OPV (Oral Polio)</option>
+                        <option value="IPV (Inactivated Polio)">IPV (Inactivated Polio)</option>
+                        <option value="PCV (Pneumococcal)">PCV (Pneumococcal)</option>
+                        <option value="MMR (Measles, Mumps, Rubella)">MMR (Measles, Mumps, Rubella)</option>
+                        <option value="Rotavirus">Rotavirus</option>
+                        <option value="Influenza">Influenza</option>
+                        <option value="HPV">HPV</option>
+                    </select>
+                </div>
+                <div class="col-span-2 sm:col-span-1">
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Dose Number <span class="text-rose-500">*</span></label>
+                    <input type="number" id="add_vacc_dose" min="1" max="99" value="1" required oninput="limitDoseInput(this)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Date Administered <span class="text-rose-500">*</span></label>
+                    <input type="date" id="add_vacc_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Next Due Date</label>
+                    <input type="date" id="add_vacc_next_due" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Administered By</label>
+                    <input type="text" id="add_vacc_by" placeholder="e.g. Nurse Grace Mendoza" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Batch / Lot Number</label>
+                    <input type="text" id="add_vacc_batch" placeholder="e.g. BCG-2026-01" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Health Center / Facility</label>
+                <input type="text" id="add_vacc_facility" placeholder="Health Center Name" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Remarks / Notes</label>
+                <textarea id="add_vacc_notes" rows="2" placeholder="Optional notes or reaction observations..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none resize-none"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                <button type="button" onclick="closeModal('recordVaccinationModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-syringe text-xs"></i> Save Vaccination
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -899,6 +996,11 @@ $title = 'Child Records';
         input.value = parts.length > 1 ? `${whole}.${fraction}` : whole;
     }
 
+    function limitDoseInput(input) {
+        const value = (input.value || '').replace(/\D/g, '').slice(0, 2);
+        input.value = value;
+    }
+
     function escHtml(str) {
         if (!str) return '';
         const div = document.createElement('div');
@@ -990,82 +1092,78 @@ $title = 'Child Records';
                     </div>
                     <div>
                         <h4 class="text-lg font-bold text-slate-900">${escHtml(val(c.first_name))} ${escHtml(val(c.last_name))}</h4>
-                        <p class="text-sm text-slate-500">${escHtml(val(c.child_id))} • ${calculateAge(c.birth_date)} • ${escHtml(val(c.barangay))}</p>
-                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${getNutritionClass(c.nutrition_status)}">
+                        <p class="text-xs text-slate-500 mt-0.5">${escHtml(val(c.child_id))} &bull; ${escHtml(val(c.gender))} &bull; ${escHtml(calculateAge(c.birth_date))}</p>
+                        <span class="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold ${getNutritionClass(c.nutrition_status)}">
                             ${escHtml(val(c.nutrition_status, 'Normal'))}
                         </span>
                     </div>
                 </div>
 
-                <!-- Child Details Section -->
-                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                    <h5 class="text-sm font-bold text-slate-700 mb-3">👶 Child Information</h5>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div><p class="text-xs text-slate-400">Child ID</p><p class="text-sm text-slate-800 font-mono maskable" data-real="${escHtml(val(c.child_id))}">${escHtml(val(c.child_id))}</p></div>
-                        <div><p class="text-xs text-slate-400">Gender</p><p class="text-sm text-slate-800">${escHtml(val(c.gender))}</p></div>
-                        <div><p class="text-xs text-slate-400">Birth Date</p><p class="text-sm text-slate-800">${c.birth_date ? new Date(c.birth_date).toLocaleDateString() : 'Not Provided'}</p></div>
-                        <div><p class="text-xs text-slate-400">Birth Weight</p><p class="text-sm text-slate-800">${c.birth_weight ? c.birth_weight + ' kg' : 'Not Recorded'}</p></div>
-                        <div><p class="text-xs text-slate-400">Birth Height</p><p class="text-sm text-slate-800">${c.birth_height ? c.birth_height + ' cm' : 'Not Recorded'}</p></div>
-                        <div><p class="text-xs text-slate-400">Blood Type</p><p class="text-sm text-slate-800">${escHtml(val(c.blood_type, 'Unknown'))}</p></div>
-                        <div class="sm:col-span-2"><p class="text-xs text-slate-400">Full Name</p><p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.first_name) + ' ' + val(c.middle_name, '') + ' ' + val(c.last_name))}">${escHtml(val(c.first_name) + ' ' + val(c.middle_name, '') + ' ' + val(c.last_name))}</p></div>
-                        <div class="sm:col-span-2"><p class="text-xs text-slate-400">Health Center</p><p class="text-sm text-slate-800">${escHtml(val(c.health_center))}</p></div>
+                <!-- Vitals -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Birth Date</p>
+                        <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.birth_date))}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Birth Weight</p>
+                        <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.birth_weight))} ${c.birth_weight ? 'kg' : ''}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Birth Height</p>
+                        <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.birth_height))} ${c.birth_height ? 'cm' : ''}</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Blood Type</p>
+                        <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.blood_type))}</p>
                     </div>
                 </div>
 
-                <!-- Parents Section -->
-                <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border">
-                    <h5 class="text-sm font-bold text-slate-700 mb-3">👨‍👩‍👧 Parents Information</h5>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <p class="text-xs text-slate-400 font-semibold">Mother</p>
-                            <p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.mother_name))}">${escHtml(val(c.mother_name))}</p>
-                            <p class="text-xs text-slate-400">${escHtml(val(c.mother_occupation, 'N/A'))} • <span class="maskable" data-real="${escHtml(val(c.mother_contact, 'N/A'))}">${escHtml(val(c.mother_contact, 'N/A'))}</span></p>
-                        </div>
-                        <div>
-                            <p class="text-xs text-slate-400 font-semibold">Father</p>
-                            <p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.father_name, 'Not Provided'))}">${escHtml(val(c.father_name, 'Not Provided'))}</p>
-                            <p class="text-xs text-slate-400">${escHtml(val(c.father_occupation, 'N/A'))} • <span class="maskable" data-real="${escHtml(val(c.father_contact, 'N/A'))}">${escHtml(val(c.father_contact, 'N/A'))}</span></p>
-                        </div>
+                <!-- Vaccine Compliance -->
+                <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                    <div class="flex items-center justify-between mb-1">
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Vaccine Compliance</p>
+                        <p class="text-xs font-semibold text-slate-700">${escHtml(val(c.vaccine_compliance, 0))}%</p>
                     </div>
-                </div>
-
-                <!-- Medical Information -->
-                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                    <h5 class="text-sm font-bold text-slate-700 mb-3">🏥 Medical Information</h5>
-                    <div class="space-y-2">
-                        <div><p class="text-xs text-slate-400">Family History</p><p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.family_history, 'None Reported'))}">${escHtml(val(c.family_history, 'None Reported'))}</p></div>
-                        <div><p class="text-xs text-slate-400">Allergies</p><p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.allergies, 'None'))}">${escHtml(val(c.allergies, 'None'))}</p></div>
-                        <div>
-                            <p class="text-xs text-slate-400">Vaccine Compliance</p>
-                            <div class="flex items-center gap-2 mt-1">
-                                ${complianceBar(c.vaccine_compliance)}
-                                <span class="text-sm font-bold">${c.vaccine_compliance || 0}%</span>
-                            </div>
-                        </div>
-                        <div><p class="text-xs text-slate-400">Last Visit</p><p class="text-sm text-slate-800">${c.last_visit ? new Date(c.last_visit).toLocaleDateString() : 'Not Recorded'}</p></div>
-                    </div>
+                    ${complianceBar(c.vaccine_compliance)}
                 </div>
 
                 <!-- Address -->
-                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                    <h5 class="text-sm font-bold text-slate-700 mb-2">📍 Address</h5>
-                    <p class="text-sm text-slate-800 maskable" data-real="${escHtml(val(c.address))}">${escHtml(val(c.address))}</p>
-                    <p class="text-xs text-slate-500 mt-1">${escHtml(val(c.barangay))}</p>
+                <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Address</p>
+                    <p class="text-sm text-slate-700">${escHtml(val(c.address))}, ${escHtml(val(c.barangay))}</p>
                 </div>
 
-                <!-- Registration Details -->
-                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                    <h5 class="text-sm font-bold text-slate-700 mb-2">📅 Registration Details</h5>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div><p class="text-xs text-slate-400">Registration Date</p><p class="text-sm text-slate-800">${c.registration_date ? new Date(c.registration_date).toLocaleDateString() : 'Not Recorded'}</p></div>
-                        <div><p class="text-xs text-slate-400">Status</p><p class="text-sm text-slate-800">${capitalize(val(c.status, 'active'))}</p></div>
+                <!-- Mother / Father -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">👩 Mother</p>
+                        <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.mother_name))}</p>
+                        <p class="text-xs text-slate-500">${escHtml(val(c.mother_contact))}</p>
+                        <p class="text-xs text-slate-500">${escHtml(val(c.mother_occupation))}</p>
                     </div>
+                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">👨 Father</p>
+                        <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.father_name))}</p>
+                        <p class="text-xs text-slate-500">${escHtml(val(c.father_contact))}</p>
+                        <p class="text-xs text-slate-500">${escHtml(val(c.father_occupation))}</p>
+                    </div>
+                </div>
+
+                <!-- Family History / Allergies -->
+                <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Family History</p>
+                    <p class="text-sm text-slate-700">${escHtml(val(c.family_history, 'None reported'))}</p>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Allergies</p>
+                    <p class="text-sm text-slate-700">${escHtml(val(c.allergies, 'None'))}</p>
                 </div>
 
                 <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                     <button onclick="closeModal('viewChildModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                    <button onclick="closeModal('viewChildModal'); viewHealthRecord(${c.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold">
-                        <i class="fa-solid fa-folder-medical mr-1.5"></i> Health Records
+                    <button onclick="closeModal('viewChildModal'); editChild(${Number(c.id) || 0})" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                        <i class="fa-solid fa-pen mr-1.5"></i> Edit
                     </button>
                 </div>
             </div>
@@ -1073,56 +1171,42 @@ $title = 'Child Records';
     }
 
     // ============================================================
-    // EDIT CHILD
+    // EDIT CHILD (opens edit modal and pre-fills form from API data)
     // ============================================================
-    const EDIT_FIELD_MAP = {
-        first_name: 'edit_first_name', middle_name: 'edit_middle_name', last_name: 'edit_last_name',
-        gender: 'edit_gender', birth_date: 'edit_birth_date', birth_weight: 'edit_birth_weight',
-        birth_height: 'edit_birth_height', blood_type: 'edit_blood_type', barangay: 'edit_barangay',
-        address: 'edit_address', mother_name: 'edit_mother_name', mother_contact: 'edit_mother_contact',
-        mother_occupation: 'edit_mother_occupation', father_name: 'edit_father_name',
-        father_contact: 'edit_father_contact', father_occupation: 'edit_father_occupation',
-        family_history: 'edit_family_history', allergies: 'edit_allergies'
-    };
-
     async function editChild(id) {
-        openModal('editChildModal');
-        document.getElementById('edit_child_id').value = id;
+        const c = await fetchChild(id);
+        if (!c) return;
 
-        // Show loading state
-        const form = document.getElementById('editChildForm');
-        const originalContent = form.innerHTML;
-        form.innerHTML = `
+        document.getElementById('edit_child_id').value = c.id ?? id;
+        const fieldMap = {
+            first_name: 'edit_first_name', middle_name: 'edit_middle_name', last_name: 'edit_last_name',
+            gender: 'edit_gender', birth_date: 'edit_birth_date', birth_weight: 'edit_birth_weight',
+            birth_height: 'edit_birth_height', blood_type: 'edit_blood_type', barangay: 'edit_barangay',
+            address: 'edit_address', mother_name: 'edit_mother_name', mother_contact: 'edit_mother_contact',
+            mother_occupation: 'edit_mother_occupation', father_name: 'edit_father_name',
+            father_contact: 'edit_father_contact', father_occupation: 'edit_father_occupation',
+            family_history: 'edit_family_history', allergies: 'edit_allergies'
+        };
+        Object.entries(fieldMap).forEach(([key, elId]) => {
+            const el = document.getElementById(elId);
+            if (el) el.value = c[key] ?? '';
+        });
+
+        openModal('editChildModal');
+    }
+
+    // ============================================================
+    // VIEW VACCINATION RECORDS
+    // ============================================================
+    async function viewVaccination(id) {
+        const content = document.getElementById('vaccinationContent');
+        openModal('vaccinationModal');
+        content.innerHTML = `
             <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
                 <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
             </div>
         `;
 
-        const c = await fetchChild(id);
-        if (!c) {
-            form.innerHTML = originalContent;
-            closeModal('editChildModal');
-            toast.error('Failed to load child data');
-            return;
-        }
-
-        // Restore form and populate fields (single loop instead of 17 repeated lines)
-        form.innerHTML = originalContent;
-        document.getElementById('edit_child_id').value = c.id;
-        document.getElementById('edit_gender').value = c.gender || 'Male';
-        for (const [key, elId] of Object.entries(EDIT_FIELD_MAP)) {
-            if (key === 'gender') continue; // handled above (needs a default)
-            const el = document.getElementById(elId);
-            if (el) el.value = c[key] || '';
-        }
-    }
-
-    // ============================================================
-    // VIEW VACCINATION
-    // ============================================================
-    async function viewVaccination(id) {
-        openModal('vaccinationModal');
-        const content = document.getElementById('vaccinationContent');
         const c = await fetchChild(id);
         if (!c) {
             content.innerHTML = `
@@ -1134,32 +1218,22 @@ $title = 'Child Records';
             return;
         }
 
-        // In production, fetch vaccination records from API
-        const vaccinations = [
-            { vaccine: 'BCG', date: c.birth_date || '2024-01-15', status: 'completed', next_due: '' },
-            { vaccine: 'Hepatitis B', date: c.birth_date || '2024-01-15', status: 'completed', next_due: '' },
-            { vaccine: 'DPT', date: '2024-03-15', status: 'completed', next_due: '2024-06-15' },
-            { vaccine: 'Polio', date: '2024-03-15', status: 'completed', next_due: '2024-06-15' },
-            { vaccine: 'MMR', date: '2024-09-15', status: 'pending', next_due: '2024-09-15' },
-        ];
-
-        const vaccinationHtml = vaccinations.map(v => `
-            <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full ${v.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'} flex items-center justify-center">
-                        <i class="fa-solid fa-syringe text-sm"></i>
-                    </div>
+        const vaccinations = Array.isArray(c.vaccinations) ? c.vaccinations : [];
+        const recordsHtml = vaccinations.length
+            ? vaccinations.map(v => `
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <div>
-                        <p class="font-semibold text-slate-800 text-sm">${v.vaccine}</p>
-                        <p class="text-xs text-slate-400">Given: ${new Date(v.date).toLocaleDateString()}</p>
-                        ${v.next_due ? `<p class="text-xs text-slate-500">Next: ${new Date(v.next_due).toLocaleDateString()}</p>` : ''}
+                        <p class="font-semibold text-slate-800 text-sm">${escHtml(v.name || v.vaccine_name || 'Vaccine')} &bull; Dose ${escHtml(val(v.dose, '1'))}</p>
+                        <p class="text-xs text-slate-400">${v.date_administered ? new Date(v.date_administered).toLocaleDateString() : 'No date'} &bull; ${escHtml(val(v.administered_by))}</p>
+                        ${v.notes ? `<p class="text-xs text-slate-600 mt-1">${escHtml(v.notes)}</p>` : ''}
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-slate-400">Next due:</span>
+                        <p class="text-xs font-semibold text-brand-dark">${v.next_due_date ? new Date(v.next_due_date).toLocaleDateString() : '—'}</p>
                     </div>
                 </div>
-                <span class="px-2 py-1 rounded-full text-xs font-semibold ${v.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
-                    ${v.status === 'completed' ? 'Completed' : 'Pending'}
-                </span>
-            </div>
-        `).join('');
+            `).join('')
+            : `<p class="text-sm text-slate-500 text-center py-6">No vaccination records yet.</p>`;
 
         content.innerHTML = `
             <div class="space-y-4">
@@ -1169,16 +1243,16 @@ $title = 'Child Records';
                     </div>
                     <div>
                         <p class="font-semibold text-slate-800 text-sm">${escHtml(c.first_name || '')} ${escHtml(c.last_name || '')}</p>
-                        <p class="text-xs text-slate-400">${escHtml(c.child_id || '')} • ${escHtml(c.age || '')}</p>
+                        <p class="text-xs text-slate-400">${escHtml(c.child_id || '')} &bull; ${escHtml(c.age || calculateAge(c.birth_date))}</p>
                     </div>
                 </div>
                 <div class="space-y-2">
-                    ${vaccinationHtml}
+                    ${recordsHtml}
                 </div>
                 <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                     <button onclick="closeModal('vaccinationModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                    <button class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                        <i class="fa-solid fa-plus mr-1.5"></i> Add Vaccination
+                    <button onclick="closeModal('vaccinationModal'); openRecordVaccination(${Number(c.id) || id})" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                        <i class="fa-solid fa-plus mr-1.5"></i> Add Record
                     </button>
                 </div>
             </div>
@@ -1186,110 +1260,75 @@ $title = 'Child Records';
     }
 
     // ============================================================
-    // PRINT CHILD
+    // OPEN "RECORD VACCINATION" FORM MODAL FOR A GIVEN CHILD
     // ============================================================
-    async function printChild(id) {
+    async function openRecordVaccination(id) {
+        document.getElementById('add_vacc_child_id').value = id;
+        document.getElementById('vaccChildName').textContent = 'Loading Child...';
+        document.getElementById('vaccChildSub').textContent = 'ID: --';
+        document.getElementById('vaccChildInitials').textContent = '--';
+        document.getElementById('recordVaccinationForm').reset();
+        document.getElementById('add_vacc_child_id').value = id;
+        openModal('recordVaccinationModal');
+
+        const c = await fetchChild(id);
+        if (!c) return;
+        document.getElementById('vaccChildName').textContent = `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Unknown Child';
+        document.getElementById('vaccChildSub').textContent = `ID: ${c.child_id || id}`;
+        document.getElementById('vaccChildInitials').textContent = initials(c.first_name, c.last_name);
+    }
+
+    // ============================================================
+    // SAVE A NEW VACCINATION RECORD
+    // ============================================================
+    async function saveVaccinationRecord(event) {
+        event.preventDefault();
+        const childId = document.getElementById('add_vacc_child_id').value;
+        const payload = {
+            name: document.getElementById('add_vacc_name').value,
+            dose: document.getElementById('add_vacc_dose').value,
+            date_administered: document.getElementById('add_vacc_date').value,
+            next_due_date: document.getElementById('add_vacc_next_due').value || null,
+            administered_by: document.getElementById('add_vacc_by').value || null,
+            batch_number: document.getElementById('add_vacc_batch').value || null,
+            facility: document.getElementById('add_vacc_facility').value || null,
+            notes: document.getElementById('add_vacc_notes').value || null,
+        };
+
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
         try {
-            toast.info('Preparing print view...');
-            const c = await fetchChild(id);
-            if (!c) {
-                toast.error('Failed to load child data');
-                return;
+            const response = await fetch(`${API_BASE}?id=${childId}&action=vaccination`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Failed to save vaccination record');
             }
-
-            // Create a new window for printing
-            const printWindow = window.open('', '_blank', 'width=800,height=600');
-            if (!printWindow) {
-                toast.error('Please allow popups to print');
-                return;
-            }
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>Child Record - ${escHtml(val(c.child_id))}</title>
-                    <style>
-                        @page { margin: 0.75in; }
-                        * { box-sizing: border-box; }
-                        body { font-family: "Times New Roman", Times, serif; color: #000; margin: 0; font-size: 11pt; }
-                        .report-header { text-align: center; margin: 0 0 25px; padding-bottom: 15px; border-bottom: 2px solid #000; }
-                        .report-header img { width: 120px; height: auto; display: block; margin: 0 auto 10px; }
-                        .report-header h1 { margin: 0; font-size: 20pt; font-weight: bold; text-transform: uppercase; }
-                        .report-header h2 { margin: 5px 0 0; font-size: 14pt; font-weight: normal; }
-                        .report-meta { margin-top: 8px; font-size: 10pt; }
-                        .section { margin: 0 0 18px; padding: 0 0 12px; border-bottom: 1px solid #777; page-break-inside: avoid; }
-                        .section-title { font-weight: bold; font-size: 12pt; text-transform: uppercase; margin-bottom: 10px; }
-                        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }
-                        .label { font-size: 9pt; color: #444; }
-                        .value { font-size: 11pt; font-weight: 600; min-height: 15px; }
-                        @media print { body { padding: 0; } }
-                    </style>
-                </head>
-                <body>
-                    <div class="report-header">
-                        <img src="<?php echo site_url('assets/images/logo.png'); ?>" alt="Logo">
-                        <h1>Health Sanitation Management Caloocan</h1>
-                        <h2>Child Health Record</h2>
-                        <div class="report-meta">${escHtml(val(c.child_id))} | Printed on ${new Date().toLocaleDateString()}</div>
-                    </div>
-                    
-                    <div class="section">
-                        <div class="section-title">Child Information</div>
-                        <div class="grid">
-                            <div><div class="label">Full Name</div><div class="value">${escHtml(val(c.first_name) + ' ' + val(c.middle_name, '') + ' ' + val(c.last_name))}</div></div>
-                            <div><div class="label">Gender</div><div class="value">${escHtml(val(c.gender))}</div></div>
-                            <div><div class="label">Birth Date</div><div class="value">${c.birth_date ? new Date(c.birth_date).toLocaleDateString() : 'Not Provided'}</div></div>
-                            <div><div class="label">Age</div><div class="value">${calculateAge(c.birth_date)}</div></div>
-                            <div><div class="label">Birth Weight</div><div class="value">${c.birth_weight ? c.birth_weight + ' kg' : 'Not Recorded'}</div></div>
-                            <div><div class="label">Birth Height</div><div class="value">${c.birth_height ? c.birth_height + ' cm' : 'Not Recorded'}</div></div>
-                            <div><div class="label">Blood Type</div><div class="value">${escHtml(val(c.blood_type, 'Unknown'))}</div></div>
-                            <div><div class="label">Health Center</div><div class="value">${escHtml(val(c.health_center))}</div></div>
-                        </div>
-                    </div>
-
-                    <div class="section">
-                        <div class="section-title">Parents Information</div>
-                        <div class="grid">
-                            <div><div class="label">Mother's Name</div><div class="value">${escHtml(val(c.mother_name))}</div></div>
-                            <div><div class="label">Mother's Contact</div><div class="value">${escHtml(val(c.mother_contact, 'N/A'))}</div></div>
-                            <div><div class="label">Father's Name</div><div class="value">${escHtml(val(c.father_name, 'Not Provided'))}</div></div>
-                            <div><div class="label">Father's Contact</div><div class="value">${escHtml(val(c.father_contact, 'N/A'))}</div></div>
-                        </div>
-                    </div>
-
-                    <div class="section">
-                        <div class="section-title">Medical Information</div>
-                        <div class="grid">
-                            <div><div class="label">Family History</div><div class="value">${escHtml(val(c.family_history, 'None Reported'))}</div></div>
-                            <div><div class="label">Allergies</div><div class="value">${escHtml(val(c.allergies, 'None'))}</div></div>
-                            <div><div class="label">Vaccine Compliance</div><div class="value">${c.vaccine_compliance || 0}%</div></div>
-                            <div><div class="label">Last Visit</div><div class="value">${c.last_visit ? new Date(c.last_visit).toLocaleDateString() : 'Not Recorded'}</div></div>
-                        </div>
-                    </div>
-
-                    <div class="section">
-                        <div class="section-title">Address</div>
-                        <div class="value">${escHtml(val(c.address))}</div>
-                        <div class="value">${escHtml(val(c.barangay))}</div>
-                    </div>
-
-                    <script>window.onload = function() { window.print(); }<\/script>
-                </body>
-                </html>
-            `);
-            printWindow.document.close();
-            toast.success('Print view opened');
+            toast.success('Vaccination recorded successfully.');
+            closeModal('recordVaccinationModal');
+            await refreshChildList();
         } catch (err) {
-            toast.error(err.message || 'Failed to prepare print view');
+            toast.error(err.message || 'Failed to save vaccination record');
+        } finally {
+            submitBtn.disabled = false;
         }
     }
 
     // ============================================================
-    // VIEW HEALTH RECORDS
+    // VIEW HEALTH / MEDICAL RECORDS
     // ============================================================
     async function viewHealthRecord(id) {
-        openModal('healthRecordModal');
         const content = document.getElementById('healthRecordContent');
+        openModal('healthRecordModal');
+        content.innerHTML = `
+            <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
+            </div>
+        `;
+
         const c = await fetchChild(id);
         if (!c) {
             content.innerHTML = `
@@ -1301,24 +1340,22 @@ $title = 'Child Records';
             return;
         }
 
-        // In production, fetch health records from API
-        const healthRecords = [
-            { date: c.last_visit || new Date().toISOString().split('T')[0], type: 'Checkup', doctor: 'Dr. Elena Santos', notes: 'Normal development', follow_up: '2026-08-10' },
-        ];
-
-        const recordsHtml = healthRecords.map(r => `
-            <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
-                <div>
-                    <p class="font-semibold text-slate-800 text-sm">${r.type}</p>
-                    <p class="text-xs text-slate-400">${new Date(r.date).toLocaleDateString()} • ${r.doctor}</p>
-                    <p class="text-xs text-slate-600 mt-1">${r.notes}</p>
+        const records = Array.isArray(c.health_records) ? c.health_records : [];
+        const recordsHtml = records.length
+            ? records.map(r => `
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <div>
+                        <p class="font-semibold text-slate-800 text-sm">${escHtml(r.type || 'Consultation')}</p>
+                        <p class="text-xs text-slate-400">${r.date ? new Date(r.date).toLocaleDateString() : 'No date'} &bull; ${escHtml(val(r.doctor))}</p>
+                        <p class="text-xs text-slate-600 mt-1">${escHtml(val(r.notes, ''))}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-slate-400">Follow-up:</span>
+                        <p class="text-xs font-semibold text-brand-dark">${r.follow_up ? new Date(r.follow_up).toLocaleDateString() : '—'}</p>
+                    </div>
                 </div>
-                <div class="text-right">
-                    <span class="text-xs text-slate-400">Follow-up:</span>
-                    <p class="text-xs font-semibold text-brand-dark">${new Date(r.follow_up).toLocaleDateString()}</p>
-                </div>
-            </div>
-        `).join('');
+            `).join('')
+            : `<p class="text-sm text-slate-500 text-center py-6">No health records yet.</p>`;
 
         content.innerHTML = `
             <div class="space-y-4">
@@ -1328,7 +1365,7 @@ $title = 'Child Records';
                     </div>
                     <div>
                         <p class="font-semibold text-slate-800 text-sm">${escHtml(c.first_name || '')} ${escHtml(c.last_name || '')}</p>
-                        <p class="text-xs text-slate-400">${escHtml(c.child_id || '')} • ${escHtml(c.age || '')}</p>
+                        <p class="text-xs text-slate-400">${escHtml(c.child_id || '')} &bull; ${escHtml(c.age || calculateAge(c.birth_date))}</p>
                     </div>
                 </div>
                 <div class="space-y-2">
@@ -1342,6 +1379,34 @@ $title = 'Child Records';
                 </div>
             </div>
         `;
+    }
+
+    // ============================================================
+    // PRINT CHILD RECORD
+    // ============================================================
+    async function printChild(id) {
+        const c = await fetchChild(id);
+        if (!c) return;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+            <head><title>Child Record - ${escHtml(c.child_id || '')}</title></head>
+            <body style="font-family: sans-serif; padding: 24px;">
+                <h2>${escHtml(c.first_name || '')} ${escHtml(c.last_name || '')}</h2>
+                <p>ID: ${escHtml(c.child_id || '')}</p>
+                <p>Gender: ${escHtml(c.gender || '')}</p>
+                <p>Birth Date: ${escHtml(c.birth_date || '')}</p>
+                <p>Barangay: ${escHtml(c.barangay || '')}</p>
+                <p>Mother: ${escHtml(c.mother_name || '')}</p>
+                <p>Father: ${escHtml(c.father_name || '')}</p>
+                <p>Nutrition Status: ${escHtml(c.nutrition_status || '')}</p>
+                <p>Vaccine Compliance: ${escHtml(String(c.vaccine_compliance ?? ''))}%</p>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
     }
 
     // ============================================================

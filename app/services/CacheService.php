@@ -100,6 +100,31 @@ class CacheService
         }
     }
 
+    /**
+     * Delete a specific cache key
+     */
+    public function delete(string $key): bool
+    {
+        $file = $this->getFilePath($key);
+        if (file_exists($file)) {
+            return @unlink($file);
+        }
+        return true;
+    }
+
+    /**
+     * Clear only analytics cache files
+     */
+    public function clearAnalyticsCache(): void
+    {
+        $files = glob($this->cacheDir . '/analytics_*.cache');
+        if (is_array($files)) {
+            foreach ($files as $f) {
+                @unlink($f);
+            }
+        }
+    }
+
     private function getFilePath(string $key): string
     {
         $safeName = md5($key) . '.cache';

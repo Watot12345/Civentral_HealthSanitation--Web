@@ -42,9 +42,10 @@ try {
     $range  = $_GET['range'] ?? '6m';
     $filter = $_GET['filter'] ?? 'disease';
     $yoy    = isset($_GET['yoy']) && ($_GET['yoy'] === 'true' || $_GET['yoy'] === '1');
+    $refresh = true; // Always bypass cache for instant live Supabase calculations
 
     $analyticsService = new AiAnalyticsService();
-    $data = $analyticsService->getAnalyticsData($range, $filter, $yoy);
+    $data = $analyticsService->getAnalyticsData($range, $filter, $yoy, $refresh);
 
     if (isset($data['cache_status'])) {
         header('X-Cache-Status: ' . $data['cache_status']);

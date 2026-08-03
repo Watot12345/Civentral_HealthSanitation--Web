@@ -21,53 +21,47 @@ setInterval(updateClock, 1000);
 updateClock();
 
 // ============================================================
-// 2. GLOBAL VARIABLE
+// 2. GLOBAL VARIABLES & SAFE DECLARATIONS
 // ============================================================
-let isCollapsed = false;
+window.isCollapsed = window.isCollapsed || false;
+var isCollapsed = window.isCollapsed;
 
-// ============================================================
-// 3. ALL DROPDOWN IDs (Updated for Simplified Sidebar)
-// ============================================================
-const ALL_DROPDOWN_IDS = [
-    // Main Controls
+window.ALL_DROPDOWN_IDS = window.ALL_DROPDOWN_IDS || [
     'systemOverviewDropdown',
     'analyticsDropdown',
     'reportsDropdown',
     'complianceDropdown',
-    // Operational Modules (Parent)
     'healthCenterDropdown',
     'sanitationDropdown',
     'immunizationDropdown',
     'wastewaterDropdown',
     'surveillanceDropdown',
-    // System Management
     'userMgmtDropdown',
     'sysLogsDropdown',
     'settingsDropdown'
 ];
+var ALL_DROPDOWN_IDS = window.ALL_DROPDOWN_IDS;
 
-const ALL_CHEVRON_IDS = [
-    // Main Controls
+window.ALL_CHEVRON_IDS = window.ALL_CHEVRON_IDS || [
     'systemOverviewChevron',
     'analyticsChevron',
     'reportsChevron',
     'complianceChevron',
-    // Operational Modules (Parent)
     'healthCenterChevron',
     'sanitationChevron',
     'immunizationChevron',
     'wastewaterChevron',
     'surveillanceChevron',
-    // System Management
     'userMgmtChevron',
     'sysLogsChevron',
     'settingsChevron'
 ];
+var ALL_CHEVRON_IDS = window.ALL_CHEVRON_IDS;
 
 // ============================================================
 // 4. DROPDOWN TOGGLE
 // ============================================================
-function toggleDropdown(id, chevronId) {
+window.toggleDropdown = function toggleDropdown(id, chevronId) {
     if (isCollapsed) return;
 
     const dropdown = document.getElementById(id);
@@ -109,7 +103,7 @@ function toggleDropdown(id, chevronId) {
 // ============================================================
 // 5. SIDEBAR COLLAPSE
 // ============================================================
-function toggleSidebar() {
+window.toggleSidebar = function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const arrow = document.getElementById('toggleArrow');
 

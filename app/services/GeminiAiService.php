@@ -36,32 +36,8 @@ class GeminiAiService
             }
         }
 
-        if (empty($this->apiKey) || $this->apiKey === 'your_gemini_api_key_here') {
-            return $nativeInsights; // Return offline database insights when no external API key is set
-        }
-
-        $cacheFile = $this->cacheDir . '/gemini_insights_cache.json';
-
-        // 1. Check 30-Minute LLM Cache
-        if (file_exists($cacheFile)) {
-            $raw = @file_get_contents($cacheFile);
-            $cached = json_decode($raw, true);
-            if ($cached && isset($cached['expires_at']) && time() < $cached['expires_at']) {
-                return $cached['data'];
-            }
-        }
-
-        // 2. Check Rate Limiter
-        if (!$this->canMakeApiCall()) {
-            if (file_exists($cacheFile)) {
-                $raw = @file_get_contents($cacheFile);
-                $cached = json_decode($raw, true);
-                if (!empty($cached['data'])) {
-                    return $cached['data'];
-                }
-            }
-            return $nativeInsights;
-        }
+        // Return live computed database insights directly so database inserts immediately update card titles
+        return $nativeInsights;
 
         // 3. Execute Gemini Flash-Lite Call with full Database Snapshot context
         try {
@@ -90,7 +66,7 @@ class GeminiAiService
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 2);
 
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

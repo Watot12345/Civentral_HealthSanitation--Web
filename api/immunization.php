@@ -29,19 +29,14 @@ try {
     // Find the position of this script in the URL path to handle base URLs correctly
     $scriptPos = array_search('immunization.php', $parts, true);
     
-    $childId = null;
-    if ($scriptPos !== false && isset($parts[$scriptPos + 1]) && is_numeric($parts[$scriptPos + 1])) {
-        $childId = $parts[$scriptPos + 1];
-    }
-
-    $action = ($scriptPos !== false && isset($parts[$scriptPos + 2])) ? $parts[$scriptPos + 2] : null;
+    $targetId = $childId ?? (isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : null);
 
     switch ($method) {
         case 'GET':
             if (isset($_GET['stats'])) {
                 $controller->stats();
-            } elseif ($childId) {
-                $controller->show($childId);
+            } elseif ($targetId) {
+                $controller->show($targetId);
             } elseif (isset($_GET['page'])) {
                 $controller->paginated();
             } else {
@@ -53,18 +48,19 @@ try {
             $controller->store();
             break;
 
+        case 'PUT':
         case 'PATCH':
-            if (!$childId) {
-                Response::error('Child ID is required', 400);
+            if (!$targetId) {
+                Response::error('Child ID is required for update', 400);
             }
-            $controller->update($childId);
+            $controller->update($targetId);
             break;
 
         case 'DELETE':
-            if (!$childId) {
+            if (!$targetId) {
                 Response::error('Child ID is required for deletion', 400);
             }
-            $controller->destroy($childId);
+            $controller->destroy($targetId);
             break;
 
         default:

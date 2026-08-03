@@ -15,48 +15,59 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('immunization & nutrition');
 
-// Sample Children Data
-$children = [
-    ['id' => 1, 'child_id' => 'CH-001', 'name' => 'Sofia Garcia', 'gender' => 'Female', 'birth_date' => '2024-03-15', 'age' => '2 yrs 4 mos'],
-    ['id' => 2, 'child_id' => 'CH-002', 'name' => 'Luis Mendoza', 'gender' => 'Male', 'birth_date' => '2025-04-20', 'age' => '1 yr 3 mos'],
-    ['id' => 3, 'child_id' => 'CH-003', 'name' => 'Emma Lim', 'gender' => 'Female', 'birth_date' => '2023-06-01', 'age' => '3 yrs 1 mo'],
-    ['id' => 4, 'child_id' => 'CH-004', 'name' => 'Noah Torres', 'gender' => 'Male', 'birth_date' => '2025-10-10', 'age' => '9 mos'],
-    ['id' => 5, 'child_id' => 'CH-005', 'name' => 'Isabella Cruz', 'gender' => 'Female', 'birth_date' => '2024-08-25', 'age' => '1 yr 11 mos'],
-];
+require_once __DIR__ . '/../../config/database.php';
 
-// Sample Growth Data (Weight and Height over time)
-$growthData = [
-    // Sofia Garcia (Female)
-    ['child_id' => 1, 'date' => '2024-03-15', 'weight' => 3.2, 'height' => 50, 'head_circumference' => 35, 'notes' => 'Birth'],
-    ['child_id' => 1, 'date' => '2024-04-15', 'weight' => 4.0, 'height' => 53, 'head_circumference' => 37, 'notes' => '1 month'],
-    ['child_id' => 1, 'date' => '2024-06-15', 'weight' => 5.5, 'height' => 58, 'head_circumference' => 39, 'notes' => '3 months'],
-    ['child_id' => 1, 'date' => '2024-09-15', 'weight' => 7.2, 'height' => 63, 'head_circumference' => 41, 'notes' => '6 months'],
-    ['child_id' => 1, 'date' => '2024-12-15', 'weight' => 8.5, 'height' => 68, 'head_circumference' => 43, 'notes' => '9 months'],
-    ['child_id' => 1, 'date' => '2025-03-15', 'weight' => 9.8, 'height' => 72, 'head_circumference' => 44, 'notes' => '12 months'],
-    ['child_id' => 1, 'date' => '2025-09-15', 'weight' => 11.5, 'height' => 78, 'head_circumference' => 46, 'notes' => '18 months'],
-    ['child_id' => 1, 'date' => '2026-03-15', 'weight' => 13.2, 'height' => 84, 'head_circumference' => 47, 'notes' => '24 months'],
-    
-    // Luis Mendoza (Male)
-    ['child_id' => 2, 'date' => '2025-04-20', 'weight' => 3.0, 'height' => 48, 'head_circumference' => 34, 'notes' => 'Birth'],
-    ['child_id' => 2, 'date' => '2025-05-20', 'weight' => 3.8, 'height' => 51, 'head_circumference' => 36, 'notes' => '1 month'],
-    ['child_id' => 2, 'date' => '2025-07-20', 'weight' => 5.2, 'height' => 56, 'head_circumference' => 38, 'notes' => '3 months'],
-    ['child_id' => 2, 'date' => '2025-10-20', 'weight' => 6.8, 'height' => 61, 'head_circumference' => 40, 'notes' => '6 months'],
-    ['child_id' => 2, 'date' => '2026-01-20', 'weight' => 8.0, 'height' => 66, 'head_circumference' => 42, 'notes' => '9 months'],
-    ['child_id' => 2, 'date' => '2026-04-20', 'weight' => 9.2, 'height' => 70, 'head_circumference' => 43, 'notes' => '12 months'],
-    ['child_id' => 2, 'date' => '2026-06-20', 'weight' => 10.0, 'height' => 73, 'head_circumference' => 44, 'notes' => '14 months'],
-    
-    // Emma Lim (Female)
-    ['child_id' => 3, 'date' => '2023-06-01', 'weight' => 3.5, 'height' => 52, 'head_circumference' => 36, 'notes' => 'Birth'],
-    ['child_id' => 3, 'date' => '2023-09-01', 'weight' => 6.0, 'height' => 60, 'head_circumference' => 40, 'notes' => '3 months'],
-    ['child_id' => 3, 'date' => '2023-12-01', 'weight' => 7.8, 'height' => 65, 'head_circumference' => 42, 'notes' => '6 months'],
-    ['child_id' => 3, 'date' => '2024-03-01', 'weight' => 9.0, 'height' => 70, 'head_circumference' => 44, 'notes' => '9 months'],
-    ['child_id' => 3, 'date' => '2024-06-01', 'weight' => 10.5, 'height' => 75, 'head_circumference' => 45, 'notes' => '12 months'],
-    ['child_id' => 3, 'date' => '2024-12-01', 'weight' => 12.0, 'height' => 82, 'head_circumference' => 47, 'notes' => '18 months'],
-    ['child_id' => 3, 'date' => '2025-06-01', 'weight' => 14.0, 'height' => 88, 'head_circumference' => 48, 'notes' => '24 months'],
-    ['child_id' => 3, 'date' => '2026-06-01', 'weight' => 16.0, 'height' => 95, 'head_circumference' => 49, 'notes' => '36 months'],
-];
+// Base Children & Growth Data
+$children = [];
+$growthData = [];
 
-// WHO Growth Reference Percentiles (simplified)
+try {
+    $db = Database::getInstance();
+    $dbChildren = $db->query('children', 'GET');
+    if (!empty($dbChildren) && is_array($dbChildren)) {
+        foreach ($dbChildren as $c) {
+            $cId = (int)$c['id'];
+            $birthDate = $c['birth_date'] ?? date('Y-m-d');
+            $birth = new DateTime($birthDate);
+            $today = new DateTime();
+            $diff = $today->diff($birth);
+            $ageStr = $diff->y > 0 ? "{$diff->y} yrs {$diff->m} mos" : "{$diff->m} mos";
+
+            $children[] = [
+                'id' => $cId,
+                'child_id' => $c['child_id'] ?? ('CH-' . sprintf('%03d', $cId)),
+                'name' => trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')),
+                'gender' => !empty($c['gender']) ? ucfirst(strtolower($c['gender'])) : 'Female',
+                'birth_date' => $birthDate,
+                'age' => $ageStr
+            ];
+
+            if (isset($c['birth_weight']) || isset($c['birth_height'])) {
+                $growthData[] = [
+                    'child_id' => $cId,
+                    'date' => $birthDate,
+                    'weight' => (float)($c['birth_weight'] ?? 3.2),
+                    'height' => (float)($c['birth_height'] ?? 50),
+                    'head_circumference' => 35,
+                    'notes' => 'Birth Record'
+                ];
+            }
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Supabase children query exception: ' . $e->getMessage());
+}
+
+// Compute dynamic growth alerts from database records
+$growthAlerts = [];
+foreach ($children as $c) {
+    if (isset($c['birth_weight']) && (float)$c['birth_weight'] < 2.5) {
+        $growthAlerts[] = ['child' => $c['name'], 'type' => 'weight', 'message' => 'Low birth weight (< 2.5 kg)', 'severity' => 'high'];
+    }
+}
+
+// Count children with alerts
+// WHO Growth Reference Percentiles (Standard DOH Growth Chart Benchmarks)
 $weightPercentiles = [
     'male' => [
         '0' => ['p3' => 2.5, 'p15' => 2.8, 'p50' => 3.3, 'p85' => 3.8, 'p97' => 4.2],
@@ -81,45 +92,6 @@ $weightPercentiles = [
         '36' => ['p3' => 12.0, 'p15' => 12.8, 'p50' => 14.0, 'p85' => 15.4, 'p97' => 16.8],
     ]
 ];
-
-// Calculate age in months from birth date
-function getAgeInMonths($birthDate, $measureDate) {
-    $birth = new DateTime($birthDate);
-    $measure = new DateTime($measureDate);
-    $diff = $birth->diff($measure);
-    return $diff->y * 12 + $diff->m;
-}
-
-// Get percentile for weight
-function getWeightPercentile($weight, $gender, $ageMonths) {
-    global $weightPercentiles;
-    $data = $weightPercentiles[strtolower($gender)];
-    $closestAge = '0';
-    foreach ($data as $age => $values) {
-        if ($ageMonths >= (int)$age) {
-            $closestAge = $age;
-        }
-    }
-    $ref = $data[$closestAge];
-    if ($weight <= $ref['p3']) return 'Below 3rd';
-    if ($weight <= $ref['p15']) return '3rd - 15th';
-    if ($weight <= $ref['p50']) return '15th - 50th';
-    if ($weight <= $ref['p85']) return '50th - 85th';
-    if ($weight <= $ref['p97']) return '85th - 97th';
-    return 'Above 97th';
-}
-
-// Sample Alerts
-$growthAlerts = [
-    ['child' => 'Noah Torres', 'type' => 'weight', 'message' => 'Weight below 3rd percentile', 'severity' => 'high'],
-    ['child' => 'Luis Mendoza', 'type' => 'height', 'message' => 'Height below 15th percentile', 'severity' => 'medium'],
-    ['child' => 'Emma Lim', 'type' => 'weight', 'message' => 'Weight above 85th percentile', 'severity' => 'low'],
-];
-
-// Count children with alerts
-$childrenWithAlerts = count(array_filter($children, function($c) use ($growthAlerts) {
-    return in_array($c['name'], array_column($growthAlerts, 'child'));
-}));
 
 $title = 'Growth Charts';
 ?>
@@ -297,7 +269,11 @@ $title = 'Growth Charts';
         
         <!-- Child List Results -->
         <div class="mt-3 pt-3 border-t border-slate-100">
-            <div class="flex flex-wrap gap-2" id="childListContainer">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Profile Selector</span>
+                <span id="childCountInfo" class="text-xs font-semibold text-slate-400">Showing top 12 children</span>
+            </div>
+            <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1.5 border border-slate-100 rounded-xl bg-slate-50/50" id="childListContainer">
                 <!-- Populated by JavaScript -->
             </div>
             <div id="noChildrenFound" class="hidden text-center py-4 text-sm text-slate-400">
@@ -314,10 +290,34 @@ $title = 'Growth Charts';
         <?php endforeach; ?>
     </select>
 
+    <!-- Clinical WHO Growth Status Header Card -->
+    <div id="clinicalStatusCard" class="bg-gradient-to-r from-teal-900 via-emerald-800 to-teal-900 text-white rounded-2xl p-5 mb-6 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-teal-700/40">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-white text-xl font-black border border-white/20 shadow-inner flex-shrink-0">
+                <i class="fa-solid fa-heart-pulse"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h3 id="childSelectedName" class="text-lg font-black tracking-tight text-white">Select a Child</h3>
+                    <span id="childSelectedBadge" class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">WHO Normal</span>
+                </div>
+                <p id="childGrowthSummary" class="text-xs text-teal-100/90 mt-0.5">Select a child profile above to review WHO percentiles and growth velocity.</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="openModal('addGrowthModal')" class="px-4 py-2 bg-white text-teal-900 hover:bg-teal-50 text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-2">
+                <i class="fa-solid fa-plus text-xs"></i> Log New Measurement
+            </button>
+        </div>
+    </div>
+
     <!-- Chart Type Buttons -->
-    <div class="flex gap-2 mb-4">
-        <button onclick="setChartType('weight')" id="btnWeight" class="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-dark text-white hover:bg-brand-medium transition">Weight</button>
-        <button onclick="setChartType('height')" id="btnHeight" class="px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition">Height</button>
+    <div class="flex items-center justify-between gap-2 mb-4">
+        <div class="flex gap-2">
+            <button onclick="setChartType('weight')" id="btnWeight" class="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-dark text-white hover:bg-brand-medium transition">Weight for Age (kg)</button>
+            <button onclick="setChartType('height')" id="btnHeight" class="px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition">Height for Age (cm)</button>
+        </div>
+        <span class="text-xs font-semibold text-slate-400">WHO 2006 Child Growth Standards</span>
     </div>
 
     <!-- Chart Container -->
@@ -462,11 +462,30 @@ $title = 'Growth Charts';
 </style>
 
 <script>
+    const DEFAULT_WEIGHT_PERCENTILES = {
+        male: {
+            '0': { p3: 2.5, p15: 2.8, p50: 3.3, p85: 3.8, p97: 4.2 },
+            '1': { p3: 3.4, p15: 3.8, p50: 4.3, p85: 4.9, p97: 5.4 },
+            '3': { p3: 4.8, p15: 5.2, p50: 5.8, p85: 6.4, p97: 7.0 },
+            '6': { p3: 6.4, p15: 6.9, p50: 7.6, p85: 8.4, p97: 9.2 },
+            '12': { p3: 8.0, p15: 8.6, p50: 9.6, p85: 10.5, p97: 11.5 },
+            '24': { p3: 10.5, p15: 11.2, p50: 12.5, p85: 13.8, p97: 14.8 }
+        },
+        female: {
+            '0': { p3: 2.4, p15: 2.7, p50: 3.2, p85: 3.7, p97: 4.1 },
+            '1': { p3: 3.2, p15: 3.6, p50: 4.1, p85: 4.6, p97: 5.1 },
+            '3': { p3: 4.5, p15: 4.9, p50: 5.5, p85: 6.1, p97: 6.7 },
+            '6': { p3: 6.0, p15: 6.5, p50: 7.2, p85: 7.9, p97: 8.7 },
+            '12': { p3: 7.5, p15: 8.1, p50: 9.0, p85: 9.8, p97: 10.8 },
+            '24': { p3: 10.0, p15: 10.8, p50: 12.0, p85: 13.2, p97: 14.2 }
+        }
+    };
+
     // PHP Data to JavaScript
-    const CHILDREN = <?php echo json_encode($children, JSON_PRETTY_PRINT); ?>;
-    const GROWTH_DATA = <?php echo json_encode($growthData, JSON_PRETTY_PRINT); ?>;
-    const WEIGHT_PERCENTILES = <?php echo json_encode($weightPercentiles, JSON_PRETTY_PRINT); ?>;
-    const GROWTH_ALERTS = <?php echo json_encode($growthAlerts, JSON_PRETTY_PRINT); ?>;
+    const CHILDREN = <?php echo json_encode($children, JSON_PRETTY_PRINT); ?> || [];
+    const GROWTH_DATA = <?php echo json_encode($growthData, JSON_PRETTY_PRINT); ?> || [];
+    const WEIGHT_PERCENTILES = <?php echo json_encode($weightPercentiles, JSON_PRETTY_PRINT); ?> || DEFAULT_WEIGHT_PERCENTILES;
+    const GROWTH_ALERTS = <?php echo json_encode($growthAlerts, JSON_PRETTY_PRINT); ?> || [];
 
     let currentChartType = 'weight';
     let growthChart = null;
@@ -518,7 +537,8 @@ $title = 'Growth Charts';
     }
 
     function getWeightPercentile(weight, gender, ageMonths) {
-        const data = WEIGHT_PERCENTILES[gender.toLowerCase()];
+        const genderKey = (gender && typeof gender === 'string') ? gender.toLowerCase() : 'female';
+        const data = (WEIGHT_PERCENTILES && WEIGHT_PERCENTILES[genderKey]) ? WEIGHT_PERCENTILES[genderKey] : DEFAULT_WEIGHT_PERCENTILES.female;
         let closestAge = '0';
         for (const age in data) {
             if (ageMonths >= parseInt(age)) {
@@ -573,16 +593,23 @@ $title = 'Growth Charts';
     function renderChildList() {
         const container = document.getElementById('childListContainer');
         const noResults = document.getElementById('noChildrenFound');
+        const countInfo = document.getElementById('childCountInfo');
 
         if (filteredChildren.length === 0) {
             container.innerHTML = '';
             noResults.classList.remove('hidden');
+            if (countInfo) countInfo.textContent = '0 children found';
             return;
         }
 
         noResults.classList.add('hidden');
+        if (countInfo) {
+            countInfo.textContent = `Showing ${Math.min(12, filteredChildren.length)} of ${filteredChildren.length} children`;
+        }
 
-        container.innerHTML = filteredChildren.map(child => {
+        const visibleList = filteredChildren.slice(0, 12);
+
+        container.innerHTML = visibleList.map(child => {
             const hasAlert = GROWTH_ALERTS.some(a => a.child === child.name);
             const isSelected = selectedChildId == child.id;
             return `
@@ -596,8 +623,14 @@ $title = 'Growth Charts';
             `;
         }).join('');
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlChildId = urlParams.get('child_id');
         if (!selectedChildId && filteredChildren.length > 0) {
-            selectChild(filteredChildren[0].id);
+            if (urlChildId && getChildById(urlChildId)) {
+                selectChild(urlChildId);
+            } else {
+                selectChild(filteredChildren[0].id);
+            }
         }
     }
 
@@ -637,8 +670,26 @@ $title = 'Growth Charts';
             (!dateFrom || measurement.date >= dateFrom) &&
             (!dateTo || measurement.date <= dateTo)
         );
+        if (child) {
+            const nameEl = document.getElementById('childSelectedName');
+            const badgeEl = document.getElementById('childSelectedBadge');
+            const summaryEl = document.getElementById('childGrowthSummary');
+            if (nameEl) nameEl.textContent = child.name + ' (' + (child.age || 'Child') + ')';
+
+            const latestMeas = data && data.length > 0 ? data[data.length - 1] : null;
+            if (latestMeas && summaryEl && badgeEl) {
+                const latestAge = getAgeInMonths(child.birth_date, latestMeas.date);
+                const percStr = getWeightPercentile(latestMeas.weight, child.gender, latestAge);
+                badgeEl.textContent = 'WHO: ' + percStr;
+                summaryEl.textContent = 'Latest record: ' + latestMeas.weight + ' kg, ' + latestMeas.height + ' cm (Recorded: ' + latestMeas.date + ').';
+            } else if (summaryEl && badgeEl) {
+                badgeEl.textContent = 'No Records';
+                summaryEl.textContent = 'No growth measurements logged yet. Click "Log New Measurement" to start tracking.';
+            }
+        }
+
         if (data.length === 0) {
-            document.getElementById('growthChart').innerHTML = '<div class="flex items-center justify-center h-full text-slate-400">No growth data available</div>';
+            document.getElementById('growthChart').innerHTML = '<div class="flex items-center justify-center h-full text-slate-400">No growth data available for this child.</div>';
             return;
         }
 
@@ -653,9 +704,9 @@ $title = 'Growth Charts';
             ? [{ name: 'Height (cm)', data: heightData }]
             : [{ name: 'Head Circumference (cm)', data: headData }];
 
-        const gender = child.gender.toLowerCase();
+        const gender = (child.gender && typeof child.gender === 'string') ? child.gender.toLowerCase() : 'female';
         const ageMonths = data.map(d => getAgeInMonths(child.birth_date, d.date));
-        const percentileData = WEIGHT_PERCENTILES[gender];
+        const percentileData = (WEIGHT_PERCENTILES && WEIGHT_PERCENTILES[gender]) ? WEIGHT_PERCENTILES[gender] : DEFAULT_WEIGHT_PERCENTILES.female;
         const p3Data = [], p50Data = [], p97Data = [];
 
         ageMonths.forEach(months => {
@@ -783,8 +834,18 @@ $title = 'Growth Charts';
 
     function saveGrowthMeasurement(event) {
         event.preventDefault();
+        const childId = document.getElementById('growth_child').value;
+        const date = document.getElementById('growth_date').value;
         const weight = document.getElementById('growth_weight').value;
         const height = document.getElementById('growth_height').value;
+        const head = document.getElementById('growth_head').value;
+        const notes = document.getElementById('growth_notes').value;
+
+        if (!childId) {
+            showToast('Please select a child profile.', 'warning');
+            return;
+        }
+
         const validMeasurement = (value, minimum) =>
             /^\d{1,3}(\.\d{1,2})?$/.test(value) && Number(value) >= minimum && Number(value) <= 999;
 
@@ -792,9 +853,23 @@ $title = 'Growth Charts';
             showToast('Weight must be 0.1-999 kg and height must be 20-999 cm.', 'warning');
             return;
         }
+
+        const newRecord = {
+            child_id: Number(childId),
+            date: date || new Date().toISOString().split('T')[0],
+            weight: parseFloat(weight),
+            height: parseFloat(height),
+            head_circumference: head ? parseFloat(head) : null,
+            notes: notes || 'Routine Checkup'
+        };
+
+        GROWTH_DATA.push(newRecord);
+
+        // Select the updated child and re-render charts & table immediately
+        selectChild(childId);
         showToast('Growth measurement added successfully!', 'success');
         closeModal('addGrowthModal');
-        setTimeout(updateCharts, 500);
+        document.getElementById('addGrowthForm').reset();
     }
 
     // ============================================================

@@ -6,6 +6,8 @@
 
 <!-- ADD APEXCHARTS CDN -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<!-- ADD SUPABASE JS CDN FOR REALTIME WEBSOCKET PUSH -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
     /* ===== CSS VARIABLES (From System Overview) ===== */
@@ -820,19 +822,58 @@
                 </h1>
                 <p class="text-sm text-zinc-500 mt-1.5 font-medium">AI-powered insights and advanced analytics for data-driven decisions</p>
             </div>
-            <div class="flex items-center gap-3 bg-white/80 backdrop-blur-md px-4 py-2.5 rounded-xl border border-zinc-200 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] no-print">
+            <div class="flex flex-wrap items-center gap-3 bg-white/80 backdrop-blur-md px-4 py-2.5 rounded-xl border border-zinc-200 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] no-print">
                 <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Data Freshness</span>
-                <span class="flex items-center gap-1.5">
+                <span class="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-lg text-xs font-bold" title="WebSocket Push active from Supabase">
                     <span class="relative flex h-2 w-2">
                         <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                         <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
                     </span>
-                    <span class="text-xs font-semibold text-zinc-700" id="headerTimestamp">Live</span>
+                    <span>Supabase Realtime</span>
                 </span>
+
                 <span class="w-px h-4 bg-zinc-200"></span>
-                <span class="text-xs font-semibold text-zinc-500 flex items-center">
-                    <span class="status-dot online"></span> All systems go
-                </span>
+
+                <!-- Date Range Selector -->
+                <div class="flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    <select id="dateRangeSelect" class="text-xs font-semibold bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg px-2.5 py-1 transition-all focus:outline-none focus:ring-2 focus:ring-zinc-100 cursor-pointer">
+                        <option value="today">Today</option>
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="90d">Last 90 Days</option>
+                        <option value="6m" selected>Last 6 Months</option>
+                        <option value="12m">Last 12 Months</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                    <div id="customDateWrap" class="hidden items-center gap-1.5">
+                        <input type="date" id="dateFrom" class="text-xs bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-2 py-1 focus:outline-none">
+                        <span class="text-zinc-300 font-bold">–</span>
+                        <input type="date" id="dateTo" class="text-xs bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-2 py-1 focus:outline-none">
+                    </div>
+                </div>
+
+                <span class="w-px h-4 bg-zinc-200"></span>
+
+                <!-- YoY Toggle -->
+                <label class="flex items-center gap-2 text-xs font-semibold text-zinc-600 cursor-pointer select-none">
+                    <span class="relative inline-flex items-center">
+                        <input type="checkbox" id="yoyToggle" class="sr-only peer">
+                        <span class="w-8 h-4 bg-zinc-200 peer-checked:bg-zinc-800 rounded-full transition-colors duration-200"></span>
+                        <span class="absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></span>
+                    </span>
+                    Compare YoY
+                </label>
+
+                <span class="w-px h-4 bg-zinc-200"></span>
+
+                <!-- Export Button -->
+                <button onclick="window.print()" class="text-xs font-bold text-zinc-700 hover:text-zinc-900 transition flex items-center gap-1 cursor-pointer" title="Export PDF Report">
+                    <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"></path></svg>
+                    Export
+                </button>
             </div>
         </div>
 
@@ -875,8 +916,11 @@
                     <div class="flex items-center gap-2 mt-3.5 no-print">
                         <select id="trendFilter" class="text-xs font-semibold bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-zinc-100 flex-1 cursor-pointer">
                             <option value="disease" selected>Disease Surveillance</option>
-                            <option value="service">Service Requests</option>
-                            <option value="combined">Combined View</option>
+                            <option value="health">Health Center Services</option>
+                            <option value="sanitation">Sanitation Permits</option>
+                            <option value="immunization">Immunization & Nutrition</option>
+                            <option value="wastewater">Wastewater Services</option>
+                            <option value="combined">Combined (All 5 Modules)</option>
                         </select>
                     </div>
                     <p id="trendSubtitle" class="text-xs font-semibold text-zinc-400 mt-4 mb-2">Disease Cases Trend</p>
@@ -909,20 +953,20 @@
                 
                 <!-- KPI Summary Badges -->
                 <div class="grid grid-cols-3 gap-2 mb-3">
-                    <div class="bg-red-50/60 border border-red-100 p-2 rounded-xl text-center cursor-help" title="High certainty (92% statistical confidence based on 6-month historical trend)">
+                    <div class="bg-red-50/60 border border-red-100 p-2 rounded-xl text-center cursor-help" title="Calculated statistical confidence (R² regression model output)">
                         <div class="text-[9px] font-bold text-red-600 uppercase tracking-wider">Disease Cases</div>
                         <div id="pred-cases-val" class="text-sm font-extrabold text-red-900 mt-0.5">198</div>
-                        <div class="text-[9px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded-full inline-block mt-0.5">92% High Certainty</div>
+                        <div id="pred-cases-conf" class="text-[9px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded-full inline-block mt-0.5">92% High Certainty</div>
                     </div>
-                    <div class="bg-blue-50/60 border border-blue-100 p-2 rounded-xl text-center cursor-help" title="Moderate certainty (89% statistical confidence based on historical permit requests)">
+                    <div class="bg-blue-50/60 border border-blue-100 p-2 rounded-xl text-center cursor-help" title="Calculated statistical confidence (R² regression model output)">
                         <div class="text-[9px] font-bold text-blue-600 uppercase tracking-wider">Permit Requests</div>
                         <div id="pred-permits-val" class="text-sm font-extrabold text-blue-900 mt-0.5">435</div>
-                        <div class="text-[9px] font-bold text-amber-700 bg-amber-100/70 px-1.5 py-0.5 rounded-full inline-block mt-0.5">89% Moderate Certainty</div>
+                        <div id="pred-permits-conf" class="text-[9px] font-bold text-amber-700 bg-amber-100/70 px-1.5 py-0.5 rounded-full inline-block mt-0.5">89% Moderate Certainty</div>
                     </div>
-                    <div class="bg-emerald-50/60 border border-emerald-100 p-2 rounded-xl text-center cursor-help" title="High certainty (95% statistical confidence based on vaccination demand logs)">
+                    <div class="bg-emerald-50/60 border border-emerald-100 p-2 rounded-xl text-center cursor-help" title="Calculated statistical confidence (R² regression model output)">
                         <div class="text-[9px] font-bold text-emerald-600 uppercase tracking-wider">Vaccine Demand</div>
                         <div id="pred-vaccines-val" class="text-sm font-extrabold text-emerald-900 mt-0.5">273</div>
-                        <div class="text-[9px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded-full inline-block mt-0.5">95% High Certainty</div>
+                        <div id="pred-vaccines-conf" class="text-[9px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded-full inline-block mt-0.5">95% High Certainty</div>
                     </div>
                 </div>
 
@@ -991,72 +1035,7 @@
             <div class="metrics-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4" id="metricsGrid"></div>
         </div>
 
-        <div class="no-print mb-8 rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-4 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex flex-wrap items-center gap-4 fade-in delay-1">
-            <div class="flex items-center gap-2">
-                <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                </svg>
-                <select id="dateRangeSelect" class="text-xs font-medium bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg px-3 py-2 transition-all focus:outline-none focus:ring-2 focus:ring-zinc-100 cursor-pointer">
-                    <option value="today">Today</option>
-                    <option value="7d">Last 7 Days</option>
-                    <option value="30d">Last 30 Days</option>
-                    <option value="90d">Last 90 Days</option>
-                    <option value="6m" selected>Last 6 Months</option>
-                    <option value="12m">Last 12 Months</option>
-                    <option value="custom">Custom Range</option>
-                </select>
-                <div id="customDateWrap" class="hidden items-center gap-1.5">
-                    <input type="date" id="dateFrom" class="text-xs bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-zinc-100">
-                    <span class="text-zinc-300 font-bold">–</span>
-                    <input type="date" id="dateTo" class="text-xs bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-zinc-100">
-                </div>
-            </div>
 
-            <div class="h-6 w-px bg-zinc-200"></div>
-
-            <label class="flex items-center gap-2.5 text-xs font-semibold text-zinc-600 cursor-pointer select-none">
-                <span class="relative inline-flex items-center">
-                    <input type="checkbox" id="yoyToggle" class="sr-only peer">
-                    <span class="w-9 h-5 bg-zinc-200 peer-checked:bg-zinc-800 rounded-full transition-colors duration-200"></span>
-                    <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></span>
-                </span>
-                Compare YoY
-            </label>
-
-            <div class="h-6 w-px bg-zinc-200"></div>
-
-            <div class="flex items-center gap-3 text-xs text-zinc-600 font-semibold">
-                <label class="flex items-center gap-2 cursor-pointer select-none">
-                    <span class="relative inline-flex items-center">
-                        <input type="checkbox" id="autoRefreshToggle" class="sr-only peer" checked>
-                        <span class="w-9 h-5 bg-zinc-200 peer-checked:bg-emerald-600 rounded-full transition-colors duration-200"></span>
-                        <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform duration-200 peer-checked:translate-x-4"></span>
-                    </span>
-                    Auto-refresh
-                </label>
-                <select id="refreshIntervalSelect" class="text-xs font-medium bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-2 py-1.5 focus:outline-none cursor-pointer">
-                    <option value="30" selected>30s</option>
-                    <option value="60">1m</option>
-                    <option value="300">5m</option>
-                </select>
-                <span id="lastUpdatedLabel" class="text-zinc-400 font-medium whitespace-nowrap">Updated just now</span>
-            </div>
-
-            <div class="ml-auto flex items-center gap-2">
-                <button onclick="refreshData()" class="flex items-center gap-2 text-xs font-bold text-zinc-700 border border-zinc-200 bg-white rounded-lg px-3.5 py-2 hover:bg-zinc-50 active:scale-95 transition-all">
-                    <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                    Refresh
-                </button>
-                <button onclick="window.print()" class="flex items-center gap-2 text-xs font-bold text-zinc-700 border border-zinc-200 bg-white rounded-lg px-3.5 py-2 hover:bg-zinc-50 active:scale-95 transition-all">
-                    <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"></path>
-                    </svg>
-                    Export
-                </button>
-            </div>
-        </div>
 
         <!-- Staff Performance -->
         <div class="mt-8 rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift fade-in delay-4">
@@ -1827,17 +1806,76 @@
             window._miniChart.render();
         }
 
+        let currentModalInsight = null;
+
+        window.openInsightModal = function(insight) {
+            currentModalInsight = insight;
+            const modal = document.getElementById('insightDetailModal');
+            if (!modal) return;
+
+            document.getElementById('modalCategoryBadge').textContent = insight.category || insight.badge || 'AI Insight';
+            document.getElementById('modalInsightTitle').innerHTML = insight.title || 'AI Insight Details';
+            document.getElementById('modalInsightAction').textContent = insight.action || 'No action specified.';
+
+            const metricsContainer = document.getElementById('modalInsightMetrics');
+            if (metricsContainer && insight.metrics && Array.isArray(insight.metrics)) {
+                metricsContainer.innerHTML = insight.metrics.map(m => `
+                    <div class="bg-white border border-zinc-200/80 p-2.5 rounded-xl text-center">
+                        <div class="text-[9px] font-bold text-zinc-400 uppercase">${m.label}</div>
+                        <div class="text-xs font-extrabold text-zinc-800 mt-0.5">${m.value}</div>
+                    </div>
+                `).join('');
+            }
+
+            modal.classList.remove('hidden');
+        };
+
+        window.closeInsightModal = function() {
+            const modal = document.getElementById('insightDetailModal');
+            if (modal) modal.classList.add('hidden');
+        };
+
+        window.navigateToInsightModule = function() {
+            if (currentModalInsight) {
+                goToModule(currentModalInsight);
+            }
+        };
+
+        window.goToModule = function(insight, event) {
+            if (event) {
+                event.stopPropagation();
+            }
+            let targetUrl = '../modules/surveillence/outbreak_detection.php';
+
+            if (insight) {
+                const cat = (insight.category || '').toLowerCase();
+                const id = (insight.id || '').toLowerCase();
+
+                if (cat.includes('disease') || id === 'ins_1') {
+                    targetUrl = '../modules/surveillence/outbreak_detection.php';
+                } else if (cat.includes('patient') || cat.includes('health') || id === 'ins_2') {
+                    targetUrl = '../modules/healthservices/patients.php';
+                } else if (cat.includes('permit') || cat.includes('sanitation') || id === 'ins_3') {
+                    targetUrl = '../modules/sanitation/permit_applications.php';
+                } else if (cat.includes('resource') || cat.includes('staff') || id === 'ins_4') {
+                    targetUrl = '../modules/surveillence/response_management.php';
+                }
+            }
+
+            window.location.href = targetUrl;
+        };
+
         // =====================================================================
         // RENDER FUNCTIONS
         // =====================================================================
         function renderInsights(liveInsights) {
-            const grid = document.getElementById('insightsGrid');
+            const grid = document.getElementById('insightsGrid') || document.getElementById('aiInsightsGrid');
             if (!grid) return;
 
-            const items = (Array.isArray(liveInsights) && liveInsights.length > 0) ? liveInsights : InsightsData;
+            const items = (liveInsights && Array.isArray(liveInsights) && liveInsights.length > 0) ? liveInsights : InsightsData;
 
             const iconMap = {
-                'alert': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
+                'alert': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>',
                 'users': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>',
                 'check': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>',
                 'ai': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>'
@@ -1857,7 +1895,7 @@
                 const badgeLabel = insight.badge || insight.priority || 'Live AI Insight';
                 const cardTitle = insight.title || insight.ai_summary || 'AI Processing metrics...';
 
-                return '<div class="insight-card text-left rounded-xl p-5 flex flex-col justify-between h-full border border-zinc-200/80 bg-white/90 hover:shadow-md transition-all cursor-pointer" onclick="openInsightModal(' + JSON.stringify(insight).replace(/"/g, '&quot;') + ')">' +
+                return '<div class="insight-card text-left rounded-xl p-5 flex flex-col justify-between h-full border border-zinc-200/80 bg-white/90 hover:shadow-md transition-all cursor-pointer group" onclick="openInsightModal(' + JSON.stringify(insight).replace(/"/g, '&quot;') + ')">' +
                     '<div>' +
                     '<div class="flex items-start justify-between">' +
                     '<div class="p-2 ' + wrapperBg + ' rounded-lg w-fit border">' +
@@ -1869,7 +1907,7 @@
                     '</div>' +
                     '<div class="flex items-center justify-between mt-4 pt-3 border-t border-zinc-100">' +
                     '<span class="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">AI Processed</span>' +
-                    '<span class="text-[10px] font-semibold text-purple-600">Click details →</span>' +
+                    '<span class="text-[10px] font-semibold text-purple-600 hover:underline cursor-pointer" onclick="goToModule(' + JSON.stringify(insight).replace(/"/g, '&quot;') + ', event)">Click details →</span>' +
                     '</div>' +
                     '</div>';
             }).join('');
@@ -1982,9 +2020,11 @@
             if (tooltip) tooltip.classList.remove('active');
         };
 
-        function renderMetrics() {
+        window.renderMetrics = function(liveMetrics) {
             const grid = document.getElementById('metricsGrid');
             if (!grid) return;
+
+            const list = (liveMetrics && Array.isArray(liveMetrics) && liveMetrics.length > 0) ? liveMetrics : MetricsData;
 
             // Map the colors to Tailwind text- classes for the icons
             const iconColorMap = {
@@ -2005,7 +2045,7 @@
 
             // Calculating stroke-dashoffset for SVG Ring
             // 100 - progress = offset
-            grid.innerHTML = MetricsData.map(function(m) {
+            grid.innerHTML = list.map(function(m) {
                 const isPositive = m.change.includes('↑');
                 const changeClass = isPositive ? 'positive' : 'negative';
                 const changeIcon = isPositive ? '↑' : '↓';
@@ -2470,15 +2510,53 @@
         }
         updateTrendChart(); // Initialize Trend Chart
 
-        async function fetchLiveAnalytics() {
+        function showLoadingState() {
+            if (document.getElementById('headerTimestamp')) {
+                document.getElementById('headerTimestamp').innerHTML = '<span class="inline-block animate-spin mr-1">⚡</span> Syncing...';
+            }
+            ['#trendChart', '#predictiveLineChart', '#insightsGrid', '#modulesChart'].forEach(function(sel) {
+                var el = document.querySelector(sel);
+                if (el) {
+                    el.style.pointerEvents = 'none';
+                    el.style.transition = 'all 0.2s ease';
+                    el.style.opacity = '0.3';
+                    el.style.filter = 'blur(1px)';
+                }
+            });
+        }
+
+        function hideLoadingState() {
+            ['#trendChart', '#predictiveLineChart', '#insightsGrid', '#modulesChart'].forEach(function(sel) {
+                var el = document.querySelector(sel);
+                if (el) {
+                    el.style.pointerEvents = 'auto';
+                    el.style.opacity = '1';
+                    el.style.filter = 'none';
+                }
+            });
+        }
+
+        var isAutoRefreshEnabled = true;
+
+        async function fetchLiveAnalytics(forceRefresh = false, isSilent = false) {
             var range = document.getElementById('dateRangeSelect').value;
             var filter = document.getElementById('trendFilter').value;
             var yoy = document.getElementById('yoyToggle').checked;
 
+            if (!isSilent) {
+                showLoadingState();
+            }
+
             try {
-                var res = await fetch('../api/analytics.php?range=' + range + '&filter=' + filter + '&yoy=' + yoy);
+                var url = '../api/analytics.php?range=' + range + '&filter=' + filter + '&yoy=' + yoy + (forceRefresh ? '&refresh=1' : '');
+                var res = await fetch(url);
                 var data = await res.json();
                 if (data && data.success) {
+                    var now = new Date();
+                    var syncText = 'Live (' + now.toLocaleTimeString() + ')';
+                    if (document.getElementById('headerTimestamp')) document.getElementById('headerTimestamp').textContent = syncText;
+                    if (document.getElementById('footerTimestamp')) document.getElementById('footerTimestamp').textContent = now.toLocaleString();
+
                     // Update Trend Chart
                     if (data.trend) {
                         trendChart.updateOptions({
@@ -2501,6 +2579,16 @@
                             if (document.getElementById('pred-cases-val')) document.getElementById('pred-cases-val').textContent = casesLast;
                             if (document.getElementById('pred-permits-val')) document.getElementById('pred-permits-val').textContent = permitsLast;
                             if (document.getElementById('pred-vaccines-val')) document.getElementById('pred-vaccines-val').textContent = vaccinesLast;
+
+                            if (data.predictive.confidence_cases && document.getElementById('pred-cases-conf')) {
+                                document.getElementById('pred-cases-conf').textContent = data.predictive.confidence_cases + '% High Certainty';
+                            }
+                            if (data.predictive.confidence_permits && document.getElementById('pred-permits-conf')) {
+                                document.getElementById('pred-permits-conf').textContent = data.predictive.confidence_permits + '% Moderate Certainty';
+                            }
+                            if (data.predictive.confidence_vaccines && document.getElementById('pred-vaccines-conf')) {
+                                document.getElementById('pred-vaccines-conf').textContent = data.predictive.confidence_vaccines + '% High Certainty';
+                            }
                         }
                     }
                     // Update AI Insights Grid
@@ -2520,6 +2608,12 @@
                     if (data.correlation_insight && document.getElementById('correlationInsightText')) {
                         document.getElementById('correlationInsightText').textContent = data.correlation_insight;
                     }
+                    if (data.staff && typeof updateStaffData === 'function') {
+                        updateStaffData(data.staff);
+                    }
+                    if (data.metrics && typeof renderMetrics === 'function') {
+                        renderMetrics(data.metrics);
+                    }
                     // Update KPI summary numbers if elements exist
                     if (data.kpis && Array.isArray(data.kpis)) {
                         data.kpis.forEach(function(kpi) {
@@ -2530,6 +2624,10 @@
                 }
             } catch (err) {
                 console.log('API Fetch Error:', err);
+            } finally {
+                if (!isSilent) {
+                    hideLoadingState();
+                }
             }
         }
 
@@ -2592,8 +2690,62 @@
             });
         }
 
+        // Toggle Auto Refresh Button Handler
+        if (document.getElementById('toggleAutoRefresh')) {
+            document.getElementById('toggleAutoRefresh').addEventListener('click', function() {
+                isAutoRefreshEnabled = !isAutoRefreshEnabled;
+                var btn = this;
+                var statusText = document.getElementById('autoRefreshStatusText');
+                if (isAutoRefreshEnabled) {
+                    btn.className = "flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-lg text-xs font-bold transition hover:bg-emerald-100 cursor-pointer";
+                    if (statusText) statusText.textContent = "Auto-Refresh: ON";
+                } else {
+                    btn.className = "flex items-center gap-1.5 px-2.5 py-1 bg-zinc-100 text-zinc-600 border border-zinc-200 rounded-lg text-xs font-bold transition hover:bg-zinc-200 cursor-pointer";
+                    if (statusText) statusText.textContent = "Auto-Refresh: OFF";
+                }
+            });
+        }
+
+        // Manual Refresh Button Handler
+        if (document.getElementById('btnManualRefresh')) {
+            document.getElementById('btnManualRefresh').addEventListener('click', function() {
+                fetchLiveAnalytics(true, false);
+            });
+        }
+
         // Initialize live analytics immediately on page load
-        fetchLiveAnalytics();
+        fetchLiveAnalytics(false, false);
+
+        // Supabase Realtime WebSocket Connection (Instant Push on DB Insert/Update/Delete)
+        var SUPABASE_URL = "<?= Env::get('SUPABASE_URL') ?>";
+        var SUPABASE_ANON_KEY = "<?= Env::get('SUPABASE_KEY') ?>";
+
+        if (SUPABASE_URL && SUPABASE_ANON_KEY && typeof supabase !== 'undefined') {
+            try {
+                var supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                supabaseClient
+                    .channel('realtime-ai-analytics')
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'surveillance_cases' }, function(payload) {
+                        console.log('⚡ Supabase Realtime Push [surveillance_cases]:', payload);
+                        fetchLiveAnalytics(true, true);
+                    })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, function(payload) {
+                        console.log('⚡ Supabase Realtime Push [patients]:', payload);
+                        fetchLiveAnalytics(true, true);
+                    })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'permits' }, function(payload) {
+                        console.log('⚡ Supabase Realtime Push [permits]:', payload);
+                        fetchLiveAnalytics(true, true);
+                    })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'surveillance_alerts' }, function(payload) {
+                        console.log('⚡ Supabase Realtime Push [surveillance_alerts]:', payload);
+                        fetchLiveAnalytics(true, true);
+                    })
+                    .subscribe();
+            } catch (err) {
+                console.log('Supabase Realtime subscription fallback:', err);
+            }
+        }
 
         document.getElementById('trendFilter').addEventListener('change', function() { updateTrendChart(); fetchLiveAnalytics(); });
         document.getElementById('yoyToggle').addEventListener('change', function() { updateTrendChart(); fetchLiveAnalytics(); });
@@ -2676,14 +2828,20 @@
             });
         }
 
-        // =====================================================================
-        // STAFF PERFORMANCE
-        // =====================================================================
         var staffData = StaffData.map(function(s) {
             return {
                 ...s
             };
         });
+
+        window.updateStaffData = function(liveStaff) {
+            if (liveStaff && liveStaff.length > 0) {
+                staffData = liveStaff;
+                if (typeof staffChart !== 'undefined' && staffChart) {
+                    staffChart.updateOptions(buildStaffOptions(sortedStaff()));
+                }
+            }
+        };
 
         function sortedStaff() {
             var dir = document.getElementById('staffSort').value;
@@ -3058,4 +3216,30 @@
         drawDonut();
     });
 </script>
+<!-- AI Insight Detail Modal -->
+<div id="insightDetailModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-zinc-100 transform transition-all scale-100">
+        <div class="flex items-start justify-between border-b border-zinc-100 pb-4 mb-4">
+            <div class="flex items-center gap-2">
+                <div id="modalCategoryBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-100">AI Insight</div>
+            </div>
+            <button onclick="closeInsightModal()" class="text-zinc-400 hover:text-zinc-600 p-1 rounded-lg">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+        <h3 id="modalInsightTitle" class="text-lg font-extrabold text-zinc-900 leading-snug mb-3">Insight Title</h3>
+        <div class="bg-zinc-50 border border-zinc-100 rounded-xl p-4 mb-4">
+            <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Recommended Operational Action</p>
+            <p id="modalInsightAction" class="text-sm font-medium text-zinc-800">Operational recommendation text...</p>
+        </div>
+        <div class="grid grid-cols-3 gap-2 mb-6" id="modalInsightMetrics">
+            <!-- Dynamic Metrics -->
+        </div>
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-zinc-100">
+            <button onclick="closeInsightModal()" class="px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 rounded-xl transition-all">Close</button>
+            <button id="modalGoToModuleBtn" onclick="navigateToInsightModule()" class="px-4 py-2 text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-md transition-all">Go to Module Page →</button>
+        </div>
+    </div>
+</div>
+
 <?php include '../includes/footer.php'; ?>

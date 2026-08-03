@@ -15,149 +15,42 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('immunization & nutrition');
 
-// Sample Vaccine Inventory Data
-$vaccineInventory = [
-    [
-        'id' => 1,
-        'vaccine_name' => 'BCG',
-        'batch_number' => 'BCG-2026-001',
-        'quantity' => 150,
-        'minimum_stock' => 50,
-        'received_date' => '2026-06-15',
-        'expiry_date' => '2027-12-31',
-        'temperature' => 2.5,
-        'storage_location' => 'Freezer A1',
-        'supplier' => 'DOH Central',
-        'status' => 'in_stock',
-        'unit' => 'vials'
-    ],
-    [
-        'id' => 2,
-        'vaccine_name' => 'Hepatitis B',
-        'batch_number' => 'HB-2026-002',
-        'quantity' => 200,
-        'minimum_stock' => 80,
-        'received_date' => '2026-06-20',
-        'expiry_date' => '2027-09-30',
-        'temperature' => 3.0,
-        'storage_location' => 'Refrigerator B2',
-        'supplier' => 'DOH Central',
-        'status' => 'in_stock',
-        'unit' => 'vials'
-    ],
-    [
-        'id' => 3,
-        'vaccine_name' => 'DPT-Hib-HepB',
-        'batch_number' => 'PENTA-2026-003',
-        'quantity' => 45,
-        'minimum_stock' => 100,
-        'received_date' => '2026-05-10',
-        'expiry_date' => '2027-03-15',
-        'temperature' => 2.8,
-        'storage_location' => 'Refrigerator A2',
-        'supplier' => 'DOH Central',
-        'status' => 'low_stock',
-        'unit' => 'vials'
-    ],
-    [
-        'id' => 4,
-        'vaccine_name' => 'OPV',
-        'batch_number' => 'OPV-2026-004',
-        'quantity' => 80,
-        'minimum_stock' => 60,
-        'received_date' => '2026-07-01',
-        'expiry_date' => '2027-06-30',
-        'temperature' => -15.0,
-        'storage_location' => 'Freezer B1',
-        'supplier' => 'DOH Central',
-        'status' => 'in_stock',
-        'unit' => 'vials'
-    ],
-    [
-        'id' => 5,
-        'vaccine_name' => 'Pneumococcal',
-        'batch_number' => 'PCV-2026-005',
-        'quantity' => 12,
-        'minimum_stock' => 40,
-        'received_date' => '2026-04-25',
-        'expiry_date' => '2026-12-31',
-        'temperature' => 2.2,
-        'storage_location' => 'Refrigerator C1',
-        'supplier' => 'WHO/UNICEF',
-        'status' => 'critical',
-        'unit' => 'vials'
-    ],
-    [
-        'id' => 6,
-        'vaccine_name' => 'MMR',
-        'batch_number' => 'MMR-2026-006',
-        'quantity' => 0,
-        'minimum_stock' => 30,
-        'received_date' => '2026-03-15',
-        'expiry_date' => '2027-05-20',
-        'temperature' => 2.5,
-        'storage_location' => 'Refrigerator A1',
-        'supplier' => 'DOH Central',
-        'status' => 'out_of_stock',
-        'unit' => 'vials'
-    ],
-    [
-        'id' => 7,
-        'vaccine_name' => 'JE',
-        'batch_number' => 'JE-2026-007',
-        'quantity' => 35,
-        'minimum_stock' => 30,
-        'received_date' => '2026-07-10',
-        'expiry_date' => '2027-11-30',
-        'temperature' => 2.0,
-        'storage_location' => 'Refrigerator B1',
-        'supplier' => 'WHO/UNICEF',
-        'status' => 'in_stock',
-        'unit' => 'vials'
-    ],
-    [
-        'id' => 8,
-        'vaccine_name' => 'Hepatitis A',
-        'batch_number' => 'HA-2026-008',
-        'quantity' => 60,
-        'minimum_stock' => 40,
-        'received_date' => '2026-06-28',
-        'expiry_date' => '2027-08-15',
-        'temperature' => 3.5,
-        'storage_location' => 'Refrigerator C2',
-        'supplier' => 'DOH Central',
-        'status' => 'in_stock',
-        'unit' => 'vials'
-    ],
-    [
-        'id' => 9,
-        'vaccine_name' => 'VZV',
-        'batch_number' => 'VZV-2026-009',
-        'quantity' => 18,
-        'minimum_stock' => 25,
-        'received_date' => '2026-05-20',
-        'expiry_date' => '2027-02-28',
-        'temperature' => -18.0,
-        'storage_location' => 'Freezer A2',
-        'supplier' => 'WHO/UNICEF',
-        'status' => 'low_stock',
-        'unit' => 'vials'
-    ],
-    [
-        'id' => 10,
-        'vaccine_name' => 'COVID-19 Booster',
-        'batch_number' => 'COVID-2026-010',
-        'quantity' => 8,
-        'minimum_stock' => 20,
-        'received_date' => '2026-07-05',
-        'expiry_date' => '2026-12-15',
-        'temperature' => -25.0,
-        'storage_location' => 'Freezer C1',
-        'supplier' => 'DOH Central',
-        'status' => 'critical',
-        'unit' => 'vials'
-    ],
-];
+require_once __DIR__ . '/../../config/database.php';
+
+// Base Vaccine Inventory Data
+$vaccineInventory = [];
+
+try {
+    $db = Database::getInstance();
+    $dbResources = $db->query('surveillance_resources', 'GET');
+    if (!empty($dbResources) && is_array($dbResources)) {
+        foreach ($dbResources as $r) {
+            $rId = (int)$r['id'];
+            $qty = (int)($r['quantity'] ?? 0);
+            $min = (int)($r['min_threshold'] ?? 20);
+            $status = $qty > $min ? 'in_stock' : ($qty > 0 ? 'low_stock' : 'out_of_stock');
+
+            $vaccineInventory[] = [
+                'id' => $rId,
+                'vaccine_name' => $r['item_name'] ?? 'Medical Resource',
+                'batch_number' => $r['resource_id'] ?? ('RES-' . sprintf('%03d', $rId)),
+                'quantity' => $qty,
+                'minimum_stock' => $min,
+                'received_date' => date('Y-m-d', strtotime($r['last_updated'] ?? 'now')),
+                'expiry_date' => date('Y-m-d', strtotime('+1 year')),
+                'temperature' => 4.0,
+                'storage_location' => $r['category'] ?? 'Storage A',
+                'supplier' => 'DOH Central',
+                'status' => $status,
+                'unit' => $r['unit'] ?? 'units'
+            ];
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Supabase surveillance_resources query exception: ' . $e->getMessage());
+}
+
+// Real Supabase data loaded from surveillance_resources
 
 // Stock Alert Thresholds
 $criticalThreshold = 20;
@@ -480,6 +373,14 @@ $title = 'Vaccine Inventory';
                     </tr>
                 </thead>
                 <tbody id="inventoryTableBody">
+                    <?php if (empty($vaccineInventory)): ?>
+                    <tr>
+                        <td colspan="8" class="px-4 py-12 text-center text-slate-400">
+                            <i class="fa-solid fa-boxes-packing text-3xl block mb-2 opacity-30"></i>
+                            No vaccine inventory records found in database
+                        </td>
+                    </tr>
+                    <?php else: ?>
                     <?php foreach ($vaccineInventory as $item): ?>
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors inventory-row <?php echo $item['status'] === 'critical' || $item['status'] === 'out_of_stock' ? 'bg-rose-50/50' : ''; ?>"
                         data-name="<?php echo strtolower($item['vaccine_name']); ?>"
@@ -562,6 +463,7 @@ $title = 'Vaccine Inventory';
                         </td>
                     </tr>
                     <?php endforeach; ?>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>

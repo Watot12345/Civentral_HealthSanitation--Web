@@ -15,14 +15,44 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('immunization & nutrition');
 
-// Sample Children Data
-$children = [
-    ['id' => 1, 'child_id' => 'CH-001', 'name' => 'Sofia Garcia', 'gender' => 'Female', 'age' => '2 yrs 4 mos', 'birth_date' => '2024-03-15'],
-    ['id' => 2, 'child_id' => 'CH-002', 'name' => 'Luis Mendoza', 'gender' => 'Male', 'age' => '1 yr 3 mos', 'birth_date' => '2025-04-20'],
-    ['id' => 3, 'child_id' => 'CH-003', 'name' => 'Emma Lim', 'gender' => 'Female', 'age' => '3 yrs 1 mo', 'birth_date' => '2023-06-01'],
-    ['id' => 4, 'child_id' => 'CH-004', 'name' => 'Noah Torres', 'gender' => 'Male', 'age' => '9 mos', 'birth_date' => '2025-10-10'],
-    ['id' => 5, 'child_id' => 'CH-005', 'name' => 'Isabella Cruz', 'gender' => 'Female', 'age' => '1 yr 11 mos', 'birth_date' => '2024-08-25'],
-];
+require_once __DIR__ . '/../../config/database.php';
+
+// Base Children Data
+$children = [];
+
+try {
+    $db = Database::getInstance();
+    $dbChildren = $db->query('children', 'GET');
+    if (!empty($dbChildren) && is_array($dbChildren)) {
+        foreach ($dbChildren as $c) {
+            $cId = (int)$c['id'];
+            $birthDate = $c['birth_date'] ?? date('Y-m-d');
+            $birth = new DateTime($birthDate);
+            $today = new DateTime();
+            $diff = $today->diff($birth);
+            $ageStr = $diff->y > 0 ? "{$diff->y} yrs {$diff->m} mos" : "{$diff->m} mos";
+
+            $children[] = [
+                'id' => $cId,
+                'child_id' => $c['child_id'] ?? ('CH-' . sprintf('%03d', $cId)),
+                'name' => trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')),
+                'gender' => !empty($c['gender']) ? ucfirst(strtolower($c['gender'])) : 'Female',
+                'age' => $ageStr,
+                'birth_date' => $birthDate
+            ];
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Supabase children query exception: ' . $e->getMessage());
+}
+
+if (empty($children)) {
+    $children = [
+        ['id' => 1, 'child_id' => 'CH-001', 'name' => 'Sofia Garcia', 'gender' => 'Female', 'age' => '2 yrs 4 mos', 'birth_date' => '2024-03-15'],
+        ['id' => 2, 'child_id' => 'CH-002', 'name' => 'Luis Mendoza', 'gender' => 'Male', 'age' => '1 yr 3 mos', 'birth_date' => '2025-04-20'],
+        ['id' => 3, 'child_id' => 'CH-003', 'name' => 'Emma Lim', 'gender' => 'Female', 'age' => '3 yrs 1 mo', 'birth_date' => '2023-06-01']
+    ];
+}
 
 // Sample Nutrition Assessments
 $nutritionAssessments = [

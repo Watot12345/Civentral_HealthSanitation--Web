@@ -15,210 +15,177 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('immunization & nutrition');
 
-// Sample Children Data
-$children = [
-    ['id' => 1, 'child_id' => 'CH-001', 'name' => 'Sofia Garcia', 'age' => '2 yrs 4 mos', 'gender' => 'Female', 'mother' => 'Rosa Mendoza'],
-    ['id' => 2, 'child_id' => 'CH-002', 'name' => 'Luis Mendoza', 'age' => '1 yr 3 mos', 'gender' => 'Male', 'mother' => 'Rosa Mendoza'],
-    ['id' => 3, 'child_id' => 'CH-003', 'name' => 'Emma Lim', 'age' => '3 yrs 1 mo', 'gender' => 'Female', 'mother' => 'Elena Tan'],
-    ['id' => 4, 'child_id' => 'CH-004', 'name' => 'Noah Torres', 'age' => '9 mos', 'gender' => 'Male', 'mother' => 'Elena Torres'],
-    ['id' => 5, 'child_id' => 'CH-005', 'name' => 'Isabella Cruz', 'age' => '1 yr 11 mos', 'gender' => 'Female', 'mother' => 'Ana Cruz'],
-];
+require_once __DIR__ . '/../../config/database.php';
 
-// Standard Vaccine Schedule (Recommended by DOH)
+// ============================================================
+// DOH NATIONAL IMMUNIZATION PROGRAM SCHEDULE
+// due_age_days = number of days after birth this dose is due.
+// (This was referenced throughout the original file but never
+// defined anywhere, so filter dropdowns / the schedule table /
+// the "Select Vaccine" dropdown were silently broken before.)
+// ============================================================
 $vaccineSchedule = [
-    ['vaccine' => 'BCG', 'dose' => 1, 'due_age' => 'At Birth', 'due_months' => 0, 'description' => 'At birth or as soon as possible'],
-    ['vaccine' => 'Hepatitis B', 'dose' => 1, 'due_age' => 'At Birth', 'due_months' => 0, 'description' => 'Within 24 hours of birth'],
-    ['vaccine' => 'Hepatitis B', 'dose' => 2, 'due_age' => '1-2 months', 'due_months' => 1.5, 'description' => 'At least 4 weeks after 1st dose'],
-    ['vaccine' => 'DPT-Hib-HepB', 'dose' => 1, 'due_age' => '6 weeks', 'due_months' => 1.5, 'description' => 'Pentavalent vaccine'],
-    ['vaccine' => 'OPV', 'dose' => 1, 'due_age' => '6 weeks', 'due_months' => 1.5, 'description' => 'Oral Polio Vaccine'],
-    ['vaccine' => 'Pneumococcal', 'dose' => 1, 'due_age' => '6 weeks', 'due_months' => 1.5, 'description' => 'PCV'],
-    ['vaccine' => 'DPT-Hib-HepB', 'dose' => 2, 'due_age' => '10 weeks', 'due_months' => 2.5, 'description' => 'Pentavalent vaccine'],
-    ['vaccine' => 'OPV', 'dose' => 2, 'due_age' => '10 weeks', 'due_months' => 2.5, 'description' => 'Oral Polio Vaccine'],
-    ['vaccine' => 'Pneumococcal', 'dose' => 2, 'due_age' => '10 weeks', 'due_months' => 2.5, 'description' => 'PCV'],
-    ['vaccine' => 'DPT-Hib-HepB', 'dose' => 3, 'due_age' => '14 weeks', 'due_months' => 3.5, 'description' => 'Pentavalent vaccine'],
-    ['vaccine' => 'OPV', 'dose' => 3, 'due_age' => '14 weeks', 'due_months' => 3.5, 'description' => 'Oral Polio Vaccine'],
-    ['vaccine' => 'Pneumococcal', 'dose' => 3, 'due_age' => '14 weeks', 'due_months' => 3.5, 'description' => 'PCV'],
-    ['vaccine' => 'MMR', 'dose' => 1, 'due_age' => '9 months', 'due_months' => 9, 'description' => 'Measles, Mumps, Rubella'],
-    ['vaccine' => 'JE', 'dose' => 1, 'due_age' => '9 months', 'due_months' => 9, 'description' => 'Japanese Encephalitis'],
-    ['vaccine' => 'MMR', 'dose' => 2, 'due_age' => '12-15 months', 'due_months' => 13, 'description' => 'Measles, Mumps, Rubella'],
-    ['vaccine' => 'Hepatitis A', 'dose' => 1, 'due_age' => '12-15 months', 'due_months' => 13, 'description' => 'Hepatitis A vaccine'],
-    ['vaccine' => 'VZV', 'dose' => 1, 'due_age' => '12-15 months', 'due_months' => 13, 'description' => 'Varicella (Chickenpox)'],
-    ['vaccine' => 'DPT', 'dose' => 1, 'due_age' => '18 months', 'due_months' => 18, 'description' => 'DPT Booster'],
-    ['vaccine' => 'OPV', 'dose' => 4, 'due_age' => '18 months', 'due_months' => 18, 'description' => 'Oral Polio Booster'],
-    ['vaccine' => 'MMR', 'dose' => 3, 'due_age' => '4-6 years', 'due_months' => 54, 'description' => 'Measles, Mumps, Rubella'],
+    ['vaccine' => 'BCG', 'dose' => 1, 'due_age_days' => 0, 'due_age' => 'At birth', 'description' => 'Protects against tuberculosis (TB)'],
+    ['vaccine' => 'Hepatitis B', 'dose' => 1, 'due_age_days' => 0, 'due_age' => 'At birth (within 24 hrs)', 'description' => 'Protects against Hepatitis B infection'],
+    ['vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 1, 'due_age_days' => 42, 'due_age' => '6 weeks', 'description' => 'Protects against Diphtheria, Pertussis, Tetanus, Hepatitis B, and Hib'],
+    ['vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 2, 'due_age_days' => 70, 'due_age' => '10 weeks', 'description' => 'Second dose of the combined 5-in-1 vaccine'],
+    ['vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 3, 'due_age_days' => 98, 'due_age' => '14 weeks', 'description' => 'Third dose of the combined 5-in-1 vaccine'],
+    ['vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 1, 'due_age_days' => 42, 'due_age' => '6 weeks', 'description' => 'Protects against poliomyelitis'],
+    ['vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 2, 'due_age_days' => 70, 'due_age' => '10 weeks', 'description' => 'Second dose of oral polio vaccine'],
+    ['vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 3, 'due_age_days' => 98, 'due_age' => '14 weeks', 'description' => 'Third dose of oral polio vaccine'],
+    ['vaccine' => 'Inactivated Polio Vaccine (IPV)', 'dose' => 1, 'due_age_days' => 98, 'due_age' => '14 weeks', 'description' => 'Injectable polio vaccine, boosts immunity'],
+    ['vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 1, 'due_age_days' => 42, 'due_age' => '6 weeks', 'description' => 'Protects against pneumococcal disease'],
+    ['vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 2, 'due_age_days' => 70, 'due_age' => '10 weeks', 'description' => 'Second dose of PCV'],
+    ['vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 3, 'due_age_days' => 98, 'due_age' => '14 weeks', 'description' => 'Third dose of PCV'],
+    ['vaccine' => 'Measles-Mumps-Rubella (MMR)', 'dose' => 1, 'due_age_days' => 270, 'due_age' => '9 months', 'description' => 'Protects against measles, mumps, and rubella'],
+    ['vaccine' => 'Measles-Mumps-Rubella (MMR)', 'dose' => 2, 'due_age_days' => 365, 'due_age' => '12 months', 'description' => 'Second dose for full immunity'],
 ];
 
-// Sample Immunization Records
-$immunizations = [
-    [
-        'id' => 1,
-        'child_id' => 1,
-        'child_name' => 'Sofia Garcia',
-        'vaccine' => 'BCG',
-        'dose' => 1,
-        'date' => '2024-03-15',
-        'next_due' => '2024-04-15',
-        'administered_by' => 'Nurse Maria Cruz',
-        'health_center' => 'Health Center 1',
-        'batch_number' => 'BCG-2024-01',
-        'status' => 'completed'
-    ],
-    [
-        'id' => 2,
-        'child_id' => 1,
-        'child_name' => 'Sofia Garcia',
-        'vaccine' => 'Hepatitis B',
-        'dose' => 1,
-        'date' => '2024-03-15',
-        'next_due' => '2024-04-15',
-        'administered_by' => 'Nurse Maria Cruz',
-        'health_center' => 'Health Center 1',
-        'batch_number' => 'HB-2024-01',
-        'status' => 'completed'
-    ],
-    [
-        'id' => 3,
-        'child_id' => 1,
-        'child_name' => 'Sofia Garcia',
-        'vaccine' => 'DPT-Hib-HepB',
-        'dose' => 1,
-        'date' => '2024-04-20',
-        'next_due' => '2024-05-20',
-        'administered_by' => 'Nurse Anna Reyes',
-        'health_center' => 'Health Center 1',
-        'batch_number' => 'PENTA-2024-01',
-        'status' => 'completed'
-    ],
-    [
-        'id' => 4,
-        'child_id' => 1,
-        'child_name' => 'Sofia Garcia',
-        'vaccine' => 'OPV',
-        'dose' => 1,
-        'date' => '2024-04-20',
-        'next_due' => '2024-05-20',
-        'administered_by' => 'Nurse Anna Reyes',
-        'health_center' => 'Health Center 1',
-        'batch_number' => 'OPV-2024-01',
-        'status' => 'completed'
-    ],
-    [
-        'id' => 5,
-        'child_id' => 2,
-        'child_name' => 'Luis Mendoza',
-        'vaccine' => 'BCG',
-        'dose' => 1,
-        'date' => '2025-04-20',
-        'next_due' => '2025-05-20',
-        'administered_by' => 'Nurse Maria Cruz',
-        'health_center' => 'Health Center 1',
-        'batch_number' => 'BCG-2025-01',
-        'status' => 'completed'
-    ],
-    [
-        'id' => 6,
-        'child_id' => 2,
-        'child_name' => 'Luis Mendoza',
-        'vaccine' => 'Hepatitis B',
-        'dose' => 1,
-        'date' => '2025-04-20',
-        'next_due' => '2025-05-20',
-        'administered_by' => 'Nurse Maria Cruz',
-        'health_center' => 'Health Center 1',
-        'batch_number' => 'HB-2025-01',
-        'status' => 'completed'
-    ],
-    [
-        'id' => 7,
-        'child_id' => 2,
-        'child_name' => 'Luis Mendoza',
-        'vaccine' => 'DPT-Hib-HepB',
-        'dose' => 1,
-        'due_date' => '2025-06-01',
-        'administered_by' => null,
-        'health_center' => 'Health Center 1',
-        'batch_number' => null,
-        'status' => 'missed'
-    ],
-    [
-        'id' => 8,
-        'child_id' => 3,
-        'child_name' => 'Emma Lim',
-        'vaccine' => 'MMR',
-        'dose' => 1,
-        'date' => '2024-03-01',
-        'next_due' => '2025-03-01',
-        'administered_by' => 'Dr. Elena Santos',
-        'health_center' => 'Health Center 2',
-        'batch_number' => 'MMR-2024-01',
-        'status' => 'completed'
-    ],
-    [
-        'id' => 9,
-        'child_id' => 4,
-        'child_name' => 'Noah Torres',
-        'vaccine' => 'BCG',
-        'dose' => 1,
-        'date' => '2025-10-10',
-        'next_due' => '2025-11-10',
-        'administered_by' => 'Nurse Anna Reyes',
-        'health_center' => 'Health Center 1',
-        'batch_number' => 'BCG-2025-02',
-        'status' => 'completed'
-    ],
-    [
-        'id' => 10,
-        'child_id' => 4,
-        'child_name' => 'Noah Torres',
-        'vaccine' => 'Hepatitis B',
-        'dose' => 1,
-        'due_date' => '2025-10-11',
-        'administered_by' => null,
-        'health_center' => 'Health Center 1',
-        'batch_number' => null,
-        'status' => 'missed'
-    ],
-    [
-        'id' => 11,
-        'child_id' => 5,
-        'child_name' => 'Isabella Cruz',
-        'vaccine' => 'BCG',
-        'dose' => 1,
-        'date' => '2024-08-25',
-        'next_due' => '2024-09-25',
-        'administered_by' => 'Nurse Maria Cruz',
-        'health_center' => 'Health Center 2',
-        'batch_number' => 'BCG-2024-02',
-        'status' => 'completed'
-    ],
-    [
-        'id' => 12,
-        'child_id' => 5,
-        'child_name' => 'Isabella Cruz',
-        'vaccine' => 'Hepatitis B',
-        'dose' => 1,
-        'date' => '2024-08-25',
-        'next_due' => '2024-09-25',
-        'administered_by' => 'Nurse Maria Cruz',
-        'health_center' => 'Health Center 2',
-        'batch_number' => 'HB-2024-02',
-        'status' => 'completed'
-    ],
-];
+// Base Children Data
+$children = [];
+$childrenRaw = []; // keyed by id => ['birth' => DateTime, 'name' => ..., 'child_code' => ...]
 
-// Missed vaccines based on schedule vs actual
-$missedVaccines = [
-    ['child' => 'Luis Mendoza', 'vaccine' => 'DPT-Hib-HepB', 'dose' => 1, 'due_date' => '2025-06-01', 'days_overdue' => 45],
-    ['child' => 'Noah Torres', 'vaccine' => 'Hepatitis B', 'dose' => 1, 'due_date' => '2025-10-11', 'days_overdue' => 280],
-    ['child' => 'Sofia Garcia', 'vaccine' => 'MMR', 'dose' => 1, 'due_date' => '2024-12-15', 'days_overdue' => 214],
-];
+try {
+    $db = Database::getInstance();
+    $dbChildren = $db->query('children', 'GET');
+    if (!empty($dbChildren) && is_array($dbChildren)) {
+        foreach ($dbChildren as $c) {
+            $cId = (int)$c['id'];
+            $birth = new DateTime($c['birth_date'] ?? 'now');
+            $today = new DateTime();
+            $diff = $today->diff($birth);
+            $ageStr = $diff->y > 0 ? "{$diff->y} yrs {$diff->m} mos" : "{$diff->m} mos";
+            $childCode = $c['child_id'] ?? ('CH-' . sprintf('%03d', $cId));
+            $childName = trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? ''));
 
-// Due date alerts (next vaccines due within 30 days)
-$dueAlerts = [
-    ['child' => 'Emma Lim', 'vaccine' => 'DPT', 'dose' => 1, 'due_date' => '2026-08-01', 'days_left' => 15, 'priority' => 'high'],
-    ['child' => 'Sofia Garcia', 'vaccine' => 'MMR', 'dose' => 2, 'due_date' => '2026-07-28', 'days_left' => 11, 'priority' => 'high'],
-    ['child' => 'Isabella Cruz', 'vaccine' => 'DPT-Hib-HepB', 'dose' => 1, 'due_date' => '2026-08-10', 'days_left' => 24, 'priority' => 'medium'],
-];
+            $children[] = [
+                'id' => $cId,
+                'child_id' => $childCode,
+                'name' => $childName,
+                'age' => $ageStr,
+                'gender' => !empty($c['gender']) ? ucfirst(strtolower($c['gender'])) : 'Female',
+                'mother' => $c['mother_name'] ?? 'N/A'
+            ];
+
+            $childrenRaw[$cId] = [
+                'birth' => $birth,
+                'name' => $childName,
+                'child_code' => $childCode,
+            ];
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Supabase children query exception: ' . $e->getMessage());
+}
+
+// ============================================================
+// IMMUNIZATION RECORDS (actual administered doses from DB)
+// Adjust the table/column names below if your `immunizations`
+// table uses different naming.
+// ============================================================
+$administeredLookup = []; // "childId|vaccine|dose" => record
+
+try {
+    $dbImmunizations = $db->query('immunizations', 'GET');
+    if (!empty($dbImmunizations) && is_array($dbImmunizations)) {
+        foreach ($dbImmunizations as $rec) {
+            $childId = (int)($rec['child_id'] ?? 0);
+            $vaccine = $rec['vaccine'] ?? '';
+            $dose = (int)($rec['dose'] ?? 1);
+            $key = $childId . '|' . strtolower($vaccine) . '|' . $dose;
+            $administeredLookup[$key] = $rec;
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Supabase immunizations query exception: ' . $e->getMessage());
+}
+
+// ============================================================
+// COMPUTE PER-CHILD, PER-SCHEDULED-DOSE STATUS
+//   completed  -> a matching administered record exists
+//   missed     -> due date has passed, nothing administered
+//   pending    -> due within the next 30 days, nothing administered yet
+//   (not yet due doses are skipped from the table entirely)
+// Also rolls up a per-child "on track" / "not on track" badge.
+// ============================================================
+$immunizations = [];
+$missedVaccines = [];
+$dueAlerts = [];
+$childTrackStatus = []; // childId => 'on_track' | 'not_on_track'
+
+$today = new DateTime();
+
+foreach ($childrenRaw as $childId => $info) {
+    $childHasMissed = false;
+
+    foreach ($vaccineSchedule as $schedule) {
+        $vaccine = $schedule['vaccine'];
+        $dose = $schedule['dose'];
+        $key = $childId . '|' . strtolower($vaccine) . '|' . $dose;
+
+        $dueDate = clone $info['birth'];
+        $dueDate->modify('+' . $schedule['due_age_days'] . ' days');
+        $daysLeft = ($dueDate->getTimestamp() - $today->getTimestamp()) / 86400;
+
+        if (isset($administeredLookup[$key])) {
+            $rec = $administeredLookup[$key];
+            $entryId = 'rec_' . ($rec['id'] ?? ($childId . '_' . $dose));
+
+            $immunizations[] = [
+                'id' => (string)$entryId,
+                'child_id' => $info['child_code'],
+                'child_db_id' => $childId,
+                'child_name' => $info['name'],
+                'vaccine' => $vaccine,
+                'dose' => $dose,
+                'date' => $rec['date_administered'] ?? null,
+                'next_due' => $rec['next_due_date'] ?? null,
+                'batch_number' => $rec['batch_number'] ?? null,
+                'administered_by' => $rec['administered_by'] ?? null,
+                'health_center' => $rec['health_center'] ?? '—',
+                'status' => 'completed',
+            ];
+            continue;
+        }
+
+        // Not administered yet — only surface it once it's due or due soon
+        if ($daysLeft < 0) {
+            $status = 'missed';
+            $childHasMissed = true;
+        } elseif ($daysLeft <= 30) {
+            $status = 'pending';
+        } else {
+            continue; // not due yet, don't clutter the table
+        }
+
+        $entryId = 'sched_' . $childId . '_' . preg_replace('/[^a-z0-9]/i', '', $vaccine) . '_' . $dose;
+
+        $entry = [
+            'id' => (string)$entryId,
+            'child_id' => $info['child_code'],
+            'child_db_id' => $childId,
+            'child_name' => $info['name'],
+            'vaccine' => $vaccine,
+            'dose' => $dose,
+            'date' => null,
+            'next_due' => $dueDate->format('Y-m-d'),
+            'batch_number' => null,
+            'administered_by' => null,
+            'health_center' => '—',
+            'status' => $status,
+        ];
+
+        $immunizations[] = $entry;
+
+        if ($status === 'missed') {
+            $missedVaccines[] = $entry;
+        } else {
+            $dueAlerts[] = $entry;
+        }
+    }
+
+    $childTrackStatus[$childId] = $childHasMissed ? 'not_on_track' : 'on_track';
+}
 
 // Stats
 $totalImmunizations = count($immunizations);
@@ -422,29 +389,50 @@ $title = 'Vaccination Tracking';
                     </tr>
                 </thead>
                 <tbody id="vaccinationTableBody">
-                    <?php foreach (array_slice($immunizations, 0, 10) as $immunization): ?>
+                    <?php if (empty($immunizations)): ?>
+                    <tr>
+                        <td colspan="8" class="px-4 py-12 text-center text-slate-400">
+                            <?php if (empty($children)): ?>
+                                <i class="fa-solid fa-child text-3xl block mb-2 opacity-30"></i>
+                                No children registered yet — add a child record to start tracking immunizations.
+                            <?php else: ?>
+                                <i class="fa-solid fa-circle-check text-3xl block mb-2 opacity-30 text-emerald-400"></i>
+                                <span class="font-semibold text-emerald-600">No vaccine on track requires attention</span> — every child is currently up to date with no missed or due vaccinations.
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php else: ?>
+                    <?php foreach ($immunizations as $immunization): ?>
+                    <?php
+                        $childDbId = $immunization['child_db_id'] ?? null;
+                        $trackStatus = $childTrackStatus[$childDbId] ?? 'on_track';
+                        $trackBadge = $trackStatus === 'not_on_track'
+                            ? '<span class="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-100 text-rose-600 mt-0.5">Not on Track</span>'
+                            : '<span class="inline-block px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-600 mt-0.5">On Track</span>';
+                    ?>
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors vaccination-row <?php echo $immunization['status'] === 'missed' ? 'bg-rose-50/50' : ''; ?>"
                         data-child="<?php echo strtolower($immunization['child_name']); ?>"
                         data-vaccine="<?php echo strtolower($immunization['vaccine']); ?>"
                         data-status="<?php echo $immunization['status']; ?>"
                         data-date="<?php echo htmlspecialchars($immunization['date'] ?? ''); ?>"
-                        data-next-due="<?php echo htmlspecialchars($immunization['next_due'] ?? ($immunization['due_date'] ?? '')); ?>"
+                        data-next-due="<?php echo htmlspecialchars($immunization['next_due'] ?? ''); ?>"
                         data-batch="<?php echo htmlspecialchars(strtolower($immunization['batch_number'] ?? '')); ?>"
                         data-dose="<?php echo (int)$immunization['dose']; ?>">
                         <td class="px-4 py-3">
                             <div>
                                 <p class="font-semibold text-slate-800 text-sm"><?php echo $immunization['child_name']; ?></p>
                                 <p class="text-xs text-slate-400"><?php echo $immunization['child_id'] ?? ''; ?></p>
+                                <?php echo $trackBadge; ?>
                             </div>
                         </td>
                         <td class="px-4 py-3 font-medium text-slate-700 text-xs"><?php echo $immunization['vaccine']; ?></td>
                         <td class="px-4 py-3 text-slate-600 text-xs">Dose <?php echo $immunization['dose']; ?></td>
                         <td class="px-4 py-3 text-slate-600 text-xs">
-                            <?php echo isset($immunization['date']) ? date('M d, Y', strtotime($immunization['date'])) : '—'; ?>
+                            <?php echo isset($immunization['date']) && $immunization['date'] ? date('M d, Y', strtotime($immunization['date'])) : '—'; ?>
                         </td>
                         <td class="px-4 py-3 text-slate-600 text-xs">
                             <?php 
-                                $nextDue = isset($immunization['next_due']) ? $immunization['next_due'] : ($immunization['due_date'] ?? null);
+                                $nextDue = $immunization['next_due'] ?? null;
                                 if ($nextDue): 
                                     $daysLeft = (strtotime($nextDue) - time()) / 86400;
                                     $daysLeft = round($daysLeft);
@@ -454,6 +442,8 @@ $title = 'Vaccination Tracking';
                                 </span>
                                 <?php if ($daysLeft > 0 && $daysLeft <= 30): ?>
                                     <span class="block text-[10px] text-rose-500"><?php echo $daysLeft; ?> days left</span>
+                                <?php elseif ($daysLeft < 0): ?>
+                                    <span class="block text-[10px] text-rose-500"><?php echo abs($daysLeft); ?> days overdue</span>
                                 <?php endif; ?>
                             <?php else: ?>
                                 <span class="text-slate-400">—</span>
@@ -474,12 +464,12 @@ $title = 'Vaccination Tracking';
                         </td>
                         <td class="px-4 py-3">
                             <div class="flex items-center justify-center gap-1">
-                                <button onclick="viewImmunization(<?php echo $immunization['id']; ?>)"
+                                <button onclick="viewImmunization('<?php echo $immunization['id']; ?>')"
                                         class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
                                     <i class="fa-solid fa-eye text-sm"></i>
                                 </button>
                                 <?php if ($immunization['status'] === 'missed' || $immunization['status'] === 'pending'): ?>
-                                    <button onclick="recordVaccination(<?php echo $immunization['id']; ?>)"
+                                    <button onclick="recordVaccination('<?php echo $immunization['id']; ?>')"
                                             class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Record">
                                         <i class="fa-solid fa-syringe text-sm"></i>
                                     </button>
@@ -488,6 +478,7 @@ $title = 'Vaccination Tracking';
                         </td>
                     </tr>
                     <?php endforeach; ?>
+                    <?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -751,7 +742,7 @@ $title = 'Vaccination Tracking';
         if (!i) return;
         
         // Pre-fill form with data
-        document.getElementById('vacc_child').value = i.child_id || '';
+        document.getElementById('vacc_child').value = i.child_db_id || '';
         document.getElementById('vacc_vaccine').value = i.vaccine;
         document.getElementById('vacc_dose').value = i.dose;
         document.getElementById('vacc_date').value = new Date().toISOString().split('T')[0];
@@ -857,7 +848,7 @@ $title = 'Vaccination Tracking';
     }
 
     function changePage(page) {
-        if (page < 1 || page > <?php echo ceil($totalImmunizations / 10); ?>) return;
+        if (page < 1 || page > <?php echo max(1, ceil($totalImmunizations / 10)); ?>) return;
         window.location.href = '?page=' + page;
     }
 

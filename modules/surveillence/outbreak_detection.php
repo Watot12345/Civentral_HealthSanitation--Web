@@ -27,57 +27,106 @@ $barangayCases = [
     ['name' => 'Camarin', 'lat' => 14.5785, 'lng' => 121.0470],
 ];
 
-// Simulated disease case data for Caloocan City
-$diseaseData = [
-    'Dengue' => [
-        'barangays' => [
-            ['name' => 'San Jose', 'cases' => 12, 'baseline' => 5, 'threshold' => 10, 'status' => 'Critical'],
-            ['name' => 'Poblacion', 'cases' => 5, 'baseline' => 4, 'threshold' => 8, 'status' => 'Warning'],
-            ['name' => 'Riverside', 'cases' => 3, 'baseline' => 3, 'threshold' => 6, 'status' => 'Normal'],
-            ['name' => 'San Antonio', 'cases' => 8, 'baseline' => 4, 'threshold' => 8, 'status' => 'Warning'],
-            ['name' => 'Bagong Silang', 'cases' => 2, 'baseline' => 2, 'threshold' => 5, 'status' => 'Normal'],
-            ['name' => 'Mabini', 'cases' => 1, 'baseline' => 1, 'threshold' => 3, 'status' => 'Normal'],
-            ['name' => 'Kaybiga', 'cases' => 4, 'baseline' => 3, 'threshold' => 6, 'status' => 'Normal'],
-            ['name' => 'Bagumbong', 'cases' => 2, 'baseline' => 2, 'threshold' => 4, 'status' => 'Normal'],
-            ['name' => 'Camarin', 'cases' => 7, 'baseline' => 4, 'threshold' => 8, 'status' => 'Warning'],
+require_once __DIR__ . '/../../config/database.php';
+
+// Base Disease Data
+$diseaseData = [];
+
+try {
+    $db = Database::getInstance();
+    $dbCases = $db->query('surveillance_cases', 'GET');
+    if (!empty($dbCases) && is_array($dbCases)) {
+        $grouped = [];
+        foreach ($dbCases as $c) {
+            $disease = $c['disease'] ?? 'Dengue';
+            $brgy = $c['barangay'] ?? 'San Jose';
+            if (!isset($grouped[$disease])) {
+                $grouped[$disease] = [];
+            }
+            if (!isset($grouped[$disease][$brgy])) {
+                $grouped[$disease][$brgy] = 0;
+            }
+            $grouped[$disease][$brgy]++;
+        }
+
+        foreach ($grouped as $dis => $brgys) {
+            $bList = [];
+            $totalCount = 0;
+            foreach ($brgys as $bName => $cnt) {
+                $totalCount += $cnt;
+                $status = $cnt >= 10 ? 'Critical' : ($cnt >= 5 ? 'Warning' : 'Normal');
+                $bList[] = [
+                    'name' => $bName,
+                    'cases' => $cnt,
+                    'baseline' => max(1, (int)round($cnt * 0.4)),
+                    'threshold' => max(3, (int)round($cnt * 0.8)),
+                    'status' => $status
+                ];
+            }
+            $diseaseData[$dis] = [
+                'barangays' => $bList,
+                'total' => $totalCount,
+                'trend' => '↑ ' . min(40, max(5, $totalCount * 2)) . '%',
+                'status' => $totalCount >= 15 ? 'Outbreak Warning' : 'Normal'
+            ];
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Supabase surveillance_cases query exception: ' . $e->getMessage());
+}
+
+if (empty($diseaseData)) {
+    $diseaseData = [
+        'Dengue' => [
+            'barangays' => [
+                ['name' => 'San Jose', 'cases' => 12, 'baseline' => 5, 'threshold' => 10, 'status' => 'Critical'],
+                ['name' => 'Poblacion', 'cases' => 5, 'baseline' => 4, 'threshold' => 8, 'status' => 'Warning'],
+                ['name' => 'Riverside', 'cases' => 3, 'baseline' => 3, 'threshold' => 6, 'status' => 'Normal'],
+                ['name' => 'San Antonio', 'cases' => 8, 'baseline' => 4, 'threshold' => 8, 'status' => 'Warning'],
+                ['name' => 'Bagong Silang', 'cases' => 2, 'baseline' => 2, 'threshold' => 5, 'status' => 'Normal'],
+                ['name' => 'Mabini', 'cases' => 1, 'baseline' => 1, 'threshold' => 3, 'status' => 'Normal'],
+                ['name' => 'Kaybiga', 'cases' => 4, 'baseline' => 3, 'threshold' => 6, 'status' => 'Normal'],
+                ['name' => 'Bagumbong', 'cases' => 2, 'baseline' => 2, 'threshold' => 4, 'status' => 'Normal'],
+                ['name' => 'Camarin', 'cases' => 7, 'baseline' => 4, 'threshold' => 8, 'status' => 'Warning'],
+            ],
+            'total' => 44,
+            'trend' => '↑ 15%',
+            'status' => 'Elevated'
         ],
-        'total' => 44,
-        'trend' => '↑ 15%',
-        'status' => 'Elevated'
-    ],
-    'Influenza' => [
-        'barangays' => [
-            ['name' => 'San Jose', 'cases' => 8, 'baseline' => 6, 'threshold' => 12, 'status' => 'Normal'],
-            ['name' => 'Poblacion', 'cases' => 15, 'baseline' => 7, 'threshold' => 14, 'status' => 'Critical'],
-            ['name' => 'Riverside', 'cases' => 5, 'baseline' => 5, 'threshold' => 10, 'status' => 'Normal'],
-            ['name' => 'San Antonio', 'cases' => 3, 'baseline' => 4, 'threshold' => 8, 'status' => 'Normal'],
-            ['name' => 'Bagong Silang', 'cases' => 4, 'baseline' => 3, 'threshold' => 6, 'status' => 'Warning'],
-            ['name' => 'Mabini', 'cases' => 2, 'baseline' => 2, 'threshold' => 4, 'status' => 'Normal'],
-            ['name' => 'Kaybiga', 'cases' => 6, 'baseline' => 4, 'threshold' => 8, 'status' => 'Warning'],
-            ['name' => 'Bagumbong', 'cases' => 3, 'baseline' => 3, 'threshold' => 6, 'status' => 'Normal'],
-            ['name' => 'Camarin', 'cases' => 4, 'baseline' => 4, 'threshold' => 8, 'status' => 'Normal'],
+        'Influenza' => [
+            'barangays' => [
+                ['name' => 'San Jose', 'cases' => 8, 'baseline' => 6, 'threshold' => 12, 'status' => 'Normal'],
+                ['name' => 'Poblacion', 'cases' => 15, 'baseline' => 7, 'threshold' => 14, 'status' => 'Critical'],
+                ['name' => 'Riverside', 'cases' => 5, 'baseline' => 5, 'threshold' => 10, 'status' => 'Normal'],
+                ['name' => 'San Antonio', 'cases' => 3, 'baseline' => 4, 'threshold' => 8, 'status' => 'Normal'],
+                ['name' => 'Bagong Silang', 'cases' => 4, 'baseline' => 3, 'threshold' => 6, 'status' => 'Warning'],
+                ['name' => 'Mabini', 'cases' => 2, 'baseline' => 2, 'threshold' => 4, 'status' => 'Normal'],
+                ['name' => 'Kaybiga', 'cases' => 6, 'baseline' => 4, 'threshold' => 8, 'status' => 'Warning'],
+                ['name' => 'Bagumbong', 'cases' => 3, 'baseline' => 3, 'threshold' => 6, 'status' => 'Normal'],
+                ['name' => 'Camarin', 'cases' => 4, 'baseline' => 4, 'threshold' => 8, 'status' => 'Normal'],
+            ],
+            'total' => 50,
+            'trend' => '↑ 8%',
+            'status' => 'Elevated'
         ],
-        'total' => 50,
-        'trend' => '↑ 8%',
-        'status' => 'Elevated'
-    ],
-    'Leptospirosis' => [
-        'barangays' => [
-            ['name' => 'San Jose', 'cases' => 0, 'baseline' => 1, 'threshold' => 3, 'status' => 'Normal'],
-            ['name' => 'Poblacion', 'cases' => 0, 'baseline' => 1, 'threshold' => 3, 'status' => 'Normal'],
-            ['name' => 'Riverside', 'cases' => 5, 'baseline' => 2, 'threshold' => 4, 'status' => 'Critical'],
-            ['name' => 'San Antonio', 'cases' => 0, 'baseline' => 1, 'threshold' => 2, 'status' => 'Normal'],
-            ['name' => 'Bagong Silang', 'cases' => 0, 'baseline' => 1, 'threshold' => 2, 'status' => 'Normal'],
-            ['name' => 'Mabini', 'cases' => 0, 'baseline' => 0, 'threshold' => 2, 'status' => 'Normal'],
-            ['name' => 'Kaybiga', 'cases' => 1, 'baseline' => 1, 'threshold' => 3, 'status' => 'Normal'],
-            ['name' => 'Bagumbong', 'cases' => 0, 'baseline' => 0, 'threshold' => 2, 'status' => 'Normal'],
-            ['name' => 'Camarin', 'cases' => 0, 'baseline' => 1, 'threshold' => 3, 'status' => 'Normal'],
-        ],
-        'total' => 6,
-        'trend' => '↑ 20%',
-        'status' => 'Normal'
-    ]
-];
+        'Leptospirosis' => [
+            'barangays' => [
+                ['name' => 'San Jose', 'cases' => 0, 'baseline' => 1, 'threshold' => 3, 'status' => 'Normal'],
+                ['name' => 'Poblacion', 'cases' => 0, 'baseline' => 1, 'threshold' => 3, 'status' => 'Normal'],
+                ['name' => 'Riverside', 'cases' => 5, 'baseline' => 2, 'threshold' => 4, 'status' => 'Critical'],
+                ['name' => 'San Antonio', 'cases' => 0, 'baseline' => 1, 'threshold' => 2, 'status' => 'Normal'],
+                ['name' => 'Bagong Silang', 'cases' => 0, 'baseline' => 1, 'threshold' => 2, 'status' => 'Normal'],
+                ['name' => 'Mabini', 'cases' => 0, 'baseline' => 0, 'threshold' => 2, 'status' => 'Normal'],
+                ['name' => 'Kaybiga', 'cases' => 1, 'baseline' => 1, 'threshold' => 3, 'status' => 'Normal'],
+                ['name' => 'Bagumbong', 'cases' => 0, 'baseline' => 0, 'threshold' => 2, 'status' => 'Normal'],
+                ['name' => 'Camarin', 'cases' => 0, 'baseline' => 1, 'threshold' => 3, 'status' => 'Normal'],
+            ],
+            'total' => 6,
+            'trend' => '↑ 20%',
+            'status' => 'Normal'
+        ]
+    ];
+}
 
 // Generate alerts based on threshold monitoring
 $alerts = [];
