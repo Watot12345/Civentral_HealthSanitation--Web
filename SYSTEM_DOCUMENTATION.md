@@ -492,7 +492,6 @@ Administration           [users.view OR roles.manage OR settings.manage OR logs.
 | appointments.php | Appointment scheduling | patients.view |
 | medical_records.php | Patient medical history | patients.view |
 | referrals.php | Inter-facility referrals | patients.view |
-| queue_management.php | Live queue display | triage.view |
 
 ### Sanitation (modules/sanitation/)
 

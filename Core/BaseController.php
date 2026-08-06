@@ -33,9 +33,9 @@ abstract class BaseController
         $extra = array_diff_key($result, array_flip(['success', 'message', 'data', 'code']));
         
         Response::json($success, $message, $data, $code, $extra);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         error_log("Controller Error: " . $e->getMessage());
-        Response::error('Internal server error', 500);
+        Response::error('Internal server error: ' . $e->getMessage(), 500);
     }
 }
 }

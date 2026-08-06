@@ -15,9 +15,15 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('health center services');
 
+// Role check — nurses can only do assessments, NOT create consultations
+$_sessionRole = strtolower(trim($_SESSION['role_description'] ?? $_SESSION['role'] ?? ''));
+$isNurse = str_contains($_sessionRole, 'nurse') || str_contains($_sessionRole, 'midwife');
+$canCreateConsultation = !$isNurse;
+
 require_once __DIR__ . '/../../app/Models/Patient.php';
 require_once __DIR__ . '/../../app/Models/Employee.php';
 require_once __DIR__ . '/../../app/Models/Consultation.php';
+require_once __DIR__ . '/../../app/Models/Triage.php';
 require_once __DIR__ . '/../../app/Controllers/ConsultationController.php';
 
 $patientModel = new Patient();
@@ -30,24 +36,22 @@ try {
 // Fetch Employees/Doctors
 $employeeModel = new Employee();
 $dbEmployees = [];
-$medicalStaff = []; // NEW: For filter dropdown
+$medicalStaff = []; // Attending Doctors / Physicians (filtered by role_description)
 try {
     $rawEmployees = $employeeModel->all();
     foreach ($rawEmployees as $e) {
-        $displayName = $e['full_name'] ?? '';
-        if (empty($displayName)) {
-            $displayName = $e['name'] ?? $e['username'] ?? "Employee #{$e['id']}";
-        }
-        $e['full_name'] = $displayName;
-        $e['first_name'] = $displayName;
-        $e['last_name'] = '';
-        $dbEmployees[] = $e;
+        $roleDesc = strtolower(trim($e['role_description'] ?? ''));
+        $role = strtolower(trim($e['role'] ?? ''));
         
-        // Filter medical staff for doctor dropdown using primary role and role_description
-        $primaryRole = $e['role'] ?? '';
-        $roleDesc = strtolower($e['role_description'] ?? '');
-        if (in_array($primaryRole, ['Medical Practitioner', 'Health Center Director', 'Health Center Staff', 'Immunization Lead', 'Nutrition Staff']) ||
-            in_array($roleDesc, ['doctor', 'medical practitioner', 'nurse', 'dentist', 'midwives', 'nutritionist', 'immunization coordinator', 'lab tech', 'health center director'])) {
+        $name = trim($e['full_name'] ?? (($e['first_name'] ?? '') . ' ' . ($e['last_name'] ?? '')));
+        if (empty($name)) $name = $e['name'] ?? $e['username'] ?? ("Employee #{$e['id']}");
+        $displayName = (str_starts_with($name, 'Dr.') || str_starts_with($name, 'Doctor')) ? $name : ('Dr. ' . $name);
+
+        $e['full_name'] = $displayName;
+        $dbEmployees[] = $e;
+
+        // Attending Physicians, Doctors, Dentists, Directors & Admins (based on role_description)
+        if ((str_contains($roleDesc, 'doctor') || str_contains($roleDesc, 'dentist') || str_contains($roleDesc, 'health center director') || str_contains($roleDesc, 'system administrator') || str_contains($roleDesc, 'physician')) && !str_contains($roleDesc, 'nurse') && !str_contains($roleDesc, 'technician') && !str_contains($roleDesc, 'sanitation')) {
             $medicalStaff[] = $e;
         }
     }
@@ -55,6 +59,31 @@ try {
     error_log('Error loading employees: ' . $e->getMessage());
     $dbEmployees = [];
     $medicalStaff = [];
+}
+
+// Resolve logged in doctor / employee ID
+$sessionUserId = $_SESSION['user_id'] ?? null;
+$sessionEmployeeId = $_SESSION['employee_id'] ?? null;
+$sessionFullName = trim($_SESSION['full_name'] ?? ($_SESSION['name'] ?? ($_SESSION['username'] ?? '')));
+
+$loggedInDoctorId = null;
+$loggedInDoctorName = null;
+
+foreach ($dbEmployees as $e) {
+    $eId = (string)($e['id'] ?? '');
+    $uId = (string)($e['user_id'] ?? '');
+    $eName = trim($e['full_name'] ?? (($e['first_name'] ?? '') . ' ' . ($e['last_name'] ?? '')));
+    $eUser = trim($e['username'] ?? '');
+
+    if (
+        ($sessionEmployeeId && (string)$sessionEmployeeId === $eId) ||
+        ($sessionUserId && (string)$sessionUserId === $uId) ||
+        (!empty($sessionFullName) && (stripos($eName, $sessionFullName) !== false || stripos($sessionFullName, $eName) !== false || stripos($sessionFullName, $eUser) !== false))
+    ) {
+        $loggedInDoctorId = $e['id'];
+        $loggedInDoctorName = $e['full_name'] ?? $eName;
+        break;
+    }
 }
 
 // Fetch real consultations from database
@@ -155,6 +184,66 @@ try {
     error_log("Error building consultations list: " . $e->getMessage());
 }
 
+// Fetch pending assessments sent from Check-in & Assessment intake
+$triageModel = new Triage();
+$pendingAssessments = [];
+try {
+    $rawTriage = $triageModel->all(['order' => 'created_at.desc']);
+    foreach ($rawTriage as $t) {
+        $st = strtolower($t['status'] ?? 'pending');
+        if (in_array($st, ['sent_to_doctor', 'triaged', 'in_triage', 'waiting', 'pending'])) {
+            $patientId = $t['patient_id'] ?? null;
+            $patient = $patientsMap[$patientId] ?? null;
+            
+            if ($patient) {
+                $firstName = $patient['first_name'] ?? '';
+                $lastName = $patient['last_name'] ?? '';
+                $patientName = trim("$firstName $lastName");
+                $patientCode = $patient['patient_id'] ?? "P-$patientId";
+                $dob = $patient['dob'] ?? null;
+                $age = $dob ? (date('Y') - date('Y', strtotime($dob))) : ($t['age'] ?? 'N/A');
+                $gender = $patient['gender'] ?? ($t['gender'] ?? 'N/A');
+            } else {
+                $patientName = "Patient #{$patientId}";
+                $patientCode = "P-{$patientId}";
+                $age = $t['age'] ?? 'N/A';
+                $gender = $t['gender'] ?? 'N/A';
+            }
+
+            $vitals = $t['vital_signs'] ?? [];
+            if (is_string($vitals)) {
+                $decoded = json_decode($vitals, true);
+                if (json_last_error() === JSON_ERROR_NONE) $vitals = $decoded;
+            }
+
+            $pendingAssessments[] = [
+                'id' => (int)$t['id'],
+                'triage_id' => $t['triage_id'] ?? ('TRG-' . $t['id']),
+                'patient_id' => (int)$patientId,
+                'patient_name' => $patientName,
+                'patient_code' => $patientCode,
+                'age' => $age,
+                'gender' => $gender,
+                'priority' => strtolower($t['priority'] ?? 'medium'),
+                'chief_complaint' => $t['chief_complaint'] ?? 'No chief complaint recorded',
+                'vitals' => [
+                    'bp' => $vitals['blood_pressure'] ?? $vitals['bp'] ?? '120/80',
+                    'temp' => $vitals['temperature'] ?? $vitals['temp'] ?? '36.5',
+                    'hr' => $vitals['heart_rate'] ?? $vitals['hr'] ?? '75',
+                    'weight' => $vitals['weight'] ?? '65',
+                    'height' => $vitals['height'] ?? '165',
+                    'spo2' => $vitals['oxygen_saturation'] ?? $vitals['spo2'] ?? '98',
+                    'rr' => $vitals['respiratory_rate'] ?? $vitals['rr'] ?? '18'
+                ],
+                'notes' => $t['notes'] ?? $t['initial_assessment'] ?? '',
+                'created_at' => $t['created_at'] ?? date('Y-m-d H:i:s')
+            ];
+        }
+    }
+} catch (Throwable $e) {
+    error_log("Error building pending assessments: " . $e->getMessage());
+}
+
 // Pagination
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $limit = 9;
@@ -184,10 +273,16 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
             <p class="text-sm text-slate-500 mt-0.5">View and manage all patient consultations and medical notes</p>
         </div>
         <div class="flex gap-3">
+            <?php if ($canCreateConsultation): ?>
             <button onclick="ModalSystem.open('addConsultationModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-plus text-xs"></i> New Consultation
             </button>
+            <?php else: ?>
+            <div class="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-400 rounded-lg text-sm font-medium border border-slate-200" title="Only doctors and authorized staff can create consultations">
+                <i class="fa-solid fa-lock text-xs"></i> View Only — Assessments are your module
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -274,6 +369,8 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         </div>
     </div>
 
+
+
     <!-- Search & Filters -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
         <div class="flex flex-col gap-3">
@@ -314,8 +411,12 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
             <div class="col-span-full bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-xs">
                 <div class="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-4 text-brand-medium text-2xl"><i class="fa-solid fa-stethoscope"></i></div>
                 <h3 class="text-lg font-bold text-slate-800">No consultations recorded yet</h3>
+                <?php if ($canCreateConsultation): ?>
                 <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">Click "New Consultation" above to create your first patient consultation record.</p>
                 <button onclick="ModalSystem.open('addConsultationModal')" class="mt-4 px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium text-sm font-semibold inline-flex items-center gap-2"><i class="fa-solid fa-plus text-xs"></i> New Consultation</button>
+                <?php else: ?>
+                <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">Consultations are recorded by doctors. Your role allows you to perform <strong>patient assessments (triage)</strong> only.</p>
+                <?php endif; ?>
             </div>
         <?php else: ?>
             <?php foreach ($paginatedConsultations as $c): ?>
@@ -349,12 +450,16 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                     <div class="mt-3 pt-2.5 border-t border-slate-100"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Diagnosis</p><p class="text-xs text-slate-800 font-semibold line-clamp-1 mt-0.5"><?php echo htmlspecialchars($c['diagnosis']); ?></p></div>
                     <div class="mt-2"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Treatment Plan</p><p class="text-xs text-slate-600 line-clamp-2 mt-0.5"><?php echo htmlspecialchars($c['treatment_plan'] ?: 'None recorded'); ?></p></div>
                 </div>
-                <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <a href="patients.php?patient=<?php echo $c['patient_id']; ?>&id=<?php echo $c['patient_id']; ?>" class="px-2.5 py-1 text-xs font-semibold text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="View Patient Profile"><i class="fa-solid fa-user mr-1"></i> Patient</a>
-                    <div class="flex gap-1">
-                        <button onclick="viewConsultation(<?php echo $c['id']; ?>)" class="px-2.5 py-1 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition"><i class="fa-solid fa-eye mr-1"></i> View</button>
-                        <button onclick="editConsultation(<?php echo $c['id']; ?>)" class="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
-                        <button onclick="deleteConsultation(<?php echo $c['id']; ?>)" class="px-2.5 py-1 text-xs font-semibold text-rose-500 hover:bg-rose-50 rounded-lg transition"><i class="fa-solid fa-trash-can"></i></button>
+                <div class="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <button onclick="viewConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye mr-1"></i> View</button>
+                        <button onclick="editConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Record"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
+                    </div>
+                    <div class="flex items-center gap-1 flex-wrap">
+                        <button onclick="issuePrescription(<?php echo $c['patient_id']; ?>, <?php echo $c['id']; ?>)" class="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition" title="Issue Prescription (Optional)"><i class="fa-solid fa-pills text-xs"></i></button>
+                        <button onclick="createReferral(<?php echo $c['patient_id']; ?>, <?php echo $c['id']; ?>)" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Create Referral (Optional)"><i class="fa-solid fa-arrow-right-from-bracket text-xs"></i></button>
+                        <button onclick="scheduleFollowUp(<?php echo $c['patient_id']; ?>, <?php echo $c['id']; ?>)" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Schedule Follow-up"><i class="fa-solid fa-calendar-plus text-xs"></i></button>
+                        <button onclick="openMedicalRecord(<?php echo $c['patient_id']; ?>)" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Medical Record Archive"><i class="fa-solid fa-folder-open text-xs"></i></button>
                     </div>
                 </div>
             </div>
@@ -373,29 +478,75 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
 <div id="viewConsultationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10"><h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-notes-medical text-brand-medium"></i> Consultation Details</h3><button onclick="ModalSystem.close('viewConsultationModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div><div id="consultationDetailsContent" class="p-6"><div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading consultation details...</div></div></div></div>
 
 <!-- ADD CONSULTATION MODAL -->
-<div id="addConsultationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10"><h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-stethoscope text-brand-medium"></i> New Consultation Record</h3><button onclick="ModalSystem.close('addConsultationModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div>
-<!-- FIXED: Removed onsubmit -->
+<?php if ($canCreateConsultation): ?>
+<div id="addConsultationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10"><h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-stethoscope text-brand-medium"></i> Doctor Consultation Record</h3><button onclick="ModalSystem.close('addConsultationModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div>
 <form id="addConsultationForm" class="p-6 space-y-4">
 <input type="hidden" id="add_appointment_id" value="">
+<input type="hidden" id="add_triage_id" value="">
+
+<!-- RECORDED ASSESSMENT VITALS CARD (PRE-LOADED FROM CHECK-IN & ASSESSMENT) -->
+<div id="assessmentVitalsCard" class="hidden p-4 bg-teal-50 border border-teal-200 rounded-xl">
+    <div class="flex items-center justify-between mb-2">
+        <h4 class="text-xs font-bold text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-heart-pulse text-teal-600"></i> Recorded Patient Check-in & Assessment Vitals
+        </h4>
+        <span id="assessment_time_badge" class="text-[10px] font-semibold text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">Pre-loaded Intake Vitals</span>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-slate-700 mb-2">
+        <div class="bg-white p-2 rounded-lg border border-teal-100"><span class="text-slate-400 block text-[10px]">Blood Pressure</span><strong id="vitals_bp_display" class="text-slate-900 font-mono text-xs">-</strong></div>
+        <div class="bg-white p-2 rounded-lg border border-teal-100"><span class="text-slate-400 block text-[10px]">Temperature</span><strong id="vitals_temp_display" class="text-slate-900 text-xs">-</strong></div>
+        <div class="bg-white p-2 rounded-lg border border-teal-100"><span class="text-slate-400 block text-[10px]">Heart Rate</span><strong id="vitals_hr_display" class="text-slate-900 text-xs">-</strong></div>
+        <div class="bg-white p-2 rounded-lg border border-teal-100"><span class="text-slate-400 block text-[10px]">Weight / Height</span><strong id="vitals_weight_display" class="text-slate-900 text-xs">-</strong></div>
+    </div>
+    <div class="bg-white p-2.5 rounded-lg border border-teal-100 text-xs">
+        <span class="text-slate-400 block text-[10px] font-bold uppercase">Chief Complaint</span>
+        <p id="vitals_complaint_display" class="text-slate-800 font-medium text-xs mt-0.5">-</p>
+    </div>
+</div>
+
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Patient <span class="text-rose-500">*</span></label><select id="add_patient_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Patient</option><?php foreach ($dbPatients as $p): ?><option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['first_name'] . ' ' . $p['last_name']); ?> (<?php echo htmlspecialchars($p['patient_id'] ?? "P-{$p['id']}"); ?>)</option><?php endforeach; ?></select></div>
-<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Attending Doctor / Staff <span class="text-rose-500">*</span></label><select id="add_employee_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Doctor / Staff</option><?php if (!empty($dbEmployees)): ?><?php foreach ($dbEmployees as $e): $displayName = $e['full_name'] ?? ''; if (empty($displayName)) { $displayName = $e['name'] ?? $e['username'] ?? "Employee #{$e['id']}"; } ?><option value="<?php echo $e['id']; ?>"><?php echo htmlspecialchars($displayName); ?></option><?php endforeach; ?><?php else: ?><option value="1">Dr. Elena Santos</option><option value="2">Dr. Miguel Reyes</option><option value="3">Dr. Ana Cruz</option><?php endif; ?></select></div>
+<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Attending Doctor / Staff <span class="text-rose-500">*</span></label><select id="add_employee_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Doctor / Staff</option><?php foreach ($medicalStaff as $e): $displayName = $e['full_name'] ?? $e['name'] ?? "Employee #{$e['id']}"; $isSelected = ($loggedInDoctorId && (int)$e['id'] === (int)$loggedInDoctorId); ?><option value="<?php echo $e['id']; ?>" <?php echo $isSelected ? 'selected' : ''; ?>><?php echo htmlspecialchars($displayName); ?> (<?php echo htmlspecialchars($e['role_description'] ?? 'Doctor'); ?>)</option><?php endforeach; ?></select></div>
 </div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date <span class="text-rose-500">*</span></label><input type="date" id="add_date" value="<?php echo date('Y-m-d'); ?>" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Time <span class="text-rose-500">*</span></label><input type="time" id="add_time" value="<?php echo date('H:i'); ?>" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Chief Complaints / Symptoms</label><input type="text" id="add_symptoms" placeholder="e.g., Fever, persistent cough, headache" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Diagnosis <span class="text-rose-500">*</span></label><input type="text" id="add_diagnosis" required placeholder="Primary diagnosis" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ICD-10 Code</label><input type="text" id="add_icd_code" placeholder="e.g., J06.9, I10" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none font-mono uppercase"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="add_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="referred">Referred</option><option value="follow_up">Follow-up Needed</option></select></div></div>
-<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50"><label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1.5"><i class="fa-solid fa-heart-pulse text-rose-500"></i> Vital Signs (Optional)</label><div class="grid grid-cols-2 sm:grid-cols-4 gap-3"><div><span class="text-[10px] text-slate-500">BP (mmHg)</span><input type="text" id="add_bp" maxlength="7" pattern="[0-9]{2,3}/[0-9]{2,3}" inputmode="numeric" placeholder="120/80" class="vital-bp w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Heart Rate (bpm)</span><input type="text" id="add_hr" maxlength="3" inputmode="numeric" placeholder="72" class="vital-number w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Temp (°C)</span><input type="text" id="add_temp" maxlength="5" inputmode="decimal" placeholder="36.5" class="vital-decimal w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Weight (kg)</span><input type="text" id="add_weight" maxlength="5" inputmode="decimal" placeholder="65" class="vital-decimal w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div></div></div>
-<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Treatment Plan & Prescriptions</label><textarea id="add_treatment_plan" rows="2" placeholder="Medications prescribed, rest, lab tests ordered..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></textarea></div>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Follow-up Date</label><input type="date" id="add_follow_up_date" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Clinical Notes</label><input type="text" id="add_notes" placeholder="Additional observations" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ICD-10 Code</label>
+        <div class="flex gap-2">
+            <input type="text" id="add_icd_code" placeholder="e.g., J06.9, I10" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none font-mono uppercase">
+            <button type="button" onclick="suggestIcdCode()" class="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0" title="Suggest ICD-10 code based on diagnosis">
+                <i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i> AI Suggest
+            </button>
+        </div>
+    </div>
+    <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="add_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="completed">Completed</option><option value="in_progress">In Progress</option><option value="referred">Referred</option><option value="follow_up">Follow-up Needed</option></select></div>
+</div>
+<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Treatment Plan & Clinical Notes</label><textarea id="add_treatment_plan" rows="2" placeholder="Medications prescribed, rest, lab tests ordered..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></textarea></div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Follow-up Date</label><input type="date" id="add_follow_up_date" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Clinical Notes</label><input type="text" id="add_notes" placeholder="Additional doctor observations" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
+
+<!-- ACTION TRIGGERS FOR PRESCRIPTION & REFERRAL -->
+<div class="pt-3 border-t border-slate-100 flex flex-wrap gap-4 text-xs font-semibold text-slate-700 bg-slate-50/70 p-3 rounded-xl">
+    <label class="flex items-center gap-2 cursor-pointer hover:text-brand-dark transition">
+        <input type="checkbox" id="add_create_prescription" class="w-4 h-4 text-brand-medium rounded border-slate-300 focus:ring-brand-medium">
+        <span><i class="fa-solid fa-pills text-teal-600 mr-1"></i> Issue Prescription after saving</span>
+    </label>
+    <label class="flex items-center gap-2 cursor-pointer hover:text-brand-dark transition">
+        <input type="checkbox" id="add_create_referral" class="w-4 h-4 text-brand-medium rounded border-slate-300 focus:ring-brand-medium">
+        <span><i class="fa-solid fa-arrow-right-from-bracket text-amber-600 mr-1"></i> Create Referral Form after saving</span>
+    </label>
+</div>
+
 <div class="flex justify-end gap-2 pt-3 border-t border-slate-100"><button type="button" onclick="ModalSystem.close('addConsultationModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button><button type="submit" id="submitAddBtn" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5"><i class="fa-solid fa-check"></i> Save Consultation</button></div>
 </form></div></div>
+<?php endif; // $canCreateConsultation ?>
 
 <!-- EDIT CONSULTATION MODAL -->
 <div id="editConsultationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10"><h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-pen-to-square text-brand-medium"></i> Edit Consultation</h3><button onclick="ModalSystem.close('editConsultationModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div>
 <!-- FIXED: Removed onsubmit -->
 <form id="editConsultationForm" class="p-6 space-y-4">
 <input type="hidden" id="edit_id"><input type="hidden" id="edit_appointment_id" value="">
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Patient</label><input type="text" id="edit_patient_name" readonly class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none font-semibold cursor-not-allowed"><input type="hidden" id="edit_patient_id"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Attending Doctor / Staff</label><select id="edit_employee_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Doctor / Staff</option><?php if (!empty($dbEmployees)): ?><?php foreach ($dbEmployees as $e): $fullName = trim(($e['first_name'] ?? '') . ' ' . ($e['last_name'] ?? '')); $fullName = !empty($fullName) ? $fullName : ($e['name'] ?? ''); $displayText = !empty($fullName) ? $fullName : "Employee #{$e['id']}"; ?><option value="<?php echo $e['id']; ?>"><?php echo htmlspecialchars($displayText); ?></option><?php endforeach; ?><?php else: ?><option value="1">Dr. Elena Santos</option><option value="2">Dr. Miguel Reyes</option><option value="3">Dr. Ana Cruz</option><?php endif; ?></select></div></div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Patient</label><input type="text" id="edit_patient_name" readonly class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none font-semibold cursor-not-allowed"><input type="hidden" id="edit_patient_id"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Attending Doctor / Staff</label><select id="edit_employee_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Doctor / Staff</option><?php foreach ($medicalStaff as $e): $displayName = $e['full_name'] ?? $e['name'] ?? "Employee #{$e['id']}"; ?><option value="<?php echo $e['id']; ?>"><?php echo htmlspecialchars($displayName); ?> (<?php echo htmlspecialchars($e['role_description'] ?? 'Doctor'); ?>)</option><?php endforeach; ?></select></div></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label><input type="date" id="edit_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Time</label><input type="time" id="edit_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Symptoms</label><input type="text" id="edit_symptoms" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Diagnosis</label><input type="text" id="edit_diagnosis" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ICD-10 Code</label><input type="text" id="edit_icd_code" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none font-mono uppercase"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="referred">Referred</option><option value="follow_up">Follow-up Needed</option></select></div></div>
@@ -487,13 +638,49 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                 <div><h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Diagnosis</h5><p class="text-sm font-semibold text-slate-900 bg-emerald-50/60 p-3 rounded-lg border border-emerald-100">${c.diagnosis}</p></div>
                 <div><h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Treatment Plan</h5><p class="text-sm text-slate-800 bg-brand-light/30 p-3 rounded-lg border border-brand-border">${c.treatment_plan || c.treatment || 'No treatment plan recorded.'}</p></div>
                 ${c.notes ? `<div><h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Clinical Notes</h5><p class="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200">${c.notes}</p></div>` : ''}
-                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                    <a href="patients.php?patient=${c.patient_id}&id=${c.patient_id}" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-xs font-semibold inline-flex items-center gap-1.5"><i class="fa-solid fa-user"></i> View Patient Profile</a>
-                    <button onclick="ModalSystem.close('viewConsultationModal'); editConsultation(${c.id});" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold inline-flex items-center gap-1.5"><i class="fa-solid fa-pen"></i> Edit Record</button>
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100">
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="issuePrescription(${c.patient_id}, ${c.id})" class="px-3 py-1.5 bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-100 rounded-lg transition text-xs font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-pills text-teal-600"></i> Issue Prescription
+                        </button>
+                        <button onclick="createReferral(${c.patient_id}, ${c.id})" class="px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 rounded-lg transition text-xs font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-arrow-right-from-bracket text-amber-600"></i> Create Referral
+                        </button>
+                        <button onclick="scheduleFollowUp(${c.patient_id}, ${c.id})" class="px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 rounded-lg transition text-xs font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-calendar-plus text-blue-600"></i> Schedule Follow-up
+                        </button>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button onclick="openMedicalRecord(${c.patient_id})" class="px-3 py-1.5 bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100 rounded-lg transition text-xs font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-folder-open text-purple-600"></i> Medical Record Archive
+                        </button>
+                        <button onclick="ModalSystem.close('viewConsultationModal'); editConsultation(${c.id});" class="px-3 py-1.5 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-pen"></i> Edit Record
+                        </button>
+                    </div>
                 </div>
             </div>`;
         
         setTimeout(() => { if (typeof ModalSystem !== 'undefined' && ModalSystem.refreshMasking) ModalSystem.refreshMasking('viewConsultationModal'); }, 100);
+    }
+
+    // ============================================================
+    // WORKFLOW NAVIGATION & OUTCOME HELPERS
+    // ============================================================
+    function issuePrescription(patientId, consultationId) {
+        window.location.href = `prescriptions.php?patient_id=${patientId}&consultation_id=${consultationId}&action=new`;
+    }
+
+    function createReferral(patientId, consultationId) {
+        window.location.href = `referrals.php?patient_id=${patientId}&consultation_id=${consultationId}&action=new`;
+    }
+
+    function scheduleFollowUp(patientId, consultationId) {
+        window.location.href = `appointments.php?patient_id=${patientId}&consultation_id=${consultationId}&action=new`;
+    }
+
+    function openMedicalRecord(patientId) {
+        window.location.href = `medical_records.php?patient_id=${patientId}`;
     }
 
     // ============================================================
@@ -532,28 +719,135 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         }
     });
 
+    function startConsultationFromTriage(pa) {
+        if (!pa) return;
+        
+        // Select patient
+        const patientSelect = document.getElementById('add_patient_id');
+        if (patientSelect && pa.patient_id) {
+            for (let i = 0; i < patientSelect.options.length; i++) {
+                if (String(patientSelect.options[i].value) === String(pa.patient_id)) {
+                    patientSelect.selectedIndex = i;
+                    break;
+                }
+            }
+        }
+
+        // Select doctor if assigned in triage
+        const doctorSelect = document.getElementById('add_employee_id');
+        if (doctorSelect && (pa.doctor_id || pa.doctor_assigned)) {
+            let matched = false;
+            if (pa.doctor_id) {
+                const docId = String(pa.doctor_id);
+                for (let i = 0; i < doctorSelect.options.length; i++) {
+                    if (String(doctorSelect.options[i].value) === docId) {
+                        doctorSelect.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if (!matched && pa.doctor_assigned) {
+                for (let i = 0; i < doctorSelect.options.length; i++) {
+                    if (doctorSelect.options[i].text.toLowerCase().includes(pa.doctor_assigned.toLowerCase())) {
+                        doctorSelect.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if (!matched && (pa.doctor_id || pa.doctor_assigned)) {
+                const opt = document.createElement('option');
+                opt.value = pa.doctor_id ? String(pa.doctor_id) : '';
+                opt.textContent = pa.doctor_assigned ? (pa.doctor_assigned.startsWith('Dr.') ? pa.doctor_assigned : 'Dr. ' + pa.doctor_assigned) : `Doctor #${pa.doctor_id}`;
+                opt.selected = true;
+                doctorSelect.appendChild(opt);
+                doctorSelect.value = opt.value;
+            }
+        }
+
+        // Set hidden IDs & symptoms
+        document.getElementById('add_triage_id').value = pa.id || '';
+        document.getElementById('add_symptoms').value = pa.chief_complaint || '';
+
+        // Vitals
+        const bp = pa.vitals?.bp || '';
+        const temp = pa.vitals?.temp || '';
+        const hr = pa.vitals?.hr || '';
+        const weight = pa.vitals?.weight || '';
+        const height = pa.vitals?.height || '';
+
+        // Vital sign fields removed from add form — skip setting them
+
+        // Display Assessment Vitals Card
+        const vitalsCard = document.getElementById('assessmentVitalsCard');
+        if (vitalsCard) {
+            document.getElementById('vitals_bp_display').textContent = bp || 'N/A';
+            document.getElementById('vitals_temp_display').textContent = (temp && temp !== 'N/A') ? (temp + ' °C') : 'N/A';
+            document.getElementById('vitals_hr_display').textContent = (hr && hr !== 'N/A') ? (hr + ' bpm') : 'N/A';
+            document.getElementById('vitals_weight_display').textContent = (weight && weight !== 'N/A') ? (weight + ' kg / ' + (height !== 'N/A' ? height + ' cm' : '')) : 'N/A';
+            document.getElementById('vitals_complaint_display').textContent = pa.chief_complaint || 'No complaint recorded';
+            vitalsCard.classList.remove('hidden');
+        }
+
+        ModalSystem.open('addConsultationModal');
+        if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+            ModalSystem.toast.info('Patient vitals and assessment pre-loaded for consultation', { title: '🩺 Patient Ready', duration: 3000 });
+        }
+    }
+
+    function suggestIcdCode() {
+        const symptoms = (document.getElementById('add_symptoms')?.value || '').toLowerCase();
+        const diagnosis = (document.getElementById('add_diagnosis')?.value || '').toLowerCase();
+        const text = symptoms + ' ' + diagnosis;
+        
+        let suggestedCode = 'J06.9';
+        let suggestedLabel = 'Acute upper respiratory infection';
+
+        if (text.includes('fever') || text.includes('cough') || text.includes('flu') || text.includes('sipon') || text.includes('trangkaso')) {
+            suggestedCode = 'J06.9';
+            suggestedLabel = 'Acute upper respiratory infection, unspecified';
+        } else if (text.includes('diabetes') || text.includes('sugar') || text.includes('glucose')) {
+            suggestedCode = 'E11.9';
+            suggestedLabel = 'Type 2 diabetes mellitus without complications';
+        } else if (text.includes('hypertension') || text.includes('bp') || text.includes('high blood') || text.includes('presyon')) {
+            suggestedCode = 'I10';
+            suggestedLabel = 'Essential (primary) hypertension';
+        } else if (text.includes('diarrhea') || text.includes('stomach') || text.includes('lbm') || text.includes('tae') || text.includes('vomit')) {
+            suggestedCode = 'A09';
+            suggestedLabel = 'Infectious gastroenteritis and colitis, unspecified';
+        } else if (text.includes('pneumonia') || text.includes('pulmonya') || text.includes('hina sa baga')) {
+            suggestedCode = 'J18.9';
+            suggestedLabel = 'Pneumonia, unspecified organism';
+        } else if (text.includes('gastritis') || text.includes('acid') || text.includes('ulcer') || text.includes('sikmura')) {
+            suggestedCode = 'K29.7';
+            suggestedLabel = 'Gastritis, unspecified';
+        }
+
+        const icdInput = document.getElementById('add_icd_code');
+        if (icdInput) {
+            icdInput.value = suggestedCode;
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                ModalSystem.toast.success(`Suggested ICD-10: ${suggestedCode} (${suggestedLabel})`, { title: '🪄 AI ICD-10 Suggestion', duration: 4000 });
+            }
+        }
+    }
+
     async function saveNewConsultation(event) {
         event.preventDefault();
 
-        const bp = document.getElementById('add_bp').value.trim();
-        const hr = document.getElementById('add_hr').value.trim();
-        const temp = document.getElementById('add_temp').value.trim();
-        const weight = document.getElementById('add_weight').value.trim();
 
-        const vitalError = validateVitalSigns({ bp, hr, temp, weight });
-        if (vitalError) {
-            ModalSystem.toast.error(vitalError);
-            return;
-        }
+        // Vital signs fields removed from add form — no validation needed
 
         const submitBtn = document.getElementById('submitAddBtn');
         submitBtn.disabled = true;
         submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saving...`;
 
-        let vitalSigns = null;
-        if (bp || hr || temp || weight) { vitalSigns = { bp, hr, temp, weight }; }
 
         const appointmentId = document.getElementById('add_appointment_id')?.value || null;
+        const triageId = document.getElementById('add_triage_id')?.value || null;
+        const createPrescription = document.getElementById('add_create_prescription')?.checked || false;
+        const createReferral = document.getElementById('add_create_referral')?.checked || false;
 
         const payload = {
             patient_id: parseInt(document.getElementById('add_patient_id').value),
@@ -564,18 +858,37 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
             diagnosis: document.getElementById('add_diagnosis').value.trim(),
             icd_code: document.getElementById('add_icd_code').value.trim(),
             status: document.getElementById('add_status').value,
-            vital_signs: vitalSigns,
             treatment_plan: document.getElementById('add_treatment_plan').value.trim(),
             notes: document.getElementById('add_notes').value.trim(),
             follow_up_date: document.getElementById('add_follow_up_date').value || null,
-            appointment_id: appointmentId
+            appointment_id: appointmentId,
+            triage_id: triageId
         };
 
         try {
             const res = await fetch('/capstone/api/consultations.php', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
             const data = await res.json();
-            if (data.success) { ModalSystem.toast.success('Consultation created!'); ModalSystem.close('addConsultationModal'); setTimeout(() => window.location.reload(), 1000); }
-            else { ModalSystem.toast.error(data.message || 'Failed'); }
+            if (data.success) {
+                ModalSystem.toast.success('Consultation created!');
+                ModalSystem.close('addConsultationModal');
+                
+                const createdId = data.data?.id || data.data?.consultation_id || '';
+                const patientId = payload.patient_id;
+
+                if (createPrescription) {
+                    setTimeout(() => {
+                        window.location.href = `prescriptions.php?patient_id=${patientId}&consultation_id=${createdId}&from_consultation=true`;
+                    }, 800);
+                } else if (createReferral) {
+                    setTimeout(() => {
+                        window.location.href = `referrals.php?patient_id=${patientId}&consultation_id=${createdId}&from_consultation=true`;
+                    }, 800);
+                } else {
+                    setTimeout(() => window.location.reload(), 1000);
+                }
+            } else {
+                ModalSystem.toast.error(data.message || 'Failed');
+            }
         } catch (err) { ModalSystem.toast.error('Network error'); console.error(err); }
         finally { submitBtn.disabled = false; submitBtn.innerHTML = `<i class="fa-solid fa-check"></i> Save Consultation`; }
     }
@@ -762,23 +1075,125 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
 }
     function changePage(page){if(page<1||page><?php echo $totalPages; ?>)return;window.location.href='?page='+page;}
 
+    const LOGGED_IN_DOCTOR_ID = <?php echo json_encode($loggedInDoctorId); ?>;
+    const LOGGED_IN_DOCTOR_NAME = <?php echo json_encode($loggedInDoctorName); ?>;
+    const IS_NURSE = <?php echo json_encode($isNurse); ?>;
+    const CAN_CREATE_CONSULTATION = <?php echo json_encode($canCreateConsultation); ?>;
+    const IS_ADMIN = <?php echo json_encode(str_contains(strtolower($_SESSION['role_description'] ?? $_SESSION['role'] ?? ''), 'admin') || str_contains(strtolower($_SESSION['role_description'] ?? $_SESSION['role'] ?? ''), 'director')); ?>;
+
+    // Safety guard: if a nurse somehow triggers addConsultationModal, block it
+    const _origModalOpen = (typeof ModalSystem !== 'undefined' && ModalSystem.open) ? ModalSystem.open.bind(ModalSystem) : null;
+    if (!CAN_CREATE_CONSULTATION) {
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.open) {
+                const _safeOpen = ModalSystem.open.bind(ModalSystem);
+                ModalSystem.open = function(id) {
+                    if (id === 'addConsultationModal') {
+                        ModalSystem.toast.warning('Nurses can only perform patient assessments (triage). Consultations are for doctors only.', {title: '⚕️ Access Restricted', duration: 4000});
+                        return;
+                    }
+                    _safeOpen(id);
+                };
+            }
+        });
+    }
+
+    function lockDoctorSelect(selectId, doctorId, doctorName, isLocked = true) {
+        const el = document.getElementById(selectId);
+        if (!el) return;
+
+        const targetId = doctorId || LOGGED_IN_DOCTOR_ID;
+        const targetName = doctorName || LOGGED_IN_DOCTOR_NAME;
+
+        if (targetId || targetName) {
+            let matched = false;
+            if (targetId) {
+                const idStr = String(targetId);
+                for (let i = 0; i < el.options.length; i++) {
+                    if (String(el.options[i].value) === idStr) {
+                        el.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if (!matched && targetName) {
+                for (let i = 0; i < el.options.length; i++) {
+                    if (el.options[i].text.toLowerCase().includes(targetName.toLowerCase())) {
+                        el.selectedIndex = i;
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+            if (!matched && (targetId || targetName)) {
+                const opt = document.createElement('option');
+                opt.value = targetId ? String(targetId) : '';
+                opt.textContent = targetName ? (targetName.startsWith('Dr.') ? targetName : 'Dr. ' + targetName) : `Doctor #${targetId}`;
+                opt.selected = true;
+                el.appendChild(opt);
+                el.value = opt.value;
+            }
+        }
+
+        if (isLocked) {
+            el.classList.add('bg-slate-100', 'cursor-not-allowed', 'pointer-events-none');
+            el.setAttribute('tabindex', '-1');
+            
+            let badge = el.parentElement.querySelector('.doctor-lock-badge');
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'doctor-lock-badge text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200 mt-1 flex items-center gap-1';
+                badge.innerHTML = '<i class="fa-solid fa-lock text-[9px]"></i> Assigned Attending Doctor (Locked)';
+                el.parentElement.appendChild(badge);
+            }
+        } else {
+            el.classList.remove('bg-slate-100', 'cursor-not-allowed', 'pointer-events-none');
+            el.removeAttribute('tabindex');
+            const badge = el.parentElement.querySelector('.doctor-lock-badge');
+            if (badge) badge.remove();
+        }
+    }
+
     // ============================================================
-    // APPOINTMENT PRE-FILL
+    // APPOINTMENT & TRIAGE PRE-FILL
     // ============================================================
     document.addEventListener('DOMContentLoaded',function(){
+        // Always enforce logged in doctor pre-selection by default
+        if (LOGGED_IN_DOCTOR_ID || LOGGED_IN_DOCTOR_NAME) {
+            lockDoctorSelect('add_employee_id', LOGGED_IN_DOCTOR_ID, LOGGED_IN_DOCTOR_NAME, true);
+        }
+
         const p=new URLSearchParams(window.location.search);
-        if(p.get('from_appointment')==='true'){
-            const pid=p.get('patient_id'),aid=p.get('appointment_id'),eid=p.get('employee_id'),dt=p.get('date'),tm=p.get('time'),dn=p.get('doctor_name');
+        if(p.get('from_appointment')==='true' || p.get('from_triage')==='true' || p.get('employee_id') || p.get('doctor_name') || (p.get('action')==='new' && p.get('patient_id'))){
+            const pid=p.get('patient_id'),aid=p.get('appointment_id'),eid=p.get('employee_id'),dt=p.get('date'),tm=p.get('time'),dn=p.get('doctor_name'),tid=p.get('triage_id');
             setTimeout(()=>{
                 ModalSystem.open('addConsultationModal');
-                const ps=document.getElementById('add_patient_id');if(ps&&pid){for(let o of ps.options){if(String(o.value)===String(pid)){o.selected=true;break;}}}
-                const es=document.getElementById('add_employee_id');if(es&&eid){const t=String(eid);let f=false;for(let i=0;i<es.options.length;i++){if(String(es.options[i].value)===t){es.selectedIndex=i;f=true;break;}}if(!f&&dn){for(let i=0;i<es.options.length;i++){if(es.options[i].text.toLowerCase().includes(dn.toLowerCase())){es.selectedIndex=i;break;}}}}
+                const ps=document.getElementById('add_patient_id');
+                if(ps&&pid){
+                    let matched = false;
+                    for(let o of ps.options){
+                        if(String(o.value)===String(pid)){o.selected=true;matched=true;break;}
+                    }
+                    if(!matched){
+                        const opt=document.createElement('option');
+                        opt.value=String(pid);
+                        opt.textContent=`Patient #${pid}`;
+                        opt.selected=true;
+                        ps.appendChild(opt);
+                    }
+                }
+                
+                // Pre-select and LOCK assigned doctor
+                lockDoctorSelect('add_employee_id', eid || LOGGED_IN_DOCTOR_ID, dn || LOGGED_IN_DOCTOR_NAME, true);
+
                 const di=document.getElementById('add_date');if(di&&dt)di.value=dt;
                 const ti=document.getElementById('add_time');if(ti&&tm){const m=tm.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);if(m){let h=parseInt(m[1]);if(m[3].toUpperCase()==='PM'&&h!==12)h+=12;if(m[3].toUpperCase()==='AM'&&h===12)h=0;ti.value=`${h.toString().padStart(2,'0')}:${m[2]}`;}else if(tm.includes(':'))ti.value=tm.substring(0,5);else ti.value=new Date().toTimeString().slice(0,5);}
                 const ss=document.getElementById('add_status');if(ss)ss.value='completed';
                 const ni=document.getElementById('add_notes');if(ni&&aid)ni.value=`Consultation from appointment #${aid}`;
                 const ai=document.getElementById('add_appointment_id');if(ai&&aid)ai.value=aid;
-                ModalSystem.toast.info('Patient and doctor pre-filled from appointment',{title:'📋 Auto-filled',duration:3000});
+                const tri=document.getElementById('add_triage_id');if(tri&&tid)tri.value=tid;
+                ModalSystem.toast.info('Patient and assigned doctor auto-selected and locked for security',{title:'📋 Auto-filled',duration:3000});
             },500);
             if(window.history&&window.history.replaceState){const pg=p.get('page')||'1';window.history.replaceState({},document.title,window.location.pathname+'?page='+pg);}
         }

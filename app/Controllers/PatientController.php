@@ -76,6 +76,29 @@ class PatientController extends BaseController
                 return ['success' => false, 'message' => 'First name and last name are required', 'code' => 400];
             }
             
+            // Duplicate Patient Check (First Name + Last Name match)
+            $firstName = strtolower(trim($dbData['first_name'] ?? ''));
+            $lastName = strtolower(trim($dbData['last_name'] ?? ''));
+            if (!empty($firstName) && !empty($lastName)) {
+                $allPatients = $this->patientModel->all();
+                foreach ($allPatients as $p) {
+                    $pFirst = strtolower(trim($p['first_name'] ?? ''));
+                    $pLast = strtolower(trim($p['last_name'] ?? ''));
+                    if ($pFirst === $firstName && $pLast === $lastName) {
+                        $existingCode = $p['patient_id'] ?? ('P-' . $p['id']);
+                        $existingFullName = trim(($p['first_name'] ?? '') . ' ' . ($p['last_name'] ?? ''));
+                        return [
+                            'success' => false,
+                            'is_duplicate' => true,
+                            'existing_code' => $existingCode,
+                            'existing_name' => $existingFullName,
+                            'message' => "Warning: Patient record already exists! ({$existingFullName} - {$existingCode}). Please search and filter existing records instead of registering duplicates.",
+                            'code' => 409
+                        ];
+                    }
+                }
+            }
+            
             if (empty($dbData['contact'])) {
                 return ['success' => false, 'message' => 'Contact number is required', 'code' => 400];
             }

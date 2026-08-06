@@ -64,48 +64,61 @@ class ConsultationController extends BaseController
         });
     }
 
-   public function store(): void
-{
-    $data = $this->input();
-    
-    error_log('STORE called with: ' . json_encode($data));
-
-    $this->handle(function() use ($data) {
-        if (empty($data['patient_id'])) {
-            return ['success' => false, 'message' => 'Patient selection is required', 'code' => 400];
-        }
-
-        $vitalError = $this->validateVitalSigns($data['vital_signs'] ?? null);
-        if ($vitalError) {
-            return ['success' => false, 'message' => $vitalError, 'code' => 422];
-        }
-
-        $dbData = $this->prepareDbData($data);
+    public function store(): void
+    {
+        $data = $this->input();
         
-        error_log('STORE dbData: ' . json_encode($dbData));
+        error_log('STORE called with: ' . json_encode($data));
 
-        if (empty($dbData['consultation_id'])) {
-            $dbData['consultation_id'] = $this->consultationModel->generateConsultationId();
-        }
-
-        $result = $this->consultationModel->create($dbData);
-        
-        error_log('STORE result: ' . json_encode($result));
-
-        // FIX: UNCOMMENTED - Update appointment status to completed
-        if (!empty($dbData['appointment_id'])) {
-            try {
-                error_log('Updating appointment ' . $dbData['appointment_id'] . ' to completed');
-                $this->appointmentModel->updateStatus($dbData['appointment_id'], 'completed');
-                error_log('Appointment status updated successfully');
-            } catch (Throwable $e) {
-                error_log('Failed to update appointment status: ' . $e->getMessage());
+        $this->handle(function() use ($data) {
+            if (empty($data['patient_id'])) {
+                return ['success' => false, 'message' => 'Patient selection is required', 'code' => 400];
             }
-        }
 
-        return ['success' => true, 'message' => 'Consultation created successfully', 'data' => $result, 'code' => 201];
-    });
-}
+            $vitalError = $this->validateVitalSigns($data['vital_signs'] ?? null);
+            if ($vitalError) {
+                return ['success' => false, 'message' => $vitalError, 'code' => 422];
+            }
+
+            $dbData = $this->prepareDbData($data);
+            
+            error_log('STORE dbData: ' . json_encode($dbData));
+
+            if (empty($dbData['consultation_id'])) {
+                $dbData['consultation_id'] = $this->consultationModel->generateConsultationId();
+            }
+
+            $result = $this->consultationModel->create($dbData);
+            
+            error_log('STORE result: ' . json_encode($result));
+
+            // Update appointment status to completed if appointment_id is provided
+            if (!empty($dbData['appointment_id'])) {
+                try {
+                    error_log('Updating appointment ' . $dbData['appointment_id'] . ' to completed');
+                    $this->appointmentModel->updateStatus($dbData['appointment_id'], 'completed');
+                    error_log('Appointment status updated successfully');
+                } catch (Throwable $e) {
+                    error_log('Failed to update appointment status: ' . $e->getMessage());
+                }
+            }
+
+            // Update triage/assessment status to consulted if triage_id is provided
+            $triageId = $data['triage_id'] ?? $dbData['triage_id'] ?? null;
+            if (!empty($triageId)) {
+                try {
+                    error_log('Updating triage ' . $triageId . ' to consulted');
+                    require_once __DIR__ . '/../Models/Triage.php';
+                    $triageModel = new Triage();
+                    $triageModel->updateStatus($triageId, 'consulted');
+                } catch (Throwable $e) {
+                    error_log('Failed to update triage status: ' . $e->getMessage());
+                }
+            }
+
+            return ['success' => true, 'message' => 'Consultation created successfully', 'data' => $result, 'code' => 201];
+        });
+    }
     public function update(string $id): void
     {
         $data = $this->input();
@@ -340,7 +353,7 @@ class ConsultationController extends BaseController
                 $doctorName = $employee['name'] ?? $employee['username'] ?? "Employee #{$employeeId}";
             }
         } else {
-            $doctorName = "Dr. Elena Santos"; // Default doctor display if employee ID matches system default
+            $doctorName = "Attending Physician #" . ($employeeId ?? '1');
         }
 
         // Parse vital signs if JSON

@@ -40,6 +40,16 @@ try {
                 $controller->queueStats();
             } elseif ($action === 'call-next') {
                 $controller->callNext();
+            } elseif ($action === 'count_assigned') {
+                // Returns count of triage records with a doctor assigned — used for real-time polling
+                try {
+                    $triageModel = new Triage();
+                    $all = $triageModel->all();
+                    $count = count(array_filter($all, fn($t) => !empty($t['doctor_id']) || !empty($t['doctor_assigned'])));
+                    echo json_encode(['success' => true, 'count' => $count]);
+                } catch (Throwable $e) {
+                    echo json_encode(['success' => false, 'count' => 0]);
+                }
             } elseif ($id) {
                 $controller->show($id);
             } else {

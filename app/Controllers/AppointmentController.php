@@ -348,12 +348,7 @@ class AppointmentController extends BaseController
                 $doctorName = $employee['name'] ?? $employee['username'] ?? "Employee #{$employeeId}";
             }
         } else {
-            $doctorNames = [
-                1 => 'Dr. Elena Santos',
-                2 => 'Dr. Miguel Reyes',
-                3 => 'Dr. Ana Cruz'
-            ];
-            $doctorName = $doctorNames[$employeeId] ?? 'Dr. Elena Santos';
+            $doctorName = "Attending Physician #" . ($employeeId ?? '1');
         }
 
         $dateStr = $a['appointment_date'] ?? ($a['date'] ?? date('Y-m-d'));

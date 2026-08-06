@@ -340,6 +340,8 @@ class TriageController extends BaseController
         if (isset($data['patient_id'])) $dbData['patient_id'] = (int)$data['patient_id'];
         if (isset($data['nurse_id'])) $dbData['nurse_id'] = (int)$data['nurse_id'];
         else $dbData['nurse_id'] = 1;
+        if (isset($data['doctor_id']) && $data['doctor_id'] !== '') $dbData['doctor_id'] = (int)$data['doctor_id'];
+        if (isset($data['doctor_assigned'])) $dbData['doctor_assigned'] = trim((string)$data['doctor_assigned']);
 
         if (isset($data['blood_pressure'])) $dbData['blood_pressure'] = trim((string)$data['blood_pressure']);
         if (isset($data['heart_rate']) && $data['heart_rate'] !== '') $dbData['heart_rate'] = (int)$data['heart_rate'];

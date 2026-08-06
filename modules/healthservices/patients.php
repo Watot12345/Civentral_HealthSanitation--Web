@@ -258,8 +258,11 @@ $title = 'Patient Management';
     
     <td class="px-4 py-3">
         <div class="flex items-center justify-center gap-1">
-            <button onclick="viewPatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View"><i class="fa-solid fa-eye text-sm"></i></button>
-            <button onclick="deletePatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Delete"><i class="fa-solid fa-trash-can text-sm"></i></button>
+            <button onclick="viewPatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye text-sm"></i></button>
+            <button onclick="editPatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Patient"><i class="fa-solid fa-pen-to-square text-sm"></i></button>
+            <button onclick="scheduleAppointment(<?php echo $patient['id']; ?>)" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Schedule Appointment"><i class="fa-solid fa-calendar-plus text-sm"></i></button>
+            <button onclick="checkInPatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Check-in / Queue"><i class="fa-solid fa-receipt text-sm"></i></button>
+            <button onclick="openMedicalRecord(<?php echo $patient['id']; ?>)" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Medical Record"><i class="fa-solid fa-folder-open text-sm"></i></button>
         </div>
     </td>
 </tr>
@@ -324,6 +327,50 @@ $title = 'Patient Management';
 
 <!-- EXPORT MODAL -->
 <div id="exportModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-md"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200"><h3 class="font-bold text-slate-900">Export Patients</h3><button onclick="ModalSystem.close('exportModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div><div class="p-6 space-y-5"><div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Format</p><div class="grid grid-cols-3 gap-2" id="exportFormatGroup"><button type="button" data-format="csv" onclick="selectExportFormat('csv')" class="export-format-btn px-3 py-2.5 rounded-lg border text-xs font-semibold flex flex-col items-center gap-1.5 transition"><i class="fa-solid fa-file-csv text-base"></i> CSV</button><button type="button" data-format="excel" onclick="selectExportFormat('excel')" class="export-format-btn px-3 py-2.5 rounded-lg border text-xs font-semibold flex flex-col items-center gap-1.5 transition"><i class="fa-solid fa-file-excel text-base"></i> Excel</button><button type="button" data-format="pdf" onclick="selectExportFormat('pdf')" class="export-format-btn px-3 py-2.5 rounded-lg border text-xs font-semibold flex flex-col items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf text-base"></i> PDF</button></div></div><div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Scope</p><div class="space-y-2"><label class="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer has-[:checked]:border-brand-medium has-[:checked]:bg-brand-light/40"><input type="radio" name="exportScope" value="all" checked class="accent-brand-dark"><span class="text-sm text-slate-700">All patients <span class="text-slate-400">(<span id="exportCountAll"></span>)</span></span></label><label class="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer has-[:checked]:border-brand-medium has-[:checked]:bg-brand-light/40"><input type="radio" name="exportScope" value="filtered" class="accent-brand-dark"><span class="text-sm text-slate-700">Current filtered view <span class="text-slate-400">(<span id="exportCountFiltered"></span>)</span></span></label></div></div></div><div class="flex justify-end gap-2 px-6 pb-6"><button type="button" onclick="ModalSystem.close('exportModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button><button type="button" onclick="runExport()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-download mr-1.5"></i> Export</button></div></div></div>
+
+<!-- PATIENT CHECK-IN MODAL (PATIENTS.PHP) -->
+<div id="checkInModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-user-check text-amber-500"></i> Patient Check-in
+            </h3>
+            <button onclick="ModalSystem.close('checkInModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="checkInForm" class="p-6 space-y-4" onsubmit="submitCheckinFromPatients(event)">
+            <input type="hidden" id="checkin_patient_id" value="">
+            
+            <div class="bg-amber-50 rounded-xl p-3 border border-amber-200 text-xs text-amber-900 space-y-1">
+                <p class="font-bold text-amber-900">Check-in Patient Confirmation</p>
+                <p class="text-amber-800">Log this patient as arrived for today's health center visit.</p>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Selected Patient</label>
+                <div class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 font-bold text-slate-800" id="checkin_patient_name_display">
+                    -
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Queue Number</label>
+                <input type="text" id="checkin_queue_number" readonly class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 font-mono font-bold text-amber-700" value="Q-1001">
+                <p class="text-xs text-slate-400 mt-1">Queue number auto-assigned for today's visit</p>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onclick="ModalSystem.close('checkInModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition text-sm font-semibold">
+                    <i class="fa-solid fa-check-circle mr-1.5"></i> Confirm Check-in
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <style>
 .export-format-btn{border-color:#E2E8F0;color:#64748B}
@@ -408,6 +455,61 @@ td .text-slate-600.maskable.masked::after {
     const PATIENTS = <?php echo json_encode(array_column($patients, null, 'id'), JSON_PRETTY_PRINT); ?>;
     let pendingDeleteId = null;
     let selectedExportFormat = 'csv';
+
+    // ============================================================
+    // WORKFLOW SHORTCUT NAVIGATION HELPERS
+    // ============================================================
+    function scheduleAppointment(patientId) {
+        window.location.href = `appointments.php?patient_id=${patientId}&action=new`;
+    }
+
+    function checkInPatient(patientId) {
+        const patient = PATIENTS[patientId];
+        document.getElementById('checkin_patient_id').value = patientId;
+        
+        let name = 'Patient #' + patientId;
+        if (patient) {
+            name = `${patient.first_name || ''} ${patient.last_name || ''}`.trim() || patient.name || name;
+            const code = patient.patient_id || ('P-' + patientId);
+            name = `${name} (${code})`;
+        }
+        document.getElementById('checkin_patient_name_display').textContent = name;
+        
+        const qNum = 'Q-' + String(Math.floor(1000 + Math.random() * 9000));
+        document.getElementById('checkin_queue_number').value = qNum;
+
+        ModalSystem.open('checkInModal');
+    }
+
+    async function submitCheckinFromPatients(event) {
+        event.preventDefault();
+        const patientId = document.getElementById('checkin_patient_id').value;
+        const queueNumber = document.getElementById('checkin_queue_number').value;
+
+        try {
+            const response = await fetch(`${API_BASE}/triage-queue.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    patient_id: parseInt(patientId),
+                    queue_number: queueNumber
+                })
+            });
+            const data = await response.json();
+            if (data.success || response.ok) {
+                ModalSystem.toast.success(`Patient checked in successfully! Queue #: ${data.queue_number || queueNumber}`);
+                ModalSystem.close('checkInModal');
+            } else {
+                ModalSystem.toast.error(data.message || 'Failed to check in patient');
+            }
+        } catch (e) {
+            ModalSystem.toast.error('Network error during check-in');
+        }
+    }
+
+    function openMedicalRecord(patientId) {
+        window.location.href = `medical_records.php?patient_id=${patientId}`;
+    }
 
     // ============================================================
     // MASKING HELPERS
@@ -660,6 +762,23 @@ td .text-slate-600.maskable.masked::after {
             document.getElementById('addPatientForm').reset();
             // Reload after a moment to show the new patient
             setTimeout(() => window.location.reload(), 1000);
+        } else if (data.is_duplicate || res.status === 409) {
+            ModalSystem.close('addPatientModal');
+            const searchVal = (firstName + ' ' + lastName).trim();
+            const message = data.message || `⚠️ Patient record already exists! Please search and filter existing records instead of registering duplicates.`;
+            
+            ModalSystem.confirm(
+                `${message}\n\nWould you like to search and filter for existing patient "${searchVal}" now?`,
+                () => {
+                    const searchInput = document.getElementById('searchPatients');
+                    if (searchInput) {
+                        searchInput.value = searchVal;
+                        searchInput.dispatchEvent(new Event('input'));
+                        searchInput.focus();
+                    }
+                },
+                { title: '⚠️ Duplicate Patient Record', confirmText: 'Search & Filter Patient', type: 'warning' }
+            );
         } else {
             const errorMsg = data.message || data.error || 'Failed to add patient';
             console.error('❌ Server error:', errorMsg);

@@ -151,7 +151,7 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
           <?php if (hasPermission('triage.view')): ?>
           <a href="<?= site_url('modules/healthservices/triage.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'triage.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-heart-pulse text-[10px] opacity-50"></i> 
-            <span>Triage</span>
+            <span>Patient Assessment</span>
           </a>
           <?php endif; ?>
 

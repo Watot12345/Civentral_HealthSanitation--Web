@@ -159,11 +159,102 @@ try {
 }
 
 // Doctor list for UI filters and dropdowns
-$doctorsList = !empty($dbEmployees) ? $dbEmployees : [
-    ['id' => 1, 'name' => 'Dr. Elena Santos', 'specialty' => 'General Medicine'],
-    ['id' => 2, 'name' => 'Dr. Miguel Reyes', 'specialty' => 'Cardiology'],
-    ['id' => 3, 'name' => 'Dr. Ana Cruz', 'specialty' => 'Pediatrics']
-];
+$doctorsList = $dbEmployees;
+
+// ============================================================
+// MERGE TRIAGE ASSIGNMENTS INTO APPOINTMENTS VIEW
+// Triage patients assigned to a doctor show up here too
+// ============================================================
+require_once __DIR__ . '/../../app/Models/Triage.php';
+
+$patientsMapLocal = [];
+foreach ($dbPatients as $p) {
+    if (isset($p['id'])) $patientsMapLocal[$p['id']] = $p;
+}
+$employeesMapLocal = [];
+foreach ($dbEmployees as $e) {
+    if (isset($e['id'])) $employeesMapLocal[$e['id']] = $e;
+}
+
+try {
+    $triageModel = new Triage();
+    $rawTriage = $triageModel->all(['order' => 'created_at.desc']);
+
+    // Get existing appointment IDs to avoid duplication
+    $existingAppointmentIds = array_column($appointments, 'id');
+
+    foreach ($rawTriage as $t) {
+        // Only include triage records that have an assigned doctor
+        if (empty($t['doctor_id']) && empty($t['doctor_assigned'])) continue;
+
+        $tPatId = $t['patient_id'] ?? null;
+        $tPat = $patientsMapLocal[$tPatId] ?? null;
+
+        if ($tPat) {
+            $fN = $tPat['first_name'] ?? '';
+            $lN = $tPat['last_name'] ?? '';
+            $tPatName = trim("$fN $lN");
+            $tPatCode = $tPat['patient_id'] ?? "P-$tPatId";
+            $tAvatar = '';
+            if (!empty($fN)) $tAvatar .= strtoupper(substr($fN, 0, 1));
+            if (!empty($lN)) $tAvatar .= strtoupper(substr($lN, 0, 1));
+            if (empty($tAvatar)) $tAvatar = 'PT';
+        } else {
+            $tPatName = "Patient #{$tPatId}";
+            $tPatCode = "P-{$tPatId}";
+            $tAvatar = 'PT';
+        }
+
+        // Resolve doctor name
+        $tDocId = (int)($t['doctor_id'] ?? 0);
+        $tDocEmp = $tDocId > 0 ? ($employeesMapLocal[$tDocId] ?? null) : null;
+        if ($tDocEmp) {
+            $tDocName = $tDocEmp['full_name'] ?? ("Doctor #{$tDocId}");
+        } elseif (!empty($t['doctor_assigned'])) {
+            $tDocName = $t['doctor_assigned'];
+        } else {
+            $tDocName = 'Unassigned';
+        }
+
+        $tDate = isset($t['created_at']) ? date('Y-m-d', strtotime($t['created_at'])) : date('Y-m-d');
+        $tTime = isset($t['created_at']) ? date('H:i:s', strtotime($t['created_at'])) : date('H:i:s');
+
+        // Map triage status to appointment-like status
+        $tStatus = match(strtolower($t['status'] ?? '')) {
+            'waiting', 'in_triage' => 'pending',
+            'completed', 'sent_to_doctor', 'triaged', 'consulted' => 'approved',
+            'in_consultation' => 'approved',
+            default => 'pending'
+        };
+
+        $tPriority = strtolower($t['priority'] ?? 'medium');
+
+        $appointments[] = [
+            'id'               => 'TRG-' . ($t['id'] ?? 0),
+            'appointment_id'   => $t['triage_id'] ?? ('TRG-' . ($t['id'] ?? 0)),
+            'patient_id'       => (int)($tPatId ?? 0),
+            'patient_name'     => $tPatName,
+            'patient_code'     => $tPatCode,
+            'patient_avatar'   => $tAvatar,
+            'employee_id'      => $tDocId,
+            'doctor_name'      => $tDocName,
+            'service_type'     => 'Triage Assessment',
+            'type'             => 'Triage Assessment',
+            'appointment_date' => $tDate,
+            'date'             => $tDate,
+            'appointment_time' => $tTime,
+            'time'             => date('h:i A', strtotime($tTime)),
+            'status'           => $tStatus,
+            'priority'         => $tPriority,
+            'notes'            => $t['notes'] ?? $t['symptoms'] ?? '',
+            'reminder_sent'    => false,
+            'created_at'       => $t['created_at'] ?? '',
+            'source'           => 'triage'
+        ];
+    }
+} catch (Throwable $e) {
+    error_log('Error merging triage into appointments: ' . $e->getMessage());
+}
 
 // Pagination
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
@@ -430,29 +521,28 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
 
                             <td class="px-4 py-3 text-center">
                                 <div class="flex items-center justify-center gap-1">
-                                    <button onclick="viewAppointment(<?php echo $a['id']; ?>)"
+                                    <button onclick="viewAppointment('<?php echo htmlspecialchars((string)$a['id']); ?>')"
                                             class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details">
                                         <i class="fa-solid fa-eye text-sm"></i>
                                     </button>
-                                    <?php if ($a['status'] === 'pending'): ?>
-                                        <button onclick="changeAppointmentStatus(<?php echo $a['id']; ?>, 'approved')"
-                                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Approve">
-                                            <i class="fa-solid fa-check text-sm"></i>
+                                    <?php if (in_array($a['status'], ['approved', 'confirmed', 'pending'])): ?>
+                                        <button onclick="checkInScheduledPatient('<?php echo htmlspecialchars((string)($a['patient_id'] ?? $a['id'])); ?>')"
+                                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient for Today's Visit">
+                                            <i class="fa-solid fa-user-check text-sm"></i>
                                         </button>
                                     <?php endif; ?>
                                     <?php if (!in_array($a['status'], ['cancelled', 'completed'])): ?>
-                                        <button onclick="changeAppointmentStatus(<?php echo $a['id']; ?>, 'cancelled')"
+                                        <button onclick="changeAppointmentStatus('<?php echo htmlspecialchars((string)$a['id']); ?>', 'cancelled')"
                                                 class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Cancel Appointment">
                                             <i class="fa-solid fa-ban text-sm"></i>
                                         </button>
                                     <?php endif; ?>
-                                    <!-- In appointments.php, in the actions column -->
-<?php if ($a['status'] === 'approved' || $a['status'] === 'confirmed'): ?>
-    <button onclick="startConsultationFromAppointment(<?php echo $a['id']; ?>)"
-            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start Consultation">
-        <i class="fa-solid fa-stethoscope text-sm"></i>
-    </button>
-<?php endif; ?>
+                                    <?php if ($a['status'] === 'approved' || $a['status'] === 'confirmed'): ?>
+                                        <button onclick="startConsultationFromAppointment('<?php echo htmlspecialchars((string)$a['id']); ?>')"
+                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start Consultation">
+                                            <i class="fa-solid fa-stethoscope text-sm"></i>
+                                        </button>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -722,6 +812,26 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
     const APPOINTMENTS_DATA = <?php echo json_encode(array_column($appointments, null, 'id'), JSON_UNESCAPED_UNICODE); ?>;
     const CONSULTATION_MAP = <?php echo json_encode($consultationMap); ?>;
     const MEDICAL_ROLES = ['Health Center Director', 'Medical Practitioner', 'Health Center Staff', 'Immunization Lead', 'Nutrition Staff', 'Doctor', 'Nurse', 'Dentist', 'midwives', 'Nutritionist', 'Immunization Coordinator', 'Lab tech'];
+
+    async function checkInScheduledPatient(patientId) {
+        const qNum = 'Q-' + String(Math.floor(1000 + Math.random() * 9000));
+        try {
+            await fetch('/capstone/api/triage-queue.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    patient_id: parseInt(patientId),
+                    queue_number: qNum
+                })
+            });
+            ModalSystem.toast.success('Scheduled patient checked in for today!');
+            setTimeout(() => {
+                window.location.href = `triage.php?patient_id=${patientId}&action=checkin`;
+            }, 800);
+        } catch (e) {
+            window.location.href = `triage.php?patient_id=${patientId}&action=checkin`;
+        }
+    }
     const PATIENTS = <?php 
         echo json_encode(array_values(array_map(function($p) {
             return [
@@ -1117,7 +1227,7 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
                 };
 
                 try {
-                    const res = await fetch('/capstone/api/appointments.php', {
+                    const res = await fetch('../../api/appointments.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -1129,12 +1239,11 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
                         ModalSystem.close('addAppointmentModal');
                         setTimeout(() => window.location.reload(), 1000);
                     } else {
-                        ModalSystem.toast.error(data.message || 'Failed', { title: 'Error', duration: 6000 });
+                        ModalSystem.toast.error(data.message || 'Failed to schedule appointment', { title: 'Error', duration: 6000 });
                     }
                 } catch (err) {
-                    ModalSystem.toast.success('Appointment scheduled!');
-                    ModalSystem.close('addAppointmentModal');
-                    setTimeout(() => window.location.reload(), 1000);
+                    console.error('Error saving appointment:', err);
+                    ModalSystem.toast.error('Network or server error while saving appointment', { title: 'Error', duration: 6000 });
                 } finally {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = originalText;
@@ -1170,7 +1279,7 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
                 };
 
                 try {
-                    const res = await fetch('/capstone/api/appointments.php?action=update&id=' + id, {
+                    const res = await fetch('../../api/appointments.php?action=update&id=' + id, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -1365,5 +1474,46 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
         if (page < 1 || page > <?php echo $totalPages; ?>) return;
         window.location.href = '?page=' + page;
     }
+
+    // ============================================================
+    // REAL-TIME TRIAGE ASSIGNMENT POLLING
+    // Every 30 seconds, check if new triage assignments have come
+    // in and auto-refresh the table to show the doctor's new queue
+    // ============================================================
+    (function startTriagePolling() {
+        let lastTriageCount = <?php
+            $triageCountForPolling = 0;
+            try {
+                $pollModel = new Triage();
+                $allTriage = $pollModel->all();
+                $triageCountForPolling = count(array_filter($allTriage, fn($t) => !empty($t['doctor_id']) || !empty($t['doctor_assigned'])));
+            } catch (Throwable $ex) {}
+            echo $triageCountForPolling;
+        ?>;
+
+        async function checkTriageUpdates() {
+            try {
+                const res = await fetch('../../api/triage.php?action=count_assigned', { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                const newCount = data.count ?? data.total ?? null;
+                if (newCount !== null && newCount !== lastTriageCount) {
+                    lastTriageCount = newCount;
+                    // Show a small toast then reload to reflect new assignments
+                    if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                        ModalSystem.toast.info('New patient assignment received — refreshing your queue.', {
+                            title: '🔄 Queue Updated',
+                            duration: 2500
+                        });
+                    }
+                    setTimeout(() => window.location.reload(), 2600);
+                }
+            } catch (e) {
+                // Silent fail — polling is best-effort
+            }
+        }
+
+        setInterval(checkTriageUpdates, 30000); // poll every 30 seconds
+    })();
 </script>
 <?php include_once '../../includes/footer.php'; ?>
