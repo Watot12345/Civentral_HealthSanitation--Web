@@ -40,7 +40,7 @@ class PermissionService
 
         $userRoleDesc = trim($_SESSION['role_description'] ?? '');
         $userRole = trim($_SESSION['role'] ?? 'employee');
-        $currentSessionRoleKey = $userRoleDesc . ':' . $userRole . ':v4';
+        $currentSessionRoleKey = $userRoleDesc . ':' . $userRole . ':v5';
 
         // Return session cache if populated for current active role
         if (isset($_SESSION['granted_permission_slugs_key']) 
