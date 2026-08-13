@@ -2976,53 +2976,45 @@ document.addEventListener('keydown', e => {
     let mouseNearBottom = false;
     let userInteracted = false;
 
-    const actionBar = document.getElementById('bottomActionBar');
+    function getActionBar() {
+        return document.getElementById('bottomActionBar');
+    }
 
     // Function to show bar with animation
     function showActionBar() {
-        if (!actionBar) return;
+        const bar = getActionBar();
+        if (!bar) return;
         clearTimeout(hideTimer);
         
         // Remove hidden class and show with animation
-        actionBar.style.opacity = '1';
-        actionBar.style.transform = 'translateX(-50%) translateY(0)';
-        actionBar.style.pointerEvents = 'auto';
-        actionBar.classList.remove('hidden');
+        bar.style.opacity = '1';
+        bar.style.transform = 'translateX(-50%) translateY(0)';
+        bar.style.pointerEvents = 'auto';
+        bar.classList.remove('hidden');
         
         isBarVisible = true;
         barHidden = false;
-        
-        // Log for debugging
-        console.log('🔽 Action bar shown');
     }
 
     // Function to hide bar with animation
-    function hideActionBar(instant = false) {
-        if (!actionBar) return;
-        clearTimeout(hideTimer);
-        
-        if (instant) {
-            actionBar.style.opacity = '0';
-            actionBar.style.transform = 'translateX(-50%) translateY(30px)';
-            actionBar.style.pointerEvents = 'none';
-            // Don't hide completely, just make invisible
-        } else {
-            actionBar.style.opacity = '0';
-            actionBar.style.transform = 'translateX(-50%) translateY(30px)';
-            actionBar.style.pointerEvents = 'none';
-        }
-        
+    function hideActionBar() {
+        const bar = getActionBar();
+        if (!bar) return;
+
+        bar.style.opacity = '0';
+        bar.style.transform = 'translateX(-50%) translateY(30px)';
+        bar.style.pointerEvents = 'none';
+
         isBarVisible = false;
         barHidden = true;
-        
-        console.log('⬆️ Action bar hidden');
     }
 
     // Schedule auto-hide after 4 seconds of inactivity
     function scheduleHide(delay = 4000) {
         clearTimeout(hideTimer);
         hideTimer = setTimeout(() => {
-            if (!mouseNearBottom && !actionBar?.matches(':hover')) {
+            const bar = getActionBar();
+            if (!mouseNearBottom && !bar?.matches(':hover')) {
                 hideActionBar();
             }
         }, delay);
@@ -3079,28 +3071,13 @@ document.addEventListener('keydown', e => {
             clearTimeout(hideTimer);
         } 
         // If mouse moves away from bottom, start timer to hide
-        else if (!isNearBottom && !barHidden && !actionBar?.matches(':hover')) {
+        else if (!isNearBottom && !barHidden && !getActionBar()?.matches(':hover')) {
             scheduleHide(3000);
         }
     });
 
     // ===== HOVER ON BAR =====
-    if (actionBar) {
-        actionBar.addEventListener('mouseenter', function() {
-            clearTimeout(hideTimer);
-            if (barHidden) {
-                showActionBar();
-            }
-            console.log('🖱️ Mouse entered action bar');
-        });
-
-        actionBar.addEventListener('mouseleave', function() {
-            if (!mouseNearBottom) {
-                scheduleHide(3000);
-            }
-            console.log('🖱️ Mouse left action bar');
-        });
-    }
+    // Note: Hover binding moved to DOMContentLoaded
 
     // ===== KEYBOARD SHORTCUTS =====
     document.addEventListener('keydown', function(e) {
@@ -3109,11 +3086,9 @@ document.addEventListener('keydown', e => {
             e.preventDefault();
             if (isBarVisible) {
                 hideActionBar(true);
-                console.log('⌨️ Bar hidden via Alt+B');
             } else {
                 showActionBar();
                 scheduleHide(4000);
-                console.log('⌨️ Bar shown via Alt+B');
             }
         }
         
@@ -3181,31 +3156,41 @@ document.addEventListener('keydown', e => {
         }
     });
 
-    // ===== ENSURE BAR IS HIDDEN ON PAGE LOAD =====
+    // ===== ENSURE BAR IS HIDDEN ON PAGE LOAD & HOVER BINDING =====
     document.addEventListener('DOMContentLoaded', function() {
-        if (actionBar) {
-            actionBar.style.opacity = '0';
-            actionBar.style.transform = 'translateX(-50%) translateY(30px)';
-            actionBar.style.pointerEvents = 'none';
+        const bar = getActionBar();
+        if (bar) {
+            bar.style.opacity = '0';
+            bar.style.transform = 'translateX(-50%) translateY(30px)';
+            bar.style.pointerEvents = 'none';
             barHidden = true;
             isBarVisible = false;
-            console.log('🔽 Quick action bar initialized - hidden by default');
-            console.log('💡 Scroll down or move mouse near bottom to show');
-            console.log('⌨️ Press Alt+B to toggle');
             
+            bar.addEventListener('mouseenter', function() {
+                clearTimeout(hideTimer);
+                if (barHidden) {
+                    showActionBar();
+                }
+            });
+
+            bar.addEventListener('mouseleave', function() {
+                if (!mouseNearBottom) {
+                    scheduleHide(3000);
+                }
+            });
+
             // Start data age counter
             ageInterval = setInterval(updateDataAge, 1000);
-        } else {
-            console.error('❌ bottomActionBar element not found!');
         }
     });
 
     // Also ensure hidden after full page load
     window.addEventListener('load', function() {
-        if (actionBar && barHidden) {
-            actionBar.style.opacity = '0';
-            actionBar.style.transform = 'translateX(-50%) translateY(30px)';
-            actionBar.style.pointerEvents = 'none';
+        const bar = getActionBar();
+        if (bar && barHidden) {
+            bar.style.opacity = '0';
+            bar.style.transform = 'translateX(-50%) translateY(30px)';
+            bar.style.pointerEvents = 'none';
         }
     });
 

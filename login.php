@@ -1,5 +1,5 @@
 <?php
-// login.php - Combined PHP + HTML
+// login.php - 2-Step OTP Employee Portal Authentication
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
@@ -8,106 +8,183 @@ require_once __DIR__ . '/Core/Env.php';
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/paths.php';
 require_once __DIR__ . '/app/Models/ActivityLog.php';
+require_once __DIR__ . '/app/services/SessionAuthService.php';
 
-// Handle AJAX login request - MUST come before ANY HTML output
+// Handle POST Requests (Credential Check & OTP Verification)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    $employeeId = $_POST['employee_id'] ?? '';
-    $password   = $_POST['password'] ?? '';
-
-    // Only process JSON response for AJAX requests
-    if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-        strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+    if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
         header('Content-Type: application/json');
 
-        try {
-            $db     = Database::getInstance();
-            $result = $db->select('employees', ['employee_id' => $employeeId]);
-            $logModel = new ActivityLog();
+        $action = $_POST['action'] ?? 'login';
 
-            if (empty($result) || !is_array($result)) {
-                // Log failed login attempt
-                $logModel->log("Failed login attempt", [
-                    'user_name' => $employeeId ?: 'Unknown',
-                    'role'      => 'Unknown',
-                    'module'    => 'Authentication',
-                    'details'   => "Employee ID not found: {$employeeId}",
-                    'status'    => 'Failed',
-                ]);
-                echo json_encode(['success' => false, 'message' => 'Invalid employee ID or password.']);
-                exit;
-            }
-
-            $user = $result[0];
-
-            if (!password_verify($password, $user['password'])) {
-                // Log wrong-password attempt
-                $logModel->log("Failed login attempt", [
-                    'user_name' => $user['full_name'] ?? $employeeId,
-                    'role'      => $user['role_description'] ?? $user['role'] ?? 'Unknown',
-                    'module'    => 'Authentication',
-                    'details'   => "Wrong password for employee ID: {$employeeId}",
-                    'status'    => 'Failed',
-                ]);
-                echo json_encode(['success' => false, 'message' => 'Invalid employee ID or password.']);
-                exit;
-            }
-
-            $_SESSION['user_id']          = $user['id'];
-            $_SESSION['employee_id']      = $user['employee_id'];
-            $_SESSION['full_name']        = $user['full_name'];
-            $_SESSION['department']       = $user['department'] ?? '';
-            $functionalRole               = $user['role_description'] ?? $user['role'] ?? 'employee';
-            $_SESSION['role']             = $functionalRole;
-            $_SESSION['role_description'] = $functionalRole;
-
-            $_SESSION['logged_in']        = true;
-
-            // Handle Keep Me Signed In option
+        // ----------------------------------------------------
+        // ACTION 1: INITIAL CREDENTIAL CHECK -> TRIGGER OTP
+        // ----------------------------------------------------
+        if ($action === 'login') {
+            $employeeId = trim($_POST['employee_id'] ?? '');
+            $password   = $_POST['password'] ?? '';
             $rememberMe = !empty($_POST['remember_me']) && ($_POST['remember_me'] === 'true' || $_POST['remember_me'] === '1' || $_POST['remember_me'] === 'on');
-            if ($rememberMe && class_exists('App\Services\RememberMeService')) {
-                \App\Services\RememberMeService::createToken($user);
+
+            try {
+                $db = Database::getInstance();
+                $result = $db->select('employees', ['employee_id' => $employeeId]);
+                $logModel = new ActivityLog();
+
+                if (empty($result) || !is_array($result)) {
+                    $logModel->log("Failed login attempt", [
+                        'user_name' => $employeeId ?: 'Unknown',
+                        'role'      => 'Unknown',
+                        'module'    => 'Authentication',
+                        'details'   => "Employee ID not found: {$employeeId}",
+                        'status'    => 'Failed',
+                    ]);
+                    echo json_encode(['success' => false, 'message' => 'Invalid employee ID or password.']);
+                    exit;
+                }
+
+                $user = $result[0];
+
+                if (!password_verify($password, $user['password'])) {
+                    $logModel->log("Failed login attempt", [
+                        'user_name' => $user['full_name'] ?? $employeeId,
+                        'role'      => $user['role_description'] ?? $user['role'] ?? 'Unknown',
+                        'module'    => 'Authentication',
+                        'details'   => "Wrong password for employee ID: {$employeeId}",
+                        'status'    => 'Failed',
+                    ]);
+                    echo json_encode(['success' => false, 'message' => 'Invalid employee ID or password.']);
+                    exit;
+                }
+
+                $authService = new SessionAuthService();
+                $cookieToken = $_COOKIE['civentral_session'] ?? '';
+
+                // Check if device/employee has active 12h/7d verified session
+                if ($authService->hasActiveVerifiedSession((int)$user['id'], $cookieToken)) {
+                    $functionalRole               = $user['role_description'] ?? $user['role'] ?? 'Employee';
+                    $_SESSION['user_id']          = $user['id'];
+                    $_SESSION['employee_id']      = $user['employee_id'];
+                    $_SESSION['full_name']        = $user['full_name'];
+                    $_SESSION['user_full_name']   = $user['full_name'];
+                    $_SESSION['department']       = $user['department'] ?? '';
+                    $_SESSION['user_department']  = $user['department'] ?? '';
+                    $_SESSION['role']             = $functionalRole;
+                    $_SESSION['role_description'] = $functionalRole;
+                    $_SESSION['user_role']        = $functionalRole;
+                    $_SESSION['logged_in']        = true;
+
+                    $logModel->log("User logged in (12h Device Token active)", [
+                        'user_id'   => $user['id'],
+                        'user_name' => $user['full_name'],
+                        'role'      => $user['role_description'] ?? $user['role'] ?? 'Employee',
+                        'module'    => 'Authentication',
+                        'details'   => "Re-authenticated via active 12h token: {$user['employee_id']}",
+                        'status'    => 'Success',
+                    ]);
+
+                    echo json_encode([
+                        'success'      => true,
+                        'requires_otp' => false,
+                        'redirect'     => 'pages/dashboard.php',
+                        'user'         => [
+                            'name'        => $user['full_name'],
+                            'employee_id' => $user['employee_id']
+                        ],
+                        'message'      => 'Welcome back! Device session active.'
+                    ]);
+                    exit;
+                }
+
+                // Generate 6-digit OTP code & send email via SessionAuthService
+                $otpResult   = $authService->generateAndSendOtp($user, $rememberMe);
+
+                // Mask recipient email for security
+                $rawEmail = $user['email'] ?? 'staff@health.gov.ph';
+                $parts    = explode('@', $rawEmail);
+                $maskedEmail = (strlen($parts[0]) > 2 ? substr($parts[0], 0, 2) . '***' : $parts[0]) . '@' . ($parts[1] ?? 'lgu.gov.ph');
+
+                echo json_encode([
+                    'success'       => true,
+                    'requires_otp'  => true,
+                    'session_token' => $otpResult['session_token'],
+                    'masked_email'  => $maskedEmail,
+                    'user'          => [
+                        'name'        => $user['full_name'],
+                        'employee_id' => $user['employee_id']
+                    ],
+                    'message'       => 'Credentials verified. 6-digit security code sent to ' . $maskedEmail
+                ]);
+                exit;
+
+            } catch (\Exception $e) {
+                error_log('Login error: ' . $e->getMessage());
+                echo json_encode(['success' => false, 'message' => 'Server error. Please contact IT support.']);
+                exit;
+            }
+        }
+
+        // ----------------------------------------------------
+        // ACTION 2: VERIFY 6-DIGIT OTP CODE -> ACTIVATE SESSION
+        // ----------------------------------------------------
+        if ($action === 'verify_otp') {
+            $sessionToken = trim($_POST['session_token'] ?? '');
+            $otpCode      = trim($_POST['otp_code'] ?? '');
+
+            if (empty($sessionToken) || empty($otpCode)) {
+                echo json_encode(['success' => false, 'message' => 'Security code and session token are required.']);
+                exit;
             }
 
-            // Log successful login
-            $logModel->log("User logged in", [
-                'user_id'   => $user['id'],
-                'user_name' => $user['full_name'],
-                'role'      => $user['role_description'] ?? $user['role'] ?? 'Employee',
-                'module'    => 'Authentication',
-                'details'   => "Logged in as: {$user['employee_id']} ({$user['full_name']})",
-                'status'    => 'Success',
-            ]);
-
-            // Update last_login timestamp
             try {
-                $db->update('employees', ['last_login' => date('Y-m-d H:i:sP')], ['id' => $user['id']], true);
-            } catch (Throwable $ignored) {}
+                $authService = new SessionAuthService();
+                $verifyResult = $authService->verifyOtp($sessionToken, $otpCode);
 
-            echo json_encode([
-                'success' => true,
-                'message' => 'Login successful',
-                'user'    => [
-                    'name'             => $user['full_name'],
-                    'employee_id'      => $user['employee_id'],
-                    'department'       => $user['department'] ?? '',
-                    'role'             => $user['role'] ?? 'employee',
-                    'role_description' => $user['role_description'] ?? ''
-                ]
-            ]);
-            exit;
+                if ($verifyResult['success']) {
+                    $user = $verifyResult['employee'];
+                    $_SESSION['logged_in'] = true;
 
-        } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Server error. Please contact IT support.']);
-            exit;
+                    // Log successful login
+                    $logModel = new ActivityLog();
+                    $logModel->log("User logged in (OTP verified)", [
+                        'user_id'   => $user['id'],
+                        'user_name' => $user['full_name'],
+                        'role'      => $user['role_description'] ?? $user['role'] ?? 'Employee',
+                        'module'    => 'Authentication',
+                        'details'   => "Logged in via OTP: {$user['employee_id']} ({$user['full_name']})",
+                        'status'    => 'Success',
+                    ]);
+
+                    // Update last_login
+                    try {
+                        $db = Database::getInstance();
+                        $db->update('employees', ['last_login' => date('Y-m-d H:i:sP')], ['id' => $user['id']], true);
+                    } catch (\Throwable $ignored) {}
+                }
+
+                echo json_encode($verifyResult);
+                exit;
+
+            } catch (\Exception $e) {
+                error_log('OTP Verify error: ' . $e->getMessage());
+                echo json_encode(['success' => false, 'message' => 'Verification failed.']);
+                exit;
+            }
         }
     }
 }
 
-// If user is already logged in, redirect to dashboard
-if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
+// Redirect if already logged in or if active valid 12h/7d token cookie exists
+if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     header('Location: pages/dashboard.php');
     exit;
+}
+
+if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_GET['switch_account']) && empty($_GET['logged_out'])) {
+    $authService = new SessionAuthService();
+    if ($authService->validateActiveToken($_COOKIE['civentral_session'])) {
+        header('Location: pages/dashboard.php');
+        exit;
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -150,6 +227,13 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
         0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
         40% { transform: scale(1); opacity: 1; }
     }
+
+    @keyframes shakeError {
+        0%, 100% { transform: translateX(0); }
+        20%, 60% { transform: translateX(-6px); }
+        40%, 80% { transform: translateX(6px); }
+    }
+    .shake-error { animation: shakeError 0.4s ease-in-out; }
 
     .input-field:focus {
         box-shadow: 0 0 0 3px rgba(134, 182, 246, 0.2);
@@ -236,7 +320,7 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                         <a href="#" class="text-xs font-semibold text-brand-medium hover:underline">Forgot password?</a>
                     </div>
 
-                    <button type="submit" id="loginButton" class="w-full py-3 px-4 bg-brand-medium hover:bg-opacity-90 text-white font-medium rounded-lg text-sm transition shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-medium focus:ring-offset-2">
+                    <button type="submit" id="loginButton" class="w-full py-3 px-4 bg-brand-medium hover:bg-opacity-90 text-white font-medium rounded-lg text-sm transition shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-medium focus:ring-offset-2 cursor-pointer">
                         <span id="btnText">Sign in</span>
                     </button>
                 </form>
@@ -260,185 +344,268 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
         </div>
     </div>
 
-    <script>
-    /* ============================================================
-       PASSWORD TOGGLE
-       ============================================================ */
+    <!-- ============================================================ -->
+    <!-- 2-STEP OTP SECURITY CODE VERIFICATION MODAL                  -->
+    <!-- ============================================================ -->
+    <div id="otpModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-brand-border overflow-hidden transform transition-all">
+            <div class="bg-brand-medium p-6 text-center text-white relative">
+                <div class="h-12 w-12 rounded-full bg-white/20 border border-white/40 flex items-center justify-center mx-auto mb-2 text-white text-xl">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <h3 class="text-lg font-extrabold tracking-tight">Security Verification</h3>
+                <p class="text-xs text-white/90 mt-1">2-Step Employee Portal Authentication</p>
+            </div>
 
+            <div class="p-6 space-y-5">
+                <div class="text-center space-y-1">
+                    <p class="text-xs text-gray-500">A 6-digit security code has been sent to:</p>
+                    <p class="text-sm font-bold text-gray-800" id="otpMaskedEmail">s***@health.gov.ph</p>
+                </div>
+
+                <form id="otpForm" class="space-y-4">
+                    <input type="hidden" id="otpSessionToken" name="session_token" value="" />
+
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider text-center mb-2">Enter 6-Digit Code</label>
+                        <input
+                            type="text"
+                            id="otpCodeInput"
+                            name="otp_code"
+                            maxlength="6"
+                            placeholder="000000"
+                            required
+                            autocomplete="one-time-code"
+                            class="w-full py-3 text-center text-2xl font-black tracking-[0.5em] font-mono border-2 border-brand-border rounded-xl focus:border-brand-medium focus:ring-2 focus:ring-brand-medium/20 outline-none text-brand-dark bg-gray-50"
+                        />
+                    </div>
+
+                    <!-- Inline Error Banner -->
+                    <div id="otpErrorBanner" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-600 text-center flex items-center justify-center gap-1.5 transition-all">
+                        <i class="fa-solid fa-circle-exclamation text-red-500 text-sm"></i>
+                        <span id="otpErrorMessage">Incorrect 6-digit code. Please try again.</span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs text-gray-500 pt-1">
+                        <span>Code expires in <strong id="otpTimer" class="text-gray-800">5:00</strong></span>
+                        <button type="button" onclick="resendOtp()" class="text-brand-medium font-bold hover:underline cursor-pointer">Resend Code</button>
+                    </div>
+
+                    <button
+                        type="submit"
+                        id="otpSubmitBtn"
+                        class="w-full py-3 bg-brand-medium hover:bg-brand-dark text-white font-bold rounded-xl text-sm transition shadow-md focus:outline-none cursor-pointer"
+                    >
+                        <span id="otpBtnText">Verify & Access Portal</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
     function togglePasswordVisibility() {
         const passwordInput = document.getElementById('password');
         const passwordIcon = document.getElementById('passwordIcon');
-
         if (!passwordInput || !passwordIcon) return;
-
         const isHidden = passwordInput.type === 'password';
         passwordInput.type = isHidden ? 'text' : 'password';
-        passwordIcon.className = isHidden
-            ? 'fa-solid fa-eye text-sm'
-            : 'fa-solid fa-eye-slash text-sm';
+        passwordIcon.className = isHidden ? 'fa-solid fa-eye text-sm' : 'fa-solid fa-eye-slash text-sm';
     }
 
-    /* ============================================================
-       LOGIN HANDLER
-       ============================================================ */
+    let timerInterval = null;
+
+    function startOtpTimer(durationSeconds = 300) {
+        clearInterval(timerInterval);
+        let timer = durationSeconds;
+        const timerEl = document.getElementById('otpTimer');
+
+        timerInterval = setInterval(() => {
+            const minutes = Math.floor(timer / 60);
+            const seconds = timer % 60;
+            if (timerEl) {
+                timerEl.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            }
+            if (--timer < 0) {
+                clearInterval(timerInterval);
+                if (timerEl) timerEl.textContent = 'Expired';
+            }
+        }, 1000);
+    }
 
     async function handleLogin(event) {
         event.preventDefault();
-
         const employeeId = document.getElementById('employeeId').value.trim();
         const password = document.getElementById('password').value;
         const submitBtn = document.getElementById('loginButton');
         const btnText = document.getElementById('btnText');
 
-        // Prevent multiple simultaneous submissions
-        if (submitBtn.dataset.submitting === 'true') return;
-        submitBtn.dataset.submitting = 'true';
-
-        // ---- Validation ----
-        if (!employeeId) {
-            toast.error('Please enter your LGU Employee ID.', { title: 'Missing Field' });
-            document.getElementById('employeeId').focus();
-            submitBtn.dataset.submitting = 'false';
+        if (!employeeId || !password) {
+            toast.error('Please enter both Employee ID and Password.', { title: 'Missing Information' });
             return;
         }
 
-        if (!password) {
-            toast.error('Please enter your password.', { title: 'Missing Field' });
-            document.getElementById('password').focus();
-            submitBtn.dataset.submitting = 'false';
-            return;
-        }
-
-        // ---- Loading state ----
         submitBtn.disabled = true;
-        submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
-        btnText.innerHTML = '<span class="btn-loader"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>';
-
-        // ---- AbortController for timeout ----
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        btnText.innerHTML = '<span class="btn-loader"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span> Authenticating...';
 
         try {
             const rememberMe = document.getElementById('rememberMe')?.checked || false;
             const formData = new FormData();
+            formData.append('action', 'login');
             formData.append('employee_id', employeeId);
             formData.append('password', password);
             formData.append('remember_me', rememberMe);
 
             const response = await fetch(window.location.href, {
                 method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: formData,
-                signal: controller.signal
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
             });
 
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                throw new Error('Server returned ' + response.status + ' ' + response.statusText);
-            }
-
-            let data;
-            try {
-                data = await response.json();
-            } catch (parseError) {
-                throw new Error('Invalid response from server. Please try again.');
-            }
+            const data = await response.json();
 
             if (data.success) {
-                toast.success('Welcome back, ' + (data.user.name || 'User') + '!', {
-                    title: 'Login Successful',
-                    duration: 3000
-                });
+                if (data.requires_otp) {
+                    document.getElementById('otpSessionToken').value = data.session_token;
+                    document.getElementById('otpMaskedEmail').textContent = data.masked_email;
+                    document.getElementById('otpModal').classList.remove('hidden');
+                    document.getElementById('otpModal').classList.add('flex');
+                    document.getElementById('otpCodeInput').focus();
 
-                submitBtn.classList.remove('bg-brand-medium');
-                submitBtn.classList.add('bg-green-500');
-                btnText.textContent = '✓  Success!';
+                    startOtpTimer(300);
 
-                setTimeout(function() {
-                    window.location.href = 'pages/dashboard.php';
-                }, 1500);
-
+                    toast.info('Security code sent to ' + data.masked_email, { title: 'Check Your Email' });
+                    resetButton(submitBtn, btnText);
+                } else {
+                    // Active 12-hour session active! Skip OTP code!
+                    const userName = data.user?.name || 'Employee';
+                    toast.success('Welcome back, ' + userName + '!', { title: 'Device Verified' });
+                    submitBtn.classList.remove('bg-brand-medium');
+                    submitBtn.classList.add('bg-green-500');
+                    btnText.textContent = '✓ Verified!';
+                    setTimeout(() => {
+                        window.location.href = data.redirect || 'pages/dashboard.php';
+                    }, 1000);
+                }
             } else {
-                toast.error(data.message || 'Login credentials are invalid.', {
-                    title: 'Login Failed',
-                    duration: 6000
-                });
-
-                submitBtn.classList.remove('bg-brand-medium');
-                submitBtn.classList.add('bg-red-500');
-                btnText.textContent = '✗  Failed';
-
-                setTimeout(function() { resetButton(submitBtn, btnText); }, 1800);
+                toast.error(data.message || 'Invalid Employee ID or Password.', { title: 'Login Failed' });
+                resetButton(submitBtn, btnText);
             }
-
-        } catch (error) {
-            clearTimeout(timeoutId);
-
-            if (error.name === 'AbortError') {
-                toast.error('Request timed out. Please check your connection and try again.', {
-                    title: 'Connection Timeout',
-                    duration: 7000
-                });
-            } else {
-                console.error('Login error:', error);
-                toast.error(error.message || 'A network error occurred. Please try again.', {
-                    title: 'Connection Error',
-                    duration: 6000
-                });
-            }
-
-            submitBtn.classList.remove('bg-brand-medium');
-            submitBtn.classList.add('bg-red-500');
-            btnText.textContent = '✗  Error';
-
-            setTimeout(function() { resetButton(submitBtn, btnText); }, 1800);
+        } catch (err) {
+            console.error('Login error:', err);
+            toast.error('Network error. Please try again.', { title: 'Connection Issue' });
+            resetButton(submitBtn, btnText);
         }
     }
 
-    /**
-     * Reset login button to its default appearance
-     */
+    async function handleVerifyOtp(event) {
+        event.preventDefault();
+        const sessionToken = document.getElementById('otpSessionToken').value;
+        const otpCode = document.getElementById('otpCodeInput').value.trim();
+        const otpBtn = document.getElementById('otpSubmitBtn');
+        const otpBtnText = document.getElementById('otpBtnText');
+        const otpInput = document.getElementById('otpCodeInput');
+        const errorBanner = document.getElementById('otpErrorBanner');
+        const errorMsg = document.getElementById('otpErrorMessage');
+        const modalCard = document.querySelector('#otpModal .bg-white');
+
+        // Reset previous error state
+        if (errorBanner) errorBanner.classList.add('hidden');
+        if (otpInput) {
+            otpInput.classList.remove('border-red-500', 'bg-red-50', 'text-red-700');
+            otpInput.classList.add('border-brand-border', 'bg-gray-50', 'text-brand-dark');
+        }
+
+        if (otpCode.length !== 6) {
+            toast.warning('Please enter the full 6-digit code.', { title: 'Invalid Code' });
+            if (otpInput) otpInput.focus();
+            return;
+        }
+
+        otpBtn.disabled = true;
+        otpBtnText.innerHTML = '<span class="btn-loader"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span> Authenticating Code...';
+
+        try {
+            const formData = new FormData();
+            formData.append('action', 'verify_otp');
+            formData.append('session_token', sessionToken);
+            formData.append('otp_code', otpCode);
+
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const userName = (data.user && data.user.name) ? data.user.name : (data.employee && data.employee.full_name ? data.employee.full_name : 'User');
+                toast.success('Welcome back, ' + userName + '!', { title: 'Identity Verified' });
+                otpBtnText.textContent = '✓  Verified!';
+                setTimeout(() => {
+                    window.location.href = data.redirect || 'pages/dashboard.php';
+                }, 1000);
+            } else {
+                const errMsg = data.message || 'Incorrect 6-digit verification code.';
+                toast.error(errMsg, { title: 'Verification Failed' });
+
+                // Show inline error message banner
+                if (errorBanner && errorMsg) {
+                    errorMsg.textContent = errMsg;
+                    errorBanner.classList.remove('hidden');
+                }
+
+                // Highlight input field in red
+                if (otpInput) {
+                    otpInput.classList.remove('border-brand-border', 'bg-gray-50', 'text-brand-dark');
+                    otpInput.classList.add('border-red-500', 'bg-red-50', 'text-red-700');
+                    otpInput.focus();
+                    otpInput.select();
+                }
+
+                // Trigger shake animation on modal
+                if (modalCard) {
+                    modalCard.classList.remove('shake-error');
+                    void modalCard.offsetWidth;
+                    modalCard.classList.add('shake-error');
+                }
+
+                otpBtn.disabled = false;
+                otpBtnText.textContent = 'Verify & Access Portal';
+            }
+        } catch (err) {
+            console.error('OTP error:', err);
+            const sysErrMsg = 'Database or connection error. Please try again.';
+            toast.error(sysErrMsg, { title: 'System Error' });
+
+            if (errorBanner && errorMsg) {
+                errorMsg.textContent = sysErrMsg;
+                errorBanner.classList.remove('hidden');
+            }
+
+            otpBtn.disabled = false;
+            otpBtnText.textContent = 'Verify & Access Portal';
+        }
+    }
+
+    function resendOtp() {
+        toast.info('Requesting a new security code...', { title: 'Resending Code' });
+        const form = document.getElementById('loginForm');
+        if (form) form.requestSubmit();
+    }
+
     function resetButton(btn, textEl) {
         btn.disabled = false;
-        btn.classList.remove('opacity-75', 'cursor-not-allowed', 'bg-red-500', 'bg-green-500');
-        btn.classList.add('bg-brand-medium');
         textEl.textContent = 'Sign in';
-        btn.dataset.submitting = 'false';
     }
 
-    /* ============================================================
-       EVENT BINDING
-       ============================================================ */
+    document.addEventListener('DOMContentLoaded', () => {
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) loginForm.addEventListener('submit', handleLogin);
 
-    document.addEventListener('DOMContentLoaded', function() {
-        var loginForm = document.getElementById('loginForm');
-        if (loginForm) {
-            loginForm.addEventListener('submit', handleLogin);
-        }
-
-        var pwdField = document.getElementById('password');
-        if (pwdField) {
-            pwdField.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    var form = document.getElementById('loginForm');
-                    if (form) form.requestSubmit();
-                }
-            });
-        }
-
-        var idField = document.getElementById('employeeId');
-        if (idField) {
-            idField.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    document.getElementById('password').focus();
-                }
-            });
-        }
+        const otpForm = document.getElementById('otpForm');
+        if (otpForm) otpForm.addEventListener('submit', handleVerifyOtp);
     });
     </script>
 </body>
