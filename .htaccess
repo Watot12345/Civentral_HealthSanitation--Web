@@ -1,12 +1,14 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    Options -MultiViews
 
-    # 1. Immediately serve existing files (CSS, JS, images) and directories with 0 overhead
+    # 1. Serve existing physical files (CSS, JS, images) and directories
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
     RewriteRule ^ - [L]
 
     # 2. Silently route extension-less URLs to target .php files
-    RewriteCond %{REQUEST_FILENAME}\.php -f
-    RewriteRule ^([^.]+)/?$ $1.php [L,QSA]
+    RewriteCond %{DOCUMENT_ROOT}/%{REQUEST_URI}.php -f [OR]
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^(.*)$ $1.php [L,QSA]
 </IfModule>
