@@ -220,8 +220,8 @@ class DepartmentResolver
 
     /**
      * Check if the current logged-in user can access or manage data for the target department.
-     * System Administrator automatically returns true for all departments.
-     * Default Deny: If department cannot be resolved or is empty, access is denied.
+     * Admin Role: Full access to ALL departments.
+     * Department Head / Staff: Full access WITHIN assigned department only.
      */
     public function canAccessDepartment(string $targetDepartment): bool
     {
@@ -232,7 +232,7 @@ class DepartmentResolver
         $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? '');
         $userRole     = trim($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '');
 
-        // 1. System Administrator access bypass
+        // 1. ADMIN ROLE: Full access to ALL departments
         if (PermissionService::getInstance()->isAdminRole($userRoleDesc) || PermissionService::getInstance()->isAdminRole($userRole)) {
             return true;
         }
@@ -243,29 +243,12 @@ class DepartmentResolver
         $normCurrent = $this->normalizeDepartmentName($currentDept);
         $normTarget  = $this->normalizeDepartmentName($targetDept);
 
-        // 2. Department match
+        // 2. DEPARTMENT HEAD / STAFF: Full access WITHIN assigned department
         if (!empty($normCurrent) && $normCurrent === $normTarget) {
             return true;
         }
 
-        // 3. Permission-based access fallback
-        $permService = PermissionService::getInstance();
-        if ($normTarget === 'health center services' && ($permService->hasPermission('patients.view') || $permService->hasPermission('consultations.view') || $permService->hasPermission('triage.view') || $permService->hasPermission('dashboard.view'))) {
-            return true;
-        }
-        if ($normTarget === 'sanitation permits' && ($permService->hasPermission('permits.view') || $permService->hasPermission('inspections.view') || $permService->hasPermission('dashboard.view'))) {
-            return true;
-        }
-        if ($normTarget === 'immunization & nutrition' && ($permService->hasPermission('immunization.view') || $permService->hasPermission('patients.view') || $permService->hasPermission('dashboard.view'))) {
-            return true;
-        }
-        if ($normTarget === 'health surveillance' && ($permService->hasPermission('surveillance.view') || $permService->hasPermission('patients.view') || $permService->hasPermission('dashboard.view'))) {
-            return true;
-        }
-        if ($normTarget === 'wastewater services' && ($permService->hasPermission('inspections.view') || $permService->hasPermission('permits.view') || $permService->hasPermission('dashboard.view'))) {
-            return true;
-        }
-
+        // 3. Restrict access outside assigned department
         return false;
     }
 
