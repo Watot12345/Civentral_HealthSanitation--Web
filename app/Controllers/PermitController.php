@@ -250,6 +250,11 @@ class PermitController extends BaseController
                 $updateData['notes'] = trim($data['notes']);
             }
 
+            // ✅ Save rejection reason if provided
+            if (isset($data['rejection_reason'])) {
+                $updateData['rejection_reason'] = trim($data['rejection_reason']);
+            }
+
             $result = $this->permitModel->updateById($id, $updateData);
 
             return [
@@ -290,6 +295,14 @@ class PermitController extends BaseController
                 'inspector_id' => !empty($data['inspector_id']) ? (int)$data['inspector_id'] : ($permit['inspector_id'] ?? null),
                 'updated_at' => date('Y-m-d H:i:sP')
             ];
+
+            // ✅ CRITICAL: Save rejection reason when rejecting
+            if ($status === 'rejected' && isset($data['rejection_reason'])) {
+                $updateData['rejection_reason'] = trim($data['rejection_reason']);
+            } elseif ($status !== 'rejected') {
+                // Clear rejection reason if not rejected
+                $updateData['rejection_reason'] = null;
+            }
 
             if ($status === 'approved') {
                 $updateData['approved_date'] = date('Y-m-d');
@@ -475,6 +488,11 @@ class PermitController extends BaseController
             $dbData['notes'] = trim($data['notes']);
         }
 
+        // ✅ CRITICAL: Add rejection_reason to database array
+        if (isset($data['rejection_reason'])) {
+            $dbData['rejection_reason'] = trim($data['rejection_reason']);
+        }
+
         $dbData['updated_at'] = date('Y-m-d H:i:sP');
 
         return $dbData;
@@ -502,6 +520,7 @@ class PermitController extends BaseController
             'approved_date' => $p['approved_date'] ?? null,
             'expiry_date' => $p['expiry_date'] ?? null,
             'notes' => $p['notes'] ?? '',
+            'rejection_reason' => $p['rejection_reason'] ?? null, // ✅ CRITICAL: Include in response
             'created_at' => $p['created_at'] ?? '',
             'updated_at' => $p['updated_at'] ?? ''
         ];

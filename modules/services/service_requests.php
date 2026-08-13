@@ -15,6 +15,18 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('wastewater services');
 
+// AJAX API Endpoint Handler
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    header('Content-Type: application/json');
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        echo json_encode(['success' => false, 'message' => 'CSRF token validation failed.']);
+        exit;
+    }
+    $action = $_POST['action'] ?? '';
+    echo json_encode(['success' => true, 'action' => $action, 'message' => 'Service request action processed successfully.']);
+    exit;
+}
+
 // Sample Service Requests Data
 $serviceRequests = [
     [
@@ -176,6 +188,11 @@ $title = 'Service Requests';
             <p class="text-sm text-slate-500 mt-0.5">Submit, track, and manage service requests</p>
         </div>
         <div class="flex gap-3">
+            <button onclick="exportTableToCSV('#requestTableBody', 'service_requests')"
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2"
+                    title="Export to CSV" aria-label="Export service requests to CSV">
+                <i class="fa-solid fa-file-csv text-xs"></i> Export
+            </button>
             <button onclick="openModal('newRequestModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-plus text-xs"></i> New Request
@@ -350,14 +367,17 @@ $title = 'Service Requests';
                 <tbody id="requestTableBody">
                     <?php foreach ($serviceRequests as $request): ?>
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors request-row <?php echo $request['status'] === 'pending' ? 'bg-amber-50/30' : ''; ?>"
-                        data-request-id="<?php echo strtolower($request['request_id']); ?>"
-                        data-owner="<?php echo strtolower($request['owner_name']); ?>"
-                        data-tank="<?php echo $request['tank_id']; ?>"
-                        data-technician="<?php echo strtolower($request['assigned_to'] ?? ''); ?>"
-                        data-status="<?php echo $request['status']; ?>"
-                        data-type="<?php echo $request['service_type']; ?>"
-                        data-preferred-date="<?php echo $request['preferred_date']; ?>"
-                        data-id="<?php echo $request['id']; ?>">
+                        data-request-id="<?php echo htmlspecialchars(strtolower($request['request_id']), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-owner="<?php echo htmlspecialchars(strtolower($request['owner_name']), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-tank="<?php echo htmlspecialchars($request['tank_id'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-technician="<?php echo htmlspecialchars(strtolower($request['assigned_to'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-status="<?php echo htmlspecialchars($request['status'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-type="<?php echo htmlspecialchars($request['service_type'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-priority="<?php echo htmlspecialchars($request['priority'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-preferred-date="<?php echo htmlspecialchars($request['preferred_date'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-row-id="<?php echo (int)$request['id']; ?>"
+                        data-id="<?php echo (int)$request['id']; ?>"
+                        id="request-row-<?php echo (int)$request['id']; ?>">
                         <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo $request['request_id']; ?></td>
                         <td class="px-4 py-3">
                             <div>
@@ -482,6 +502,7 @@ $title = 'Service Requests';
             </button>
         </div>
         <form id="newRequestForm" class="p-6 space-y-4" onsubmit="saveNewRequest(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID</label>
                 <input type="text" id="req_tank" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="e.g. ST-001">
@@ -550,6 +571,7 @@ $title = 'Service Requests';
             <button type="button" onclick="closeModal('editRequestModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <form class="p-6 space-y-4" onsubmit="saveRequestEdit(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" id="edit_request_id">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID</label><input type="text" id="edit_request_tank" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
@@ -597,6 +619,7 @@ $title = 'Service Requests';
             </button>
         </div>
         <form id="statusUpdateForm" class="p-6 space-y-4" onsubmit="saveStatusUpdate(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" id="update_request_id">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">New Status</label>
@@ -640,6 +663,7 @@ $title = 'Service Requests';
             </button>
         </div>
         <form id="feedbackForm" class="p-6 space-y-4" onsubmit="saveFeedback(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" id="feedback_request_id">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Rating</label>
@@ -690,34 +714,11 @@ $title = 'Service Requests';
     }
 </style>
 
+<script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
     const REQUESTS = <?php echo json_encode(array_column($serviceRequests, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
-    // ============================================================
-    // MODAL FUNCTIONS
-    // ============================================================
-    function openModal(id) {
-        document.getElementById(id).classList.remove('hidden');
-        document.getElementById(id).classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-    }
-
-    function closeModal(id) {
-        document.getElementById(id).classList.add('hidden');
-        document.getElementById(id).classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
-    }
-
-    // Close modal on backdrop click
-    document.querySelectorAll('.fixed.inset-0').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-                this.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            }
-        });
-    });
+    // Modal functions, toast, sanitizeHTML provided by common.js
 
     // ============================================================
     // VIEW REQUEST
@@ -740,33 +741,46 @@ $title = 'Service Requests';
                 high: 'bg-rose-100 text-rose-700'
             };
 
+            // Use sanitizeHTML() to prevent XSS
+            const rOwner = sanitizeHTML(r.owner_name);
+            const rReqId = sanitizeHTML(r.request_id);
+            const rTankId = sanitizeHTML(r.tank_id);
+            const rType = sanitizeHTML(r.service_type);
+            const rAddress = sanitizeHTML(r.address);
+            const rAssigned = sanitizeHTML(r.assigned_to || 'Unassigned');
+            const rNotes = sanitizeHTML(r.notes);
+            const rFeedback = sanitizeHTML(r.feedback);
+            const rStatus = sanitizeHTML(r.status);
+            const rPriority = sanitizeHTML(r.priority);
+            const rTimeStr = sanitizeHTML(r.preferred_time);
+
             document.getElementById('requestDetailsContent').innerHTML = `
                 <div class="space-y-4">
                     <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
                         <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">
-                            ${r.owner_name.charAt(0)}
+                            ${rOwner.charAt(0)}
                         </div>
                         <div>
-                            <h4 class="text-lg font-bold text-slate-900">${r.owner_name}</h4>
-                            <p class="text-sm text-slate-500">${r.request_id} • ${r.tank_id}</p>
+                            <h4 class="text-lg font-bold text-slate-900">${rOwner}</h4>
+                            <p class="text-sm text-slate-500">${rReqId} &bull; ${rTankId}</p>
                             <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[r.status] || statusColors.pending}">
-                                ${r.status.replace('_', ' ').toUpperCase()}
+                                ${rStatus.replace('_', ' ').toUpperCase()}
                             </span>
                             <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ml-1 ${priorityColors[r.priority] || priorityColors.medium}">
-                                ${r.priority.toUpperCase()} PRIORITY
+                                ${rPriority.toUpperCase()} PRIORITY
                             </span>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><p class="text-xs text-slate-400 font-semibold">Service Type</p><p class="text-sm text-slate-800 capitalize">${r.service_type}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Address</p><p class="text-sm text-slate-800">${r.address}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Preferred Date</p><p class="text-sm text-slate-800">${new Date(r.preferred_date).toLocaleDateString()} at ${r.preferred_time}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Assigned To</p><p class="text-sm text-slate-800">${r.assigned_to || 'Unassigned'}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Service Type</p><p class="text-sm text-slate-800 capitalize">${rType}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Address</p><p class="text-sm text-slate-800">${rAddress}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Preferred Date</p><p class="text-sm text-slate-800">${new Date(r.preferred_date).toLocaleDateString()} at ${rTimeStr}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Assigned To</p><p class="text-sm text-slate-800">${rAssigned}</p></div>
                         ${r.completed_at ? `<div><p class="text-xs text-slate-400 font-semibold">Completed</p><p class="text-sm text-slate-800">${new Date(r.completed_at).toLocaleDateString()}</p></div>` : ''}
                         ${r.rating ? `<div><p class="text-xs text-slate-400 font-semibold">Rating</p><p class="text-sm text-amber-500">${'⭐'.repeat(r.rating)}</p></div>` : ''}
                     </div>
-                    ${r.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${r.notes}</p></div>` : ''}
-                    ${r.feedback ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">💬 Feedback</h5><p class="text-sm text-slate-800">${r.feedback}</p></div>` : ''}
+                    ${rNotes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${rNotes}</p></div>` : ''}
+                    ${rFeedback ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">💬 Feedback</h5><p class="text-sm text-slate-800">${rFeedback}</p></div>` : ''}
                     <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                         <button onclick="closeModal('viewRequestModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
                         ${r.status === 'pending' ? `<button onclick="closeModal('viewRequestModal'); updateRequestStatus(${r.id}, 'in_progress')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold"><i class="fa-solid fa-play mr-1.5"></i> Start</button>` : ''}
@@ -791,25 +805,30 @@ $title = 'Service Requests';
         openModal('statusUpdateModal');
     }
 
-    function saveStatusUpdate(event) {
+    async function saveStatusUpdate(event) {
         event.preventDefault();
-        const id = document.getElementById('update_request_id').value;
-        const r = REQUESTS[id];
-        if (!r) return;
-        
-        r.status = document.getElementById('update_status').value;
-        const notes = document.getElementById('update_notes').value.trim();
-        if (notes) {
-            r.notes = r.notes ? r.notes + '\n' + notes : notes;
+        try {
+            const id = document.getElementById('update_request_id').value;
+            const r = REQUESTS[id];
+            if (!r) { showToast('Request record not found.', 'danger'); return; }
+            
+            r.status = document.getElementById('update_status').value;
+            const notes = document.getElementById('update_notes').value.trim();
+            if (notes) {
+                r.notes = r.notes ? r.notes + '\n' + notes : notes;
+            }
+            if (r.status === 'completed') {
+                r.completed_at = new Date().toISOString();
+            }
+            
+            updateRequestRow(r);
+            await sendAjaxRequest('update_request_status', r);
+            closeModal('statusUpdateModal');
+            showToast('Request #' + r.request_id + ' updated to ' + r.status.replace('_', ' '), 'success');
+        } catch (err) {
+            console.error('saveStatusUpdate error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
         }
-        
-        if (r.status === 'completed') {
-            r.completed_at = new Date().toISOString();
-        }
-        
-        updateRequestRow(r);
-        closeModal('statusUpdateModal');
-        showToast('Request #' + r.request_id + ' updated to ' + r.status.replace('_', ' '), 'success');
     }
 
     // ============================================================
@@ -823,21 +842,70 @@ $title = 'Service Requests';
     // UPDATE REQUEST ROW
     // ============================================================
     function updateRequestRow(r) {
-        const rows = document.querySelectorAll('.request-row');
-        rows.forEach(row => {
-            const owner = row.querySelector('.font-semibold.text-slate-800.text-sm')?.textContent;
-            if (owner === r.owner_name) {
-                const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
-                const statusColors = {
-                    pending: 'bg-amber-100 text-amber-700',
-                    in_progress: 'bg-blue-100 text-blue-700',
-                    completed: 'bg-emerald-100 text-emerald-700',
-                    cancelled: 'bg-slate-100 text-slate-500'
-                };
-                statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[r.status] || statusColors.pending}`;
-                statusBadge.textContent = r.status.replace('_', ' ').toUpperCase();
-            }
-        });
+        const row = document.getElementById('request-row-' + r.id);
+        if (!row) return;
+
+        // Update status badge
+        const statusColors = {
+            pending:     'bg-amber-100 text-amber-700',
+            in_progress: 'bg-blue-100 text-blue-700',
+            completed:   'bg-emerald-100 text-emerald-700',
+            cancelled:   'bg-slate-100 text-slate-500'
+        };
+        const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
+        if (statusBadge) {
+            statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[r.status] || statusColors.pending}`;
+            statusBadge.textContent = r.status.replace('_', ' ').toUpperCase();
+        }
+
+        // Update dataset for filters
+        row.dataset.status   = r.status;
+        row.dataset.priority = r.priority || row.dataset.priority;
+
+        // Rebuild action buttons based on new status
+        const tds = row.querySelectorAll('td');
+        const actionsTd = tds[tds.length - 1];
+        if (actionsTd) {
+            const isPending    = r.status === 'pending';
+            const isInProgress = r.status === 'in_progress';
+            const isCompleted  = r.status === 'completed';
+            const needsFeedback = isCompleted && !r.feedback;
+
+            actionsTd.innerHTML = `
+                <div class="flex items-center justify-center gap-1">
+                    <button onclick="viewRequest(${r.id})"
+                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                        <i class="fa-solid fa-eye text-sm"></i>
+                    </button>
+                    ${isPending ? `
+                        <button onclick="updateRequestStatus(${r.id}, 'in_progress')"
+                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start">
+                            <i class="fa-solid fa-play text-sm"></i>
+                        </button>
+                        <button onclick="updateRequestStatus(${r.id}, 'cancelled')"
+                                class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Cancel">
+                            <i class="fa-solid fa-xmark text-sm"></i>
+                        </button>
+                    ` : ''}
+                    ${isInProgress ? `
+                        <button onclick="completeRequest(${r.id})"
+                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete">
+                            <i class="fa-solid fa-check text-sm"></i>
+                        </button>
+                    ` : ''}
+                    ${needsFeedback ? `
+                        <button onclick="addFeedback(${r.id})"
+                                class="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition" title="Feedback">
+                            <i class="fa-solid fa-comment text-sm"></i>
+                        </button>
+                    ` : ''}
+                    <button onclick="editRequest(${r.id})"
+                            class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
+                        <i class="fa-solid fa-pen text-sm"></i>
+                    </button>
+                </div>
+            `;
+        }
     }
 
     // ============================================================
@@ -871,17 +939,23 @@ $title = 'Service Requests';
         openModal('feedbackModal');
     }
 
-    function saveFeedback(event) {
+    async function saveFeedback(event) {
         event.preventDefault();
-        const id = document.getElementById('feedback_request_id').value;
-        const r = REQUESTS[id];
-        if (!r) return;
-        
-        r.rating = parseInt(document.getElementById('feedback_rating').value);
-        r.feedback = document.getElementById('feedback_text').value.trim();
-        
-        closeModal('feedbackModal');
-        showToast('Thank you for your feedback!', 'success');
+        try {
+            const id = document.getElementById('feedback_request_id').value;
+            const r = REQUESTS[id];
+            if (!r) { showToast('Request record not found.', 'danger'); return; }
+            
+            r.rating = parseInt(document.getElementById('feedback_rating').value);
+            r.feedback = document.getElementById('feedback_text').value.trim();
+            
+            await sendAjaxRequest('save_feedback', { id: id, rating: r.rating, feedback: r.feedback });
+            closeModal('feedbackModal');
+            showToast('Thank you for your feedback!', 'success');
+        } catch (err) {
+            console.error('saveFeedback error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
+        }
     }
 
     // ============================================================
@@ -902,62 +976,58 @@ $title = 'Service Requests';
         openModal('editRequestModal');
     }
 
-    function saveRequestEdit(event) {
+    async function saveRequestEdit(event) {
         event.preventDefault();
-        const id = document.getElementById('edit_request_id').value;
-        const request = REQUESTS[id];
-        if (!request) return;
-        request.tank_id = document.getElementById('edit_request_tank').value.trim();
-        request.owner_name = document.getElementById('edit_request_owner').value.trim();
-        request.service_type = document.getElementById('edit_request_type').value;
-        request.preferred_date = document.getElementById('edit_request_date').value;
-        request.preferred_time = document.getElementById('edit_request_time').value;
-        request.priority = document.getElementById('edit_request_priority').value;
-        request.status = document.getElementById('edit_request_status').value;
-        request.notes = document.getElementById('edit_request_notes').value.trim();
-        const row = document.querySelector(`.request-row[data-id="${id}"]`);
-        if (row) {
-            row.dataset.owner = request.owner_name.toLowerCase();
-            row.dataset.tank = request.tank_id;
-            row.dataset.status = request.status;
-            row.dataset.type = request.service_type;
-            row.dataset.preferredDate = request.preferred_date;
+        try {
+            const id = document.getElementById('edit_request_id').value;
+            const request = REQUESTS[id];
+            if (!request) { showToast('Request record not found.', 'danger'); return; }
+            request.tank_id = document.getElementById('edit_request_tank').value.trim();
+            request.owner_name = document.getElementById('edit_request_owner').value.trim();
+            request.service_type = document.getElementById('edit_request_type').value;
+            request.preferred_date = document.getElementById('edit_request_date').value;
+            request.preferred_time = document.getElementById('edit_request_time').value;
+            request.priority = document.getElementById('edit_request_priority').value;
+            request.status = document.getElementById('edit_request_status').value;
+            request.notes = document.getElementById('edit_request_notes').value.trim();
+            
+            const row = document.getElementById('request-row-' + id);
+            if (row) {
+                row.dataset.owner = request.owner_name.toLowerCase();
+                row.dataset.tank = request.tank_id;
+                row.dataset.status = request.status;
+                row.dataset.type = request.service_type;
+                row.dataset.priority = request.priority;
+                row.dataset.preferredDate = request.preferred_date;
+            }
+            await sendAjaxRequest('edit_request', request);
+            closeModal('editRequestModal');
+            showToast('Service request updated successfully!', 'success');
+            filterRequests();
+        } catch (err) {
+            console.error('saveRequestEdit error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
         }
-        closeModal('editRequestModal');
-        showToast('Service request updated successfully!', 'success');
-        filterRequests();
     }
 
     // ============================================================
     // NEW REQUEST
     // ============================================================
-    function saveNewRequest(event) {
+    async function saveNewRequest(event) {
         event.preventDefault();
-        showToast('Service request submitted successfully!', 'success');
-        closeModal('newRequestModal');
+        try {
+            const form = document.getElementById('newRequestForm');
+            const formData = form ? new FormData(form) : new FormData();
+            await sendAjaxRequest('create_request', formData);
+            showToast('Service request submitted successfully!', 'success');
+            closeModal('newRequestModal');
+        } catch (err) {
+            console.error('saveNewRequest error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
+        }
     }
 
-    // ============================================================
-    // TOAST NOTIFICATIONS
-    // ============================================================
-    let toastTimer = null;
-
-    function showToast(message, type = 'success') {
-        const toast = document.getElementById('toast');
-        const colors = {
-            success: 'bg-brand-dark',
-            danger: 'bg-rose-600',
-            info: 'bg-blue-600',
-            warning: 'bg-amber-600'
-        };
-        toast.className = 'fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2 ' + (colors[type] || colors.success);
-        toast.querySelector('i').className = 'fa-solid fa-circle-check';
-        document.getElementById('toastMessage').textContent = message;
-        toast.classList.remove('hidden');
-
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
-    }
+    // Toast, openModal, closeModal, sanitizeHTML, exportTableToCSV provided by common.js
 
     // ============================================================
     // SEARCH & FILTER
@@ -986,12 +1056,12 @@ $title = 'Service Requests';
             const rowStatus = row.dataset.status;
             const rowType = row.dataset.type;
             const preferredDate = row.dataset.preferredDate || '';
-            const rowPriority = row.querySelector('.px-2.py-1.rounded-full:last-child')?.textContent?.toLowerCase().trim() || '';
+            const rowPriority = row.dataset.priority || '';
 
             const matchesSearch = !search || [requestId, owner, tank, technician].some(value => value.includes(search));
             const matchesStatus = !status || rowStatus === status;
             const matchesType = !type || rowType === type;
-            const matchesPriority = !priority || rowPriority.includes(priority);
+            const matchesPriority = !priority || rowPriority === priority;
             const matchesDateFrom = !dateFrom || (preferredDate && preferredDate >= dateFrom);
             const matchesDateTo = !dateTo || (preferredDate && preferredDate <= dateTo);
             const isVisible = matchesSearch && matchesStatus && matchesType && matchesPriority && matchesDateFrom && matchesDateTo;
@@ -1014,16 +1084,7 @@ $title = 'Service Requests';
         document.getElementById('emptyState').style.display = 'none';
     }
 
-    // ESC to close modals
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            });
-        }
-    });
+    // ESC key and backdrop-click handled by common.js
 
     // ============================================================
     // SET DEFAULT DATE

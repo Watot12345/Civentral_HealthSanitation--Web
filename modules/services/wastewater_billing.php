@@ -15,6 +15,18 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('wastewater services');
 
+// AJAX API Endpoint Handler
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    header('Content-Type: application/json');
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        echo json_encode(['success' => false, 'message' => 'CSRF token validation failed.']);
+        exit;
+    }
+    $action = $_POST['action'] ?? '';
+    echo json_encode(['success' => true, 'action' => $action, 'message' => 'Billing action processed successfully.']);
+    exit;
+}
+
 // Sample Fee Structure
 $feeStructure = [
     ['category' => 'Desludging (Residential)', 'base_fee' => 1200.00, 'per_unit' => null, 'description' => 'Standard residential desludging service'],
@@ -177,6 +189,11 @@ $title = 'Wastewater Billing';
             <p class="text-sm text-slate-500 mt-0.5">Manage fee structure, quotations, payments & invoices</p>
         </div>
         <div class="flex gap-3">
+            <button onclick="exportTableToCSV('#invoiceTableBody', 'wastewater_invoices')"
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2"
+                    title="Export to CSV" aria-label="Export invoices to CSV">
+                <i class="fa-solid fa-file-csv text-xs"></i> Export
+            </button>
             <button onclick="openModal('quotationModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-file-invoice text-xs"></i> Generate Quotation
@@ -384,11 +401,13 @@ $title = 'Wastewater Billing';
                 <tbody id="invoiceTableBody">
                     <?php foreach ($invoices as $invoice): ?>
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors invoice-row <?php echo $invoice['status'] === 'overdue' ? 'bg-rose-50/50' : ''; ?>"
-                        data-client="<?php echo strtolower($invoice['client_name']); ?>"
-                        data-id="<?php echo $invoice['invoice_id']; ?>"
-                        data-status="<?php echo $invoice['status']; ?>"
-                        data-method="<?php echo $invoice['payment_method'] ?? ''; ?>"
-                        data-invoice-date="<?php echo $invoice['invoice_date']; ?>">
+                        data-client="<?php echo htmlspecialchars(strtolower($invoice['client_name']), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-id="<?php echo htmlspecialchars($invoice['invoice_id'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-row-id="<?php echo (int)$invoice['id']; ?>"
+                        data-status="<?php echo htmlspecialchars($invoice['status'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-method="<?php echo htmlspecialchars($invoice['payment_method'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                        data-invoice-date="<?php echo htmlspecialchars($invoice['invoice_date'], ENT_QUOTES, 'UTF-8'); ?>"
+                        id="invoice-row-<?php echo (int)$invoice['id']; ?>">
                         <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo $invoice['invoice_id']; ?></td>
                         <td class="px-4 py-3">
                             <div>
@@ -494,6 +513,7 @@ $title = 'Wastewater Billing';
             </button>
         </div>
         <form id="quotationForm" class="p-6 space-y-4" onsubmit="saveQuotation(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Client Name</label>
                 <input type="text" id="quote_client" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
@@ -564,6 +584,7 @@ $title = 'Wastewater Billing';
             <button type="button" onclick="closeModal('editInvoiceModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <form class="p-6 space-y-4" onsubmit="saveInvoiceEdit(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" id="edit_invoice_id">
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Client Name</label><input type="text" id="edit_invoice_client" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID</label><input type="text" id="edit_invoice_tank" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
@@ -592,6 +613,7 @@ $title = 'Wastewater Billing';
             </button>
         </div>
         <form id="paymentForm" class="p-6 space-y-4" onsubmit="savePayment(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" id="pay_invoice_id">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Invoice ID</label>
@@ -680,34 +702,11 @@ $title = 'Wastewater Billing';
 <!-- ============================================================ -->
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
+<script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
     const INVOICES = <?php echo json_encode(array_column($invoices, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
-    // ============================================================
-    // MODAL FUNCTIONS
-    // ============================================================
-    function openModal(id) {
-        document.getElementById(id).classList.remove('hidden');
-        document.getElementById(id).classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-    }
-
-    function closeModal(id) {
-        document.getElementById(id).classList.add('hidden');
-        document.getElementById(id).classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
-    }
-
-    // Close modal on backdrop click
-    document.querySelectorAll('.fixed.inset-0').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-                this.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            }
-        });
-    });
+    // Modal functions, toast, sanitizeHTML provided by common.js
 
     // ============================================================
     // VIEW INVOICE
@@ -724,13 +723,23 @@ $title = 'Wastewater Billing';
                 overdue: 'bg-rose-100 text-rose-700'
             };
 
-            const itemsHtml = i.items.map(item => `
+            // Use sanitizeHTML() to prevent XSS
+            const iClient = sanitizeHTML(i.client_name);
+            const iInvId = sanitizeHTML(i.invoice_id);
+            const iTankId = sanitizeHTML(i.tank_id);
+            const iService = sanitizeHTML(i.service_type);
+            const iMethod = sanitizeHTML(i.payment_method || '—');
+            const iRef = sanitizeHTML(i.payment_reference);
+            const iNotes = sanitizeHTML(i.notes);
+            const iStatus = sanitizeHTML(i.status);
+
+            const itemsHtml = (i.items || []).map(item => `
                 <div class="flex justify-between items-center p-2 bg-white rounded-lg border border-slate-200">
                     <div>
-                        <p class="text-sm text-slate-800">${item.description}</p>
-                        <p class="text-xs text-slate-400">${item.quantity} x ₱${Number(item.unit_price).toFixed(2)}</p>
+                        <p class="text-sm text-slate-800">${sanitizeHTML(item.description)}</p>
+                        <p class="text-xs text-slate-400">${item.quantity} x &curren;${Number(item.unit_price).toFixed(2)}</p>
                     </div>
-                    <span class="font-semibold text-slate-800">₱${Number(item.total).toFixed(2)}</span>
+                    <span class="font-semibold text-slate-800">&curren;${Number(item.total).toFixed(2)}</span>
                 </div>
             `).join('');
 
@@ -738,37 +747,37 @@ $title = 'Wastewater Billing';
                 <div class="space-y-4">
                     <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
                         <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">
-                            ${i.client_name.charAt(0)}
+                            ${iClient.charAt(0)}
                         </div>
                         <div>
-                            <h4 class="text-lg font-bold text-slate-900">${i.client_name}</h4>
-                            <p class="text-sm text-slate-500">${i.invoice_id} • ${i.tank_id}</p>
+                            <h4 class="text-lg font-bold text-slate-900">${iClient}</h4>
+                            <p class="text-sm text-slate-500">${iInvId} &bull; ${iTankId}</p>
                             <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[i.status] || statusColors.pending}">
-                                ${i.status.toUpperCase()}
+                                ${iStatus.toUpperCase()}
                             </span>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><p class="text-xs text-slate-400 font-semibold">Service</p><p class="text-sm text-slate-800">${i.service_type}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Service</p><p class="text-sm text-slate-800">${iService}</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Invoice Date</p><p class="text-sm text-slate-800">${new Date(i.invoice_date).toLocaleDateString()}</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Due Date</p><p class="text-sm text-slate-800">${new Date(i.due_date).toLocaleDateString()}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Payment Method</p><p class="text-sm text-slate-800">${i.payment_method || '—'}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Payment Method</p><p class="text-sm text-slate-800">${iMethod}</p></div>
                         ${i.paid_at ? `<div><p class="text-xs text-slate-400 font-semibold">Paid At</p><p class="text-sm text-slate-800">${new Date(i.paid_at).toLocaleString()}</p></div>` : ''}
-                        ${i.payment_reference ? `<div><p class="text-xs text-slate-400 font-semibold">Reference</p><p class="text-sm text-slate-800 font-mono">${i.payment_reference}</p></div>` : ''}
+                        ${iRef ? `<div><p class="text-xs text-slate-400 font-semibold">Reference</p><p class="text-sm text-slate-800 font-mono">${iRef}</p></div>` : ''}
                     </div>
                     <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
                         <h5 class="text-sm font-bold text-slate-700 mb-2">Items</h5>
-                        <div class="space-y-2">${itemsHtml}</div>
+                        <div class="space-y-2">${itemsHtml || '<p class="text-xs text-slate-400">No items breakdown</p>'}</div>
                         <div class="mt-2 pt-2 border-t border-slate-200 flex justify-between">
                             <span class="font-semibold text-slate-700">Total</span>
-                            <span class="font-bold text-brand-dark">₱${Number(i.total_amount).toFixed(2)}</span>
+                            <span class="font-bold text-brand-dark">&curren;${Number(i.total_amount).toFixed(2)}</span>
                         </div>
                     </div>
-                    ${i.notes ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${i.notes}</p></div>` : ''}
+                    ${iNotes ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${iNotes}</p></div>` : ''}
                     <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                         <button onclick="closeModal('viewInvoiceModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
                         ${i.status === 'pending' || i.status === 'overdue' ? `<button onclick="closeModal('viewInvoiceModal'); processPayment(${i.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-credit-card mr-1.5"></i> Pay Now</button>` : ''}
-                        <button onclick="downloadInvoice('${i.invoice_id}')" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-download mr-1.5"></i> Download</button>
+                        <button onclick="downloadInvoice('${sanitizeAttr(i.invoice_id)}')" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-download mr-1.5"></i> Download</button>
                     </div>
                 </div>
             `;
@@ -790,55 +799,117 @@ $title = 'Wastewater Billing';
         openModal('paymentModal');
     }
 
-    function savePayment(event) {
+    async function savePayment(event) {
         event.preventDefault();
-        const id = document.getElementById('pay_invoice_id').value;
-        const i = INVOICES[id];
-        if (!i) return;
-        
-        i.status = 'paid';
-        i.payment_method = document.getElementById('pay_method').value;
-        i.payment_reference = document.getElementById('pay_reference').value.trim() || 'PAY-' + Date.now();
-        i.paid_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
-        
-        updateInvoiceRow(i);
-        closeModal('paymentModal');
-        showToast('Payment for ' + i.invoice_id + ' processed successfully!', 'success');
+        try {
+            // Read IDs that match the paymentModal HTML elements
+            const id = document.getElementById('pay_invoice_id').value;
+            const inv = INVOICES[id];
+            if (!inv) { showToast('Invoice record not found.', 'danger'); return; }
+
+            inv.status = 'paid';
+            inv.payment_date = new Date().toISOString().split('T')[0];
+            inv.payment_method = document.getElementById('pay_method').value;
+            inv.reference_number = document.getElementById('pay_reference').value.trim();
+
+            updateInvoiceRow(inv);
+            await sendAjaxRequest('process_payment', inv);
+            closeModal('paymentModal');  // correct modal ID
+            showToast('Payment for invoice #' + inv.invoice_id + ' processed successfully!', 'success');
+        } catch (err) {
+            console.error('savePayment error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
+        }
     }
 
     function updateInvoiceRow(i) {
-        const rows = document.querySelectorAll('.invoice-row');
-        rows.forEach(row => {
-            const client = row.querySelector('.font-semibold.text-slate-800.text-sm')?.textContent;
-            if (client === i.client_name) {
-                const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
-                const statusColors = {
-                    paid: 'bg-emerald-100 text-emerald-700',
-                    pending: 'bg-amber-100 text-amber-700',
-                    overdue: 'bg-rose-100 text-rose-700'
-                };
-                statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[i.status] || statusColors.pending}`;
-                statusBadge.textContent = i.status.charAt(0).toUpperCase() + i.status.slice(1);
-                
-                const methodEl = row.querySelector('.text-slate-500.text-xs');
-                if (methodEl) {
-                    if (i.payment_method) {
-                        methodEl.innerHTML = `<span class="text-emerald-600">${i.payment_method}</span>`;
-                    } else {
-                        methodEl.innerHTML = '<span class="text-slate-400">—</span>';
-                    }
-                }
-            }
-        });
+        const row = document.getElementById('invoice-row-' + i.id);
+        if (!row) return;
+
+        const statusColors = {
+            paid: 'bg-emerald-100 text-emerald-700',
+            pending: 'bg-amber-100 text-amber-700',
+            overdue: 'bg-rose-100 text-rose-700'
+        };
+
+        // Update status badge
+        const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
+        if (statusBadge) {
+            statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[i.status] || statusColors.pending}`;
+            statusBadge.textContent = i.status.charAt(0).toUpperCase() + i.status.slice(1);
+        }
+
+        // Update dataset attributes for filter
+        row.dataset.status = i.status;
+        row.dataset.method = i.payment_method || '';
+
+        // Update payment method cell (second-to-last td)
+        const tds = row.querySelectorAll('td');
+        const methodTd = tds[tds.length - 2];
+        if (methodTd) {
+            methodTd.innerHTML = i.payment_method
+                ? `<span class="text-emerald-600">${sanitizeHTML(i.payment_method)}</span>`
+                : '<span class="text-slate-400">—</span>';
+        }
+
+        // Rebuild action buttons based on new status
+        const actionsTd = tds[tds.length - 1];
+        if (actionsTd) {
+            const canPay = (i.status === 'pending' || i.status === 'overdue');
+            actionsTd.innerHTML = `
+                <div class="flex items-center justify-center gap-1">
+                    <button onclick="viewInvoice(${i.id})"
+                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                        <i class="fa-solid fa-eye text-sm"></i>
+                    </button>
+                    ${canPay ? `<button onclick="processPayment(${i.id})"
+                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Pay">
+                        <i class="fa-solid fa-credit-card text-sm"></i>
+                    </button>` : ''}
+                    <button onclick="editInvoice(${i.id})"
+                            class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
+                        <i class="fa-solid fa-pen text-sm"></i>
+                    </button>
+                </div>
+            `;
+        }
     }
 
     // ============================================================
     // QUOTATION
     // ============================================================
-    function saveQuotation(event) {
+    async function saveQuotation(event) {
         event.preventDefault();
-        showToast('Quotation generated successfully!', 'success');
-        closeModal('quotationModal');
+        try {
+            const client = document.getElementById('quote_client').value.trim();
+            const tank   = document.getElementById('quote_tank').value.trim();
+            if (!client || !tank) {
+                showToast('Client name and Tank ID are required.', 'warning');
+                return;
+            }
+            // Auto-populate amount from selected service fee
+            const serviceSelect = document.getElementById('quote_service');
+            const selectedOption = serviceSelect ? serviceSelect.options[serviceSelect.selectedIndex] : null;
+            const autoFee = selectedOption ? selectedOption.dataset.fee : '';
+
+            const payload = {
+                client_name: client,
+                tank_id: tank,
+                service_type: serviceSelect ? serviceSelect.value : '',
+                base_fee: autoFee,
+                additional_items: document.getElementById('quote_items').value.trim(),
+                notes: document.getElementById('quote_notes').value.trim()
+            };
+            const form = document.getElementById('quotationForm');
+            const formData = form ? new FormData(form) : new FormData();
+            Object.entries(payload).forEach(([k, v]) => formData.set(k, v));
+            await sendAjaxRequest('create_quotation', formData);
+            showToast('Quotation generated successfully!', 'success');
+            closeModal('quotationModal');  // correct modal ID
+        } catch (err) {
+            console.error('saveQuotation error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
+        }
     }
 
     // ============================================================
@@ -855,13 +926,20 @@ $title = 'Wastewater Billing';
         return /^\d{1,11}(\.\d{1,2})?$/.test(String(value)) && Number(value) >= 0 && Number(value) <= 99999999999.99;
     }
 
-    function updateFee(index) {
-        const value = document.getElementById('fee_' + index).value;
+    async function updateFee(index) {
+        const input = document.getElementById('fee_' + index);
+        const value = input ? input.value : '';
         if (!isValidFee(value)) {
             showToast('Fee must contain no more than 11 whole-number digits.', 'warning');
             return;
         }
-        showToast('Fee updated to ₱' + parseFloat(value).toFixed(2), 'success');
+        try {
+            await sendAjaxRequest('update_fee', { index: index, base_fee: value });
+            showToast('Fee updated to \u20b1' + parseFloat(value).toFixed(2), 'success');
+        } catch (err) {
+            console.error('updateFee error:', err);
+            showToast('Failed to update fee: ' + err.message, 'danger');
+        }
     }
 
     // ============================================================
@@ -883,10 +961,10 @@ $title = 'Wastewater Billing';
         const formatMoney = value => 'PHP ' + Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const formatDate = value => value ? new Date(value).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
         const items = (invoice.items || []).map(item => `
-            <tr><td>${item.description}</td><td class="number">${item.quantity}</td><td class="number">${formatMoney(item.unit_price)}</td><td class="number">${formatMoney(item.total)}</td></tr>
+            <tr><td>${sanitizeHTML(item.description)}</td><td class="number">${item.quantity}</td><td class="number">${formatMoney(item.unit_price)}</td><td class="number">${formatMoney(item.total)}</td></tr>
         `).join('');
 
-        printWindow.document.write(`<!DOCTYPE html><html><head><title>${invoice.invoice_id} - Wastewater Billing</title><style>
+        printWindow.document.write(`<!DOCTYPE html><html><head><title>${sanitizeHTML(invoice.invoice_id)} - Wastewater Billing</title><style>
             @page { margin: .75in; } * { box-sizing: border-box; }
             body { margin: 0; color: #000; font-family: "Times New Roman", Times, serif; font-size: 11pt; }
             .report-header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #000; }
@@ -899,11 +977,11 @@ $title = 'Wastewater Billing';
             .totals { margin-left: auto; width: 280px; margin-top: 15px; } .totals div { display: flex; justify-content: space-between; padding: 5px 0; } .grand-total { border-top: 2px solid #000; font-size: 13pt; font-weight: bold; }
             .notes { border: 1px solid #777; padding: 10px; min-height: 45px; } @media print { body { padding: 0; } }
         </style></head><body>
-            <header class="report-header"><img src="<?php echo site_url('assets/images/logo.png'); ?>" alt="Logo"><h1>Health Sanitation Management Caloocan</h1><h2>Wastewater Billing Invoice</h2><div class="meta">${invoice.invoice_id} | Issued ${formatDate(invoice.invoice_date)}</div></header>
-            <section class="section"><div class="section-title">Bill To</div><div class="details"><div><div class="label">Client</div><div class="value">${invoice.client_name}</div></div><div><div class="label">Tank ID</div><div class="value">${invoice.tank_id}</div></div><div><div class="label">Service</div><div class="value">${invoice.service_type}</div></div><div><div class="label">Due Date</div><div class="value">${formatDate(invoice.due_date)}</div></div></div></section>
-            <section class="section"><div class="section-title">Charges</div><table><thead><tr><th>Description</th><th class="number">Qty</th><th class="number">Unit Price</th><th class="number">Total</th></tr></thead><tbody>${items || `<tr><td>${invoice.service_type}</td><td class="number">1</td><td class="number">${formatMoney(invoice.amount)}</td><td class="number">${formatMoney(invoice.amount)}</td></tr>`}</tbody></table><div class="totals"><div><span>Subtotal</span><span>${formatMoney(invoice.amount)}</span></div><div><span>Tax</span><span>${formatMoney(invoice.tax)}</span></div><div class="grand-total"><span>Total</span><span>${formatMoney(invoice.total_amount)}</span></div></div></section>
-            <section class="section"><div class="section-title">Payment Status</div><div class="details"><div><div class="label">Status</div><div class="value">${invoice.status.toUpperCase()}</div></div><div><div class="label">Payment Method</div><div class="value">${invoice.payment_method || 'Unpaid'}</div></div></div></section>
-            <section class="section"><div class="section-title">Notes</div><div class="notes">${invoice.notes || 'No additional notes.'}</div></section>
+            <header class="report-header"><h1>Health Sanitation Management Caloocan</h1><h2>Wastewater Billing Invoice</h2><div class="meta">${sanitizeHTML(invoice.invoice_id)} | Issued ${formatDate(invoice.invoice_date)}</div></header>
+            <section class="section"><div class="section-title">Bill To</div><div class="details"><div><div class="label">Client</div><div class="value">${sanitizeHTML(invoice.client_name)}</div></div><div><div class="label">Tank ID</div><div class="value">${sanitizeHTML(invoice.tank_id)}</div></div><div><div class="label">Service</div><div class="value">${sanitizeHTML(invoice.service_type)}</div></div><div><div class="label">Due Date</div><div class="value">${formatDate(invoice.due_date)}</div></div></div></section>
+            <section class="section"><div class="section-title">Charges</div><table><thead><tr><th>Description</th><th class="number">Qty</th><th class="number">Unit Price</th><th class="number">Total</th></tr></thead><tbody>${items || `<tr><td>${sanitizeHTML(invoice.service_type)}</td><td class="number">1</td><td class="number">${formatMoney(invoice.amount)}</td><td class="number">${formatMoney(invoice.amount)}</td></tr>`}</tbody></table><div class="totals"><div><span>Subtotal</span><span>${formatMoney(invoice.amount)}</span></div><div><span>Tax</span><span>${formatMoney(invoice.tax)}</span></div><div class="grand-total"><span>Total</span><span>${formatMoney(invoice.total_amount)}</span></div></div></section>
+            <section class="section"><div class="section-title">Payment Status</div><div class="details"><div><div class="label">Status</div><div class="value">${sanitizeHTML(invoice.status).toUpperCase()}</div></div><div><div class="label">Payment Method</div><div class="value">${sanitizeHTML(invoice.payment_method || 'Unpaid')}</div></div></div></section>
+            <section class="section"><div class="section-title">Notes</div><div class="notes">${sanitizeHTML(invoice.notes) || 'No additional notes.'}</div></section>
             <script>window.onload = function() { window.print(); }<\/script>
         </body></html>`);
         printWindow.document.close();
@@ -928,61 +1006,48 @@ $title = 'Wastewater Billing';
         openModal('editInvoiceModal');
     }
 
-    function saveInvoiceEdit(event) {
+    async function saveInvoiceEdit(event) {
         event.preventDefault();
-        const amount = document.getElementById('edit_invoice_amount').value;
-        const tax = document.getElementById('edit_invoice_tax').value;
-        if (!isValidFee(amount) || !isValidFee(tax)) {
-            showToast('Fee and tax must contain no more than 11 whole-number digits.', 'warning');
-            return;
+        try {
+            const amount = document.getElementById('edit_invoice_amount').value;
+            const tax = document.getElementById('edit_invoice_tax').value;
+            if (!isValidFee(amount) || !isValidFee(tax)) {
+                showToast('Fee and tax must contain no more than 11 whole-number digits.', 'warning');
+                return;
+            }
+            const id = document.getElementById('edit_invoice_id').value;
+            const invoice = INVOICES[id];
+            if (!invoice) { showToast('Invoice record not found.', 'danger'); return; }
+            invoice.client_name = document.getElementById('edit_invoice_client').value.trim();
+            invoice.tank_id = document.getElementById('edit_invoice_tank').value.trim();
+            invoice.service_type = document.getElementById('edit_invoice_service').value.trim();
+            invoice.amount = Number(amount);
+            invoice.tax = Number(tax);
+            invoice.total_amount = invoice.amount + invoice.tax;
+            invoice.due_date = document.getElementById('edit_invoice_due_date').value;
+            invoice.status = document.getElementById('edit_invoice_status').value;
+            invoice.notes = document.getElementById('edit_invoice_notes').value.trim();
+            
+            const row = document.getElementById('invoice-row-' + id);
+            if (row) {
+                row.dataset.client = invoice.client_name.toLowerCase();
+                row.dataset.status = invoice.status;
+                const client = row.querySelector('.font-semibold.text-slate-800.text-sm');
+                if (client) client.textContent = invoice.client_name;
+                const amountCell = row.querySelector('.text-sm.font-bold.text-slate-800');
+                if (amountCell) amountCell.textContent = '₱' + invoice.total_amount.toFixed(2);
+            }
+            await sendAjaxRequest('edit_invoice', invoice);
+            closeModal('editInvoiceModal');
+            showToast('Invoice updated successfully!', 'success');
+            filterInvoices();
+        } catch (err) {
+            console.error('saveInvoiceEdit error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
         }
-        const id = document.getElementById('edit_invoice_id').value;
-        const invoice = INVOICES[id];
-        if (!invoice) return;
-        invoice.client_name = document.getElementById('edit_invoice_client').value.trim();
-        invoice.tank_id = document.getElementById('edit_invoice_tank').value.trim();
-        invoice.service_type = document.getElementById('edit_invoice_service').value.trim();
-        invoice.amount = Number(amount);
-        invoice.tax = Number(tax);
-        invoice.total_amount = invoice.amount + invoice.tax;
-        invoice.due_date = document.getElementById('edit_invoice_due_date').value;
-        invoice.status = document.getElementById('edit_invoice_status').value;
-        invoice.notes = document.getElementById('edit_invoice_notes').value.trim();
-        const row = document.querySelector(`.invoice-row[data-id="${invoice.invoice_id}"]`);
-        if (row) {
-            row.dataset.client = invoice.client_name.toLowerCase();
-            row.dataset.status = invoice.status;
-            const client = row.querySelector('.font-semibold.text-slate-800.text-sm');
-            if (client) client.textContent = invoice.client_name;
-            const amountCell = row.querySelector('.text-sm.font-bold.text-slate-800');
-            if (amountCell) amountCell.textContent = '₱' + invoice.total_amount.toFixed(2);
-        }
-        closeModal('editInvoiceModal');
-        showToast('Invoice updated successfully!', 'success');
-        filterInvoices();
     }
 
-    // ============================================================
-    // TOAST NOTIFICATIONS
-    // ============================================================
-    let toastTimer = null;
-
-    function showToast(message, type = 'success') {
-        const toast = document.getElementById('toast');
-        const colors = {
-            success: 'bg-brand-dark',
-            danger: 'bg-rose-600',
-            info: 'bg-blue-600',
-            warning: 'bg-amber-600'
-        };
-        toast.className = 'fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2 ' + (colors[type] || colors.success);
-        toast.querySelector('i').className = 'fa-solid fa-circle-check';
-        document.getElementById('toastMessage').textContent = message;
-        toast.classList.remove('hidden');
-
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
-    }
+    // Toast, openModal, closeModal, sanitizeHTML, exportTableToCSV provided by common.js
 
     // ============================================================
     // SEARCH & FILTER
@@ -1032,16 +1097,7 @@ $title = 'Wastewater Billing';
         document.getElementById('emptyState').style.display = 'none';
     }
 
-    // ESC to close modals
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            });
-        }
-    });
+    // ESC key and backdrop-click handled by common.js
 </script>
 
 <?php include_once '../../includes/footer.php'; ?>

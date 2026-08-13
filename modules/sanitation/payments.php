@@ -14,6 +14,7 @@
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('sanitation permits');
+require_once __DIR__ . '/../../includes/toast.php'; // <-- ADDED to enable toasts
 
 $title = 'Payments';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -34,7 +35,7 @@ $limit = 5;
         </div>
         <div class="flex gap-3">
             <button onclick="openProcessPaymentModal()"
-                    class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
+                class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-credit-card text-xs"></i> Process Payment
             </button>
         </div>
@@ -151,8 +152,8 @@ $limit = 5;
             <i class="fa-solid fa-triangle-exclamation text-amber-500 text-lg"></i>
             <span class="text-sm text-amber-700"><span class="font-bold" id="pendingCount">0</span> permits require payment</span>
         </div>
-        <button onclick="document.getElementById('filterStatus').value='pending'; loadPayments(1);" 
-                class="text-xs font-semibold text-amber-700 hover:text-amber-900 underline">
+        <button onclick="document.getElementById('filterStatus').value='pending'; loadPayments(1);"
+            class="text-xs font-semibold text-amber-700 hover:text-amber-900 underline">
             View pending
         </button>
     </div>
@@ -178,7 +179,9 @@ $limit = 5;
                     </tr>
                 </thead>
                 <tbody id="feeStructureTableBody">
-                    <tr><td colspan="4" class="text-center py-4 text-slate-400 text-xs">Loading...</td></tr>
+                    <tr>
+                        <td colspan="4" class="text-center py-4 text-slate-400 text-xs">Loading...</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -193,9 +196,9 @@ $limit = 5;
             <div class="flex-1 relative">
                 <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                 <input type="text"
-                       id="searchPayment"
-                       placeholder="Search by permit ID, applicant, or reference..."
-                       class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
+                    id="searchPayment"
+                    placeholder="Search by permit ID, applicant, or reference..."
+                    class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
             </div>
             <div class="flex gap-2 flex-wrap">
                 <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
@@ -222,7 +225,7 @@ $limit = 5;
                     <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
                 </label>
                 <button onclick="resetFilters()" title="Reset filters"
-                        class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
+                    class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
                 </button>
             </div>
@@ -246,10 +249,12 @@ $limit = 5;
                     </tr>
                 </thead>
                 <tbody id="paymentTableBody">
-                    <tr><td colspan="8" class="text-center py-10">
-                        <div class="w-10 h-10 border-4 border-brand-light border-t-brand-dark rounded-full animate-spin mx-auto mb-3"></div>
-                        <p class="text-sm text-slate-500">Loading payments...</p>
-                    </td></tr>
+                    <tr>
+                        <td colspan="8" class="text-center py-10">
+                            <div class="w-10 h-10 border-4 border-brand-light border-t-brand-dark rounded-full animate-spin mx-auto mb-3"></div>
+                            <p class="text-sm text-slate-500">Loading payments...</p>
+                        </td>
+                    </tr>
                 </tbody>
             </table>
         </div>
@@ -333,7 +338,7 @@ $limit = 5;
                 <div>
                     <label class="block text-xs font-medium text-slate-600">Reference Number <span class="text-rose-500">*</span></label>
                     <input type="text" id="payment_reference" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none maskable" placeholder="Enter the reference number from the receipt/app">
-                    <p class="text-[11px] text-slate-500 mt-1">Enter the reference number shown on the payer's app or receipt - this isn't generated by the system.</p>
+                    <p class="text-[11px] text-slate-500 mt-1">Required for digital payments.</p>
                 </div>
             </div>
             <div id="autoReferenceNote" class="hidden p-3 bg-slate-50 border border-slate-200 rounded-lg">
@@ -346,11 +351,11 @@ $limit = 5;
 
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button type="button" onclick="closeModal('processPaymentModal')"
-                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
                     Cancel
                 </button>
                 <button type="submit"
-                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                    class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
                     <i class="fa-solid fa-credit-card mr-1.5"></i> Process Payment
                 </button>
             </div>
@@ -403,172 +408,199 @@ $limit = 5;
 <!-- JAVASCRIPT - Full API Integration                           -->
 <!-- ============================================================ -->
 <script>
-// ============================================================
-// API CLIENTS - query-string based (matches api/inspections.php
-// and the fixed api/payments.php router - no PATH_INFO required)
-// ============================================================
-class PaymentApi {
-    constructor(baseUrl = '../../api/payments.php') {
-        this.baseUrl = baseUrl;
-        this.token = localStorage.getItem('auth_token');
-    }
-
-    async request(params = {}, options = {}) {
-        const query = new URLSearchParams(params).toString();
-        const url = query ? `${this.baseUrl}?${query}` : this.baseUrl;
-        const config = {
-            headers: {
-                'Content-Type': 'application/json',
-                ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
-            },
-            ...options,
-        };
-        const response = await fetch(url, config);
-        const data = await response.json();
-        if (!response.ok || data.success === false) throw new Error(data.message || 'API request failed');
-        return data;
-    }
-
-    async getPayments(filters = {}) {
-        const params = {};
-        Object.entries(filters).forEach(([key, value]) => { if (value) params[key] = value; });
-        return this.request(params);
-    }
-
-    async getPayment(id) { return this.request({ id }); }
-
-    async createPayment(data) {
-        return this.request({}, { method: 'POST', body: JSON.stringify(data) });
-    }
-
-    async completePayment(id) {
-        return this.request({ id, action: 'complete' }, { method: 'POST' });
-    }
-
-    async getStats() { return this.request({ stats: 'true' }); }
-    async getFeeStructure() { return this.request({ fee_structure: 'true' }); }
-}
-
-class PermitApi {
-    constructor(baseUrl = '../../api/permits.php') {
-        this.baseUrl = baseUrl;
-        this.token = localStorage.getItem('auth_token');
-    }
-
-    async request(params = {}, options = {}) {
-        const query = new URLSearchParams(params).toString();
-        const url = query ? `${this.baseUrl}?${query}` : this.baseUrl;
-        const config = {
-            headers: {
-                'Content-Type': 'application/json',
-                ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
-            },
-            ...options,
-        };
-        const response = await fetch(url, config);
-        const data = await response.json();
-        if (!response.ok || data.success === false) throw new Error(data.message || 'API request failed');
-        return data;
-    }
-
-    async getPermits(filters = {}) {
-        const params = {};
-        Object.entries(filters).forEach(([key, value]) => { if (value) params[key] = value; });
-        return this.request(params);
-    }
-}
-
-const paymentApi = new PaymentApi();
-const permitApi = new PermitApi();
-
-// ============================================================
-// GLOBAL STATE
-// ============================================================
-let currentPage = <?php echo $page; ?>;
-let currentLimit = <?php echo $limit; ?>;
-let totalPages = 1;
-
-// ============================================================
-// LOAD PAYMENTS
-// ============================================================
-async function loadPayments(page = currentPage) {
-    try {
-        const filters = {
-            page: page,
-            limit: currentLimit,
-            status: document.getElementById('filterStatus').value,
-            method: document.getElementById('filterMethod').value,
-            search: document.getElementById('searchPayment').value,
-            date_from: document.getElementById('filterDateFrom').value,
-            date_to: document.getElementById('filterDateTo').value,
-        };
-
-        if (filters.date_from && filters.date_to && filters.date_from > filters.date_to) {
-            showToast('The start date cannot be after the end date', 'danger');
-            return;
+    // ============================================================
+    // API CLIENTS - query-string based (matches api/inspections.php
+    // and the fixed api/payments.php router - no PATH_INFO required)
+    // ============================================================
+    class PaymentApi {
+        constructor(baseUrl = '../../api/payments.php') {
+            this.baseUrl = baseUrl;
+            this.token = localStorage.getItem('auth_token');
         }
 
-        const result = await paymentApi.getPayments(filters);
-        totalPages = result.total_pages || 1;
-        currentPage = page;
-        
-        renderPaymentTable(result.data, hasActiveFilters());
-        updatePagination(result.page, result.total_pages, result.total);
-    } catch (error) {
-        console.error('Failed to load payments:', error);
-        document.getElementById('paymentTableBody').innerHTML = 
-            '<tr><td colspan="8" class="text-center py-10 text-rose-500">Failed to load payments: ' + error.message + '</td></tr>';
-    }
-}
-
-function hasActiveFilters() {
-    return !!(
-        document.getElementById('searchPayment').value.trim() ||
-        document.getElementById('filterStatus').value ||
-        document.getElementById('filterMethod').value
-        || document.getElementById('filterDateFrom').value
-        || document.getElementById('filterDateTo').value
-    );
-}
-
-// ============================================================
-// LOAD STATISTICS
-// ============================================================
-async function loadStats() {
-    try {
-        const result = await paymentApi.getStats();
-        const stats = result.data;
-        
-        document.getElementById('statTotal').textContent = stats.total || 0;
-        document.getElementById('statCompleted').textContent = stats.completed || 0;
-        document.getElementById('statCompletedMini').textContent = stats.completed || 0;
-        document.getElementById('statPending').textContent = stats.pending || 0;
-        document.getElementById('statFailed').textContent = stats.failed || 0;
-        document.getElementById('statRevenue').textContent = '₱' + (stats.total_revenue || 0).toLocaleString('en-PH', {
-            minimumFractionDigits: 2, maximumFractionDigits: 2
-        });
-        
-        if (stats.pending_permits > 0) {
-            document.getElementById('pendingAlert').classList.remove('hidden');
-            document.getElementById('pendingCount').textContent = stats.pending_permits;
-        } else {
-            document.getElementById('pendingAlert').classList.add('hidden');
+        async request(params = {}, options = {}) {
+            const query = new URLSearchParams(params).toString();
+            const url = query ? `${this.baseUrl}?${query}` : this.baseUrl;
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.token && {
+                        'Authorization': `Bearer ${this.token}`
+                    }),
+                },
+                ...options,
+            };
+            const response = await fetch(url, config);
+            const data = await response.json();
+            if (!response.ok || data.success === false) throw new Error(data.message || 'API request failed');
+            return data;
         }
-    } catch (error) {
-        console.error('Failed to load stats:', error);
-    }
-}
 
-// ============================================================
-// LOAD FEE STRUCTURE
-// ============================================================
-async function loadFeeStructure() {
-    try {
-        const result = await paymentApi.getFeeStructure();
-        const fees = result.data;
-        
-        const tbody = document.getElementById('feeStructureTableBody');
-        tbody.innerHTML = fees.slice(0, 5).map(fee => `
+        async getPayments(filters = {}) {
+            const params = {};
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value) params[key] = value;
+            });
+            return this.request(params);
+        }
+
+        async getPayment(id) {
+            return this.request({
+                id
+            });
+        }
+
+        async createPayment(data) {
+            return this.request({}, {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+        }
+
+        async completePayment(id) {
+            return this.request({
+                id,
+                action: 'complete'
+            }, {
+                method: 'POST'
+            });
+        }
+
+        async getStats() {
+            return this.request({
+                stats: 'true'
+            });
+        }
+        async getFeeStructure() {
+            return this.request({
+                fee_structure: 'true'
+            });
+        }
+    }
+
+    class PermitApi {
+        constructor(baseUrl = '../../api/permits.php') {
+            this.baseUrl = baseUrl;
+            this.token = localStorage.getItem('auth_token');
+        }
+
+        async request(params = {}, options = {}) {
+            const query = new URLSearchParams(params).toString();
+            const url = query ? `${this.baseUrl}?${query}` : this.baseUrl;
+            const config = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(this.token && {
+                        'Authorization': `Bearer ${this.token}`
+                    }),
+                },
+                ...options,
+            };
+            const response = await fetch(url, config);
+            const data = await response.json();
+            if (!response.ok || data.success === false) throw new Error(data.message || 'API request failed');
+            return data;
+        }
+
+        async getPermits(filters = {}) {
+            const params = {};
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value) params[key] = value;
+            });
+            return this.request(params);
+        }
+    }
+
+    const paymentApi = new PaymentApi();
+    const permitApi = new PermitApi();
+
+    // ============================================================
+    // GLOBAL STATE
+    // ============================================================
+    let currentPage = <?php echo $page; ?>;
+    let currentLimit = <?php echo $limit; ?>;
+    let totalPages = 1;
+
+    // ============================================================
+    // LOAD PAYMENTS
+    // ============================================================
+    async function loadPayments(page = currentPage) {
+        try {
+            const filters = {
+                page: page,
+                limit: currentLimit,
+                status: document.getElementById('filterStatus').value,
+                method: document.getElementById('filterMethod').value,
+                search: document.getElementById('searchPayment').value,
+                date_from: document.getElementById('filterDateFrom').value,
+                date_to: document.getElementById('filterDateTo').value,
+            };
+
+            if (filters.date_from && filters.date_to && filters.date_from > filters.date_to) {
+                showToast('The start date cannot be after the end date', 'danger');
+                return;
+            }
+
+            const result = await paymentApi.getPayments(filters);
+            totalPages = result.total_pages || 1;
+            currentPage = page;
+
+            renderPaymentTable(result.data, hasActiveFilters());
+            updatePagination(result.page, result.total_pages, result.total);
+        } catch (error) {
+            console.error('Failed to load payments:', error);
+            document.getElementById('paymentTableBody').innerHTML =
+                '<tr><td colspan="8" class="text-center py-10 text-rose-500">Failed to load payments: ' + error.message + '</td></tr>';
+        }
+    }
+
+    function hasActiveFilters() {
+        return !!(document.getElementById('searchPayment').value.trim() ||
+            document.getElementById('filterStatus').value ||
+            document.getElementById('filterMethod').value ||
+            document.getElementById('filterDateFrom').value ||
+            document.getElementById('filterDateTo').value);
+    }
+
+    // ============================================================
+    // LOAD STATISTICS
+    // ============================================================
+    async function loadStats() {
+        try {
+            const result = await paymentApi.getStats();
+            const stats = result.data;
+
+            document.getElementById('statTotal').textContent = stats.total || 0;
+            document.getElementById('statCompleted').textContent = stats.completed || 0;
+            document.getElementById('statCompletedMini').textContent = stats.completed || 0;
+            document.getElementById('statPending').textContent = stats.pending || 0;
+            document.getElementById('statFailed').textContent = stats.failed || 0;
+            document.getElementById('statRevenue').textContent = '₱' + (stats.total_revenue || 0).toLocaleString('en-PH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+
+            if (stats.pending_permits > 0) {
+                document.getElementById('pendingAlert').classList.remove('hidden');
+                document.getElementById('pendingCount').textContent = stats.pending_permits;
+            } else {
+                document.getElementById('pendingAlert').classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Failed to load stats:', error);
+        }
+    }
+
+    // ============================================================
+    // LOAD FEE STRUCTURE
+    // ============================================================
+    async function loadFeeStructure() {
+        try {
+            const result = await paymentApi.getFeeStructure();
+            const fees = result.data;
+
+            const tbody = document.getElementById('feeStructureTableBody');
+            tbody.innerHTML = fees.slice(0, 5).map(fee => `
             <tr class="border-b border-slate-100">
                 <td class="px-4 py-2 text-slate-700 text-xs">${fee.category}</td>
                 <td class="px-4 py-2 text-right text-xs font-medium text-slate-700">₱${parseFloat(fee.base_fee).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
@@ -576,110 +608,108 @@ async function loadFeeStructure() {
                 <td class="px-4 py-2 text-right text-xs font-bold text-brand-dark">₱${parseFloat(fee.total).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
             </tr>
         `).join('');
-        
-        if (fees.length > 5) {
-            document.getElementById('feeStructureMoreLink').classList.remove('hidden');
+
+            if (fees.length > 5) {
+                document.getElementById('feeStructureMoreLink').classList.remove('hidden');
+            }
+
+            window.feeStructureData = fees;
+        } catch (error) {
+            document.getElementById('feeStructureTableBody').innerHTML =
+                '<tr><td colspan="4" class="text-center py-4 text-rose-500 text-xs">Failed to load fee structure</td></tr>';
         }
-        
-        window.feeStructureData = fees;
-    } catch (error) {
-        document.getElementById('feeStructureTableBody').innerHTML = 
-            '<tr><td colspan="4" class="text-center py-4 text-rose-500 text-xs">Failed to load fee structure</td></tr>';
     }
-}
 
-// ============================================================
-// LOAD PERMITS FOR DROPDOWN
-// ============================================================
-async function loadPermitsForDropdown() {
-    try {
-        // NOTE: dropped the 'pending,under_review' comma-list status filter -
-        // your permits index likely does exact-match filtering (like
-        // InspectionController's paginated()), so a comma list would silently
-        // return zero rows. Pulling a larger unfiltered page instead.
-        const result = await permitApi.getPermits({ limit: 100 });
-        
-        const select = document.getElementById('payment_permit');
-        select.innerHTML = '<option value="">Select Permit</option>';
-        
-        result.data.forEach(p => {
-            const option = document.createElement('option');
-            option.value = p.id;
-            option.dataset.fee = p.fee || 0;
-            option.textContent = `${p.permit_id} - ${p.applicant} (₱${parseFloat(p.fee || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})})`;
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Failed to load permits:', error);
-    }
-}
+    // ============================================================
+    // LOAD PERMITS FOR DROPDOWN
+    // ============================================================
+    async function loadPermitsForDropdown() {
+        try {
+            const result = await permitApi.getPermits({
+                limit: 100
+            });
 
-// ============================================================
-// RENDER PAYMENT TABLE
-// ============================================================
-function renderPaymentTable(payments, filtersActive = false) {
-    const tbody = document.getElementById('paymentTableBody');
-    const emptyState = document.getElementById('emptyState');
-    const emptyTitle = document.getElementById('emptyStateTitle');
-    const emptySubtitle = document.getElementById('emptyStateSubtitle');
-    const emptyClearBtn = document.getElementById('emptyStateClearBtn');
-    
-    if (!payments || payments.length === 0) {
-        tbody.innerHTML = '';
-        if (filtersActive) {
-            emptyTitle.textContent = 'No payments match your filters';
-            emptySubtitle.textContent = 'Try adjusting your search or clearing filters';
-            emptyClearBtn.style.display = 'inline-block';
-        } else {
-            emptyTitle.textContent = 'No payments yet';
-            emptySubtitle.textContent = 'Processed payments will show up here';
-            emptyClearBtn.style.display = 'none';
+            const select = document.getElementById('payment_permit');
+            select.innerHTML = '<option value="">Select Permit</option>';
+
+            result.data.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.dataset.fee = p.fee || 0;
+                option.textContent = `${p.permit_id} - ${p.applicant} (₱${parseFloat(p.fee || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})})`;
+                select.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Failed to load permits:', error);
         }
-        emptyState.classList.remove('hidden');
-        emptyState.classList.add('flex');
-        return;
     }
-    
-    emptyState.classList.add('hidden');
-    emptyState.classList.remove('flex');
-    
-    const statusColors = {
-        completed: 'bg-emerald-100 text-emerald-700',
-        pending: 'bg-amber-100 text-amber-700',
-        failed: 'bg-rose-100 text-rose-700',
-        refunded: 'bg-purple-100 text-purple-700'
-    };
-    
-    const methodIcons = {
-        cash: 'fa-money-bill-wave',
-        gcash: 'fa-mobile-screen',
-        paymaya: 'fa-mobile-screen',
-        bank_transfer: 'fa-building-columns',
-        over_the_counter: 'fa-store'
-    };
-    
-    const methodColors = {
-        cash: 'text-emerald-600',
-        gcash: 'text-blue-600',
-        paymaya: 'text-green-600',
-        bank_transfer: 'text-amber-600',
-        over_the_counter: 'text-slate-600'
-    };
-    
-    const methodNames = {
-        cash: 'Cash',
-        gcash: 'GCash',
-        paymaya: 'PayMaya',
-        bank_transfer: 'Bank Transfer',
-        over_the_counter: 'OTC'
-    };
 
-    tbody.innerHTML = payments.map(payment => {
-        const permitInfo = payment.permits || {};
-        const applicant = permitInfo.applicant || 'Unknown';
-        const permitId = permitInfo.permit_id || '—';
-        
-        return `
+    // ============================================================
+    // RENDER PAYMENT TABLE
+    // ============================================================
+    function renderPaymentTable(payments, filtersActive = false) {
+        const tbody = document.getElementById('paymentTableBody');
+        const emptyState = document.getElementById('emptyState');
+        const emptyTitle = document.getElementById('emptyStateTitle');
+        const emptySubtitle = document.getElementById('emptyStateSubtitle');
+        const emptyClearBtn = document.getElementById('emptyStateClearBtn');
+
+        if (!payments || payments.length === 0) {
+            tbody.innerHTML = '';
+            if (filtersActive) {
+                emptyTitle.textContent = 'No payments match your filters';
+                emptySubtitle.textContent = 'Try adjusting your search or clearing filters';
+                emptyClearBtn.style.display = 'inline-block';
+            } else {
+                emptyTitle.textContent = 'No payments yet';
+                emptySubtitle.textContent = 'Processed payments will show up here';
+                emptyClearBtn.style.display = 'none';
+            }
+            emptyState.classList.remove('hidden');
+            emptyState.classList.add('flex');
+            return;
+        }
+
+        emptyState.classList.add('hidden');
+        emptyState.classList.remove('flex');
+
+        const statusColors = {
+            completed: 'bg-emerald-100 text-emerald-700',
+            pending: 'bg-amber-100 text-amber-700',
+            failed: 'bg-rose-100 text-rose-700',
+            refunded: 'bg-purple-100 text-purple-700'
+        };
+
+        const methodIcons = {
+            cash: 'fa-money-bill-wave',
+            gcash: 'fa-mobile-screen',
+            paymaya: 'fa-mobile-screen',
+            bank_transfer: 'fa-building-columns',
+            over_the_counter: 'fa-store'
+        };
+
+        const methodColors = {
+            cash: 'text-emerald-600',
+            gcash: 'text-blue-600',
+            paymaya: 'text-green-600',
+            bank_transfer: 'text-amber-600',
+            over_the_counter: 'text-slate-600'
+        };
+
+        const methodNames = {
+            cash: 'Cash',
+            gcash: 'GCash',
+            paymaya: 'PayMaya',
+            bank_transfer: 'Bank Transfer',
+            over_the_counter: 'OTC'
+        };
+
+        tbody.innerHTML = payments.map(payment => {
+            const permitInfo = payment.permits || {};
+            const applicant = permitInfo.applicant || 'Unknown';
+            const permitId = permitInfo.permit_id || '—';
+
+            return `
         <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors payment-row"
             data-id="${payment.id}">
             <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${payment.payment_id}</td>
@@ -724,69 +754,68 @@ function renderPaymentTable(payments, filtersActive = false) {
                 </div>
             </td>
         </tr>`;
-    }).join('');
-}
-
-// ============================================================
-// UPDATE PAGINATION
-// ============================================================
-function updatePagination(page, totalPagesCount, total) {
-    const start = (page - 1) * currentLimit + 1;
-    const end = Math.min(page * currentLimit, total);
-    
-    document.getElementById('paginationInfo').textContent = `Showing ${start} to ${end} of ${total} payments`;
-    
-    let html = '';
-    html += `<button onclick="changePage(${page - 1})" class="px-3 py-1.5 rounded-lg text-sm ${page <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}" ${page <= 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left text-xs"></i></button>`;
-    
-    for (let i = 1; i <= totalPagesCount; i++) {
-        html += `<button onclick="changePage(${i})" class="px-3 py-1.5 rounded-lg text-sm font-medium ${i === page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}">${i}</button>`;
+        }).join('');
     }
-    
-    html += `<button onclick="changePage(${page + 1})" class="px-3 py-1.5 rounded-lg text-sm ${page >= totalPagesCount ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}" ${page >= totalPagesCount ? 'disabled' : ''}><i class="fa-solid fa-chevron-right text-xs"></i></button>`;
-    
-    document.getElementById('paginationButtons').innerHTML = html;
-}
 
-// ============================================================
-// MODAL FUNCTIONS (using ModalSystem with fallback)
-// ============================================================
-function openModal(id) {
-    if (typeof ModalSystem !== 'undefined') {
-        ModalSystem.open(id);
-    } else {
-        document.getElementById(id).classList.remove('hidden');
-        document.getElementById(id).classList.add('flex');
-        document.body.classList.add('overflow-hidden');
+    // ============================================================
+    // UPDATE PAGINATION
+    // ============================================================
+    function updatePagination(page, totalPagesCount, total) {
+        const start = (page - 1) * currentLimit + 1;
+        const end = Math.min(page * currentLimit, total);
+
+        document.getElementById('paginationInfo').textContent = `Showing ${start} to ${end} of ${total} payments`;
+
+        let html = '';
+        html += `<button onclick="changePage(${page - 1})" class="px-3 py-1.5 rounded-lg text-sm ${page <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}" ${page <= 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-left text-xs"></i></button>`;
+
+        for (let i = 1; i <= totalPagesCount; i++) {
+            html += `<button onclick="changePage(${i})" class="px-3 py-1.5 rounded-lg text-sm font-medium ${i === page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}">${i}</button>`;
+        }
+
+        html += `<button onclick="changePage(${page + 1})" class="px-3 py-1.5 rounded-lg text-sm ${page >= totalPagesCount ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}" ${page >= totalPagesCount ? 'disabled' : ''}><i class="fa-solid fa-chevron-right text-xs"></i></button>`;
+
+        document.getElementById('paginationButtons').innerHTML = html;
     }
-}
 
-function closeModal(id) {
-    if (typeof ModalSystem !== 'undefined') {
-        ModalSystem.close(id);
-    } else {
-        document.getElementById(id).classList.add('hidden');
-        document.getElementById(id).classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
+    // ============================================================
+    // MODAL FUNCTIONS (using ModalSystem with fallback)
+    // ============================================================
+    function openModal(id) {
+        if (typeof ModalSystem !== 'undefined') {
+            ModalSystem.open(id);
+        } else {
+            document.getElementById(id).classList.remove('hidden');
+            document.getElementById(id).classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+        }
     }
-}
 
-async function openProcessPaymentModal() {
-    await loadPermitsForDropdown();
-    document.getElementById('processPaymentForm').reset();
-    // form.reset() re-checks the default radio (cash) but doesn't re-run our
-    // show/hide logic, so trigger it manually to keep the UI in sync.
-    document.querySelector('input[name="payment_method_radio"]:checked')
-        ?.dispatchEvent(new Event('change'));
-    openModal('processPaymentModal');
-}
+    function closeModal(id) {
+        if (typeof ModalSystem !== 'undefined') {
+            ModalSystem.close(id);
+        } else {
+            document.getElementById(id).classList.add('hidden');
+            document.getElementById(id).classList.remove('flex');
+            document.body.classList.remove('overflow-hidden');
+        }
+    }
 
-async function openFeeStructureModal() {
-    openModal('feeStructureModal');
-    const content = document.getElementById('feeStructureModalContent');
-    
-    if (window.feeStructureData) {
-        content.innerHTML = `
+    async function openProcessPaymentModal() {
+        await loadPermitsForDropdown();
+        document.getElementById('processPaymentForm').reset();
+        // default radio is cash – trigger change to show/hide reference
+        document.querySelector('input[name="payment_method_radio"]:checked')
+            ?.dispatchEvent(new Event('change'));
+        openModal('processPaymentModal');
+    }
+
+    async function openFeeStructureModal() {
+        openModal('feeStructureModal');
+        const content = document.getElementById('feeStructureModalContent');
+
+        if (window.feeStructureData) {
+            content.innerHTML = `
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead class="bg-slate-50 border-b border-slate-200">
@@ -811,105 +840,106 @@ async function openFeeStructureModal() {
             </div>
             <p class="text-[10px] text-slate-400 mt-4"><i class="fa-solid fa-info-circle mr-1"></i>Fees are based on Ordinance No. 0386 (Section 137). Subject to change.</p>
         `;
-    }
-}
-
-document.querySelectorAll('.fixed.inset-0').forEach(modal => {
-    modal.addEventListener('click', function(e) {
-        if (e.target === this) {
-            closeModal(this.id);
         }
-    });
-});
-
-// ============================================================
-// PAYMENT METHOD TOGGLE
-// ============================================================
-document.querySelectorAll('input[name="payment_method_radio"]').forEach(radio => {
-    radio.addEventListener('change', function() {
-        document.getElementById('payment_method').value = this.value;
-        const refSection = document.getElementById('referenceSection');
-        const autoNote = document.getElementById('autoReferenceNote');
-        const refInput = document.getElementById('payment_reference');
-        const isOffline = this.value === 'cash' || this.value === 'over_the_counter';
-
-        if (isOffline) {
-            refSection.classList.add('hidden');
-            autoNote.classList.remove('hidden');
-            refInput.required = false;
-            refInput.value = '';
-        } else {
-            refSection.classList.remove('hidden');
-            autoNote.classList.add('hidden');
-            refInput.required = true;
-        }
-    });
-});
-// Initialize on load (default method is 'cash')
-document.getElementById('autoReferenceNote').classList.remove('hidden');
-
-// ============================================================
-// AUTO-FILL AMOUNT
-// ============================================================
-document.getElementById('payment_permit').addEventListener('change', function() {
-    const selected = this.options[this.selectedIndex];
-    document.getElementById('payment_amount').value = selected.dataset.fee || 0;
-});
-
-// ============================================================
-// SAVE PAYMENT (via API)
-// ============================================================
-async function savePayment(event) {
-    event.preventDefault();
-    
-    const data = {
-        permit_id: parseInt(document.getElementById('payment_permit').value),
-        amount: parseFloat(document.getElementById('payment_amount').value),
-        method: document.getElementById('payment_method').value,
-        reference_number: document.getElementById('payment_reference').value || null,
-        notes: document.getElementById('payment_notes').value || null
-    };
-
-    if (!Number.isFinite(data.amount) || data.amount < 0.01 || data.amount > 1000000) {
-        showToast('Amount must be between ₱0.01 and ₱1,000,000.00', 'danger');
-        return;
     }
-    
-    try {
-        await paymentApi.createPayment(data);
-        closeModal('processPaymentModal');
-        showToast('Payment processed successfully!', 'success');
-        loadPayments(1);
-        loadStats();
-    } catch (error) {
-        showToast('Payment failed: ' + error.message, 'danger');
-    }
-}
 
-// ============================================================
-// VIEW PAYMENT (via API)
-// ============================================================
-async function viewPayment(id) {
-    openModal('viewPaymentModal');
-    
-    try {
-        const result = await paymentApi.getPayment(id);
-        const p = result.data;
-        
-        if (!p) {
-            document.getElementById('paymentDetailsContent').innerHTML = '<p class="text-center text-slate-500">Payment not found</p>';
+    // ============================================================
+    // PAYMENT METHOD TOGGLE (reference number required for digital)
+    // ============================================================
+    document.querySelectorAll('input[name="payment_method_radio"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.getElementById('payment_method').value = this.value;
+            const refSection = document.getElementById('referenceSection');
+            const autoNote = document.getElementById('autoReferenceNote');
+            const refInput = document.getElementById('payment_reference');
+            const isOffline = this.value === 'cash' || this.value === 'over_the_counter';
+
+            if (isOffline) {
+                refSection.classList.add('hidden');
+                autoNote.classList.remove('hidden');
+                refInput.required = false;
+                refInput.value = '';
+            } else {
+                refSection.classList.remove('hidden');
+                autoNote.classList.add('hidden');
+                refInput.required = true;
+            }
+        });
+    });
+    // Initialize on load (default method is 'cash')
+    document.getElementById('autoReferenceNote').classList.remove('hidden');
+
+    // ============================================================
+    // AUTO-FILL AMOUNT
+    // ============================================================
+    document.getElementById('payment_permit').addEventListener('change', function() {
+        const selected = this.options[this.selectedIndex];
+        document.getElementById('payment_amount').value = selected.dataset.fee || 0;
+    });
+
+    // ============================================================
+    // SAVE PAYMENT (via API)
+    // ============================================================
+    async function savePayment(event) {
+        event.preventDefault();
+
+        const data = {
+            permit_id: parseInt(document.getElementById('payment_permit').value),
+            amount: parseFloat(document.getElementById('payment_amount').value),
+            method: document.getElementById('payment_method').value,
+            reference_number: document.getElementById('payment_reference').value || null,
+            notes: document.getElementById('payment_notes').value || null
+        };
+
+        if (!Number.isFinite(data.amount) || data.amount < 0.01 || data.amount > 1000000) {
+            showToast('Amount must be between ₱0.01 and ₱1,000,000.00', 'danger');
             return;
         }
-        
-        const permitInfo = p.permits || {};
-        const statusColors = {
-            completed: 'bg-emerald-100 text-emerald-700',
-            pending: 'bg-amber-100 text-amber-700',
-            failed: 'bg-rose-100 text-rose-700',
-            refunded: 'bg-purple-100 text-purple-700'
-        };
-        
-        document.getElementById('paymentDetailsContent').innerHTML = `
+
+        // Validate reference for digital methods
+        const method = data.method;
+        if (!['cash', 'over_the_counter'].includes(method)) {
+            if (!data.reference_number || data.reference_number.trim() === '') {
+                showToast('Reference number is required for digital payments.', 'danger');
+                return;
+            }
+        }
+
+        try {
+            await paymentApi.createPayment(data);
+            closeModal('processPaymentModal');
+            showToast('Payment processed successfully!', 'success');
+            loadPayments(1);
+            loadStats();
+        } catch (error) {
+            showToast('Payment failed: ' + error.message, 'danger');
+        }
+    }
+
+    // ============================================================
+    // VIEW PAYMENT (via API)
+    // ============================================================
+    async function viewPayment(id) {
+        openModal('viewPaymentModal');
+
+        try {
+            const result = await paymentApi.getPayment(id);
+            const p = result.data;
+
+            if (!p) {
+                document.getElementById('paymentDetailsContent').innerHTML = '<p class="text-center text-slate-500">Payment not found</p>';
+                return;
+            }
+
+            const permitInfo = p.permits || {};
+            const statusColors = {
+                completed: 'bg-emerald-100 text-emerald-700',
+                pending: 'bg-amber-100 text-amber-700',
+                failed: 'bg-rose-100 text-rose-700',
+                refunded: 'bg-purple-100 text-purple-700'
+            };
+
+            document.getElementById('paymentDetailsContent').innerHTML = `
             <div class="space-y-4">
                 <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
                     <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-2xl flex-shrink-0">
@@ -938,96 +968,110 @@ async function viewPayment(id) {
                 </div>
             </div>
         `;
-    } catch (error) {
-        document.getElementById('paymentDetailsContent').innerHTML = `<p class="text-center text-rose-500">Failed to load: ${error.message}</p>`;
+        } catch (error) {
+            document.getElementById('paymentDetailsContent').innerHTML = `<p class="text-center text-rose-500">Failed to load: ${error.message}</p>`;
+        }
     }
-}
 
-// ============================================================
-// COMPLETE PAYMENT (via API)
-// ============================================================
-async function completePayment(id) {
-    if (!confirm('Mark this payment as completed?')) return;
-    
-    try {
-        await paymentApi.completePayment(id);
-        showToast('Payment completed successfully!', 'success');
-        loadPayments(currentPage);
+    // ============================================================
+    // COMPLETE PAYMENT (via API)
+    // ============================================================
+    async function completePayment(id) {
+        if (!confirm('Mark this payment as completed?')) return;
+
+        try {
+            await paymentApi.completePayment(id);
+            showToast('Payment completed successfully!', 'success');
+            loadPayments(currentPage);
+            loadStats();
+        } catch (error) {
+            showToast('Failed to complete payment: ' + error.message, 'danger');
+        }
+    }
+
+    // ============================================================
+    // DOWNLOAD RECEIPT
+    // ============================================================
+    function downloadReceipt(receiptPath) {
+        showToast('Downloading receipt: ' + receiptPath, 'success');
+    }
+
+    // ============================================================
+    // TOAST NOTIFICATIONS (using ModalSystem.toast or global toast)
+    // ============================================================
+    function showToast(message, type = 'success') {
+        if (typeof toast !== 'undefined') {
+            const typeMap = {
+                success: 'success',
+                danger: 'error',
+                info: 'info',
+                warning: 'warning'
+            };
+            toast[typeMap[type] || 'info'](message, {
+                duration: 4000
+            });
+            return;
+        }
+        if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+            const typeMap = {
+                success: 'success',
+                danger: 'error',
+                info: 'info',
+                warning: 'warning'
+            };
+            ModalSystem.toast[typeMap[type] || 'info'](message, {
+                duration: 4000
+            });
+            return;
+        }
+        console.log('[' + type + '] ' + message);
+    }
+
+    // ============================================================
+    // SEARCH & FILTER
+    // ============================================================
+    let searchTimeout;
+    document.getElementById('searchPayment').addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => loadPayments(1), 300);
+    });
+
+    document.getElementById('filterStatus').addEventListener('change', () => loadPayments(1));
+    document.getElementById('filterMethod').addEventListener('change', () => loadPayments(1));
+    document.getElementById('filterDateFrom').addEventListener('change', () => loadPayments(1));
+    document.getElementById('filterDateTo').addEventListener('change', () => loadPayments(1));
+
+    function resetFilters() {
+        document.getElementById('searchPayment').value = '';
+        document.getElementById('filterStatus').value = '';
+        document.getElementById('filterMethod').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
+        loadPayments(1);
+    }
+
+    function changePage(page) {
+        if (page < 1 || page > totalPages) return;
+        loadPayments(page);
+    }
+
+    // ESC to close modals
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
+                closeModal(modal.id);
+            });
+        }
+    });
+
+    // ============================================================
+    // INITIALIZE
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', () => {
         loadStats();
-    } catch (error) {
-        showToast('Failed to complete payment: ' + error.message, 'danger');
-    }
-}
-
-// ============================================================
-// DOWNLOAD RECEIPT
-// ============================================================
-function downloadReceipt(receiptPath) {
-    showToast('Downloading receipt: ' + receiptPath, 'success');
-}
-
-// ============================================================
-// TOAST NOTIFICATIONS (using ModalSystem.toast or global toast)
-// ============================================================
-function showToast(message, type = 'success') {
-    if (typeof toast !== 'undefined') {
-        const typeMap = { success: 'success', danger: 'error', info: 'info', warning: 'warning' };
-        toast[typeMap[type] || 'info'](message, { duration: 4000 });
-        return;
-    }
-    if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
-        const typeMap = { success: 'success', danger: 'error', info: 'info', warning: 'warning' };
-        ModalSystem.toast[typeMap[type] || 'info'](message, { duration: 4000 });
-        return;
-    }
-    console.log('[' + type + '] ' + message);
-}
-
-// ============================================================
-// SEARCH & FILTER
-// ============================================================
-let searchTimeout;
-document.getElementById('searchPayment').addEventListener('input', function() {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => loadPayments(1), 300);
-});
-
-document.getElementById('filterStatus').addEventListener('change', () => loadPayments(1));
-document.getElementById('filterMethod').addEventListener('change', () => loadPayments(1));
-document.getElementById('filterDateFrom').addEventListener('change', () => loadPayments(1));
-document.getElementById('filterDateTo').addEventListener('change', () => loadPayments(1));
-
-function resetFilters() {
-    document.getElementById('searchPayment').value = '';
-    document.getElementById('filterStatus').value = '';
-    document.getElementById('filterMethod').value = '';
-    document.getElementById('filterDateFrom').value = '';
-    document.getElementById('filterDateTo').value = '';
-    loadPayments(1);
-}
-
-function changePage(page) {
-    if (page < 1 || page > totalPages) return;
-    loadPayments(page);
-}
-
-// ESC to close modals
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
-            closeModal(modal.id);
-        });
-    }
-});
-
-// ============================================================
-// INITIALIZE
-// ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-    loadStats();
-    loadFeeStructure();
-    loadPayments(currentPage);
-});
+        loadFeeStructure();
+        loadPayments(currentPage);
+    });
 </script>
 
 <?php include_once '../../includes/footer.php'; ?>

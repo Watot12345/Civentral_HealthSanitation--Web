@@ -259,7 +259,7 @@ $title = 'Permit Applications';
 </div>
 
 <!-- ============================================================ -->
-<!-- REVIEW PERMIT MODAL                                          -->
+<!-- REVIEW PERMIT MODAL – with rejection criteria dropdown       -->
 <!-- ============================================================ -->
 <div id="reviewPermitModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
@@ -286,6 +286,27 @@ $title = 'Permit Applications';
                     <option value="approved">Approve</option>
                     <option value="rejected">Reject</option>
                 </select>
+            </div>
+            <!-- Rejection criteria section -->
+            <div id="rejectionCriteriaContainer" class="hidden">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Rejection Reason <span class="text-rose-500">*</span></label>
+                <select id="review_rejection_criteria" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 outline-none">
+                    <option value="">Select a reason...</option>
+                    <option value="Incomplete Requirements">Incomplete Requirements</option>
+                    <option value="Non-Compliant with Sanitation Standards">Non‑Compliant with Sanitation Standards</option>
+                    <option value="Failure to Pass Inspection">Failure to Pass Inspection</option>
+                    <option value="Incorrect or Misleading Information">Incorrect or Misleading Information</option>
+                    <option value="Outstanding Fees or Penalties">Outstanding Fees or Penalties</option>
+                    <option value="Violation of Local Ordinances">Violation of Local Ordinances</option>
+                    <option value="Zoning or Land-Use Conflict">Zoning or Land‑Use Conflict</option>
+                    <option value="Other">Other (specify below)</option>
+                </select>
+                <!-- Custom reason input (shown when "Other" selected) -->
+                <div id="customReasonContainer" class="mt-2 hidden">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Custom Reason <span class="text-rose-500">*</span></label>
+                    <textarea id="review_custom_reason" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 outline-none" placeholder="Please provide a detailed reason..."></textarea>
+                </div>
+                <p class="text-xs text-slate-400 mt-1">This reason will be visible to the applicant.</p>
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Inspector</label>
@@ -667,13 +688,11 @@ function renderTable(permits) {
         emptyState.classList.remove('hidden');
 
         if (hasActiveFilters) {
-            // User searched/filtered but no results found
             emptyIcon.innerHTML = '<i class="fa-solid fa-file-circle-xmark text-slate-400"></i>';
             emptyTitle.textContent = 'No permits match your filters';
             emptySubtitle.textContent = 'Try adjusting your search or clearing filters';
             emptyResetBtn.classList.remove('hidden');
         } else {
-            // No data in the system at all
             emptyIcon.innerHTML = '<i class="fa-solid fa-inbox text-slate-400"></i>';
             emptyTitle.textContent = 'No applications found';
             emptySubtitle.textContent = 'There are no permit applications yet. Click "New Application" to add one.';
@@ -692,7 +711,6 @@ function renderTable(permits) {
             ? '<span class="ml-1 text-[10px] text-emerald-600">✓ Paid</span>'
             : '<span class="ml-1 text-[10px] text-rose-500">Unpaid</span>';
 
-        // Data masking: apply maskable class to applicant and owner name (client/citizen data)
         const maskedApplicant = maskName(p.applicant);
         const maskedOwner = maskName(p.owner_name);
 
@@ -767,14 +785,12 @@ function renderPagination() {
     const container = document.getElementById('paginationButtons');
     let html = '';
 
-    // Previous button
     html += `<button onclick="changePage(${currentPage - 1})"
         class="px-3 py-1.5 rounded-lg text-sm ${currentPage <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}"
         ${currentPage <= 1 ? 'disabled' : ''}>
         <i class="fa-solid fa-chevron-left text-xs"></i>
     </button>`;
 
-    // Page numbers
     for (let i = 1; i <= totalPages; i++) {
         html += `<button onclick="changePage(${i})"
             class="px-3 py-1.5 rounded-lg text-sm font-medium ${i === currentPage ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}">
@@ -782,7 +798,6 @@ function renderPagination() {
         </button>`;
     }
 
-    // Next button
     html += `<button onclick="changePage(${currentPage + 1})"
         class="px-3 py-1.5 rounded-lg text-sm ${currentPage >= totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}"
         ${currentPage >= totalPages ? 'disabled' : ''}>
@@ -878,10 +893,20 @@ async function viewPermit(id) {
         const dateApproved = p.approved_date ? new Date(p.approved_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'Not yet';
         const expiryDate = p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A';
 
-        // Data masking for client/citizen fields
         const maskedApplicant = maskName(p.applicant);
         const maskedOwner = maskName(p.owner_name);
         const maskedContact = p.contact ? p.contact.slice(0, 4) + '*****' : '';
+
+        // Rejection reason display
+        let rejectionHtml = '';
+        if (p.status === 'rejected' && p.rejection_reason) {
+            rejectionHtml = `
+                <div class="col-span-2 bg-rose-50 rounded-xl p-4 border border-rose-200">
+                    <h5 class="text-sm font-bold text-rose-700 mb-2">Rejection Reason</h5>
+                    <p class="text-sm text-rose-800">${escapeHtml(p.rejection_reason)}</p>
+                </div>
+            `;
+        }
 
         document.getElementById('permitDetailsContent').innerHTML = `
             <div class="space-y-4">
@@ -938,6 +963,7 @@ async function viewPermit(id) {
                         <p class="text-xs text-slate-400 font-semibold">Inspector</p>
                         <p class="text-sm text-slate-800">${p.inspector_id ? 'Inspector #' + p.inspector_id : 'Not assigned'}</p>
                     </div>
+                    ${rejectionHtml}
                 </div>
                 ${p.notes ? `
                     <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border">
@@ -965,14 +991,46 @@ async function viewPermit(id) {
 }
 
 // ============================================================
-// REVIEW PERMIT
+// REVIEW PERMIT – with rejection criteria dropdown
 // ============================================================
 let reviewPermitId = null;
+
+// Toggle rejection criteria visibility when status changes
+document.getElementById('review_status').addEventListener('change', function() {
+    const container = document.getElementById('rejectionCriteriaContainer');
+    if (this.value === 'rejected') {
+        container.classList.remove('hidden');
+        document.getElementById('review_rejection_criteria').required = true;
+        // Ensure custom reason visibility is toggled based on selection
+        toggleCustomReason();
+    } else {
+        container.classList.add('hidden');
+        document.getElementById('review_rejection_criteria').required = false;
+        document.getElementById('review_custom_reason').required = false;
+        document.getElementById('customReasonContainer').classList.add('hidden');
+    }
+});
+
+// Toggle custom reason field when "Other" is selected
+document.getElementById('review_rejection_criteria').addEventListener('change', toggleCustomReason);
+
+function toggleCustomReason() {
+    const select = document.getElementById('review_rejection_criteria');
+    const customContainer = document.getElementById('customReasonContainer');
+    const customInput = document.getElementById('review_custom_reason');
+    if (select.value === 'Other') {
+        customContainer.classList.remove('hidden');
+        customInput.required = true;
+    } else {
+        customContainer.classList.add('hidden');
+        customInput.required = false;
+        customInput.value = '';
+    }
+}
 
 async function reviewPermit(id) {
     reviewPermitId = id;
     
-    // Load permit data
     try {
         const result = await apiRequest(API_BASE + '?id=' + id);
         const p = result.data;
@@ -982,8 +1040,11 @@ async function reviewPermit(id) {
         document.getElementById('reviewPermitId').textContent = p.permit_id;
         document.getElementById('review_status').value = p.status === 'pending' ? 'under_review' : p.status;
         document.getElementById('review_notes').value = p.notes || '';
+        document.getElementById('review_rejection_criteria').value = '';
+        document.getElementById('review_custom_reason').value = '';
+        document.getElementById('rejectionCriteriaContainer').classList.add('hidden');
+        document.getElementById('customReasonContainer').classList.add('hidden');
         
-        // Load employees for inspector dropdown
         await loadInspectors(p.inspector_id);
         
         ModalSystem.open('reviewPermitModal');
@@ -1005,7 +1066,6 @@ async function loadInspectors(selectedId) {
             select.innerHTML += `<option value="${emp.id}" ${isSelected}>${escapeHtml(name)}</option>`;
         });
     } catch (err) {
-        // Fallback if employees API not available
         const select = document.getElementById('review_inspector');
         select.innerHTML = `
             <option value="">Select Inspector</option>
@@ -1023,6 +1083,25 @@ async function submitReview() {
     const status = document.getElementById('review_status').value;
     const inspectorId = document.getElementById('review_inspector').value;
     const notes = document.getElementById('review_notes').value;
+    let rejectionReason = null;
+
+    if (status === 'rejected') {
+        const criteria = document.getElementById('review_rejection_criteria').value;
+        const customReason = document.getElementById('review_custom_reason').value.trim();
+        // Build the final rejection reason: if "Other", use custom; otherwise use selected criteria
+        if (criteria === 'Other') {
+            if (!customReason) {
+                ModalSystem.toast.error('Please provide a custom rejection reason.');
+                return;
+            }
+            rejectionReason = customReason;
+        } else if (criteria) {
+            rejectionReason = criteria;
+        } else {
+            ModalSystem.toast.error('Please select a rejection reason.');
+            return;
+        }
+    }
 
     try {
         const result = await apiRequest(API_BASE + '?id=' + id + '&action=review', {
@@ -1030,7 +1109,8 @@ async function submitReview() {
             body: JSON.stringify({
                 status: status,
                 inspector_id: inspectorId || null,
-                notes: notes
+                notes: notes,
+                rejection_reason: rejectionReason
             })
         });
 
@@ -1044,10 +1124,19 @@ async function submitReview() {
 }
 
 // ============================================================
-// QUICK STATUS UPDATE
+// QUICK STATUS UPDATE – with reason for reject
 // ============================================================
 function quickStatusUpdate(id, status) {
     const label = status.charAt(0).toUpperCase() + status.slice(1);
+    if (status === 'rejected') {
+        reviewPermit(id);
+        setTimeout(() => {
+            document.getElementById('review_status').value = 'rejected';
+            document.getElementById('review_status').dispatchEvent(new Event('change'));
+        }, 300);
+        return;
+    }
+
     ModalSystem.confirm(
         'Mark this permit as ' + label + '?',
         async function() {
@@ -1090,7 +1179,6 @@ document.getElementById('newPermitForm').addEventListener('submit', async functi
         notes: document.getElementById('permit_notes').value.trim() || null
     };
 
-    // Validate
     if (!data.applicant || !data.owner_name || !data.business_type || !data.address || !data.contact || data.fee <= 0) {
         ModalSystem.toast.error('Please fill in all required fields');
         return;

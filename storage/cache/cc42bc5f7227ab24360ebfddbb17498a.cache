@@ -1,0 +1,614 @@
+{
+    "key": "analytics_5a08aee242047a0d90f3b08a1e520b06",
+    "created_at": 1786027588,
+    "expires_at": 1786027888,
+    "data": {
+        "success": true,
+        "timestamp": "2026-08-06 16:46:28",
+        "range": "6m",
+        "kpis": [
+            {
+                "key": "active_cases",
+                "title": "Total Active Cases",
+                "value": "2",
+                "change": "\u2191 8.3%",
+                "status": "warning",
+                "description": "Active cases in surveillance_cases & patients"
+            },
+            {
+                "key": "resolved_cases",
+                "title": "Resolved & Processed",
+                "value": "8",
+                "change": "\u2191 12.4%",
+                "status": "success",
+                "description": "Completed consultations & approved permits"
+            },
+            {
+                "key": "high_risk_zones",
+                "title": "High Risk Zones",
+                "value": "0",
+                "change": "No high-risk zones detected in database",
+                "status": "danger",
+                "description": "Active alerts in surveillance_alerts"
+            },
+            {
+                "key": "efficiency",
+                "title": "Operational Efficiency",
+                "value": "96.8%",
+                "change": "\u2191 2.1%",
+                "status": "success",
+                "description": "Average staff resolution efficiency"
+            },
+            {
+                "key": "surveillance_index",
+                "title": "Surveillance Index",
+                "value": "94.2%",
+                "change": "\u2191 1.5%",
+                "status": "info",
+                "description": "City-wide early outbreak detection score"
+            }
+        ],
+        "insights": [
+            {
+                "id": "ins_1",
+                "category": "Disease Surveillance",
+                "badge": "High Priority",
+                "color": "rose",
+                "priority": "High Priority",
+                "title": "No active disease alerts recorded in database.",
+                "impact": "Critical",
+                "confidence": 92,
+                "action": "Awaiting new case reports from field surveillance staff.",
+                "metrics": [
+                    {
+                        "label": "Active Cases",
+                        "value": "0"
+                    },
+                    {
+                        "label": "Target Barangay",
+                        "value": "None"
+                    },
+                    {
+                        "label": "Status",
+                        "value": "No Data Recorded"
+                    }
+                ]
+            },
+            {
+                "id": "ins_2",
+                "category": "Patient Volume",
+                "badge": "Medium",
+                "color": "amber",
+                "priority": "Medium",
+                "title": "<span class=\"highlight-warning\">Barangay Barangay San Roque<\/span> has highest patient volume (1 records).",
+                "impact": "Moderate",
+                "confidence": 88,
+                "action": "Reassign 2 additional health inspectors to satellite triage in Barangay Barangay San Roque.",
+                "metrics": [
+                    {
+                        "label": "Total Records",
+                        "value": "1 cases\/patients"
+                    },
+                    {
+                        "label": "Primary Zone",
+                        "value": "Barangay San Roque"
+                    },
+                    {
+                        "label": "Confidence",
+                        "value": "88%"
+                    }
+                ]
+            },
+            {
+                "id": "ins_3",
+                "category": "Permit Processing",
+                "badge": "Positive",
+                "color": "emerald",
+                "priority": "Positive",
+                "title": "Processed <span class=\"highlight-success\">6<\/span> sanitation permits (4 approved).",
+                "impact": "Notice",
+                "confidence": 95,
+                "action": "Maintain current 24-hour turnaround for commercial clearance reviews.",
+                "metrics": [
+                    {
+                        "label": "Total Permits",
+                        "value": "6"
+                    },
+                    {
+                        "label": "Approved",
+                        "value": "4"
+                    },
+                    {
+                        "label": "Status",
+                        "value": "Optimal"
+                    }
+                ]
+            },
+            {
+                "id": "ins_4",
+                "category": "Resource Planning",
+                "badge": "AI Suggestion",
+                "color": "blue",
+                "priority": "AI Suggestion",
+                "title": "Recommend restocking <span class=\"highlight-info\">Permethrin Vector Insecticide<\/span> (85 units remaining).",
+                "impact": "Positive",
+                "confidence": 96,
+                "action": "Submit purchase request to City Health Logistics warehouse.",
+                "metrics": [
+                    {
+                        "label": "Item",
+                        "value": "Permethrin Vector Insecticide"
+                    },
+                    {
+                        "label": "Quantity",
+                        "value": "85"
+                    },
+                    {
+                        "label": "Status",
+                        "value": "Reorder Required"
+                    }
+                ]
+            }
+        ],
+        "predictive": {
+            "categories": [
+                "Mar",
+                "Apr",
+                "May",
+                "Jun",
+                "Jul",
+                "Aug",
+                "Sep (AI Forecast)"
+            ],
+            "confidence_cases": 92,
+            "confidence_permits": 75,
+            "confidence_vaccines": 75,
+            "series": [
+                {
+                    "name": "Expected Cases",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "name": "Permit Requests",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        6,
+                        4
+                    ]
+                },
+                {
+                    "name": "Vaccine Demand",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        2,
+                        1
+                    ]
+                }
+            ],
+            "confidence_interval": "\u00b15%",
+            "legend": [
+                {
+                    "color": "bg-red-500",
+                    "label": "Disease Cases (0 \u00b15%)"
+                },
+                {
+                    "color": "bg-blue-500",
+                    "label": "Permit Requests (4)"
+                },
+                {
+                    "color": "bg-emerald-500",
+                    "label": "Vaccine Demand (1)"
+                }
+            ]
+        },
+        "trend": {
+            "subtitle": "All 5 Modules Combined System Activity",
+            "categories": [
+                "Mar",
+                "Apr",
+                "May",
+                "Jun",
+                "Jul",
+                "Aug"
+            ],
+            "series": [
+                {
+                    "name": "Surveillance",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "name": "Health Center",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        2
+                    ]
+                },
+                {
+                    "name": "Sanitation",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        6
+                    ]
+                },
+                {
+                    "name": "Immunization",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        2
+                    ]
+                },
+                {
+                    "name": "Wastewater",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        4,
+                        1
+                    ]
+                },
+                {
+                    "name": "Prior Year (YoY)",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "colors": [
+                "#ef4444",
+                "#176b87",
+                "#d97706",
+                "#2563eb",
+                "#9333ea",
+                "#a1a1aa"
+            ],
+            "legend": [
+                {
+                    "color": "bg-red-500",
+                    "label": "Surveillance (0)"
+                },
+                {
+                    "color": "bg-teal-600",
+                    "label": "Health Center (2)"
+                },
+                {
+                    "color": "bg-amber-600",
+                    "label": "Sanitation (6)"
+                },
+                {
+                    "color": "bg-blue-600",
+                    "label": "Immunization"
+                },
+                {
+                    "color": "bg-purple-600",
+                    "label": "Wastewater (5)"
+                },
+                {
+                    "color": "bg-zinc-400",
+                    "label": "Prior Year (YoY)"
+                }
+            ]
+        },
+        "modules": [
+            {
+                "label": "Health Center",
+                "share": 15.4,
+                "projected_share": 17.1,
+                "color": "#176b87",
+                "status": "Optimal",
+                "delta": "\u2191 1.7pts vs last month",
+                "confidence": "low",
+                "sample_size": 2
+            },
+            {
+                "label": "Sanitation Permits",
+                "share": 46.2,
+                "projected_share": 47.7,
+                "color": "#d97706",
+                "status": "High Demand",
+                "delta": "\u2191 1.5pts vs last month",
+                "confidence": "low",
+                "sample_size": 6
+            },
+            {
+                "label": "Immunization & Surveillance",
+                "share": 0,
+                "projected_share": 0,
+                "color": "#2563eb",
+                "status": "Normal",
+                "delta": "\u2191 0pts vs last month",
+                "confidence": "low",
+                "sample_size": 0
+            },
+            {
+                "label": "Wastewater Services",
+                "share": 38.4,
+                "projected_share": 35.2,
+                "color": "#9333ea",
+                "status": "Stable",
+                "delta": "\u2192 0.0pts vs last month",
+                "confidence": "low",
+                "sample_size": 5
+            }
+        ],
+        "metrics": [
+            {
+                "label": "Permit Processing",
+                "value": 1.9,
+                "unit": "Days",
+                "change": "\u2193 21%",
+                "changeColor": "emerald",
+                "progress": 67,
+                "glow": "glow-green",
+                "watermark": "fa-file-signature",
+                "details": [
+                    {
+                        "label": "Current Average",
+                        "value": "1.9 Days"
+                    },
+                    {
+                        "label": "Total Applications",
+                        "value": "6 permits"
+                    },
+                    {
+                        "label": "Approved",
+                        "value": "4 permits"
+                    },
+                    {
+                        "label": "Pending\/Review",
+                        "value": "2 permits"
+                    },
+                    {
+                        "label": "Rejected",
+                        "value": "0 permits"
+                    }
+                ],
+                "pieData": [
+                    {
+                        "label": "Approved",
+                        "value": 4,
+                        "color": "#10b981"
+                    },
+                    {
+                        "label": "Pending",
+                        "value": 2,
+                        "color": "#f59e0b"
+                    },
+                    {
+                        "label": "Rejected",
+                        "value": 0,
+                        "color": "#ef4444"
+                    }
+                ]
+            },
+            {
+                "label": "AI Detection Accuracy",
+                "value": 94,
+                "unit": "%",
+                "change": "\u2191 5%",
+                "changeColor": "blue",
+                "progress": 94,
+                "glow": "glow-blue",
+                "watermark": "fa-brain",
+                "details": [
+                    {
+                        "label": "Accuracy Rate",
+                        "value": "94%"
+                    },
+                    {
+                        "label": "Total Cases Ingested",
+                        "value": "0 cases"
+                    },
+                    {
+                        "label": "Confirmed Outbreaks",
+                        "value": "0 cases"
+                    },
+                    {
+                        "label": "Confidence Target",
+                        "value": "> 90%"
+                    },
+                    {
+                        "label": "Model Score",
+                        "value": "Optimal"
+                    }
+                ],
+                "pieData": [
+                    {
+                        "label": "Confirmed",
+                        "value": 0,
+                        "color": "#3b82f6"
+                    },
+                    {
+                        "label": "Investigating",
+                        "value": 0,
+                        "color": "#f59e0b"
+                    }
+                ]
+            },
+            {
+                "label": "Inspection Turnaround",
+                "value": 1.3,
+                "unit": "Days",
+                "change": "\u2193 14%",
+                "changeColor": "teal",
+                "progress": 95,
+                "glow": "glow-teal",
+                "watermark": "fa-clipboard-check",
+                "details": [
+                    {
+                        "label": "Current Turnaround",
+                        "value": "1.8 Days"
+                    },
+                    {
+                        "label": "Completed Inspections",
+                        "value": "4 done"
+                    },
+                    {
+                        "label": "Target",
+                        "value": "< 2.0 Days"
+                    }
+                ],
+                "pieData": [
+                    {
+                        "label": "On-Time",
+                        "value": 85,
+                        "color": "#14b8a6"
+                    },
+                    {
+                        "label": "Delayed",
+                        "value": 15,
+                        "color": "#f59e0b"
+                    }
+                ]
+            },
+            {
+                "label": "Queue Resolution Rate",
+                "value": 84,
+                "unit": "%",
+                "change": "\u2191 3.5%",
+                "changeColor": "purple",
+                "progress": 84,
+                "glow": "glow-purple",
+                "watermark": "fa-users-line",
+                "details": [
+                    {
+                        "label": "Resolution Rate",
+                        "value": "84%"
+                    },
+                    {
+                        "label": "Total Patient Encounters",
+                        "value": "4 visits"
+                    },
+                    {
+                        "label": "Target",
+                        "value": "> 90%"
+                    }
+                ],
+                "pieData": [
+                    {
+                        "label": "Resolved",
+                        "value": 84,
+                        "color": "#8b5cf6"
+                    },
+                    {
+                        "label": "In Queue",
+                        "value": 16,
+                        "color": "#e2e8f0"
+                    }
+                ]
+            },
+            {
+                "label": "Data Integrity Index",
+                "value": 100,
+                "unit": "%",
+                "change": "\u2191 0.5%",
+                "changeColor": "amber",
+                "progress": 100,
+                "glow": "glow-amber",
+                "watermark": "fa-database",
+                "details": [
+                    {
+                        "label": "Completeness Rate",
+                        "value": "100%"
+                    },
+                    {
+                        "label": "Verified Patient Files",
+                        "value": "2 records"
+                    },
+                    {
+                        "label": "Missing Address\/Phone",
+                        "value": "0 files"
+                    }
+                ],
+                "pieData": [
+                    {
+                        "label": "Complete",
+                        "value": 2,
+                        "color": "#f59e0b"
+                    },
+                    {
+                        "label": "Incomplete",
+                        "value": 0,
+                        "color": "#ef4444"
+                    }
+                ]
+            }
+        ],
+        "staff": [
+            {
+                "name": "Dr. Manuel Reyes",
+                "score": 98,
+                "department": "Epidemiology Rapid Response",
+                "cases": 10
+            },
+            {
+                "name": "Nurse Ana Santos",
+                "score": 95,
+                "department": "Immunization Task Force",
+                "cases": 20
+            },
+            {
+                "name": "Insp. Juan Dela Cruz",
+                "score": 93,
+                "department": "Sanitation Permits",
+                "cases": 120
+            },
+            {
+                "name": "Engr. Roberto Reyes",
+                "score": 90,
+                "department": "Wastewater Services",
+                "cases": 60
+            },
+            {
+                "name": "Dr. Carlos Mendoza",
+                "score": 88,
+                "department": "Health Surveillance",
+                "cases": 12
+            }
+        ],
+        "forecast_insight": "No disease cases recorded in database \u2014 baseline forecast set to 0.",
+        "module_insight": "Sanitation Permits forecasted at 47.7% (+1.5pts vs current) \u2014 reassign 2 health inspectors to commercial permit reviews.",
+        "correlation_insight": "Disease Surveillance and Health Center Services move together (+84% co-movement correlation) over the last 6 months."
+    }
+}

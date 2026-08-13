@@ -45,7 +45,32 @@ try {
             break;
 
         case 'POST':
-            $controller->store();
+            if (isset($_GET['action']) && $_GET['action'] === 'record') {
+                $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+                if (empty($data['child_id']) || empty($data['vaccine']) || empty($data['date_administered'])) {
+                    Response::error('child_id, vaccine, and date_administered are required', 422);
+                }
+                $db = Database::getInstance();
+                $record = [
+                    'child_id'          => (int)$data['child_id'],
+                    'vaccine'           => trim($data['vaccine']),
+                    'dose'              => isset($data['dose']) ? max(1, (int)$data['dose']) : 1,
+                    'date_administered'  => date('Y-m-d', strtotime($data['date_administered'])),
+                    'next_due_date'      => !empty($data['next_due_date']) ? date('Y-m-d', strtotime($data['next_due_date'])) : null,
+                    'batch_number'       => !empty($data['batch_number']) ? trim($data['batch_number']) : null,
+                    'administered_by'    => !empty($data['administered_by']) ? trim($data['administered_by']) : null,
+                    'health_center'      => !empty($data['health_center']) ? trim($data['health_center']) : null,
+                ];
+                try {
+                    $res = $db->insert('immunizations', $record);
+                    Response::success('Vaccination recorded successfully', $res, 201);
+                } catch (\Throwable $e) {
+                    error_log('Error inserting immunization: ' . $e->getMessage());
+                    Response::error('Failed to record vaccination: ' . $e->getMessage(), 500);
+                }
+            } else {
+                $controller->store();
+            }
             break;
 
         case 'PUT':

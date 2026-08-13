@@ -99,144 +99,144 @@ $title = 'Renewals';
         </div>
         <div class="flex gap-3">
             <button onclick="openModal('newRenewalModal')"
-                    class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
+                class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-rotate text-xs"></i> New Renewal
             </button>
             <button onclick="sendAllReminders()"
-                    class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2">
+                class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2">
                 <i class="fa-solid fa-bell text-xs"></i> Send Reminders
             </button>
         </div>
     </div>
 
     <!-- ============================================================ -->
-<!-- MODERN KPI CARDS - Updated to match design               -->
-<!-- ============================================================ -->
-<div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-    <!-- Card 1: Total Renewals -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                    <i class="fa-solid fa-rotate text-lg"></i>
+    <!-- MODERN KPI CARDS - Updated to match design               -->
+    <!-- ============================================================ -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <!-- Card 1: Total Renewals -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                        <i class="fa-solid fa-rotate text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-slate-900"><?php echo $totalRenewalsCount; ?></p>
+                        <p class="text-xs font-medium text-slate-500">Total Renewals</p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-2xl font-black text-slate-900"><?php echo $totalRenewalsCount; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Total Renewals</p>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">🔄 All renewals</span>
+                    <span class="text-[10px] text-slate-400"><?php echo $approvedRenewals; ?> approved</span>
                 </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">🔄 All renewals</span>
-                <span class="text-[10px] text-slate-400"><?php echo $approvedRenewals; ?> approved</span>
             </div>
         </div>
-    </div>
 
-    <!-- Card 2: Pending -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-200">
-                    <i class="fa-solid fa-clock text-lg"></i>
+        <!-- Card 2: Pending -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-200">
+                        <i class="fa-solid fa-clock text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-amber-600"><?php echo $pendingRenewals; ?></p>
+                        <p class="text-xs font-medium text-slate-500">Pending</p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-2xl font-black text-amber-600"><?php echo $pendingRenewals; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Pending</p>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">⏳ Awaiting</span>
+                    <span class="text-[10px] text-slate-400">Needs review</span>
                 </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">⏳ Awaiting</span>
-                <span class="text-[10px] text-slate-400">Needs review</span>
             </div>
         </div>
-    </div>
 
-    <!-- Card 3: Approved -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-emerald-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
-                    <i class="fa-solid fa-check-circle text-lg"></i>
+        <!-- Card 3: Approved -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-emerald-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
+                        <i class="fa-solid fa-check-circle text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-emerald-600"><?php echo $approvedRenewals; ?></p>
+                        <p class="text-xs font-medium text-slate-500">Approved</p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-2xl font-black text-emerald-600"><?php echo $approvedRenewals; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Approved</p>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅ Completed</span>
+                    <span class="text-[10px] text-slate-400">Successfully renewed</span>
                 </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅ Completed</span>
-                <span class="text-[10px] text-slate-400">Successfully renewed</span>
             </div>
         </div>
-    </div>
 
-    <!-- Card 4: Expired Permits -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-rose-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-rose-200">
-                    <i class="fa-solid fa-calendar-xmark text-lg"></i>
+        <!-- Card 4: Expired Permits -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-rose-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-rose-200">
+                        <i class="fa-solid fa-calendar-xmark text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-rose-600"><?php echo $expiredPermits; ?></p>
+                        <p class="text-xs font-medium text-slate-500">Expired Permits</p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-2xl font-black text-rose-600"><?php echo $expiredPermits; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Expired Permits</p>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold">🚨 Overdue</span>
+                    <span class="text-[10px] text-slate-400">Immediate renewal</span>
                 </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold">🚨 Overdue</span>
-                <span class="text-[10px] text-slate-400">Immediate renewal</span>
             </div>
         </div>
-    </div>
 
-    <!-- Card 5: Revenue -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-brand-light rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-brand-dark to-brand-medium rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-light">
-                    <i class="fa-solid fa-coins text-lg"></i>
+        <!-- Card 5: Revenue -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-brand-light rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-brand-dark to-brand-medium rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-light">
+                        <i class="fa-solid fa-coins text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-brand-dark">₱<?php echo number_format($totalRenewalRevenue, 0); ?></p>
+                        <p class="text-xs font-medium text-slate-500">Revenue</p>
+                    </div>
                 </div>
-                <div>
-                    <p class="text-2xl font-black text-brand-dark">₱<?php echo number_format($totalRenewalRevenue, 0); ?></p>
-                    <p class="text-xs font-medium text-slate-500">Revenue</p>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">💰 Collected</span>
+                    <span class="text-[10px] text-slate-400">From renewals</span>
                 </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">💰 Collected</span>
-                <span class="text-[10px] text-slate-400">From renewals</span>
             </div>
         </div>
     </div>
-</div>
 
     <!-- Expiring Soon Alert -->
     <?php if ($expiringCount > 0): ?>
-    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <i class="fa-solid fa-clock text-amber-500 text-lg"></i>
-            <span class="text-sm text-amber-700">
-                <span class="font-bold"><?php echo $expiringCount; ?></span> permit(s) expiring within <?php echo GRACE_PERIOD_DAYS; ?> days
-            </span>
-        </div>
-        <button onclick="document.getElementById('quickFilter').value='expiring_soon'; filterRenewals();" 
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-clock text-amber-500 text-lg"></i>
+                <span class="text-sm text-amber-700">
+                    <span class="font-bold"><?php echo $expiringCount; ?></span> permit(s) expiring within <?php echo GRACE_PERIOD_DAYS; ?> days
+                </span>
+            </div>
+            <button onclick="document.getElementById('quickFilter').value='expiring_soon'; filterRenewals();"
                 class="text-xs font-semibold text-amber-700 hover:text-amber-900 underline">
-            View expiring
-        </button>
-    </div>
+                View expiring
+            </button>
+        </div>
     <?php endif; ?>
 
     <!-- Grace Period Info -->
     <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 flex items-center gap-3">
         <i class="fa-solid fa-info-circle text-blue-500 text-lg"></i>
         <div class="text-sm text-blue-700">
-            <span class="font-bold">Grace Period:</span> <?php echo GRACE_PERIOD_DAYS; ?> days after expiry 
+            <span class="font-bold">Grace Period:</span> <?php echo GRACE_PERIOD_DAYS; ?> days after expiry
             <span class="mx-2">•</span>
-            <span class="font-bold">Late Fee:</span> <?php echo LATE_FEE_PERCENTAGE; ?>% 
+            <span class="font-bold">Late Fee:</span> <?php echo LATE_FEE_PERCENTAGE; ?>%
             <span class="mx-2">•</span>
             <span class="font-bold">Monthly Interest:</span> <?php echo INTEREST_RATE; ?>%
         </div>
@@ -248,9 +248,9 @@ $title = 'Renewals';
             <div class="flex-1 relative">
                 <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                 <input type="text"
-                       id="searchRenewal"
-                       placeholder="Search by permit ID, applicant, or renewal ID..."
-                       class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
+                    id="searchRenewal"
+                    placeholder="Search by permit ID, applicant, or renewal ID..."
+                    class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
             </div>
             <div class="flex gap-2 flex-wrap">
                 <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
@@ -266,14 +266,14 @@ $title = 'Renewals';
                     <option value="grace_period">In Grace Period</option>
                     <option value="completed">Completed</option>
                 </select>
-                      <input type="date" id="filterDateFrom" value="<?php echo htmlspecialchars($dateFrom ?? ''); ?>"
-                          aria-label="Date applied from"
-                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                      <input type="date" id="filterDateTo" value="<?php echo htmlspecialchars($dateTo ?? ''); ?>"
-                          aria-label="Date applied to"
-                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                <input type="date" id="filterDateFrom" value="<?php echo htmlspecialchars($dateFrom ?? ''); ?>"
+                    aria-label="Date applied from"
+                    class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                <input type="date" id="filterDateTo" value="<?php echo htmlspecialchars($dateTo ?? ''); ?>"
+                    aria-label="Date applied to"
+                    class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters"
-                        class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
+                    class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
                 </button>
             </div>
@@ -297,28 +297,28 @@ $title = 'Renewals';
                 </thead>
                 <tbody id="renewalTableBody">
                     <?php foreach ($renewals as $renewal): ?>
-                    <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors renewal-row <?php echo $renewal['status'] === 'pending' ? 'bg-amber-50/30' : ''; ?>"
-                        data-applicant="<?php echo htmlspecialchars(strtolower($renewal['applicant'] ?? '')); ?>"
-                        data-status="<?php echo htmlspecialchars($renewal['status'] ?? 'pending'); ?>"
-                        data-id="<?php echo htmlspecialchars($renewal['renewal_id'] ?? ''); ?>"
-                        data-date-applied="<?php echo htmlspecialchars($renewal['date_applied'] ?? ''); ?>">
-                        <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo htmlspecialchars($renewal['renewal_id'] ?? ''); ?></td>
-                        <td class="px-4 py-3">
-                            <div>
-                                <p class="font-semibold text-slate-800 text-sm maskable"
-                                   data-masked="<?php echo htmlspecialchars(maskName($renewal['applicant'] ?? '')); ?>"
-                                   data-real="<?php echo htmlspecialchars($renewal['applicant'] ?? ''); ?>">
-                                    <?php echo htmlspecialchars($renewal['applicant'] ?? ''); ?>
-                                </p>
-                                <p class="text-xs text-slate-400"><?php echo htmlspecialchars($renewal['permit_id'] ?? ''); ?> • <?php echo htmlspecialchars($renewal['business_type'] ?? ''); ?></p>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="text-sm font-bold text-slate-800">₱<?php echo number_format((float)($renewal['renewal_fee'] ?? 0), 2); ?></span>
-                            <span class="block text-[10px] text-slate-400">Prev: ₱<?php echo number_format((float)($renewal['current_fee'] ?? 0), 2); ?></span>
-                        </td>
-                        <td class="px-4 py-3">
-                            <?php
+                        <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors renewal-row <?php echo $renewal['status'] === 'pending' ? 'bg-amber-50/30' : ''; ?>"
+                            data-applicant="<?php echo htmlspecialchars(strtolower($renewal['applicant'] ?? '')); ?>"
+                            data-status="<?php echo htmlspecialchars($renewal['status'] ?? 'pending'); ?>"
+                            data-id="<?php echo htmlspecialchars($renewal['renewal_id'] ?? ''); ?>"
+                            data-date-applied="<?php echo htmlspecialchars($renewal['date_applied'] ?? ''); ?>">
+                            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo htmlspecialchars($renewal['renewal_id'] ?? ''); ?></td>
+                            <td class="px-4 py-3">
+                                <div>
+                                    <p class="font-semibold text-slate-800 text-sm maskable"
+                                        data-masked="<?php echo htmlspecialchars(maskName($renewal['applicant'] ?? '')); ?>"
+                                        data-real="<?php echo htmlspecialchars($renewal['applicant'] ?? ''); ?>">
+                                        <?php echo htmlspecialchars($renewal['applicant'] ?? ''); ?>
+                                    </p>
+                                    <p class="text-xs text-slate-400"><?php echo htmlspecialchars($renewal['permit_id'] ?? ''); ?> • <?php echo htmlspecialchars($renewal['business_type'] ?? ''); ?></p>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="text-sm font-bold text-slate-800">₱<?php echo number_format((float)($renewal['renewal_fee'] ?? 0), 2); ?></span>
+                                <span class="block text-[10px] text-slate-400">Prev: ₱<?php echo number_format((float)($renewal['current_fee'] ?? 0), 2); ?></span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <?php
                                 $statusColors = [
                                     'pending' => 'bg-amber-100 text-amber-700',
                                     'under_review' => 'bg-blue-100 text-blue-700',
@@ -326,49 +326,49 @@ $title = 'Renewals';
                                     'rejected' => 'bg-rose-100 text-rose-700'
                                 ];
                                 $status = $renewal['status'] ?? 'pending';
-                            ?>
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo $statusColors[$status] ?? $statusColors['pending']; ?>">
-                                <?php echo str_replace('_', ' ', ucfirst($status)); ?>
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-slate-500 text-xs"><?php echo date('M d, Y', strtotime($renewal['date_applied'] ?? 'now')); ?></td>
-                        <td class="px-4 py-3">
-                            <?php if (!empty($renewal['payment_method'])): ?>
-                                <span class="text-xs text-slate-600"><?php echo htmlspecialchars($renewal['payment_method']); ?></span>
-                                <span class="block text-[10px] text-slate-400 font-mono"><?php echo htmlspecialchars($renewal['payment_reference'] ?? ''); ?></span>
-                            <?php else: ?>
-                                <span class="text-xs text-slate-400">—</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center justify-center gap-1">
-                                <button onclick="viewRenewal(<?php echo (int)($renewal['id'] ?? 0); ?>)"
+                                ?>
+                                <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo $statusColors[$status] ?? $statusColors['pending']; ?>">
+                                    <?php echo str_replace('_', ' ', ucfirst($status)); ?>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-slate-500 text-xs"><?php echo date('M d, Y', strtotime($renewal['date_applied'] ?? 'now')); ?></td>
+                            <td class="px-4 py-3">
+                                <?php if (!empty($renewal['payment_method'])): ?>
+                                    <span class="text-xs text-slate-600"><?php echo htmlspecialchars($renewal['payment_method']); ?></span>
+                                    <span class="block text-[10px] text-slate-400 font-mono"><?php echo htmlspecialchars($renewal['payment_reference'] ?? ''); ?></span>
+                                <?php else: ?>
+                                    <span class="text-xs text-slate-400">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center justify-center gap-1">
+                                    <button onclick="viewRenewal(<?php echo (int)($renewal['id'] ?? 0); ?>)"
                                         class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
-                                    <i class="fa-solid fa-eye text-sm"></i>
-                                </button>
-                                <?php if ($status === 'pending' || $status === 'under_review'): ?>
-                                    <button onclick="updateRenewalStatus(<?php echo (int)($renewal['id'] ?? 0); ?>, 'approved')"
+                                        <i class="fa-solid fa-eye text-sm"></i>
+                                    </button>
+                                    <?php if ($status === 'pending' || $status === 'under_review'): ?>
+                                        <button onclick="updateRenewalStatus(<?php echo (int)($renewal['id'] ?? 0); ?>, 'approved')"
                                             class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Approve">
-                                        <i class="fa-solid fa-check text-sm"></i>
-                                    </button>
-                                    <button onclick="updateRenewalStatus(<?php echo (int)($renewal['id'] ?? 0); ?>, 'rejected')"
+                                            <i class="fa-solid fa-check text-sm"></i>
+                                        </button>
+                                        <button onclick="updateRenewalStatus(<?php echo (int)($renewal['id'] ?? 0); ?>, 'rejected')"
                                             class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Reject">
-                                        <i class="fa-solid fa-times text-sm"></i>
-                                    </button>
-                                <?php endif; ?>
-                                <?php if ($status === 'approved'): ?>
-                                    <button onclick="viewRenewalHistory(<?php echo (int)($renewal['id'] ?? 0); ?>)"
+                                            <i class="fa-solid fa-times text-sm"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                    <?php if ($status === 'approved'): ?>
+                                        <button onclick="viewRenewalHistory(<?php echo (int)($renewal['id'] ?? 0); ?>)"
                                             class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="History">
-                                        <i class="fa-solid fa-clock-rotate-left text-sm"></i>
-                                    </button>
-                                <?php endif; ?>
-                                <button onclick="sendReminder(<?php echo (int)($renewal['id'] ?? 0); ?>)"
+                                            <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                    <button onclick="sendReminder(<?php echo (int)($renewal['id'] ?? 0); ?>)"
                                         class="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition" title="Send Reminder">
-                                    <i class="fa-solid fa-bell text-sm"></i>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
+                                        <i class="fa-solid fa-bell text-sm"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
@@ -388,32 +388,32 @@ $title = 'Renewals';
 
         <!-- Table wrapper - pagination is inside this container -->
         <div id="tableWrapper" class="<?php echo empty($renewals) ? 'hidden' : ''; ?>">
-        <!-- Pagination -->
-        <div class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
-            <p class="text-xs text-slate-500">
-                Showing <span class="font-semibold text-slate-700"><?php echo $offset + 1; ?></span> to
-                <span class="font-semibold text-slate-700"><?php echo min($offset + $limit, $totalRenewals); ?></span> of
-                <span class="font-semibold text-slate-700"><?php echo $totalRenewals; ?></span> renewals
-            </p>
-            <div class="flex gap-1">
-                <button onclick="changePage(<?php echo $page - 1; ?>)"
+            <!-- Pagination -->
+            <div class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
+                <p class="text-xs text-slate-500">
+                    Showing <span class="font-semibold text-slate-700"><?php echo $offset + 1; ?></span> to
+                    <span class="font-semibold text-slate-700"><?php echo min($offset + $limit, $totalRenewals); ?></span> of
+                    <span class="font-semibold text-slate-700"><?php echo $totalRenewals; ?></span> renewals
+                </p>
+                <div class="flex gap-1">
+                    <button onclick="changePage(<?php echo $page - 1; ?>)"
                         class="px-3 py-1.5 rounded-lg text-sm <?php echo $page <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
                         <?php echo $page <= 1 ? 'disabled' : ''; ?>>
-                    <i class="fa-solid fa-chevron-left text-xs"></i>
-                </button>
-                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <button onclick="changePage(<?php echo $i; ?>)"
-                            class="px-3 py-1.5 rounded-lg text-sm font-medium <?php echo $i === $page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>">
-                        <?php echo $i; ?>
+                        <i class="fa-solid fa-chevron-left text-xs"></i>
                     </button>
-                <?php endfor; ?>
-                <button onclick="changePage(<?php echo $page + 1; ?>)"
+                    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                        <button onclick="changePage(<?php echo $i; ?>)"
+                            class="px-3 py-1.5 rounded-lg text-sm font-medium <?php echo $i === $page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>">
+                            <?php echo $i; ?>
+                        </button>
+                    <?php endfor; ?>
+                    <button onclick="changePage(<?php echo $page + 1; ?>)"
                         class="px-3 py-1.5 rounded-lg text-sm <?php echo $page >= $totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
                         <?php echo $page >= $totalPages ? 'disabled' : ''; ?>>
-                    <i class="fa-solid fa-chevron-right text-xs"></i>
-                </button>
+                        <i class="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
             </div>
-        </div>
         </div>
     </div>
 </div>
@@ -448,8 +448,8 @@ $title = 'Renewals';
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Renewal Fee</label>
                 <input type="number" id="renew_fee_amount" required min="0" max="<?php echo MAX_RENEWAL_FEE; ?>" step="0.01" inputmode="decimal"
-                      title="Renewal fee cannot exceed <?php echo number_format(MAX_RENEWAL_FEE, 2); ?>"
-                      class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    title="Renewal fee cannot exceed <?php echo number_format(MAX_RENEWAL_FEE, 2); ?>"
+                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Method</label>
@@ -463,8 +463,8 @@ $title = 'Renewals';
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Reference (Auto-generated)</label>
                 <input type="text" id="renew_payment_ref" readonly
-                       class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500 cursor-not-allowed focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"
-                       placeholder="Will be generated on submit">
+                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-500 cursor-not-allowed focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"
+                    placeholder="Will be generated on submit">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
@@ -473,11 +473,11 @@ $title = 'Renewals';
 
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button type="button" onclick="closeModal('newRenewalModal')"
-                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
                     Cancel
                 </button>
                 <button type="submit"
-                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                    class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
                     <i class="fa-solid fa-rotate mr-1.5"></i> Submit Renewal
                 </button>
             </div>
@@ -546,17 +546,17 @@ $title = 'Renewals';
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reason for Rejection <span class="text-rose-500">*</span></label>
                 <textarea id="rejection_reason" rows="3" required
-                          class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 outline-none"
-                          placeholder="Please provide a reason for rejecting this renewal..."></textarea>
+                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 outline-none"
+                    placeholder="Please provide a reason for rejecting this renewal..."></textarea>
                 <p class="text-xs text-slate-400 mt-1">This reason will be saved and visible to the applicant.</p>
             </div>
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button type="button" onclick="closeModal('rejectRenewalModal')"
-                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
                     Cancel
                 </button>
                 <button type="submit"
-                        class="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition text-sm font-semibold">
+                    class="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition text-sm font-semibold">
                     <i class="fa-solid fa-times mr-1.5"></i> Reject Renewal
                 </button>
             </div>
@@ -674,11 +674,24 @@ $title = 'Renewals';
         let docs = [];
         try {
             docs = typeof r.documents === 'string' ? JSON.parse(r.documents) : (r.documents || []);
-        } catch(e) { docs = []; }
+        } catch (e) {
+            docs = [];
+        }
 
-        const docsHtml = docs.length > 0
-            ? docs.map(d => `<span class="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">${escHtml(d)}</span>`).join('')
-            : '<span class="text-xs text-slate-400">No documents</span>';
+        const docsHtml = docs.length > 0 ?
+            docs.map(d => `<span class="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">${escHtml(d)}</span>`).join('') :
+            '<span class="text-xs text-slate-400">No documents</span>';
+
+        // === REJECTION REASON BLOCK ADDED ===
+        let rejectionHtml = '';
+        if (r.status === 'rejected' && r.rejection_reason) {
+            rejectionHtml = `
+                <div class="bg-rose-50 rounded-xl p-4 border border-rose-200">
+                    <h5 class="text-sm font-bold text-rose-700 mb-2">Rejection Reason</h5>
+                    <p class="text-sm text-rose-800">${escHtml(r.rejection_reason)}</p>
+                </div>
+            `;
+        }
 
         document.getElementById('renewalDetailsContent').innerHTML = `
             <div class="space-y-4">
@@ -704,6 +717,7 @@ $title = 'Renewals';
                     ${r.date_approved ? `<div><p class="text-xs text-slate-400 font-semibold">Date Approved</p><p class="text-sm text-slate-800">${new Date(r.date_approved).toLocaleDateString()}</p></div>` : ''}
                     ${r.new_expiry_date ? `<div><p class="text-xs text-slate-400 font-semibold">New Expiry</p><p class="text-sm font-bold text-emerald-600">${new Date(r.new_expiry_date).toLocaleDateString()}</p></div>` : ''}
                 </div>
+                ${rejectionHtml}
                 <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
                     <h5 class="text-sm font-bold text-slate-700 mb-2">📎 Documents</h5>
                     <div class="flex flex-wrap gap-2">${docsHtml}</div>
@@ -750,7 +764,9 @@ $title = 'Renewals';
             const action = status === 'approved' ? 'approve' : status;
             const response = await fetch(API_BASE + '/' + id + '/' + action, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' }
+                headers: {
+                    'Content-Type': 'application/json'
+                }
             });
             const result = await response.json();
 
@@ -879,7 +895,7 @@ $title = 'Renewals';
         currentRejectId = id;
         document.getElementById('rejectRenewalId').textContent = '#' + id;
         document.getElementById('rejection_reason').value = '';
-        
+
         // Fetch renewal details to get applicant name
         const r = await fetchRenewal(id);
         if (r && r.applicant) {
@@ -887,7 +903,7 @@ $title = 'Renewals';
         } else {
             document.getElementById('rejectRenewalApplicant').textContent = 'Unknown';
         }
-        
+
         openModal('rejectRenewalModal');
     }
 
@@ -912,8 +928,12 @@ $title = 'Renewals';
         try {
             const response = await fetch(API_BASE + '/' + currentRejectId + '/reject', {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rejection_reason: reason })
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    rejection_reason: reason
+                })
             });
             const result = await response.json();
 
@@ -962,8 +982,8 @@ $title = 'Renewals';
 
         const history = await fetchRenewalHistory(r.permit_id);
 
-        const historyHtml = history.length > 0
-            ? history.map(h => `
+        const historyHtml = history.length > 0 ?
+            history.map(h => `
                 <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
                     <div>
                         <p class="font-semibold text-slate-800 text-sm">${escHtml(h.permit_id || '')}</p>
@@ -974,8 +994,8 @@ $title = 'Renewals';
                         <p class="text-xs text-slate-400">Expires: ${h.new_expiry ? new Date(h.new_expiry).toLocaleDateString() : '—'}</p>
                     </div>
                 </div>
-            `).join('')
-            : '<p class="text-sm text-slate-400 text-center py-4">No renewal history found</p>';
+            `).join('') :
+            '<p class="text-sm text-slate-400 text-center py-4">No renewal history found</p>';
 
         document.getElementById('renewalHistoryContent').innerHTML = `
             <div class="space-y-4">
@@ -1026,7 +1046,9 @@ $title = 'Renewals';
         try {
             const response = await fetch(API_BASE, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     permit_id: parseInt(permitId),
                     renewal_fee: renewalFeeValue,

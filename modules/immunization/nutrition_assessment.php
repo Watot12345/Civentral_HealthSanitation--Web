@@ -98,135 +98,57 @@ if (empty($children)) {
     ];
 }
 
-// Sample Nutrition Assessments
-$nutritionAssessments = [
-    [
-        'id' => 1,
-        'child_id' => 1,
-        'child_name' => 'Sofia Garcia',
-        'child_avatar' => 'SG',
-        'date' => '2026-07-10',
-        'age' => '2 yrs 4 mos',
-        'weight' => 12.4,
-        'height' => 84,
-        'bmi' => 17.6,
-        'weight_percentile' => 55,
-        'height_percentile' => 60,
-        'nutrition_status' => 'normal',
-        'risk_level' => 'low',
-        'assessment_notes' => 'Normal growth pattern. Good appetite. Active child.',
-        'plan_of_action' => 'Continue current diet. Monitor growth every 3 months.',
-        'supplements' => ['Vitamin D', 'Iron'],
-        'next_assessment' => '2026-10-10',
-        'assessed_by' => 'Nutritionist Maria Santos',
-        'status' => 'active'
-    ],
-    [
-        'id' => 2,
-        'child_id' => 2,
-        'child_name' => 'Luis Mendoza',
-        'child_avatar' => 'LM',
-        'date' => '2026-07-08',
-        'age' => '1 yr 3 mos',
-        'weight' => 9.1,
-        'height' => 73,
-        'bmi' => 17.1,
-        'weight_percentile' => 30,
-        'height_percentile' => 25,
-        'nutrition_status' => 'moderate',
-        'risk_level' => 'medium',
-        'assessment_notes' => 'Mild underweight. Picky eater. Occasional vomiting.',
-        'plan_of_action' => 'High-calorie diet. Encourage frequent feeding. Monitor weight weekly.',
-        'supplements' => ['Vitamin A', 'Zinc', 'Multivitamin'],
-        'next_assessment' => '2026-08-08',
-        'assessed_by' => 'Nutritionist Ana Reyes',
-        'status' => 'active'
-    ],
-    [
-        'id' => 3,
-        'child_id' => 3,
-        'child_name' => 'Emma Lim',
-        'child_avatar' => 'EL',
-        'date' => '2026-07-12',
-        'age' => '3 yrs 1 mo',
-        'weight' => 16.0,
-        'height' => 95,
-        'bmi' => 17.7,
-        'weight_percentile' => 85,
-        'height_percentile' => 75,
-        'nutrition_status' => 'normal',
-        'risk_level' => 'low',
-        'assessment_notes' => 'Above average weight. Good development. Active lifestyle.',
-        'plan_of_action' => 'Maintain balanced diet. Encourage physical activity.',
-        'supplements' => ['Calcium'],
-        'next_assessment' => '2026-10-12',
-        'assessed_by' => 'Nutritionist Maria Santos',
-        'status' => 'active'
-    ],
-    [
-        'id' => 4,
-        'child_id' => 4,
-        'child_name' => 'Noah Torres',
-        'child_avatar' => 'NT',
-        'date' => '2026-07-15',
-        'age' => '9 mos',
-        'weight' => 7.2,
-        'height' => 67,
-        'bmi' => 16.0,
-        'weight_percentile' => 8,
-        'height_percentile' => 12,
-        'nutrition_status' => 'critical',
-        'risk_level' => 'high',
-        'assessment_notes' => 'Severe underweight. Poor feeding. Recurrent infections.',
-        'plan_of_action' => 'Emergency nutrition intervention. Ready-to-use therapeutic food. Weekly monitoring.',
-        'supplements' => ['Vitamin A', 'Iron', 'Zinc', 'Folic Acid'],
-        'next_assessment' => '2026-07-22',
-        'assessed_by' => 'Nutritionist Ana Reyes',
-        'status' => 'critical'
-    ],
-    [
-        'id' => 5,
-        'child_id' => 5,
-        'child_name' => 'Isabella Cruz',
-        'child_avatar' => 'IC',
-        'date' => '2026-07-14',
-        'age' => '1 yr 11 mos',
-        'weight' => 13.5,
-        'height' => 86,
-        'bmi' => 18.2,
-        'weight_percentile' => 70,
-        'height_percentile' => 65,
-        'nutrition_status' => 'normal',
-        'risk_level' => 'low',
-        'assessment_notes' => 'Healthy weight. Good eating habits. Active toddler.',
-        'plan_of_action' => 'Continue healthy diet. Encourage variety of foods.',
-        'supplements' => ['Vitamin D'],
-        'next_assessment' => '2026-10-14',
-        'assessed_by' => 'Nutritionist Maria Santos',
-        'status' => 'active'
-    ],
-    [
-        'id' => 6,
-        'child_id' => 2,
-        'child_name' => 'Luis Mendoza',
-        'child_avatar' => 'LM',
-        'date' => '2026-06-08',
-        'age' => '1 yr 2 mos',
-        'weight' => 9.5,
-        'height' => 72,
-        'bmi' => 18.3,
-        'weight_percentile' => 35,
-        'height_percentile' => 30,
-        'nutrition_status' => 'moderate',
-        'risk_level' => 'medium',
-        'assessment_notes' => 'Slight improvement. Still picky eater.',
-        'plan_of_action' => 'Continue high-calorie diet. Monitor weight.',
-        'supplements' => ['Vitamin A', 'Zinc'],
-        'next_assessment' => '2026-07-08',
-        'assessed_by' => 'Nutritionist Ana Reyes',
-        'status' => 'completed'
-    ],
-];
+// Real Nutrition Assessments from Database
+$nutritionAssessments = [];
+try {
+    $db = Database::getInstance();
+    $dbAssessments = $db->select('nutrition_assessments', [], ['order' => 'assessment_date.desc']);
+    $childrenMap = array_column($children, null, 'id');
+
+    if (!empty($dbAssessments) && is_array($dbAssessments)) {
+        foreach ($dbAssessments as $a) {
+            $cId = (int)($a['child_id'] ?? 0);
+            $child = $childrenMap[$cId] ?? null;
+            $cName = $child ? $child['name'] : ('Child #' . $cId);
+            $cAge = $child ? $child['age'] : '—';
+            $initials = 'CH';
+            if ($child && !empty($child['name'])) {
+                $parts = explode(' ', $child['name']);
+                $initials = strtoupper(substr($parts[0], 0, 1) . (isset($parts[1]) ? substr($parts[1], 0, 1) : ''));
+            }
+
+            $supplements = [];
+            if (!empty($a['supplements'])) {
+                $supplements = is_array($a['supplements']) ? $a['supplements'] : json_decode($a['supplements'], true);
+            }
+            if (!is_array($supplements)) $supplements = [];
+
+            $nutritionAssessments[] = [
+                'id' => (int)$a['id'],
+                'child_id' => $cId,
+                'child_name' => $cName,
+                'child_avatar' => $initials,
+                'date' => $a['assessment_date'],
+                'age' => $cAge,
+                'weight' => (float)$a['weight'],
+                'height' => (float)$a['height'],
+                'bmi' => (float)($a['bmi'] ?? 0),
+                'weight_percentile' => (int)($a['weight_percentile'] ?? 50),
+                'height_percentile' => (int)($a['height_percentile'] ?? 50),
+                'nutrition_status' => strtolower($a['nutrition_status'] ?? 'normal'),
+                'risk_level' => strtolower($a['risk_level'] ?? 'low'),
+                'assessment_notes' => $a['assessment_notes'] ?? '',
+                'plan_of_action' => $a['plan_of_action'] ?? '',
+                'supplements' => $supplements,
+                'next_assessment' => $a['next_assessment_date'] ?? null,
+                'assessed_by' => $a['assessed_by'] ?? 'Staff',
+                'status' => $a['status'] ?? 'active'
+            ];
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Error querying nutrition_assessments: ' . $e->getMessage());
+}
 
 // Sample Supplement Inventory
 $supplementInventory = [
@@ -936,7 +858,7 @@ $title = 'Nutrition Assessment';
         openModal('editAssessmentModal');
     }
 
-    function saveEditedAssessment(event) {
+    async function saveEditedAssessment(event) {
         event.preventDefault();
         const id = document.getElementById('edit_assessment_id').value;
         const weight = document.getElementById('edit_assessment_weight').value;
@@ -947,18 +869,43 @@ $title = 'Nutrition Assessment';
             showToast('Weight must be 0.1-999 kg and height must be 20-999 cm.', 'warning');
             return;
         }
-        const assessment = ASSESSMENTS[id];
-        if (assessment) {
-            assessment.date = document.getElementById('edit_assessment_date').value;
-            assessment.weight = Number(weight);
-            assessment.height = Number(height);
-            assessment.nutrition_status = document.getElementById('edit_assessment_status').value;
-            assessment.risk_level = document.getElementById('edit_assessment_risk').value;
-            assessment.assessment_notes = document.getElementById('edit_assessment_notes').value.trim();
+
+        const payload = {
+            date: document.getElementById('edit_assessment_date').value,
+            weight: Number(weight),
+            height: Number(height),
+            nutrition_status: document.getElementById('edit_assessment_status').value,
+            risk_level: document.getElementById('edit_assessment_risk').value,
+            assessment_notes: document.getElementById('edit_assessment_notes').value.trim()
+        };
+
+        try {
+            const res = await fetch(`/api/nutrition.php?id=${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('editAssessmentModal');
+                showToast('Nutrition assessment updated successfully!', 'success');
+                const a = ASSESSMENTS[id];
+                if (a) {
+                    a.date = payload.date;
+                    a.weight = payload.weight;
+                    a.height = payload.height;
+                    a.nutrition_status = payload.nutrition_status;
+                    a.risk_level = payload.risk_level;
+                    a.assessment_notes = payload.assessment_notes;
+                }
+                filterAssessments();
+            } else {
+                showToast(data.message || 'Failed to update assessment.', 'danger');
+            }
+        } catch (err) {
+            console.error('Update assessment error:', err);
+            showToast('Error connecting to server.', 'danger');
         }
-        closeModal('editAssessmentModal');
-        showToast('Nutrition assessment updated successfully!', 'success');
-        filterAssessments();
     }
 
     // ============================================================
@@ -973,31 +920,93 @@ $title = 'Nutrition Assessment';
         openModal('emergencyInterventionModal');
     }
 
-    function confirmEmergencyIntervention() {
+    async function confirmEmergencyIntervention() {
         const modal = document.getElementById('emergencyInterventionModal');
         const id = modal.dataset.assessmentId;
-        const a = ASSESSMENTS[id];
-        if (!a) return;
-        a.plan_of_action = document.getElementById('emergencyInterventionNotes').value.trim();
-        closeModal('emergencyInterventionModal');
-        showToast('Emergency intervention initiated for ' + a.child_name + '!', 'success');
+        const notes = document.getElementById('emergencyInterventionNotes').value.trim();
+
+        try {
+            const res = await fetch(`/api/nutrition.php?id=${id}&action=emergency`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan_of_action: notes })
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('emergencyInterventionModal');
+                showToast('Emergency intervention recorded!', 'success');
+                const a = ASSESSMENTS[id];
+                if (a) {
+                    a.plan_of_action = notes;
+                    a.nutrition_status = 'critical';
+                    a.risk_level = 'high';
+                }
+                filterAssessments();
+            } else {
+                showToast(data.message || 'Failed to record intervention.', 'danger');
+            }
+        } catch (err) {
+            console.error('Emergency intervention error:', err);
+            showToast('Error connecting to server.', 'danger');
+        }
     }
 
     // ============================================================
     // NUTRITION SCREENING
     // ============================================================
-    function saveNutritionScreening(event) {
+    async function saveNutritionScreening(event) {
         event.preventDefault();
+        const childId = document.getElementById('screen_child').value;
         const weight = document.getElementById('screen_weight').value;
         const height = document.getElementById('screen_height').value;
+        const date = document.getElementById('screen_date').value;
+        const status = document.getElementById('screen_status').value;
+        const risk = document.getElementById('screen_risk').value;
+        const notes = document.getElementById('screen_notes').value;
+        const nextDate = document.getElementById('screen_next').value;
+
+        if (!childId) {
+            showToast('Please select a child profile.', 'warning');
+            return;
+        }
+
         const validMeasurement = (value, minimum) =>
             /^\d{1,3}(\.\d{1,2})?$/.test(value) && Number(value) >= minimum && Number(value) <= 999;
         if (!validMeasurement(weight, 0.1) || !validMeasurement(height, 20)) {
             showToast('Weight must be 0.1-999 kg and height must be 20-999 cm.', 'warning');
             return;
         }
-        showToast('Nutrition assessment saved successfully!', 'success');
-        closeModal('nutritionScreeningModal');
+
+        const payload = {
+            child_id: Number(childId),
+            date: date || new Date().toISOString().split('T')[0],
+            weight: Number(weight),
+            height: Number(height),
+            nutrition_status: status,
+            risk_level: risk,
+            assessment_notes: notes,
+            next_assessment: nextDate,
+            supplements: []
+        };
+
+        try {
+            const res = await fetch('/api/nutrition.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('nutritionScreeningModal');
+                showToast('Nutrition assessment saved successfully!', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message || 'Failed to save assessment.', 'danger');
+            }
+        } catch (err) {
+            console.error('Save assessment error:', err);
+            showToast('Error saving assessment to server.', 'danger');
+        }
     }
 
     function limitNutritionMeasurement(input) {

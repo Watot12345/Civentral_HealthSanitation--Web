@@ -24,6 +24,14 @@ $growthData = [];
 try {
     $db = Database::getInstance();
     $dbChildren = $db->query('children', 'GET');
+
+    $dbGrowth = [];
+    try {
+        $dbGrowth = $db->select('growth_measurements', [], ['order' => 'measurement_date.asc']);
+    } catch (\Throwable $ex) {
+        $dbGrowth = [];
+    }
+
     if (!empty($dbChildren) && is_array($dbChildren)) {
         foreach ($dbChildren as $c) {
             $cId = (int)$c['id'];
@@ -54,8 +62,22 @@ try {
             }
         }
     }
+
+    if (!empty($dbGrowth) && is_array($dbGrowth)) {
+        foreach ($dbGrowth as $g) {
+            $growthData[] = [
+                'id' => (int)$g['id'],
+                'child_id' => (int)$g['child_id'],
+                'date' => $g['measurement_date'],
+                'weight' => (float)$g['weight'],
+                'height' => (float)$g['height'],
+                'head_circumference' => !empty($g['head_circumference']) ? (float)$g['head_circumference'] : null,
+                'notes' => $g['notes'] ?? 'Routine Checkup'
+            ];
+        }
+    }
 } catch (\Throwable $e) {
-    error_log('Supabase children query exception: ' . $e->getMessage());
+    error_log('Supabase children/growth query exception: ' . $e->getMessage());
 }
 
 // Compute dynamic growth alerts from database records
@@ -67,6 +89,7 @@ foreach ($children as $c) {
 }
 
 // Count children with alerts
+$childrenWithAlerts = count(array_unique(array_column($growthAlerts, 'child')));
 // WHO Growth Reference Percentiles (Standard DOH Growth Chart Benchmarks)
 $weightPercentiles = [
     'male' => [
@@ -341,6 +364,7 @@ $title = 'Growth Charts';
                         <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Head (cm)</th>
                         <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Percentile</th>
                         <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Notes</th>
+                        <th class="px-4 py-2 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="growthTableBody">
@@ -796,7 +820,7 @@ $title = 'Growth Charts';
     function updateGrowthTable(data, child) {
         const tbody = document.getElementById('growthTableBody');
         if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-8 text-center text-slate-400">No measurements recorded</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">No measurements recorded</td></tr>';
             return;
         }
 
@@ -804,6 +828,7 @@ $title = 'Growth Charts';
             const ageMonths = getAgeInMonths(child.birth_date, d.date);
             const percentile = getWeightPercentile(parseFloat(d.weight), child.gender, ageMonths);
             const ageDisplay = ageMonths < 12 ? Math.round(ageMonths) + ' months' : (Math.round(ageMonths / 12) + ' yrs ' + Math.round(ageMonths % 12) + ' mos');
+            const deleteBtn = d.id ? `<button onclick="deleteGrowthMeasurement(${d.id})" class="p-1 text-rose-500 hover:bg-rose-50 rounded transition" title="Delete"><i class="fa-solid fa-trash text-xs"></i></button>` : '';
             return `
                 <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors">
                     <td class="px-4 py-2 text-slate-600 text-xs">${new Date(d.date).toLocaleDateString()}</td>
@@ -817,9 +842,29 @@ $title = 'Growth Charts';
                         </span>
                     </td>
                     <td class="px-4 py-2 text-slate-400 text-xs">${d.notes || '—'}</td>
+                    <td class="px-4 py-2 text-center">${deleteBtn}</td>
                 </tr>
             `;
         }).join('');
+    }
+
+    async function deleteGrowthMeasurement(id) {
+        if (!confirm('Are you sure you want to delete this growth measurement?')) return;
+        try {
+            const res = await fetch(`/api/growth.php?id=${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                const idx = GROWTH_DATA.findIndex(g => g.id == id);
+                if (idx !== -1) GROWTH_DATA.splice(idx, 1);
+                if (selectedChildId) selectChild(selectedChildId);
+                showToast('Measurement deleted successfully!', 'success');
+            } else {
+                showToast(data.message || 'Failed to delete measurement.', 'danger');
+            }
+        } catch (err) {
+            console.error('Delete growth error:', err);
+            showToast('Error deleting measurement.', 'danger');
+        }
     }
 
     // ============================================================
@@ -832,7 +877,7 @@ $title = 'Growth Charts';
         input.value = parts.length > 1 ? `${whole}.${fraction}` : whole;
     }
 
-    function saveGrowthMeasurement(event) {
+    async function saveGrowthMeasurement(event) {
         event.preventDefault();
         const childId = document.getElementById('growth_child').value;
         const date = document.getElementById('growth_date').value;
@@ -863,13 +908,36 @@ $title = 'Growth Charts';
             notes: notes || 'Routine Checkup'
         };
 
-        GROWTH_DATA.push(newRecord);
+        try {
+            const res = await fetch('/api/growth.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newRecord)
+            });
+            const data = await res.json();
+            if (data.success) {
+                const saved = data.data && data.data[0] ? data.data[0] : newRecord;
+                GROWTH_DATA.push({
+                    id: saved.id || Date.now(),
+                    child_id: Number(childId),
+                    date: saved.measurement_date || newRecord.date,
+                    weight: parseFloat(saved.weight || newRecord.weight),
+                    height: parseFloat(saved.height || newRecord.height),
+                    head_circumference: saved.head_circumference ? parseFloat(saved.head_circumference) : newRecord.head_circumference,
+                    notes: saved.notes || newRecord.notes
+                });
 
-        // Select the updated child and re-render charts & table immediately
-        selectChild(childId);
-        showToast('Growth measurement added successfully!', 'success');
-        closeModal('addGrowthModal');
-        document.getElementById('addGrowthForm').reset();
+                selectChild(childId);
+                showToast('Growth measurement saved successfully!', 'success');
+                closeModal('addGrowthModal');
+                document.getElementById('addGrowthForm').reset();
+            } else {
+                showToast(data.message || 'Failed to save growth measurement.', 'danger');
+            }
+        } catch (err) {
+            console.error('Save growth measurement error:', err);
+            showToast('Error saving growth measurement to server.', 'danger');
+        }
     }
 
     // ============================================================

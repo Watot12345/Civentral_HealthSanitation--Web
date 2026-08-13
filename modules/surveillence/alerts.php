@@ -8,16 +8,14 @@
 //   'brand-border': '#B8E0DC',
 // ============================================================
 
-// ============================================================
-// 1. PHP BACKEND - Fetch Data & API Endpoints
-// ============================================================
-require_once '../../includes/header.php';
-require_once '../../includes/sidebar.php';
-requireDepartmentAccess('health surveillance');
-
 // Start session for persistence across AJAX calls
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+// Generate CSRF Token for session if missing
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
 // Try to include the model, but don't fail if missing
@@ -131,6 +129,11 @@ function formatAlerts($raw) {
 // ============================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
+    $csrfToken = $_POST['csrf_token'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+    if (empty($csrfToken) || !hash_equals($_SESSION['csrf_token'], $csrfToken)) {
+        echo json_encode(['success' => false, 'message' => 'CSRF token validation failed.']);
+        exit;
+    }
     $response = ['success' => false, 'message' => 'Invalid action'];
 
     try {
@@ -221,12 +224,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             case 'deploy_team':
                 $team = $_POST['team_name'] ?? null;
                 $alertId = $_POST['alert_id'] ?? null;
+                $actionsRaw = $_POST['response_actions'] ?? null;
+                $instructions = $_POST['instructions'] ?? null;
                 if (!$team || !$alertId) throw new Exception('Missing team or alert ID');
                 $found = false;
                 foreach ($_SESSION['alerts_data'] as &$a) {
                     $code = $a['alert_code'] ?? ('ALT-' . ($a['id'] ?? ''));
                     if ($code == $alertId) {
                         $a['assigned_to'] = $team;
+                        if (!empty($actionsRaw)) {
+                            $decoded = json_decode($actionsRaw, true);
+                            $a['response_actions'] = is_array($decoded) ? $decoded : [$actionsRaw];
+                        }
+                        if (!empty($instructions)) {
+                            $a['instructions'] = $instructions;
+                        }
                         $found = true;
                         break;
                     }
@@ -236,6 +248,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $alertModel->assignTeam($alertId, $team);
                 }
                 $response = ['success' => true, 'message' => "Team $team deployed to alert $alertId"];
+                break;
+
+            case 'mark_all_read':
+                if (isset($_SESSION['alerts_data']) && is_array($_SESSION['alerts_data'])) {
+                    foreach ($_SESSION['alerts_data'] as &$a) {
+                        $a['read'] = true;
+                    }
+                }
+                if ($modelAvailable && method_exists($alertModel, 'markAllRead')) {
+                    $alertModel->markAllRead();
+                }
+                $response = ['success' => true, 'message' => 'All alerts marked as read'];
                 break;
 
             default:
@@ -249,6 +273,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     echo json_encode($response);
     exit;
 }
+
+// ============================================================
+// 1. PHP BACKEND - Include Header & Sidebar
+// ============================================================
+require_once '../../includes/header.php';
+require_once '../../includes/sidebar.php';
+requireDepartmentAccess('health surveillance');
 
 // Format alerts for display
 $alerts = formatAlerts($_SESSION['alerts_data']);
@@ -321,11 +352,9 @@ $title = 'Real-time Alerts';
                 <span class="px-3 py-1 bg-brand-light text-brand-dark rounded-full text-xs font-bold flex items-center gap-1">
                     <i class="fa-solid fa-location-dot"></i> Caloocan City
                 </span>
-                <?php if ($activeAlerts > 0): ?>
-                <span id="activeAlertBadge" class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold flex items-center gap-1 animate-pulse">
+                <span id="activeAlertBadge" class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold flex items-center gap-1 animate-pulse <?php echo $activeAlerts > 0 ? '' : 'hidden'; ?>">
                     <i class="fa-solid fa-circle text-[6px]"></i> <span id="activeAlertCount"><?php echo $activeAlerts; ?></span> Active Alerts
                 </span>
-                <?php endif; ?>
             </div>
             <p class="text-sm text-slate-500 mt-0.5">Automated alerts, escalation protocol & emergency response management</p>
         </div>
@@ -683,6 +712,25 @@ $title = 'Real-time Alerts';
 <!-- ============================================================ -->
 <script>
     // ============================================================
+    // CSRF TOKEN HELPER
+    // ============================================================
+    function getCsrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    }
+
+    // ============================================================
+    // MODAL HELPERS
+    // ============================================================
+    function openModal(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('hidden');
+        el.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    // ============================================================
     // RENDER ALERTS
     // ============================================================
     function renderAlerts(alerts, stats) {
@@ -787,7 +835,7 @@ $title = 'Real-time Alerts';
         fetch(window.location.href, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ action: 'refresh' })
+            body: new URLSearchParams({ action: 'refresh', csrf_token: getCsrfToken() })
         })
         .then(res => res.json())
         .then(data => {
@@ -813,7 +861,7 @@ $title = 'Real-time Alerts';
         fetch(window.location.href, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ action: 'resolve', alert_id: alertId })
+            body: new URLSearchParams({ action: 'resolve', alert_id: alertId, csrf_token: getCsrfToken() })
         })
         .then(res => res.json())
         .then(data => {
@@ -839,7 +887,7 @@ $title = 'Real-time Alerts';
         fetch(window.location.href, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ action: 'escalate', alert_id: alertId })
+            body: new URLSearchParams({ action: 'escalate', alert_id: alertId, csrf_token: getCsrfToken() })
         })
         .then(res => res.json())
         .then(data => {
@@ -877,87 +925,26 @@ $title = 'Real-time Alerts';
     }
 
     // ============================================================
-    // MARK ALL READ (dummy)
+    // MARK ALL READ
     // ============================================================
     function markAllRead() {
-        showToast('✅ All alerts marked as read', 'success');
-    }
-
-    // ============================================================
-    // ASSIGN TEAM
-    // ============================================================
-    let assignTeamName = '';
-
-    function openAssignModal(teamName) {
-        assignTeamName = teamName;
-        document.getElementById('assignTeamName').textContent = teamName;
-        document.getElementById('assignModal').classList.remove('hidden');
-        document.getElementById('assignModal').classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-    }
-
-    function confirmAssign() {
-        const alertId = document.getElementById('assignAlertSelect').value;
-        if (!alertId) {
-            showToast('Please select an alert', 'warning');
-            return;
-        }
-        showToast(`⏳ Assigning ${assignTeamName}...`, 'info');
+        showToast('⏳ Marking all as read...', 'info');
         fetch(window.location.href, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ action: 'assign_team', alert_id: alertId, team_name: assignTeamName })
+            body: new URLSearchParams({ action: 'mark_all_read', csrf_token: getCsrfToken() })
         })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                closeModal('assignModal');
                 refreshAlerts();
-                showToast(data.message, 'success');
+                showToast('✅ ' + data.message, 'success');
             } else {
-                showToast('❌ ' + data.message, 'danger');
+                showToast('❌ ' + (data.message || 'Failed to mark as read'), 'danger');
             }
         })
         .catch(err => {
-            showToast('❌ Error assigning team', 'danger');
-            console.error(err);
-        });
-    }
-
-    // ============================================================
-    // DEPLOY TEAM
-    // ============================================================
-    function showDeployModal() {
-        document.getElementById('deployModal').classList.remove('hidden');
-        document.getElementById('deployModal').classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-    }
-
-    function confirmDeploy() {
-        const team = document.getElementById('deployTeamSelect').value;
-        const alertId = document.getElementById('deployAlertSelect').value;
-        if (!team || !alertId) {
-            showToast('Please select both team and alert', 'warning');
-            return;
-        }
-        showToast(`⏳ Deploying ${team}...`, 'info');
-        fetch(window.location.href, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ action: 'deploy_team', alert_id: alertId, team_name: team })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                closeModal('deployModal');
-                refreshAlerts();
-                showToast(data.message, 'success');
-            } else {
-                showToast('❌ ' + data.message, 'danger');
-            }
-        })
-        .catch(err => {
-            showToast('❌ Error deploying team', 'danger');
+            showToast('❌ Error marking alerts as read', 'danger');
             console.error(err);
         });
     }
@@ -966,9 +953,7 @@ $title = 'Real-time Alerts';
     // EMERGENCY RESPONSE
     // ============================================================
     function showResponseModal() {
-        document.getElementById('emergencyModal').classList.remove('hidden');
-        document.getElementById('emergencyModal').classList.add('flex');
-        document.body.classList.add('overflow-hidden');
+        openModal('emergencyModal');
     }
 
     function activateEmergencyResponse() {
@@ -978,12 +963,23 @@ $title = 'Real-time Alerts';
             showToast('Please select an alert', 'warning');
             return;
         }
+
+        const checkedActions = Array.from(document.querySelectorAll('#emergencyModal input[type="checkbox"]:checked')).map(cb => cb.parentNode.textContent.trim());
+        const instructions = document.getElementById('emergencyInstructions')?.value.trim() || '';
+
         if (!confirm(`🚨 Activate emergency response for ${alertId}?`)) return;
         showToast(`⏳ Activating emergency response...`, 'info');
         fetch(window.location.href, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ action: 'deploy_team', alert_id: alertId, team_name: team })
+            body: new URLSearchParams({
+                action: 'deploy_team',
+                alert_id: alertId,
+                team_name: team,
+                response_actions: JSON.stringify(checkedActions),
+                instructions: instructions,
+                csrf_token: getCsrfToken()
+            })
         })
         .then(res => res.json())
         .then(data => {
@@ -1002,11 +998,110 @@ $title = 'Real-time Alerts';
     }
 
     // ============================================================
-    // MODAL HELPERS
+    // ASSIGN TEAM MODAL
+    // ============================================================
+    function openAssignModal(teamName) {
+        document.getElementById('assignTeamName').textContent = teamName;
+        openModal('assignModal');
+    }
+
+    function confirmAssign() {
+        const team = document.getElementById('assignTeamName').textContent;
+        const alertId = document.getElementById('assignAlertSelect').value;
+        if (!alertId) {
+            showToast('Please select an alert', 'warning');
+            return;
+        }
+        showToast('⏳ Assigning team...', 'info');
+        fetch(window.location.href, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ action: 'assign_team', alert_id: alertId, team_name: team, csrf_token: getCsrfToken() })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                closeModal('assignModal');
+                refreshAlerts();
+                showToast('✅ Team "' + team + '" assigned to alert ' + alertId, 'success');
+                // Update team status badge in DOM
+                document.querySelectorAll('.team-card').forEach(card => {
+                    if (card.dataset.teamName === team) {
+                        const badge = card.querySelector('.team-status');
+                        if (badge) {
+                            badge.textContent = 'Deployed';
+                            badge.className = 'px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold team-status';
+                        }
+                        const btn = card.querySelector('button');
+                        if (btn) btn.remove();
+                    }
+                });
+            } else {
+                showToast('❌ ' + (data.message || 'Failed to assign team'), 'danger');
+            }
+        })
+        .catch(err => {
+            showToast('❌ Error assigning team', 'danger');
+            console.error(err);
+        });
+    }
+
+    // ============================================================
+    // DEPLOY TEAM MODAL
+    // ============================================================
+    function showDeployModal() {
+        openModal('deployModal');
+    }
+
+    function confirmDeploy() {
+        const team = document.getElementById('deployTeamSelect').value;
+        const alertId = document.getElementById('deployAlertSelect').value;
+        if (!team || !alertId) {
+            showToast('Please select both a team and an alert', 'warning');
+            return;
+        }
+        showToast('⏳ Deploying team...', 'info');
+        fetch(window.location.href, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ action: 'deploy_team', alert_id: alertId, team_name: team, csrf_token: getCsrfToken() })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                closeModal('deployModal');
+                refreshAlerts();
+                showToast('🚀 Team "' + team + '" deployed to alert ' + alertId, 'success');
+                // Update team card status in DOM
+                document.querySelectorAll('.team-card').forEach(card => {
+                    if (card.dataset.teamName === team) {
+                        const badge = card.querySelector('.team-status');
+                        if (badge) {
+                            badge.textContent = 'Deployed';
+                            badge.className = 'px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold team-status';
+                        }
+                        const btn = card.querySelector('button');
+                        if (btn) btn.remove();
+                    }
+                });
+            } else {
+                showToast('❌ ' + (data.message || 'Failed to deploy team'), 'danger');
+            }
+        })
+        .catch(err => {
+            showToast('❌ Error deploying team', 'danger');
+            console.error(err);
+        });
+    }
+
+    // ============================================================
+    // MODAL CLOSE HELPER
     // ============================================================
     function closeModal(id) {
-        document.getElementById(id).classList.add('hidden');
-        document.getElementById(id).classList.remove('flex');
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('hidden');
+        el.classList.remove('flex');
         document.body.classList.remove('overflow-hidden');
     }
 

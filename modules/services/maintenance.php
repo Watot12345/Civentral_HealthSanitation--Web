@@ -15,6 +15,18 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('wastewater services');
 
+// AJAX API Endpoint Handler
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    header('Content-Type: application/json');
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        echo json_encode(['success' => false, 'message' => 'CSRF token validation failed.']);
+        exit;
+    }
+    $action = $_POST['action'] ?? '';
+    echo json_encode(['success' => true, 'action' => $action, 'message' => 'Operation processed successfully.']);
+    exit;
+}
+
 // Sample Technicians
 $technicians = [
     ['id' => 1, 'name' => 'Roberto Silva', 'status' => 'on_site', 'assignment' => 'ST-002'],
@@ -191,11 +203,16 @@ $title = 'Maintenance & Desludging';
             <p class="text-sm text-slate-500 mt-0.5">Schedule services, manage records, plan routes & track completions</p>
         </div>
         <div class="flex gap-3">
+            <button onclick="exportTableToCSV('#maintenanceTableBody', 'maintenance_services')"
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2"
+                    title="Export to CSV" aria-label="Export maintenance records to CSV">
+                <i class="fa-solid fa-file-csv text-xs"></i> Export
+            </button>
             <button onclick="openModal('scheduleServiceModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-calendar-plus text-xs"></i> Schedule Service
             </button>
-            <button onclick="openModal('routePlanningModal')"
+            <button onclick="openRoutePlanningModal()"
                     class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2">
                 <i class="fa-solid fa-route text-xs"></i> Route Planning
             </button>
@@ -394,13 +411,15 @@ $title = 'Maintenance & Desludging';
                 <tbody id="maintenanceTableBody">
                     <?php foreach ($maintenanceRecords as $record): ?>
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors maintenance-row <?php echo $record['status'] === 'in_progress' ? 'bg-amber-50/30' : ''; ?>"
-                        data-owner="<?php echo strtolower($record['owner_name']); ?>"
-                        data-tank="<?php echo $record['tank_id']; ?>"
-                        data-status="<?php echo $record['status']; ?>"
-                        data-type="<?php echo $record['service_type']; ?>"
-                        data-technician="<?php echo strtolower($record['technician']); ?>"
-                        data-scheduled-date="<?php echo $record['scheduled_date']; ?>"
-                        data-id="<?php echo $record['id']; ?>">
+                        data-owner="<?php echo htmlspecialchars(strtolower($record['owner_name']), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-tank="<?php echo htmlspecialchars($record['tank_id'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-status="<?php echo htmlspecialchars($record['status'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-type="<?php echo htmlspecialchars($record['service_type'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-technician="<?php echo htmlspecialchars(strtolower($record['technician']), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-scheduled-date="<?php echo htmlspecialchars($record['scheduled_date'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-row-id="<?php echo (int)$record['id']; ?>"
+                        data-id="<?php echo (int)$record['id']; ?>"
+                        id="maintenance-row-<?php echo (int)$record['id']; ?>">
                         <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold"><?php echo $record['service_id']; ?></td>
                         <td class="px-4 py-3">
                             <div>
@@ -437,9 +456,15 @@ $title = 'Maintenance & Desludging';
                                         class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
                                     <i class="fa-solid fa-eye text-sm"></i>
                                 </button>
-                                <?php if ($record['status'] === 'scheduled' || $record['status'] === 'in_progress'): ?>
+                                <?php if ($record['status'] === 'scheduled'): ?>
+                                    <button onclick="startService(<?php echo $record['id']; ?>)"
+                                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start Service">
+                                        <i class="fa-solid fa-play text-sm"></i>
+                                    </button>
+                                <?php endif; ?>
+                                <?php if ($record['status'] === 'in_progress'): ?>
                                     <button onclick="completeService(<?php echo $record['id']; ?>)"
-                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete">
+                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete Service">
                                         <i class="fa-solid fa-check text-sm"></i>
                                     </button>
                                 <?php endif; ?>
@@ -506,6 +531,7 @@ $title = 'Maintenance & Desludging';
             </button>
         </div>
         <form id="scheduleServiceForm" class="p-6 space-y-4" onsubmit="saveScheduleService(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID</label>
                 <input type="text" id="schedule_tank" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="e.g. ST-001">
@@ -590,7 +616,7 @@ $title = 'Maintenance & Desludging';
                 </button>
             </div>
             
-            <div class="space-y-3">
+            <div id="routeListContainer" class="space-y-3">
                 <?php foreach ($routeData as $route): ?>
                 <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 hover:shadow-md transition">
                     <div class="flex items-center gap-3">
@@ -620,7 +646,7 @@ $title = 'Maintenance & Desludging';
             <div class="mt-4 bg-slate-100 rounded-xl p-4 text-center">
                 <i class="fa-solid fa-map-location-dot text-3xl text-brand-medium block mb-2"></i>
                 <p class="text-sm text-slate-600">Route map visualization</p>
-                <p class="text-xs text-slate-400">3 technicians • 3 active routes</p>
+                <p class="text-xs text-slate-400" id="routeSummaryText">Loading...</p>
                 <div class="mt-2 flex justify-center gap-4">
                     <div class="flex items-center gap-1">
                         <span class="w-3 h-3 rounded-full bg-blue-500"></span>
@@ -650,6 +676,7 @@ $title = 'Maintenance & Desludging';
             <button type="button" onclick="closeModal('editServiceModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <form class="p-6 space-y-4" onsubmit="saveServiceEdit(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" id="edit_service_id">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID</label><input type="text" id="edit_service_tank" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
@@ -698,6 +725,7 @@ $title = 'Maintenance & Desludging';
             </button>
         </div>
         <form id="completionReportForm" class="p-6 space-y-4" onsubmit="saveCompletionReport(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" id="complete_service_id">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Findings</label>
@@ -735,34 +763,11 @@ $title = 'Maintenance & Desludging';
 <!-- ============================================================ -->
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
+<script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
     const SERVICES = <?php echo json_encode(array_column($maintenanceRecords, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
-    // ============================================================
-    // MODAL FUNCTIONS
-    // ============================================================
-    function openModal(id) {
-        document.getElementById(id).classList.remove('hidden');
-        document.getElementById(id).classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-    }
-
-    function closeModal(id) {
-        document.getElementById(id).classList.add('hidden');
-        document.getElementById(id).classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
-    }
-
-    // Close modal on backdrop click
-    document.querySelectorAll('.fixed.inset-0').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-                this.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            }
-        });
-    });
+    // Modal functions, toast, sanitizeHTML, and export provided by common.js
 
     // ============================================================
     // VIEW SERVICE
@@ -779,46 +784,79 @@ $title = 'Maintenance & Desludging';
                 completed: 'bg-emerald-100 text-emerald-700'
             };
 
+            // Use sanitizeHTML() from common.js to prevent XSS
+            const sOwner = sanitizeHTML(s.owner_name);
+            const sSvcId = sanitizeHTML(s.service_id);
+            const sTankId = sanitizeHTML(s.tank_id);
+            const sType = sanitizeHTML(s.service_type);
+            const sTech = sanitizeHTML(s.technician);
+            const sFindings = sanitizeHTML(s.findings);
+            const sRecs = sanitizeHTML(s.recommendations);
+            const sNotes = sanitizeHTML(s.notes);
+            const sStatus = sanitizeHTML(s.status);
+            const sTimeStr = sanitizeHTML(s.scheduled_time);
+
             document.getElementById('serviceDetailsContent').innerHTML = `
                 <div class="space-y-4">
                     <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
                         <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">
-                            ${s.owner_name.charAt(0)}
+                            ${sOwner.charAt(0)}
                         </div>
                         <div>
-                            <h4 class="text-lg font-bold text-slate-900">${s.owner_name}</h4>
-                            <p class="text-sm text-slate-500">${s.service_id} • ${s.tank_id}</p>
+                            <h4 class="text-lg font-bold text-slate-900">${sOwner}</h4>
+                            <p class="text-sm text-slate-500">${sSvcId} &bull; ${sTankId}</p>
                             <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[s.status] || statusColors.scheduled}">
-                                ${s.status.replace('_', ' ').toUpperCase()}
+                                ${sStatus.replace('_', ' ').toUpperCase()}
                             </span>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><p class="text-xs text-slate-400 font-semibold">Service Type</p><p class="text-sm text-slate-800 capitalize">${s.service_type}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Technician</p><p class="text-sm text-slate-800">${s.technician}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Scheduled Date</p><p class="text-sm text-slate-800">${new Date(s.scheduled_date).toLocaleDateString()} at ${s.scheduled_time}</p></div>
-                        ${s.completed_date ? `<div><p class="text-xs text-slate-400 font-semibold">Completed</p><p class="text-sm text-slate-800">${new Date(s.completed_date).toLocaleDateString()} at ${s.completed_time}</p></div>` : ''}
-                        <div><p class="text-xs text-slate-400 font-semibold">Cost</p><p class="text-sm font-bold text-slate-800">₱${Number(s.cost).toFixed(2)}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Service Type</p><p class="text-sm text-slate-800 capitalize">${sType}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Technician</p><p class="text-sm text-slate-800">${sTech}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Scheduled Date</p><p class="text-sm text-slate-800">${new Date(s.scheduled_date).toLocaleDateString()} at ${sTimeStr}</p></div>
+                        ${s.completed_date ? `<div><p class="text-xs text-slate-400 font-semibold">Completed</p><p class="text-sm text-slate-800">${new Date(s.completed_date).toLocaleDateString()} at ${sanitizeHTML(s.completed_time)}</p></div>` : ''}
+                        <div><p class="text-xs text-slate-400 font-semibold">Cost</p><p class="text-sm font-bold text-slate-800">&curren;${Number(s.cost).toFixed(2)}</p></div>
                         ${s.rating ? `<div><p class="text-xs text-slate-400 font-semibold">Rating</p><p class="text-sm text-amber-500">${'⭐'.repeat(s.rating)}</p></div>` : ''}
                     </div>
-                    ${s.findings ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Findings</h5><p class="text-sm text-slate-800">${s.findings}</p></div>` : ''}
-                    ${s.recommendations ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">Recommendations</h5><p class="text-sm text-slate-800">${s.recommendations}</p></div>` : ''}
-                    ${s.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${s.notes}</p></div>` : ''}
+                    ${sFindings ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Findings</h5><p class="text-sm text-slate-800">${sFindings}</p></div>` : ''}
+                    ${sRecs ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">Recommendations</h5><p class="text-sm text-slate-800">${sRecs}</p></div>` : ''}
+                    ${sNotes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${sNotes}</p></div>` : ''}
                     <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                         <button onclick="closeModal('viewServiceModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                        ${s.status === 'scheduled' || s.status === 'in_progress' ? `<button onclick="closeModal('viewServiceModal'); completeService(${s.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-check mr-1.5"></i> Complete</button>` : ''}
+                        ${s.status === 'scheduled' ? `<button onclick="closeModal('viewServiceModal'); startService(${s.id})" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold"><i class="fa-solid fa-play mr-1.5"></i> Start Service</button>` : ''}
+                        ${s.status === 'in_progress' ? `<button onclick="closeModal('viewServiceModal'); completeService(${s.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-check mr-1.5"></i> Complete</button>` : ''}
                     </div>
                 </div>
             `;
         }, 300);
     }
 
-    // ============================================================
-    // COMPLETE SERVICE
-    // ============================================================
+    async function startService(id) {
+        try {
+            const s = SERVICES[id];
+            if (!s) return;
+            if (s.status !== 'scheduled') {
+                showToast('Only scheduled services can be started.', 'warning');
+                return;
+            }
+            s.status = 'in_progress';
+            updateServiceRow(s);
+            await sendAjaxRequest('start_service', { id: s.id, status: 'in_progress' });
+            showToast('Service #' + s.service_id + ' started! Status set to In Progress.', 'info');
+            filterMaintenance();
+        } catch (err) {
+            console.error('startService error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
+        }
+    }
+
     function completeService(id) {
         const s = SERVICES[id];
         if (!s) return;
+        if (s.status !== 'in_progress') {
+            showToast('Service must be moved to In Progress before it can be marked as completed.', 'warning');
+            return;
+        }
         
         document.getElementById('complete_service_id').value = id;
         document.getElementById('complete_findings').value = s.findings || '';
@@ -828,46 +866,109 @@ $title = 'Maintenance & Desludging';
         openModal('completionReportModal');
     }
 
-    function saveCompletionReport(event) {
+    async function saveCompletionReport(event) {
         event.preventDefault();
-        if (!isValidCost(document.getElementById('complete_cost').value)) {
-            showToast('Actual cost must contain no more than 11 whole-number digits.', 'warning');
-            return;
+        try {
+            const findings = document.getElementById('complete_findings').value.trim();
+            if (!findings) {
+                showToast('Findings are required to complete the report.', 'warning');
+                document.getElementById('complete_findings').focus();
+                return;
+            }
+            const costVal = document.getElementById('complete_cost').value;
+            if (!isValidCost(costVal)) {
+                showToast('Actual cost must be a valid positive number (max 11 digits).', 'warning');
+                return;
+            }
+            const id = document.getElementById('complete_service_id').value;
+            const s = SERVICES[id];
+            if (!s) { showToast('Service record not found.', 'danger'); return; }
+            if (s.status !== 'in_progress') {
+                showToast('Service must be in progress before completing.', 'warning');
+                return;
+            }
+
+            s.status = 'completed';
+            s.completed_date = new Date().toISOString().split('T')[0];
+            s.completed_time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            s.findings = findings;
+            s.recommendations = document.getElementById('complete_recommendations').value.trim();
+            s.cost = parseFloat(costVal);
+
+            updateServiceRow(s);
+            await sendAjaxRequest('complete_service', s);
+            closeModal('completionReportModal');
+            showToast('Service #' + s.service_id + ' marked as completed!', 'success');
+        } catch (err) {
+            console.error('saveCompletionReport error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
         }
-        const id = document.getElementById('complete_service_id').value;
-        const s = SERVICES[id];
-        if (!s) return;
-        
-        s.status = 'completed';
-        s.completed_date = new Date().toISOString().split('T')[0];
-        s.completed_time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        s.findings = document.getElementById('complete_findings').value.trim();
-        s.recommendations = document.getElementById('complete_recommendations').value.trim();
-        s.cost = parseFloat(document.getElementById('complete_cost').value);
-        
-        updateServiceRow(s);
-        closeModal('completionReportModal');
-        showToast('Service #' + s.service_id + ' completed!', 'success');
     }
 
     function updateServiceRow(s) {
-        const rows = document.querySelectorAll('.maintenance-row');
-        rows.forEach(row => {
-            const owner = row.querySelector('.font-semibold.text-slate-800.text-sm')?.textContent;
-            if (owner === s.owner_name) {
-                const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
-                const statusColors = {
-                    scheduled: 'bg-blue-100 text-blue-700',
-                    in_progress: 'bg-amber-100 text-amber-700',
-                    completed: 'bg-emerald-100 text-emerald-700'
-                };
-                statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[s.status] || statusColors.scheduled}`;
-                statusBadge.textContent = s.status.replace('_', ' ').toUpperCase();
-                
-                const costCell = row.querySelector('.text-sm.font-bold.text-slate-700');
-                if (costCell) costCell.textContent = '₱' + Number(s.cost).toFixed(2);
-            }
-        });
+        const row = document.getElementById('maintenance-row-' + s.id);
+        if (!row) return;
+
+        // Update status badge
+        const statusColors = {
+            scheduled:   'bg-blue-100 text-blue-700',
+            in_progress: 'bg-amber-100 text-amber-700',
+            completed:   'bg-emerald-100 text-emerald-700',
+            cancelled:   'bg-slate-100 text-slate-500'
+        };
+        const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
+        if (statusBadge) {
+            statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[s.status] || statusColors.scheduled}`;
+            statusBadge.textContent = s.status.replace('_', ' ').toUpperCase();
+        }
+
+        // Update dataset for filters
+        row.dataset.status    = s.status;
+        row.dataset.technician = (s.technician || '').toLowerCase();
+
+        // Update cost cell
+        const costCell = row.querySelector('.text-sm.font-bold.text-slate-700');
+        if (costCell) costCell.textContent = '\u20b1' + Number(s.cost).toFixed(2);
+
+        // Rebuild action buttons based on status (linear: scheduled -> in_progress -> completed)
+        const tds = row.querySelectorAll('td');
+        const actionsTd = tds[tds.length - 1];
+        if (actionsTd) {
+            const isScheduled  = s.status === 'scheduled';
+            const isInProgress = s.status === 'in_progress';
+            const isCompleted  = s.status === 'completed';
+
+            actionsTd.innerHTML = `
+                <div class="flex items-center justify-center gap-1">
+                    <button onclick="viewService(${s.id})"
+                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                        <i class="fa-solid fa-eye text-sm"></i>
+                    </button>
+                    ${isScheduled ? `
+                        <button onclick="startService(${s.id})"
+                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start">
+                            <i class="fa-solid fa-play text-sm"></i>
+                        </button>
+                    ` : ''}
+                    ${isInProgress ? `
+                        <button onclick="completeService(${s.id})"
+                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete">
+                            <i class="fa-solid fa-check text-sm"></i>
+                        </button>
+                    ` : ''}
+                    ${isCompleted && !s.rating ? `
+                        <button onclick="rateService(${s.id})"
+                                class="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition" title="Rate">
+                            <i class="fa-solid fa-star text-sm"></i>
+                        </button>
+                    ` : ''}
+                    <button onclick="editService(${s.id})"
+                            class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
+                        <i class="fa-solid fa-pen text-sm"></i>
+                    </button>
+                </div>
+            `;
+        }
     }
 
     // ============================================================
@@ -900,47 +1001,56 @@ $title = 'Maintenance & Desludging';
         openModal('editServiceModal');
     }
 
-    function saveServiceEdit(event) {
+    async function saveServiceEdit(event) {
         event.preventDefault();
-        if (!isValidCost(document.getElementById('edit_service_cost').value)) {
-            showToast('Cost must contain no more than 11 whole-number digits.', 'warning');
-            return;
+        try {
+            const costVal = document.getElementById('edit_service_cost').value;
+            if (!isValidCost(costVal)) {
+                showToast('Cost must be a valid positive number (max 11 digits).', 'warning');
+                return;
+            }
+            const id = document.getElementById('edit_service_id').value;
+            const service = SERVICES[id];
+            if (!service) { showToast('Service record not found.', 'danger'); return; }
+            service.tank_id = document.getElementById('edit_service_tank').value.trim();
+            service.owner_name = document.getElementById('edit_service_owner').value.trim();
+            service.service_type = document.getElementById('edit_service_type').value;
+            service.technician = document.getElementById('edit_service_technician').value;
+            service.scheduled_date = document.getElementById('edit_service_date').value;
+            service.scheduled_time = document.getElementById('edit_service_time').value;
+            service.status = document.getElementById('edit_service_status').value;
+            service.cost = Number(costVal);
+            service.notes = document.getElementById('edit_service_notes').value.trim();
+            // Use id-based row selector for reliable lookup
+            const row = document.getElementById('maintenance-row-' + id);
+            if (row) {
+                row.dataset.owner = service.owner_name.toLowerCase();
+                row.dataset.tank = service.tank_id;
+                row.dataset.status = service.status;
+                row.dataset.type = service.service_type;
+                row.dataset.technician = service.technician.toLowerCase();
+                row.dataset.scheduledDate = service.scheduled_date;
+            }
+            await sendAjaxRequest('edit_service', service);
+            closeModal('editServiceModal');
+            showToast('Maintenance service updated successfully!', 'success');
+            filterMaintenance();
+        } catch (err) {
+            console.error('saveServiceEdit error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
         }
-        const id = document.getElementById('edit_service_id').value;
-        const service = SERVICES[id];
-        if (!service) return;
-        service.tank_id = document.getElementById('edit_service_tank').value.trim();
-        service.owner_name = document.getElementById('edit_service_owner').value.trim();
-        service.service_type = document.getElementById('edit_service_type').value;
-        service.technician = document.getElementById('edit_service_technician').value;
-        service.scheduled_date = document.getElementById('edit_service_date').value;
-        service.scheduled_time = document.getElementById('edit_service_time').value;
-        service.status = document.getElementById('edit_service_status').value;
-        service.cost = Number(document.getElementById('edit_service_cost').value);
-        service.notes = document.getElementById('edit_service_notes').value.trim();
-        const row = document.querySelector(`.maintenance-row[data-id="${id}"]`);
-        if (row) {
-            row.dataset.owner = service.owner_name.toLowerCase();
-            row.dataset.tank = service.tank_id;
-            row.dataset.status = service.status;
-            row.dataset.type = service.service_type;
-            row.dataset.technician = service.technician.toLowerCase();
-            row.dataset.scheduledDate = service.scheduled_date;
-        }
-        closeModal('editServiceModal');
-        showToast('Maintenance service updated successfully!', 'success');
-        filterMaintenance();
     }
 
     // ============================================================
     // RATE SERVICE
     // ============================================================
-    function rateService(id) {
+    async function rateService(id) {
         const rating = prompt('Rate this service (1-5 stars):', '5');
         if (rating && rating >= 1 && rating <= 5) {
             const s = SERVICES[id];
             if (s) {
                 s.rating = parseInt(rating);
+                await sendAjaxRequest('rate_service', { id: id, rating: rating });
                 showToast('Service rated ' + rating + ' stars!', 'success');
             }
         }
@@ -949,44 +1059,106 @@ $title = 'Maintenance & Desludging';
     // ============================================================
     // ROUTE PLANNING
     // ============================================================
-    function optimizeRoutes() {
-        showToast('🗺️ Routes optimized successfully!', 'success');
+    function openRoutePlanningModal() {
+        // Populate route list from SERVICES data grouped by technician
+        const routeList = document.getElementById('routeListContainer');
+        if (routeList) {
+            const active = Object.values(SERVICES).filter(s => s.status === 'scheduled' || s.status === 'in_progress');
+            const completed = Object.values(SERVICES).filter(s => s.status === 'completed');
+
+            // Update summary counters
+            const techSet = new Set(active.map(s => s.technician));
+            const summaryEl = document.getElementById('routeSummaryText');
+            if (summaryEl) {
+                summaryEl.textContent = `${techSet.size} technician${techSet.size !== 1 ? 's' : ''} \u2022 ${active.length} active route${active.length !== 1 ? 's' : ''}`;
+            }
+
+            const statusColors = {
+                scheduled:   'bg-blue-100 text-blue-700',
+                in_progress: 'bg-amber-100 text-amber-700',
+                completed:   'bg-emerald-100 text-emerald-700'
+            };
+
+            if (active.length === 0) {
+                routeList.innerHTML = '<p class="text-sm text-slate-400 text-center py-4">No active routes today.</p>';
+            } else {
+                routeList.innerHTML = active.map(s => `
+                    <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 hover:shadow-md transition">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
+                                ${sanitizeHTML(s.technician.substring(0, 2).toUpperCase())}
+                            </div>
+                            <div>
+                                <p class="font-semibold text-slate-800 text-sm">${sanitizeHTML(s.technician)}</p>
+                                <p class="text-xs text-slate-400">${sanitizeHTML(s.tank_id)} \u2022 ${sanitizeHTML(s.owner_name)}</p>
+                            </div>
+                        </div>
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[s.status] || 'bg-slate-100 text-slate-500'}">
+                            ${s.status === 'in_progress' ? 'In Progress' : s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+                        </span>
+                    </div>
+                `).join('');
+            }
+        }
+        openModal('routePlanningModal');
+    }
+
+    async function optimizeRoutes() {
+        // Re-sort active routes: in_progress first, then by scheduled_date
+        const routeList = document.getElementById('routeListContainer');
+        if (routeList) {
+            const active = Object.values(SERVICES)
+                .filter(s => s.status === 'scheduled' || s.status === 'in_progress')
+                .sort((a, b) => {
+                    if (a.status === 'in_progress' && b.status !== 'in_progress') return -1;
+                    if (b.status === 'in_progress' && a.status !== 'in_progress') return 1;
+                    return new Date(a.scheduled_date) - new Date(b.scheduled_date);
+                });
+            const statusColors = {
+                scheduled:   'bg-blue-100 text-blue-700',
+                in_progress: 'bg-amber-100 text-amber-700'
+            };
+            routeList.innerHTML = active.length === 0
+                ? '<p class="text-sm text-slate-400 text-center py-4">No active routes to optimize.</p>'
+                : active.map((s, i) => `
+                    <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-brand-border hover:shadow-md transition">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
+                                ${i + 1}
+                            </div>
+                            <div>
+                                <p class="font-semibold text-slate-800 text-sm">${sanitizeHTML(s.technician)}</p>
+                                <p class="text-xs text-slate-400">${sanitizeHTML(s.tank_id)} \u2022 ${sanitizeHTML(s.scheduled_date)}</p>
+                            </div>
+                        </div>
+                        <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[s.status] || 'bg-slate-100 text-slate-500'}">
+                            ${s.status === 'in_progress' ? 'In Progress' : 'Scheduled'}
+                        </span>
+                    </div>
+                `).join('');
+        }
+        await sendAjaxRequest('optimize_routes', {});
+        showToast('\ud83d\uddfa\ufe0f Routes optimized by date and priority!', 'success');
     }
 
     // ============================================================
     // SCHEDULE SERVICE
     // ============================================================
-    function saveScheduleService(event) {
+    async function saveScheduleService(event) {
         event.preventDefault();
-        if (!isValidCost(document.getElementById('schedule_cost').value)) {
-            showToast('Estimated cost must contain no more than 11 whole-number digits.', 'warning');
-            return;
+        try {
+            const form = document.getElementById('scheduleServiceForm');
+            const formData = form ? new FormData(form) : new FormData();
+            await sendAjaxRequest('schedule_service', formData);
+            showToast('Service scheduled successfully!', 'success');
+            closeModal('scheduleServiceModal');
+        } catch (err) {
+            console.error('saveScheduleService error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
         }
-        showToast('Service scheduled successfully!', 'success');
-        closeModal('scheduleServiceModal');
     }
 
-    // ============================================================
-    // TOAST NOTIFICATIONS
-    // ============================================================
-    let toastTimer = null;
-
-    function showToast(message, type = 'success') {
-        const toast = document.getElementById('toast');
-        const colors = {
-            success: 'bg-brand-dark',
-            danger: 'bg-rose-600',
-            info: 'bg-blue-600',
-            warning: 'bg-amber-600'
-        };
-        toast.className = 'fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2 ' + (colors[type] || colors.success);
-        toast.querySelector('i').className = 'fa-solid fa-circle-check';
-        document.getElementById('toastMessage').textContent = message;
-        toast.classList.remove('hidden');
-
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
-    }
+    // Toast, openModal, closeModal, sanitizeHTML, exportTableToCSV provided by common.js
 
     // ============================================================
     // SEARCH & FILTER
@@ -1013,7 +1185,7 @@ $title = 'Maintenance & Desludging';
             const rowStatus = row.dataset.status;
             const rowType = row.dataset.type;
             const rowTechnician = row.dataset.technician;
-            const scheduledDate = row.dataset.scheduledDate || '';
+            const scheduledDate = row.dataset.scheduledDate || row.dataset.scheduled_date || '';
 
             const matchesSearch = owner.includes(search) || tank.includes(search);
             const matchesStatus = !status || rowStatus === status;
@@ -1041,16 +1213,7 @@ $title = 'Maintenance & Desludging';
         document.getElementById('emptyState').style.display = 'none';
     }
 
-    // ESC to close modals
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            });
-        }
-    });
+    // ESC key and backdrop-click are handled by common.js
 
     // ============================================================
     // SET DEFAULT DATE
@@ -1061,6 +1224,14 @@ $title = 'Maintenance & Desludging';
             const tomorrow = new Date();
             tomorrow.setDate(tomorrow.getDate() + 1);
             dateInput.value = tomorrow.toISOString().split('T')[0];
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const prefillTank = urlParams.get('tank_id');
+        if (prefillTank) {
+            openModal('scheduleServiceModal');
+            const tankInput = document.getElementById('schedule_tank');
+            if (tankInput) tankInput.value = prefillTank;
         }
     });
 </script>
