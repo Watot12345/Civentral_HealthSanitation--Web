@@ -5,6 +5,14 @@ if (ob_get_level() === 0) {
 if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
     @session_start();
 }
+
+// Auto-restore session from active 12h/7d civentral_session cookie if PHP session expired
+if (empty($_SESSION['logged_in']) && !empty($_COOKIE['civentral_session'])) {
+    require_once __DIR__ . '/../app/services/SessionAuthService.php';
+    $authSvc = new SessionAuthService();
+    $authSvc->validateActiveToken($_COOKIE['civentral_session']);
+}
+
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
