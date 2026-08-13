@@ -60,6 +60,7 @@ class TriageQueueController extends BaseController
 
         $this->handle(function() use ($data) {
             $patientId = (int)($data['patient_id'] ?? 0);
+            $reasonForVisit = !empty($data['reason_for_visit']) ? trim($data['reason_for_visit']) : 'Medical Consultation';
             
             if (!$patientId) {
                 return [
@@ -69,11 +70,11 @@ class TriageQueueController extends BaseController
                 ];
             }
 
-            // Check if patient already checked in today
-            if ($this->queueModel->isPatientCheckedInToday($patientId)) {
+            // Check if patient already has an active check-in for the same reason for visit today
+            if ($this->queueModel->isPatientCheckedInToday($patientId, $reasonForVisit)) {
                 return [
                     'success' => false,
-                    'message' => 'Patient already checked in today',
+                    'message' => "Patient already has an active check-in for '{$reasonForVisit}' today.",
                     'code' => 409
                 ];
             }
@@ -91,6 +92,7 @@ class TriageQueueController extends BaseController
             $queueData = [
                 'patient_id' => $patientId,
                 'queue_number' => $data['queue_number'] ?? $this->queueModel->generateQueueNumber(),
+                'reason_for_visit' => !empty($data['reason_for_visit']) ? trim($data['reason_for_visit']) : 'Medical Consultation',
                 'check_in_time' => date('Y-m-d H:i:s'),
                 'status' => 'waiting'
             ];
@@ -191,6 +193,8 @@ class TriageQueueController extends BaseController
                 $item['patient_code'] = 'P-' . $patientId;
             }
         }
+
+        $item['reason_for_visit'] = $item['reason_for_visit'] ?? 'Medical Consultation';
 
         return $item;
     }

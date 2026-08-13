@@ -388,6 +388,20 @@ $title = 'Settings';
                             </label>
                         </div>
                     </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Portal Dark Mode &amp; Theme</label>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="applyPortalTheme('light')" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5">
+                                <i class="fas fa-sun text-amber-500"></i> Light
+                            </button>
+                            <button type="button" onclick="applyPortalTheme('dark')" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5">
+                                <i class="fas fa-moon text-indigo-600"></i> Dark Mode
+                            </button>
+                            <button type="button" onclick="applyPortalTheme('system')" class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5">
+                                <i class="fas fa-desktop text-slate-500"></i> System
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

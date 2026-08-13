@@ -654,7 +654,46 @@ $title = 'User Management';
     </div>
 </div>
 
+<!-- DEDICATED MANAGE PERMISSIONS MODAL -->
+<div id="manageUserPermissionsModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold">
+                    <i class="fa-solid fa-key text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 text-base" id="permModalTitle">Manage Permissions</h3>
+                    <p class="text-xs text-slate-500" id="permModalSub">Configure access rights and module privileges</p>
+                </div>
+            </div>
+            <button onclick="closeModal('manageUserPermissionsModal')" class="w-8 h-8 rounded-lg hover:bg-slate-200/60 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
 
+        <!-- Modal Body (Scrollable Permission Matrix) -->
+        <div class="p-6 overflow-y-auto flex-1 space-y-5" id="permModalBody">
+            <div class="flex items-center justify-center py-12 text-slate-400 text-sm">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading permissions matrix...
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 bg-slate-50/90 border-t border-slate-100 flex items-center justify-between">
+            <span class="text-xs text-slate-400 font-medium">Toggle permissions and click Save Changes</span>
+            <div class="flex gap-2">
+                <button type="button" onclick="closeModal('manageUserPermissionsModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold">
+                    Cancel
+                </button>
+                <button type="button" id="saveUserPermsModalBtn" onclick="submitModalPermissions()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition text-xs font-semibold shadow-sm flex items-center gap-1.5">
+                    <i class="fa-solid fa-check text-xs"></i> Save Permissions
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
     // ============================================================
@@ -1271,24 +1310,195 @@ $title = 'User Management';
     }
 
     // ============================================================
-    // MANAGE PERMISSIONS (LOAD FOR ROLE)
+    // MANAGE PERMISSIONS MODAL (LOAD & SAVE IN DEDICATED POPUP)
     // ============================================================
+    let currentModalRoleId = null;
+    let currentModalUserId = null;
+    let currentModalRoleName = '';
+
     function managePermissions(userId) {
         const row = document.querySelector(`.user-row[data-id="${userId}"]`);
-        const userRole = row ? row.dataset.role : '';
+        if (!row) {
+            showToast('User record not found', 'danger', 'Error');
+            return;
+        }
+
+        const fullName = row.dataset.fullname || 'User';
+        const roleName = row.dataset.role || 'Unassigned';
+        const roleDesc = row.dataset.roledescription || '';
+        const empId = row.dataset.employeeid || row.dataset.username || '';
+        const targetRole = (roleDesc || roleName).trim();
+
+        // 1. Role Authorization Guard (Non-Admin Restrictions)
+        const isCurrentUser = (row.dataset.username && row.dataset.username === CURRENT_USER_NAME) || (fullName.toLowerCase() === CURRENT_USER_NAME.toLowerCase());
+        const isTargetDirector = /director|coordinator|lead|system admin/i.test(targetRole);
+
+        if (!IS_SYSTEM_ADMIN) {
+            if (isCurrentUser) {
+                showToast('Access Denied: You cannot modify permissions for your own active account.', 'warning', 'Permission Guard');
+                return;
+            }
+            if (isTargetDirector) {
+                showToast(`Access Denied: You do not have permission to edit permission matrices for Director/Lead roles (${targetRole}).`, 'warning', 'Permission Guard');
+                return;
+            }
+        }
+
+        // Update modal title & sublabel
+        const titleEl = document.getElementById('permModalTitle');
+        const subEl = document.getElementById('permModalSub');
+        if (titleEl) titleEl.textContent = `Permissions: ${fullName}`;
+        if (subEl) subEl.textContent = `Role: ${targetRole} • Employee ID: ${empId}`;
+
+        // Resolve matching role_id from permissionRoleSelect
+        let matchedRoleId = null;
         const roleSelect = document.getElementById('permissionRoleSelect');
-        
-        if (roleSelect && userRole) {
+        if (roleSelect) {
             for (let opt of roleSelect.options) {
-                if (opt.text.toLowerCase() === userRole.toLowerCase()) {
-                    roleSelect.value = opt.value;
-                    loadRolePermissions(opt.value);
+                const optText = opt.text.trim().toLowerCase();
+                const rNameLower = roleName.trim().toLowerCase();
+                const rDescLower = roleDesc.trim().toLowerCase();
+                if (optText === rDescLower || optText === rNameLower || (rDescLower && optText.includes(rDescLower))) {
+                    matchedRoleId = opt.value;
                     break;
                 }
             }
+            if (!matchedRoleId && roleSelect.options.length > 0) {
+                matchedRoleId = roleSelect.options[0].value;
+            }
         }
-        showToast('🔑 Select permissions for role: ' + (userRole || 'User'), 'info');
-        document.getElementById('permissionGrid').scrollIntoView({ behavior: 'smooth' });
+
+        currentModalRoleId = matchedRoleId;
+        currentModalUserId = userId;
+        currentModalRoleName = targetRole;
+
+        openModal('manageUserPermissionsModal');
+
+        if (matchedRoleId) {
+            loadModalPermissions(matchedRoleId);
+        } else {
+            const body = document.getElementById('permModalBody');
+            if (body) {
+                body.innerHTML = `
+                    <div class="p-8 text-center text-slate-500 text-sm">
+                        <i class="fa-solid fa-circle-exclamation text-amber-500 text-2xl mb-2"></i>
+                        <p class="font-semibold text-slate-800">Unmapped Role Permissions</p>
+                        <p class="text-xs text-slate-400 mt-1">Role '${targetRole}' does not have a mapped permission matrix ID.</p>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    function loadModalPermissions(roleId) {
+        const body = document.getElementById('permModalBody');
+        if (!body) return;
+
+        body.innerHTML = `
+            <div class="flex items-center justify-center py-12 text-slate-400 text-sm">
+                <i class="fa-solid fa-spinner fa-spin mr-2 text-purple-600 text-base"></i> Loading permissions matrix...
+            </div>
+        `;
+
+        fetch(`user_management_api.php?action=get_role_permissions&role_id=${roleId}`)
+            .then(res => res.json())
+            .then(res => {
+                if (!res.success || !res.data) {
+                    body.innerHTML = `<div class="p-6 text-center text-rose-500 text-sm">${res.message || 'Failed to load permissions.'}</div>`;
+                    showToast(res.message || 'Failed to load permissions', 'danger', 'Permission Error');
+                    return;
+                }
+
+                const grouped = res.data;
+                let html = '';
+
+                for (let moduleName in grouped) {
+                    const perms = grouped[moduleName];
+                    html += `
+                        <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4">
+                            <div class="flex items-center justify-between mb-3 border-b border-slate-200/60 pb-2">
+                                <h4 class="font-bold text-slate-800 text-xs tracking-wide uppercase flex items-center gap-1.5">
+                                    <i class="fa-solid fa-layer-group text-purple-600 text-xs"></i>
+                                    ${moduleName}
+                                </h4>
+                                <span class="text-[10px] text-purple-700 bg-purple-100 font-bold px-2 py-0.5 rounded-full">${perms.length} Controls</span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    `;
+
+                    perms.forEach(p => {
+                        const checked = p.granted ? 'checked' : '';
+                        html += `
+                            <label class="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-lg hover:border-purple-300 transition cursor-pointer shadow-2xs group">
+                                <div class="pr-2">
+                                    <span class="text-xs font-semibold text-slate-800 group-hover:text-purple-900 block">${p.name || p.slug}</span>
+                                    <span class="text-[10px] text-slate-400 block font-mono">${p.slug}</span>
+                                </div>
+                                <input type="checkbox" class="modal-perm-checkbox w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer flex-shrink-0" data-id="${p.id}" ${checked}>
+                            </label>
+                        `;
+                    });
+
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                }
+
+                body.innerHTML = html;
+            })
+            .catch(err => {
+                console.error(err);
+                body.innerHTML = `<div class="p-6 text-center text-rose-500 text-sm">Error connecting to permission server.</div>`;
+                showToast('Error connecting to permission server', 'danger', 'Connection Error');
+            });
+    }
+
+    function submitModalPermissions() {
+        if (!currentModalRoleId) {
+            showToast('No role matrix ID resolved for permission update', 'danger', 'Error');
+            return;
+        }
+
+        const saveBtn = document.getElementById('saveUserPermsModalBtn');
+        const origHtml = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs mr-1"></i> Saving...';
+
+        const selectedIds = [];
+        document.querySelectorAll('.modal-perm-checkbox:checked').forEach(cb => {
+            selectedIds.push(cb.dataset.id);
+        });
+
+        const formData = new FormData();
+        formData.append('action', 'update_role_permissions');
+        formData.append('role_id', currentModalRoleId);
+        selectedIds.forEach(id => formData.append('permissions[]', id));
+
+        fetch('user_management_api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = origHtml;
+
+            if (data.success) {
+                showToast(`🔑 Permissions for ${currentModalRoleName || 'role'} saved successfully!`, 'success', 'Permissions Updated');
+                closeModal('manageUserPermissionsModal');
+                addActivityLogJS(`Updated permissions for role: ${currentModalRoleName || currentModalRoleId}`);
+            } else {
+                const isWarning = (data.message || '').includes('Access Denied') || (data.message || '').includes('Restriction');
+                showToast(data.message || 'Failed to save permissions', isWarning ? 'warning' : 'danger', isWarning ? 'Access Restriction' : 'Permission Error');
+            }
+        })
+        .catch(err => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = origHtml;
+            showToast('Error connecting to permission server', 'danger', 'Connection Error');
+            console.error(err);
+        });
     }
 
     // ============================================================

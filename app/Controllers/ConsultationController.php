@@ -80,6 +80,16 @@ class ConsultationController extends BaseController
                 return ['success' => false, 'message' => $vitalError, 'code' => 422];
             }
 
+            $rawAppointmentId = $data['appointment_id'] ?? null;
+            $triageId = $data['triage_id'] ?? null;
+
+            // Extract triage ID if appointment_id is a TRG- string (e.g. TRG-52)
+            if (!empty($rawAppointmentId) && is_string($rawAppointmentId) && str_starts_with($rawAppointmentId, 'TRG-')) {
+                if (empty($triageId)) {
+                    $triageId = substr($rawAppointmentId, 4);
+                }
+            }
+
             $dbData = $this->prepareDbData($data);
             
             error_log('STORE dbData: ' . json_encode($dbData));
@@ -92,19 +102,18 @@ class ConsultationController extends BaseController
             
             error_log('STORE result: ' . json_encode($result));
 
-            // Update appointment status to completed if appointment_id is provided
-            if (!empty($dbData['appointment_id'])) {
+            // Update appointment status to completed if numeric appointment_id is provided
+            if (!empty($rawAppointmentId) && is_numeric($rawAppointmentId)) {
                 try {
-                    error_log('Updating appointment ' . $dbData['appointment_id'] . ' to completed');
-                    $this->appointmentModel->updateStatus($dbData['appointment_id'], 'completed');
+                    error_log('Updating appointment ' . $rawAppointmentId . ' to completed');
+                    $this->appointmentModel->updateStatus((string)$rawAppointmentId, 'completed');
                     error_log('Appointment status updated successfully');
                 } catch (Throwable $e) {
                     error_log('Failed to update appointment status: ' . $e->getMessage());
                 }
             }
 
-            // Update triage/assessment status to consulted if triage_id is provided
-            $triageId = $data['triage_id'] ?? $dbData['triage_id'] ?? null;
+            // Update triage/assessment status to consulted if triage_id is provided or extracted
             if (!empty($triageId)) {
                 try {
                     error_log('Updating triage ' . $triageId . ' to consulted');
@@ -130,6 +139,14 @@ class ConsultationController extends BaseController
                     'success' => false,
                     'message' => 'Consultation not found',
                     'code' => 404
+                ];
+            }
+
+            if (strtolower($consultation['status'] ?? '') === 'completed') {
+                return [
+                    'success' => false,
+                    'message' => 'This consultation transaction is completed and finalized. Edits are not permitted.',
+                    'code' => 403
                 ];
             }
 
@@ -262,6 +279,16 @@ class ConsultationController extends BaseController
     foreach ($data as $key => $value) {
         if (in_array($key, $allowedFields) && $value !== null && $value !== '') {
             $dbData[$key] = $value;
+        }
+    }
+
+    // Ensure appointment_id is a valid integer or unset (e.g. TRG-52 string is not an integer ID in appointments table)
+    if (isset($dbData['appointment_id'])) {
+        $appId = (string)$dbData['appointment_id'];
+        if (is_numeric($appId)) {
+            $dbData['appointment_id'] = (int)$appId;
+        } else {
+            unset($dbData['appointment_id']);
         }
     }
 

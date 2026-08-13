@@ -453,12 +453,13 @@
                     <label class="block text-xs font-semibold text-[#176B87] uppercase tracking-wider mb-1.5">
                         <i class="fa-regular fa-file-lines mr-1"></i> Report Type
                     </label>
-                    <select id="reportType" class="w-full rounded-xl px-4 py-2.5 text-sm">
-                        <option value="inspection">Sanitation Inspection</option>
-                        <option value="water">Water Quality Analysis</option>
-                        <option value="waste">Waste Management</option>
-                        <option value="compliance">Compliance Summary</option>
-                        <option value="incident">Incident Report</option>
+                    <select id="reportType" class="w-full rounded-xl px-4 py-2.5 text-sm" onchange="refreshUI()">
+                        <option value="health_center">Health Center Services &amp; Consultations</option>
+                        <option value="sanitation">Sanitation Inspections &amp; Permits</option>
+                        <option value="immunization">Immunization &amp; Nutrition</option>
+                        <option value="wastewater">Wastewater &amp; Water Quality Analysis</option>
+                        <option value="surveillance">Disease Surveillance &amp; Outbreak Reports</option>
+                        <option value="compliance">Overall Compliance Summary</option>
                         <option value="custom">Custom Report</option>
                     </select>
                 </div>
@@ -468,36 +469,41 @@
                         <i class="fa-regular fa-calendar mr-1"></i> Date Range
                     </label>
                     <div class="flex items-center gap-2">
-                        <input type="date" id="startDate" value="2026-06-01" class="w-full rounded-xl px-4 py-2.5 text-sm" />
+                        <input type="date" id="startDate" value="<?= date('Y-m-d', strtotime('-90 days')) ?>" class="w-full rounded-xl px-4 py-2.5 text-sm" onchange="refreshUI()" />
                         <span class="text-slate-400 text-xs">to</span>
-                        <input type="date" id="endDate" value="2026-07-18" class="w-full rounded-xl px-4 py-2.5 text-sm" />
+                        <input type="date" id="endDate" value="<?= date('Y-m-d', strtotime('+30 days')) ?>" class="w-full rounded-xl px-4 py-2.5 text-sm" onchange="refreshUI()" />
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-xs font-semibold text-[#176B87] uppercase tracking-wider mb-1.5">
-                        <i class="fa-regular fa-building mr-1"></i> Facility
+                        <i class="fa-regular fa-building mr-1"></i> Department / Facility
                     </label>
-                    <select id="facility" class="w-full rounded-xl px-4 py-2.5 text-sm">
-                        <option value="all">All Facilities</option>
-                        <option value="Central Health Center">Central Health Center</option>
-                        <option value="Eastside Clinic">Eastside Clinic</option>
-                        <option value="West District Hospital">West District Hospital</option>
-                        <option value="North Community Hub">North Community Hub</option>
-                        <option value="South Sanitation Depot">South Sanitation Depot</option>
+                    <select id="facility" class="w-full rounded-xl px-4 py-2.5 text-sm" onchange="refreshUI()">
+                        <option value="all">All Departments &amp; Facilities</option>
+                        <optgroup label="Core Health Departments">
+                            <option value="Health Center Services">Health Center Services</option>
+                            <option value="Sanitation Permits">Sanitation Permits</option>
+                            <option value="Immunization & Nutrition">Immunization &amp; Nutrition</option>
+                            <option value="Wastewater Services">Wastewater Services</option>
+                            <option value="Health Surveillance">Health Surveillance</option>
+                        </optgroup>
+                        <optgroup label="Facilities &amp; Clinics">
+                            <option value="Central Health Center">Central Health Center</option>
+                            <option value="Eastside Clinic">Eastside Clinic</option>
+                            <option value="West District Hospital">West District Hospital</option>
+                            <option value="North Community Hub">North Community Hub</option>
+                            <option value="South Sanitation Depot">South Sanitation Depot</option>
+                        </optgroup>
                     </select>
                 </div>
 
                 <div>
                     <label class="block text-xs font-semibold text-[#176B87] uppercase tracking-wider mb-1.5">
-                        <i class="fa-regular fa-user mr-1"></i> Inspector
+                        <i class="fa-regular fa-user mr-1"></i> Inspector / Officer
                     </label>
-                    <select id="inspector" class="w-full rounded-xl px-4 py-2.5 text-sm">
-                        <option value="all">All Inspectors</option>
-                        <option value="Dr. Omari">Dr. Omari</option>
-                        <option value="Ms. Kenya">Ms. Kenya</option>
-                        <option value="Mr. Tanzania">Mr. Tanzania</option>
-                        <option value="Dr. Uganda">Dr. Uganda</option>
+                    <select id="inspector" class="w-full rounded-xl px-4 py-2.5 text-sm" onchange="refreshUI()">
+                        <option value="all">Loading Staff &amp; Inspectors...</option>
                     </select>
                 </div>
             </div>
@@ -758,34 +764,68 @@
 
                 <!-- Summary View -->
                 <div id="tabSummary" class="tab-content hidden">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div>
-                            <h4 class="text-sm font-semibold text-[#176B87] mb-3">📌 Executive Summary</h4>
-                            <div class="space-y-2.5 text-sm text-slate-600 leading-relaxed" id="summaryText">
-                                <p>This report covers <strong class="text-[#176B87]">0 facilities</strong> across the region, with a total of <strong class="text-[#176B87]">0 inspections</strong> conducted between the selected date range.</p>
-                                <p>The overall compliance rate stands at <strong class="text-emerald-600">0%</strong>.</p>
-                                <p>Key areas of concern will be detailed in the full report.</p>
-                            </div>
-                            <div class="mt-4 flex flex-wrap gap-2" id="summaryTags"></div>
+                    <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-200/80">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold flex items-center gap-1.5 border border-indigo-100">
+                                <i class="fas fa-brain text-indigo-600"></i> AI Department Intelligence
+                            </span>
+                            <span id="aiRiskBadge" class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold">Optimal</span>
                         </div>
+                        <button type="button" onclick="fetchAiReportSummary(true)" id="btnGenerateAiSummary" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer">
+                            <i class="fas fa-wand-magic-sparkles text-xs"></i> Generate AI Summary
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <h4 class="text-sm font-semibold text-[#176B87] mb-3">📊 Key Metrics</h4>
-                            <div class="space-y-3" id="summaryMetrics">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
+                                <i class="fas fa-file-contract text-indigo-600"></i> Executive Summary Narrative
+                            </h4>
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 text-xs text-slate-700 leading-relaxed shadow-xs" id="summaryText">
+                                <p>Loading dynamic report executive summary...</p>
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-2" id="summaryTags"></div>
+
+                            <div class="mt-4 pt-3 border-t border-slate-200/80">
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
+                                    <i class="fas fa-lightbulb text-amber-500"></i> Actionable Recommendations
+                                </h4>
+                                <ul class="space-y-1.5 text-xs text-slate-600" id="aiRecommendationsList">
+                                    <li class="flex items-center gap-2"><i class="fas fa-check-circle text-emerald-500 text-xs"></i> Reallocate response staff to high-density zones.</li>
+                                    <li class="flex items-center gap-2"><i class="fas fa-check-circle text-emerald-500 text-xs"></i> Conduct weekly supervisory audit reviews.</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
+                                <i class="fas fa-chart-line text-[#176B87]"></i> Department Performance Metrics
+                            </h4>
+                            <div class="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-200/80 mb-4" id="summaryMetrics">
                                 <div>
-                                    <div class="flex justify-between text-xs"><span>Compliance Rate</span><span class="font-semibold text-[#176B87]" id="metricCompliance">0%</span></div>
-                                    <div class="w-full h-2 bg-[#B4D4FF]/30 rounded-full mt-1"><div class="h-2 bg-[#176B87] rounded-full" style="width:0%" id="metricComplianceBar"></div></div>
+                                    <div class="flex justify-between text-xs font-bold text-slate-700"><span>Compliance Rate</span><span class="text-[#176B87]" id="metricCompliance">0%</span></div>
+                                    <div class="w-full h-2 bg-slate-200 rounded-full mt-1"><div class="h-2 bg-[#176B87] rounded-full transition-all duration-500" style="width:0%" id="metricComplianceBar"></div></div>
                                 </div>
                                 <div>
-                                    <div class="flex justify-between text-xs"><span>Inspection Coverage</span><span class="font-semibold text-[#176B87]" id="metricCoverage">0%</span></div>
-                                    <div class="w-full h-2 bg-[#B4D4FF]/30 rounded-full mt-1"><div class="h-2 bg-[#86B6F6] rounded-full" style="width:0%" id="metricCoverageBar"></div></div>
+                                    <div class="flex justify-between text-xs font-bold text-slate-700"><span>Inspection / Encounter Coverage</span><span class="text-[#176B87]" id="metricCoverage">0%</span></div>
+                                    <div class="w-full h-2 bg-slate-200 rounded-full mt-1"><div class="h-2 bg-sky-500 rounded-full transition-all duration-500" style="width:0%" id="metricCoverageBar"></div></div>
                                 </div>
                                 <div>
-                                    <div class="flex justify-between text-xs"><span>Issue Resolution Rate</span><span class="font-semibold text-[#176B87]" id="metricResolution">0%</span></div>
-                                    <div class="w-full h-2 bg-[#B4D4FF]/30 rounded-full mt-1"><div class="h-2 bg-[#B4D4FF] rounded-full" style="width:0%" id="metricResolutionBar"></div></div>
+                                    <div class="flex justify-between text-xs font-bold text-slate-700"><span>Issue Resolution Rate</span><span class="text-[#176B87]" id="metricResolution">0%</span></div>
+                                    <div class="w-full h-2 bg-slate-200 rounded-full mt-1"><div class="h-2 bg-indigo-500 rounded-full transition-all duration-500" style="width:0%" id="metricResolutionBar"></div></div>
                                 </div>
                                 <div>
-                                    <div class="flex justify-between text-xs"><span>Facility Participation</span><span class="font-semibold text-[#176B87]" id="metricParticipation">0%</span></div>
-                                    <div class="w-full h-2 bg-[#B4D4FF]/30 rounded-full mt-1"><div class="h-2 bg-[#176B87] rounded-full" style="width:0%" id="metricParticipationBar"></div></div>
+                                    <div class="flex justify-between text-xs font-bold text-slate-700"><span>Department Operational Index</span><span class="text-[#176B87]" id="metricParticipation">0%</span></div>
+                                    <div class="w-full h-2 bg-slate-200 rounded-full mt-1"><div class="h-2 bg-emerald-500 rounded-full transition-all duration-500" style="width:0%" id="metricParticipationBar"></div></div>
+                                </div>
+                            </div>
+
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
+                                <i class="fas fa-magnifying-glass-chart text-indigo-600"></i> Key AI Findings
+                            </h4>
+                            <div class="space-y-2 text-xs" id="aiKeyFindings">
+                                <div class="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-100 text-indigo-900 font-semibold">
+                                    Department compliance efficiency evaluated across all active records.
                                 </div>
                             </div>
                         </div>
@@ -1057,24 +1097,11 @@
 //  CODE ARCHITECTURE – MODULAR FUNCTIONS
 // ================================================================
 
-// ─── DATA STORE ──────────────────────────────────────────────────
-const allReportRows = [
-    { facility: 'Central Health Center',   inspector: 'Dr. Omari',     date: '2026-07-15', score: 96, status: 'Compliant' },
-    { facility: 'Eastside Clinic',          inspector: 'Ms. Kenya',     date: '2026-07-14', score: 82, status: 'Pending' },
-    { facility: 'West District Hospital',   inspector: 'Mr. Tanzania',  date: '2026-07-12', score: 68, status: 'Urgent' },
-    { facility: 'North Community Hub',      inspector: 'Dr. Uganda',    date: '2026-07-10', score: 91, status: 'Compliant' },
-    { facility: 'South Sanitation Depot',   inspector: 'Dr. Omari',     date: '2026-07-08', score: 74, status: 'Non-Compliant' },
-    { facility: 'Central Health Center',    inspector: 'Ms. Kenya',     date: '2026-07-05', score: 89, status: 'Compliant' },
-    { facility: 'Eastside Clinic',          inspector: 'Mr. Tanzania',  date: '2026-07-03', score: 77, status: 'Pending' },
-    { facility: 'West District Hospital',   inspector: 'Dr. Uganda',    date: '2026-07-01', score: 64, status: 'Urgent' },
-    { facility: 'North Community Hub',      inspector: 'Dr. Omari',     date: '2026-06-28', score: 93, status: 'Compliant' },
-    { facility: 'South Sanitation Depot',   inspector: 'Ms. Kenya',     date: '2026-06-25', score: 71, status: 'Non-Compliant' },
-    { facility: 'Central Health Center',    inspector: 'Mr. Tanzania',  date: '2026-06-22', score: 85, status: 'Compliant' },
-    { facility: 'Eastside Clinic',          inspector: 'Dr. Uganda',    date: '2026-06-19', score: 80, status: 'Pending' },
-    { facility: 'West District Hospital',   inspector: 'Dr. Omari',     date: '2026-06-16', score: 59, status: 'Urgent' },
-    { facility: 'North Community Hub',      inspector: 'Ms. Kenya',     date: '2026-06-13', score: 94, status: 'Compliant' },
-    { facility: 'South Sanitation Depot',   inspector: 'Mr. Tanzania',  date: '2026-06-10', score: 69, status: 'Non-Compliant' }
-];
+// ─── DYNAMIC DATA STORE (FETCHED FROM SUPABASE) ───────────────────
+let allReportRows = [];
+let baseRecentReports = [];
+let extraRecentReports = [];
+let activeEmployeesList = [];
 
 // ─── STATE ──────────────────────────────────────────────────────
 let currentPage = 1;
@@ -1093,7 +1120,13 @@ function getFilteredData() {
 
     return allReportRows.filter(row => {
         if (currentStatusFilter !== 'all' && row.status !== currentStatusFilter) return false;
-        if (facility !== 'all' && row.facility !== facility) return false;
+        if (facility !== 'all') {
+            const target = facility.toLowerCase().replace(' services', '');
+            const rowFacility = row.facility.toLowerCase();
+            if (rowFacility !== facility.toLowerCase() && !rowFacility.includes(target) && !target.includes(rowFacility)) {
+                return false;
+            }
+        }
         if (inspector !== 'all' && row.inspector !== inspector) return false;
         if (startDate && row.date < startDate) return false;
         if (endDate && row.date > endDate) return false;
@@ -1132,6 +1165,9 @@ function applyConfig(config) {
 
 // ─── UI REFRESH ─────────────────────────────────────────────────
 function refreshUI() {
+    const facilityVal = document.getElementById('facility') ? document.getElementById('facility').value : 'all';
+    populateInspectorDropdown(activeEmployeesList, facilityVal);
+
     const data = getFilteredData();
     const total = data.length;
     const compliant = data.filter(r => r.status === 'Compliant').length;
@@ -1156,9 +1192,9 @@ function refreshUI() {
     document.getElementById('kpiComplianceTrend').textContent = complianceRate > 0 ? (Math.random() * 2 + 0.5).toFixed(1) + '%' : '0%';
     document.getElementById('kpiUrgentTrend').textContent = urgent > 0 ? '+' + Math.floor(Math.random() * 5) : '0';
 
-    // Summary
+    // Summary metrics & fallback UI
     document.getElementById('summaryText').innerHTML = `
-        <p>This report covers <strong class="text-[#176B87]">${facilities} facilities</strong> across the region, with a total of <strong class="text-[#176B87]">${total} inspections</strong> conducted between the selected date range.</p>
+        <p>This report covers <strong class="text-[#176B87]">${facilities} facilities</strong> across the region, with a total of <strong class="text-[#176B87]">${total} inspections/transactions</strong> conducted between the selected date range.</p>
         <p>The overall compliance rate stands at <strong class="text-emerald-600">${complianceRate}%</strong>.</p>
         <p>Key areas of concern: ${urgent} urgent issues, ${nonCompliant} non-compliant, ${pending} pending.</p>
     `;
@@ -1180,34 +1216,158 @@ function refreshUI() {
 
     updateCharts(data);
     renderTableView(data);
+
+    // Fetch AI Executive Summary per department
+    fetchAiReportSummary(false);
+}
+
+// ─── AI REPORT SUMMARY GENERATION ENGINE ─────────────────────────
+async function fetchAiReportSummary(isManual = false) {
+    const btn = document.getElementById('btnGenerateAiSummary');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Analyzing...';
+    }
+
+    const deptSelect = document.getElementById('facility') || document.getElementById('filterFacility');
+    const selectedDept = deptSelect ? deptSelect.value : 'all';
+    
+    const data = getFilteredData();
+    const total = data.length;
+    const compliant = data.filter(r => r.status === 'Compliant').length;
+    const urgent = data.filter(r => r.status === 'Urgent').length;
+    const pending = data.filter(r => r.status === 'Pending').length;
+
+    try {
+        const url = `<?= site_url('api/reports/ai-summary.php') ?>?department=${encodeURIComponent(selectedDept)}&total=${total}&compliant=${compliant}&urgent=${urgent}&pending=${pending}`;
+        const resp = await fetch(url);
+        const res = await resp.json();
+
+        if (res && res.success) {
+            // Update Summary Text
+            document.getElementById('summaryText').innerHTML = `
+                <p class="font-bold text-slate-800 mb-1.5 text-xs">${res.department} Executive Overview:</p>
+                <p class="leading-relaxed text-xs text-slate-700">${res.summary}</p>
+            `;
+
+            // Update Risk Badge
+            const riskBadge = document.getElementById('aiRiskBadge');
+            if (riskBadge) {
+                riskBadge.textContent = res.risk_level || 'Optimal';
+                riskBadge.className = res.risk_level === 'High Risk' 
+                    ? 'px-2.5 py-1 bg-rose-100 text-rose-700 rounded-lg text-xs font-bold'
+                    : (res.risk_level === 'Moderate Risk' ? 'px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold' : 'px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold');
+            }
+
+            // Update Tags
+            const complianceRate = res.metrics ? res.metrics.compliance_rate : 0;
+            document.getElementById('summaryTags').innerHTML = `
+                <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold border border-indigo-100">✨ ${res.ai_generated ? 'AI Model Summary' : 'Rule Engine Summary'}</span>
+                <span class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100">🔹 Compliance ${complianceRate}%</span>
+                <span class="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">⚠️ Pending: ${pending}</span>
+                <span class="px-2.5 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-bold border border-rose-100">🚨 Urgent: ${urgent}</span>
+            `;
+
+            // Update Key Findings
+            if (res.key_findings && res.key_findings.length > 0) {
+                const findingsHtml = res.key_findings.map(f => `
+                    <div class="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-100 text-indigo-950 font-semibold flex items-start gap-2 text-xs">
+                        <i class="fas fa-circle-info text-indigo-600 mt-0.5 flex-shrink-0"></i>
+                        <span>${f}</span>
+                    </div>
+                `).join('');
+                document.getElementById('aiKeyFindings').innerHTML = findingsHtml;
+            }
+
+            // Update Actionable Recommendations
+            if (res.recommendations && res.recommendations.length > 0) {
+                const recsHtml = res.recommendations.map(r => `
+                    <li class="flex items-start gap-2 font-medium text-slate-700 text-xs">
+                        <i class="fas fa-check-circle text-emerald-500 text-xs mt-0.5 flex-shrink-0"></i>
+                        <span>${r}</span>
+                    </li>
+                `).join('');
+                document.getElementById('aiRecommendationsList').innerHTML = recsHtml;
+            }
+
+            if (isManual && typeof showToast === 'function') {
+                showToast('AI Executive Summary generated successfully!', 'success');
+            }
+        }
+    } catch (e) {
+        console.error('Failed to fetch AI report summary:', e);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-wand-magic-sparkles text-xs"></i> Generate AI Summary';
+        }
+    }
 }
 
 // ─── CHART UPDATES ─────────────────────────────────────────────
 function updateCharts(data) {
-    const facilityMap = {};
+    if (!data || data.length === 0) {
+        if (barChart) {
+            barChart.data.labels = ['No Data'];
+            barChart.data.datasets[0].data = [0];
+            barChart.data.datasets[0].backgroundColor = ['#cbd5e1'];
+            barChart.update();
+        }
+        if (doughnutChart) {
+            doughnutChart.data.labels = ['No Data'];
+            doughnutChart.data.datasets[0].data = [1];
+            doughnutChart.data.datasets[0].backgroundColor = ['#cbd5e1'];
+            doughnutChart.update();
+        }
+        if (lineChart) {
+            lineChart.data.labels = ['No Data'];
+            lineChart.data.datasets[0].data = [0];
+            lineChart.update();
+        }
+        return;
+    }
+
+    const selectedDept = document.getElementById('facility') ? document.getElementById('facility').value : 'all';
+    
+    const groupMap = {};
     data.forEach(r => {
-        if (!facilityMap[r.facility]) facilityMap[r.facility] = { sum: 0, count: 0 };
-        facilityMap[r.facility].sum += r.score;
-        facilityMap[r.facility].count++;
+        const key = selectedDept !== 'all' ? (r.inspector || r.facility) : r.facility;
+        if (!groupMap[key]) groupMap[key] = { sum: 0, count: 0 };
+        groupMap[key].sum += r.score;
+        groupMap[key].count++;
     });
-    const labels = Object.keys(facilityMap);
-    const scores = labels.map(f => Math.round(facilityMap[f].sum / facilityMap[f].count));
-    const colors = scores.map(s => s >= 90 ? '#176B87' : s >= 70 ? '#86B6F6' : s >= 50 ? '#f59e0b' : '#ef4444');
+
+    const labels = Object.keys(groupMap);
+    const scores = labels.map(k => Math.round(groupMap[k].sum / groupMap[k].count));
+    const colors = scores.map(s => s >= 90 ? '#176B87' : s >= 75 ? '#3b82f6' : s >= 60 ? '#f59e0b' : '#ef4444');
 
     if (barChart) {
-        barChart.data.labels = labels.length ? labels : ['No Data'];
-        barChart.data.datasets[0].data = labels.length ? scores : [0];
-        barChart.data.datasets[0].backgroundColor = labels.length ? colors : ['#cbd5e1'];
+        barChart.data.labels = labels;
+        barChart.data.datasets[0].data = scores;
+        barChart.data.datasets[0].backgroundColor = colors;
         barChart.update();
     }
 
     const statusCounts = { Compliant: 0, Pending: 0, Urgent: 0, 'Non-Compliant': 0 };
     data.forEach(r => { if (statusCounts.hasOwnProperty(r.status)) statusCounts[r.status]++; });
-    const statusLabels = Object.keys(statusCounts);
-    const statusValues = statusLabels.map(k => statusCounts[k]);
+    
+    const statusLabels = [];
+    const statusValues = [];
+    const statusColorMap = { Compliant: '#10b981', Pending: '#f59e0b', Urgent: '#ef4444', 'Non-Compliant': '#f43f5e' };
+    const doughnutColors = [];
+
+    Object.keys(statusCounts).forEach(st => {
+        if (statusCounts[st] > 0) {
+            statusLabels.push(st);
+            statusValues.push(statusCounts[st]);
+            doughnutColors.push(statusColorMap[st] || '#176B87');
+        }
+    });
+
     if (doughnutChart) {
-        doughnutChart.data.labels = statusLabels;
-        doughnutChart.data.datasets[0].data = statusValues;
+        doughnutChart.data.labels = statusLabels.length ? statusLabels : ['All Clear'];
+        doughnutChart.data.datasets[0].data = statusValues.length ? statusValues : [1];
+        doughnutChart.data.datasets[0].backgroundColor = doughnutColors.length ? doughnutColors : ['#10b981'];
         doughnutChart.update();
     }
 
@@ -1219,9 +1379,10 @@ function updateCharts(data) {
     });
     const months = Object.keys(monthMap).sort();
     const avgScores = months.map(m => Math.round(monthMap[m].reduce((a,b) => a + b, 0) / monthMap[m].length));
+    
     if (lineChart) {
-        lineChart.data.labels = months.length ? months : ['No Data'];
-        lineChart.data.datasets[0].data = months.length ? avgScores : [0];
+        lineChart.data.labels = months.length ? months : ['Current Period'];
+        lineChart.data.datasets[0].data = months.length ? avgScores : [90];
         lineChart.update();
     }
 }
@@ -1756,22 +1917,70 @@ function hideToast() {
     toast.style.pointerEvents = 'none';
 }
 
-// ─── RECENT REPORTS (UPDATED: NO ACTIONS COLUMN) ──────────
-const baseRecentReports = [
-    { name: 'Q3 Sanitation Overview',           type: 'Inspection',  date: '2026-07-18', status: 'Generated' },
-    { name: 'Water Quality Report - East',      type: 'Water',       date: '2026-07-16', status: 'Generated' },
-    { name: 'Waste Management Audit',            type: 'Waste',       date: '2026-07-14', status: 'Processing' },
-    { name: 'Compliance Summary - July',        type: 'Compliance', date: '2026-07-12', status: 'Generated' },
-    { name: 'Incident Report - West',           type: 'Incident',   date: '2026-07-09', status: 'Failed' }
-];
-const extraRecentReports = [
-    { name: 'Sanitation Follow-up - Central',  type: 'Inspection',  date: '2026-07-06', status: 'Generated' },
-    { name: 'Water Quality Report - North',    type: 'Water',       date: '2026-07-02', status: 'Generated' },
-    { name: 'Waste Management Audit - South',  type: 'Waste',       date: '2026-06-29', status: 'Generated' },
-    { name: 'Compliance Summary - June',       type: 'Compliance', date: '2026-06-25', status: 'Generated' },
-    { name: 'Incident Report - East',          type: 'Incident',   date: '2026-06-20', status: 'Failed' }
-];
 let viewingAllReports = false;
+
+async function loadLiveReportData() {
+    try {
+        const resp = await fetch('<?= site_url('api/reports/data.php') ?>');
+        const res = await resp.json();
+
+        if (res && res.success) {
+            allReportRows = res.report_rows || [];
+            activeEmployeesList = res.employees || [];
+            
+            const recentLogs = res.recent_reports || [];
+            baseRecentReports = recentLogs.slice(0, 5);
+            extraRecentReports = recentLogs.slice(5, 10);
+
+            populateInspectorDropdown(activeEmployeesList);
+            autoSelectRoleDefaults(<?= json_encode(strtolower($_SESSION['role_description'] ?? ($_SESSION['role'] ?? 'admin'))) ?>);
+            renderRecentReports();
+            refreshUI();
+        }
+    } catch (e) {
+        console.error('Failed to load live database report records:', e);
+    }
+}
+
+function populateInspectorDropdown(employees, filterDepartment = 'all') {
+    const inspectorSelect = document.getElementById('inspector');
+    if (!inspectorSelect || !Array.isArray(employees)) return;
+
+    const currentVal = inspectorSelect.value;
+    const selectedDept = filterDepartment !== 'all' ? filterDepartment : (document.getElementById('facility') ? document.getElementById('facility').value : 'all');
+
+    let filteredEmployees = employees;
+    if (selectedDept !== 'all') {
+        const targetDept = selectedDept.toLowerCase().replace(' services', '');
+        filteredEmployees = employees.filter(emp => {
+            const empDept = (emp.department || '').toLowerCase();
+            return empDept === selectedDept.toLowerCase() || empDept.includes(targetDept) || targetDept.includes(empDept);
+        });
+    }
+
+    const grouped = {};
+    filteredEmployees.forEach(emp => {
+        const d = emp.department || 'Health Center Services';
+        if (!grouped[d]) grouped[d] = [];
+        grouped[d].push(emp);
+    });
+
+    let html = '<option value="all">All Staff &amp; Officers</option>';
+    
+    Object.keys(grouped).forEach(deptName => {
+        html += `<optgroup label="🏢 ${deptName}">`;
+        grouped[deptName].forEach(emp => {
+            const roleDesc = emp.role_description || emp.role || 'Staff Member';
+            html += `<option value="${emp.name}">${emp.name} — ${roleDesc}</option>`;
+        });
+        html += `</optgroup>`;
+    });
+
+    inspectorSelect.innerHTML = html;
+    if (currentVal && Array.from(inspectorSelect.options).some(o => o.value === currentVal)) {
+        inspectorSelect.value = currentVal;
+    }
+}
 
 function recentStatusBadge(status) {
     if (status === 'Generated') return 'bg-emerald-100/70 text-emerald-700';
@@ -1783,6 +1992,10 @@ function renderRecentReports() {
     const tbody = document.getElementById('recentReportsBody');
     if (!tbody) return;
     const list = viewingAllReports ? baseRecentReports.concat(extraRecentReports) : baseRecentReports;
+    if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-xs text-slate-400">No recent activity logs found.</td></tr>';
+        return;
+    }
     tbody.innerHTML = list.map(r => `
         <tr class="table-row-hover">
             <td class="py-2.5 pr-4 font-medium text-[#176B87]">${r.name}</td>
@@ -1849,7 +2062,31 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    renderRecentReports();
-    refreshUI();
+    loadLiveReportData();
 });
+
+function autoSelectRoleDefaults(role) {
+    if (!role) return;
+    const reportTypeSelect = document.getElementById('reportType');
+    const facilitySelect = document.getElementById('facility');
+
+    if (!reportTypeSelect || !facilitySelect) return;
+
+    if (role.includes('doctor') || role.includes('nurse') || role.includes('health') || role.includes('clerk')) {
+        reportTypeSelect.value = 'health_center';
+        facilitySelect.value = 'Health Center Services';
+    } else if (role.includes('sanitation') || role.includes('inspector')) {
+        reportTypeSelect.value = 'sanitation';
+        facilitySelect.value = 'Sanitation Permits';
+    } else if (role.includes('surveillance') || role.includes('epidemiolog')) {
+        reportTypeSelect.value = 'surveillance';
+        facilitySelect.value = 'Health Surveillance';
+    } else if (role.includes('nutrition') || role.includes('immuniz')) {
+        reportTypeSelect.value = 'immunization';
+        facilitySelect.value = 'Immunization & Nutrition';
+    } else if (role.includes('wastewater') || role.includes('water')) {
+        reportTypeSelect.value = 'wastewater';
+        facilitySelect.value = 'Wastewater Services';
+    }
+}
 </script>

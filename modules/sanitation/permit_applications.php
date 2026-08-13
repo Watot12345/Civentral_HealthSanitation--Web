@@ -464,7 +464,7 @@ async function apiRequest(url, options = {}) {
 // ============================================================
 async function loadStats() {
     try {
-        const result = await apiRequest(API_BASE + '?stats=true');
+        const result = await apiRequest(API_BASE + '?action=summary');
         const stats = result.data;
         
         document.getElementById('statsContainer').innerHTML = `

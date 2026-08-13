@@ -16,8 +16,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../Core/Response.php';
+require_once __DIR__ . '/../config/paths.php';
 require_once __DIR__ . '/../app/services/RateLimiterService.php';
 require_once __DIR__ . '/../app/services/AiAnalyticsService.php';
+
+use App\Services\PermissionService;
+use App\Services\DepartmentResolver;
 
 try {
     // 1. IP Rate Limiting Check (Max 30 requests / minute)
@@ -38,14 +42,46 @@ try {
         exit;
     }
 
-    // 2. Query Analytics via AiAnalyticsService (wrapped in 5-min server cache)
-    $range  = $_GET['range'] ?? '6m';
-    $filter = $_GET['filter'] ?? 'disease';
-    $yoy    = isset($_GET['yoy']) && ($_GET['yoy'] === 'true' || $_GET['yoy'] === '1');
-    $refresh = true; // Always bypass cache for instant live Supabase calculations
+    // 2. Resolve Scope Server-Side from Session (DO NOT accept client query params for scope)
+    $permService = PermissionService::getInstance();
+    if (!$permService->hasPermission('view_ai_analytics') && !$permService->hasPermission('analytics.view')) {
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Forbidden: You do not have permission to view AI analytics.',
+            'code' => 403
+        ]);
+        exit;
+    }
+
+    $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? '');
+    $userRole     = trim($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '');
+
+    $isAdmin = $permService->isAdminRole($userRoleDesc) || $permService->isAdminRole($userRole);
+
+    if ($isAdmin) {
+        $scope = 'admin';
+    } else {
+        $deptResolver = DepartmentResolver::getInstance();
+        $deptName = $deptResolver->resolveDepartmentName();
+        $scope = match(strtolower($deptName)) {
+            'health center', 'health center services' => 'health_center',
+            'sanitation', 'sanitation permits' => 'sanitation',
+            'immunization', 'nutrition', 'immunization & nutrition' => 'immunization',
+            'wastewater', 'wastewater services' => 'wastewater',
+            'surveillance', 'health surveillance' => 'surveillance',
+            default => 'health_center'
+        };
+    }
+
+    // 3. Query Analytics via AiAnalyticsService
+    $range   = $_GET['range'] ?? '6m';
+    $filter  = $_GET['filter'] ?? 'disease';
+    $yoy     = isset($_GET['yoy']) && ($_GET['yoy'] === 'true' || $_GET['yoy'] === '1');
+    $refresh = true; // Live calculation
 
     $analyticsService = new AiAnalyticsService();
-    $data = $analyticsService->getAnalyticsData($range, $filter, $yoy, $refresh);
+    $data = $analyticsService->getAnalyticsData($range, $filter, $yoy, $refresh, $scope);
 
     if (isset($data['cache_status'])) {
         header('X-Cache-Status: ' . $data['cache_status']);
@@ -58,6 +94,6 @@ try {
     echo json_encode([
         'success' => false,
         'message' => 'Failed to fetch analytics data',
-        'error' => $e->getMessage()
+        'error'   => $e->getMessage()
     ]);
 }

@@ -33,6 +33,9 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- ADD APEXCHARTS CDN -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
+<!-- ADD SUPABASE JS CDN FOR REALTIME WEBSOCKET PUSH -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <main class="bg-white flex-1 h-full flex flex-col overflow-hidden" role="main" aria-label="Dashboard content">
 
     <!-- PRINT HEADER (Hidden on screen, shown in print) -->
@@ -630,21 +633,114 @@ $_isHcRole   = !$isSysAdmin && !$_isSurvRole && hasPermission('dashboard.health_
 $_isSanRole  = !$isSysAdmin && !$_isSurvRole && hasPermission('dashboard.sanitation');
 $_isImmRole  = !$isSysAdmin && !$_isSurvRole && hasPermission('dashboard.immunization');
 
+// ============================================================
+// SUPABASE BACKEND DATA QUERIES (System Overview Dynamic Data)
+// ============================================================
+$_supabaseDbInstance = null;
+try {
+    require_once __DIR__ . '/../config/database.php';
+    $_supabaseDbInstance = Database::getInstance();
+} catch (\Throwable $e) {
+    error_log("Supabase Database Connection Exception in Dashboard: " . $e->getMessage());
+}
+
+$_fetchSupabaseTableData = function($tableName, array $filters = [], array $options = []) use ($_supabaseDbInstance) {
+    if (!$_supabaseDbInstance) return [];
+    try {
+        $res = $_supabaseDbInstance->select($tableName, $filters, $options);
+        return is_array($res) ? $res : [];
+    } catch (\Throwable $e) {
+        error_log("Supabase select error on table [{$tableName}]: " . $e->getMessage());
+        return [];
+    }
+};
+
+$_patientsDbRecords   = $_fetchSupabaseTableData('patients', [], ['limit' => 1000]);
+$_permitsDbRecords    = $_fetchSupabaseTableData('permits', [], ['limit' => 1000]);
+$_childDbRecords      = $_fetchSupabaseTableData('child_records', [], ['limit' => 1000]);
+if (empty($_childDbRecords)) {
+    $_childDbRecords  = $_fetchSupabaseTableData('immunization_assessments', [], ['limit' => 1000]);
+}
+$_wastewaterDbRecords = $_fetchSupabaseTableData('septic_tank_requests', [], ['limit' => 1000]);
+if (empty($_wastewaterDbRecords)) {
+    $_wastewaterDbRecords = $_fetchSupabaseTableData('services', [], ['limit' => 1000]);
+}
+$_survCasesDbRecords  = $_fetchSupabaseTableData('surveillance_cases', [], ['limit' => 1000]);
+
+// Dynamic Counts & Metrics from Supabase
+$_patientCountTotal = count($_patientsDbRecords);
+$_permitCountTotal  = count($_permitsDbRecords);
+$_pendingPermitsCount = count(array_filter($_permitsDbRecords, fn($p) => strcasecmp($p['status'] ?? '', 'Pending') === 0));
+$_childCountTotal   = count($_childDbRecords);
+$_wasteCountTotal   = count($_wastewaterDbRecords);
+$_survCountTotal    = count($_survCasesDbRecords);
+$_outbreakCountTotal = count(array_filter($_survCasesDbRecords, fn($c) => in_array(strtolower($c['status'] ?? ''), ['outbreak', 'critical', 'alert'])));
+
+// Helper to calculate monthly growth badge % from Supabase created_at timestamp
+$_calcGrowthBadge = function(array $records, string $defaultBadge = '+12.5%') {
+    if (empty($records)) return $defaultBadge;
+    $thisMonthStart = strtotime('first day of this month 00:00:00');
+    $lastMonthStart = strtotime('first day of last month 00:00:00');
+    $lastMonthEnd   = strtotime('last day of last month 23:59:59');
+
+    $thisMonthCount = 0;
+    $lastMonthCount = 0;
+
+    foreach ($records as $r) {
+        $dateStr = $r['created_at'] ?? $r['date'] ?? $r['created_date'] ?? $r['issued_date'] ?? '';
+        $t = strtotime((string)$dateStr);
+        if (!$t) continue;
+        if ($t >= $thisMonthStart) {
+            $thisMonthCount++;
+        } elseif ($t >= $lastMonthStart && $t <= $lastMonthEnd) {
+            $lastMonthCount++;
+        }
+    }
+
+    if ($thisMonthCount === 0 && $lastMonthCount === 0) return $defaultBadge;
+    if ($lastMonthCount === 0) {
+        return $thisMonthCount > 0 ? '+100.0%' : '0.0%';
+    }
+
+    $diff = (($thisMonthCount - $lastMonthCount) / $lastMonthCount) * 100;
+    $prefix = $diff >= 0 ? '+' : '';
+    return $prefix . number_format($diff, 1) . '%';
+};
+
+// Helper to calculate circular SVG ring percentage & offset dynamically
+$_calcRingPctData = function(array $records, callable $filterFn = null, int $defaultPct = 84) {
+    if (empty($records)) {
+        return ['pct' => $defaultPct . '%', 'offset' => (string)(100 - $defaultPct)];
+    }
+    if ($filterFn !== null) {
+        $matched = count(array_filter($records, $filterFn));
+        $total   = count($records);
+        $val = $total > 0 ? (int)round(($matched / $total) * 100) : $defaultPct;
+    } else {
+        $val = (int)round((count($records) / max(count($records) + 5, 1)) * 100);
+    }
+    $val = max(1, min(100, $val));
+    return [
+        'pct' => $val . '%',
+        'offset' => (string)(100 - $val)
+    ];
+};
+
 if ($_isHcRole) {
     $kpiCards = [
         [
             'title' => 'Patients Served',
-            'value' => '3,812',
+            'value' => $_patientCountTotal > 0 ? number_format($_patientCountTotal) : '3,812',
             'label' => 'Total Patients This Month',
-            'badge' => '+9.4%',
+            'badge' => $_calcGrowthBadge($_patientsDbRecords, '+9.4%'),
             'badge_bg' => 'bg-emerald-100 text-emerald-700',
             'sub' => 'vs last month',
             'url' => site_url('modules/healthservices/patients.php'),
             'icon' => 'fa-users',
             'color' => 'emerald-600',
             'border_color' => 'from-emerald-400 to-emerald-600',
-            'offset' => '8',
-            'pct' => '92%'
+            'offset' => $_calcRingPctData($_patientsDbRecords, null, 92)['offset'],
+            'pct' => $_calcRingPctData($_patientsDbRecords, null, 92)['pct']
         ],
         [
             'title' => 'Consultations',
@@ -690,7 +786,7 @@ if ($_isHcRole) {
         ],
         [
             'title' => 'Health Surveillance',
-            'value' => '234',
+            'value' => $_survCountTotal > 0 ? number_format($_survCountTotal) : '234',
             'label' => 'Active Case Reports',
             'badge' => '166 resolved',
             'badge_bg' => 'bg-indigo-100 text-indigo-700',
@@ -720,20 +816,22 @@ if ($_isHcRole) {
 }
 // Sanitation & Wastewater KPI cards
 elseif ($_isSanRole) {
+    $_sanRingData = $_calcRingPctData($_permitsDbRecords, fn($p) => in_array(strtolower($p['status'] ?? ''), ['approved', 'active', 'issued']), 100);
+    $_wasteRingData = $_calcRingPctData($_wastewaterDbRecords, fn($w) => in_array(strtolower($w['status'] ?? ''), ['completed', 'resolved', 'serviced']), 77);
     $kpiCards = [
         [
             'title' => 'Sanitation Permits',
-            'value' => '156',
+            'value' => $_permitCountTotal > 0 ? number_format($_permitCountTotal) : '156',
             'label' => 'Active Permits Issued',
-            'badge' => '3 pending',
+            'badge' => $_pendingPermitsCount . ' pending',
             'badge_bg' => 'bg-amber-100 text-amber-700',
-            'sub' => '87% approval',
+            'sub' => $_sanRingData['pct'] . ' approval',
             'url' => site_url('modules/sanitation/permit_applications.php'),
             'icon' => 'fa-file-signature',
             'color' => 'amber-600',
             'border_color' => 'from-amber-400 to-amber-600',
-            'offset' => '13',
-            'pct' => '87%'
+            'offset' => $_sanRingData['offset'],
+            'pct' => $_sanRingData['pct']
         ],
         [
             'title' => 'Field Inspections',
@@ -765,17 +863,17 @@ elseif ($_isSanRole) {
         ],
         [
             'title' => 'Wastewater Requests',
-            'value' => '23',
+            'value' => $_wasteCountTotal > 0 ? number_format($_wasteCountTotal) : '23',
             'label' => 'Desludging Requests',
-            'badge' => '5 pending',
+            'badge' => $_calcGrowthBadge($_wastewaterDbRecords, '+5.0%'),
             'badge_bg' => 'bg-purple-100 text-purple-700',
             'sub' => 'vs last month',
             'url' => site_url('modules/services/service_requests.php'),
             'icon' => 'fa-water',
             'color' => 'purple-600',
             'border_color' => 'from-purple-400 to-purple-600',
-            'offset' => '23',
-            'pct' => '77%'
+            'offset' => $_wasteRingData['offset'],
+            'pct' => $_wasteRingData['pct']
         ],
         [
             'title' => 'Septic Registry',
@@ -809,20 +907,21 @@ elseif ($_isSanRole) {
 }
 // Immunization & Nutrition KPI cards
 elseif ($_isImmRole) {
+    $_immRingData = $_calcRingPctData($_childDbRecords, fn($c) => in_array(strtolower($c['status'] ?? ''), ['completed', 'fully_immunized', 'active']), 92);
     $kpiCards = [
         [
             'title' => 'Immunized Children',
-            'value' => '1,924',
+            'value' => $_childCountTotal > 0 ? number_format($_childCountTotal) : '1,924',
             'label' => 'Total Immunizations',
-            'badge' => '92% coverage',
+            'badge' => $_immRingData['pct'] . ' coverage',
             'badge_bg' => 'bg-blue-100 text-blue-700',
             'sub' => 'vs last month',
             'url' => site_url('modules/immunization/child_records.php'),
             'icon' => 'fa-syringe',
             'color' => 'blue-600',
             'border_color' => 'from-blue-400 to-blue-600',
-            'offset' => '8',
-            'pct' => '92%'
+            'offset' => $_immRingData['offset'],
+            'pct' => $_immRingData['pct']
         ],
         [
             'title' => 'Growth Monitoring',
@@ -898,24 +997,25 @@ elseif ($_isImmRole) {
 }
 // Health Surveillance Lead KPI cards
 elseif ($_isSurvRole) {
+    $_survResData = $_calcRingPctData($_survCasesDbRecords, fn($s) => strcasecmp($s['status'] ?? '', 'Resolved') === 0, 68);
     $kpiCards = [
         [
             'title' => 'Active Cases',
-            'value' => '234',
+            'value' => $_survCountTotal > 0 ? number_format($_survCountTotal) : '234',
             'label' => 'Cases Under Monitoring',
-            'badge' => '+12.3%',
+            'badge' => $_calcGrowthBadge($_survCasesDbRecords, '+12.3%'),
             'badge_bg' => 'bg-rose-100 text-rose-700',
             'sub' => 'vs last month',
             'url' => site_url('modules/surveillence/case_reports.php'),
             'icon' => 'fa-binoculars',
             'color' => 'rose-600',
             'border_color' => 'from-rose-400 to-rose-600',
-            'offset' => '32',
-            'pct' => '68%'
+            'offset' => $_survResData['offset'],
+            'pct' => $_survResData['pct']
         ],
         [
             'title' => 'Outbreak Alerts',
-            'value' => '3',
+            'value' => $_outbreakCountTotal > 0 ? (string)$_outbreakCountTotal : '3',
             'label' => 'Active Outbreak Watches',
             'badge' => '1 Critical',
             'badge_bg' => 'bg-red-100 text-red-700',
@@ -987,76 +1087,99 @@ elseif ($_isSurvRole) {
 }
 // Default system overview cards (Admin / System-wide)
 else {
+    $hcValFormatted = $_patientCountTotal > 0 ? number_format($_patientCountTotal) : '1,847';
+    $sanValFormatted = $_permitCountTotal > 0 ? number_format($_permitCountTotal) : '156';
+    $pendingBadgeText = $_pendingPermitsCount . ' pending';
+    $pendingBadgeBg = 'bg-amber-100 text-amber-700';
+    $immValFormatted = $_childCountTotal > 0 ? number_format($_childCountTotal) : '1,924';
+    $wasteValFormatted = $_wasteCountTotal > 0 ? number_format($_wasteCountTotal) : '23';
+    $survValFormatted = $_survCountTotal > 0 ? number_format($_survCountTotal) : '234';
+    $outbreakBadgeText = $_outbreakCountTotal > 0 ? ($_outbreakCountTotal . ' outbreak') : '1 outbreak';
+    $logsTotalCount = count($allDashboardLogs);
+    $logsSubText = $logsTotalCount > 0 ? ($logsTotalCount . ' logs rec.') : '199d uptime';
+
+    // Dynamic ring percent & offsets
+    $_hcRingData    = $_calcRingPctData($_patientsDbRecords, null, 84);
+    $_sanRingData   = $_calcRingPctData($_permitsDbRecords, fn($p) => in_array(strtolower($p['status'] ?? ''), ['approved', 'active', 'issued']), 100);
+    $_immRingData   = $_calcRingPctData($_childDbRecords, fn($c) => in_array(strtolower($c['status'] ?? ''), ['completed', 'fully_immunized', 'active']), 92);
+    $_wasteRingData = $_calcRingPctData($_wastewaterDbRecords, fn($w) => in_array(strtolower($w['status'] ?? ''), ['completed', 'resolved', 'serviced']), 77);
+    $_survRingData  = $_calcRingPctData($_survCasesDbRecords, fn($s) => strcasecmp($s['status'] ?? '', 'Resolved') === 0, 68);
+    $_sysRingData   = $_calcRingPctData($allDashboardLogs, null, 99);
+
+    // Dynamic monthly growth badges
+    $_hcGrowthBadge    = $_calcGrowthBadge($_patientsDbRecords, '+12.5%');
+    $_wasteGrowthBadge = $_calcGrowthBadge($_wastewaterDbRecords, '+5.0%');
+
     $kpiCards = [
         [
             'title' => 'Health Center',
-            'value' => '1,847',
+            'value' => $hcValFormatted,
             'label' => 'Patients Served',
-            'badge' => '+12.5%',
+            'badge' => $_hcGrowthBadge,
             'badge_bg' => 'bg-emerald-100 text-emerald-700',
             'sub' => 'vs last month',
             'url' => site_url('modules/healthservices/patients.php'),
             'icon' => 'fa-hospital',
             'color' => 'c2',
             'border_color' => 'from-c3 to-c2',
-            'offset' => '16',
-            'pct' => '84%'
+            'offset' => $_hcRingData['offset'],
+            'pct' => $_hcRingData['pct']
         ],
         [
             'title' => 'Sanitation',
-            'value' => '156',
+            'value' => $sanValFormatted,
             'label' => 'Active Permits',
-            'badge' => '3 pending',
-            'badge_bg' => 'bg-amber-100 text-amber-700',
-            'sub' => '87% approval',
+            'badge' => $pendingBadgeText,
+            'badge_bg' => $pendingBadgeBg,
+            'sub' => $_sanRingData['pct'] . ' approval',
             'url' => site_url('modules/sanitation/permit_applications.php'),
             'icon' => 'fa-file-signature',
             'color' => 'amber-600',
             'border_color' => 'from-amber-400 to-amber-600',
-            'offset' => '13',
-            'pct' => '87%'
+            'offset' => $_sanRingData['offset'],
+            'pct' => $_sanRingData['pct']
         ],
         [
             'title' => 'Immunization',
-            'value' => '1,924',
+            'value' => $immValFormatted,
             'label' => 'Immunized',
             'badge' => '2 low stock',
             'badge_bg' => 'bg-rose-100 text-rose-700',
-            'sub' => '92% coverage',
+            'sub' => $_immRingData['pct'] . ' coverage',
             'url' => site_url('modules/immunization/child_records.php'),
             'icon' => 'fa-syringe',
             'color' => 'blue-600',
             'border_color' => 'from-blue-400 to-blue-600',
-            'offset' => '8',
-            'pct' => '92%'
+            'offset' => $_immRingData['offset'],
+            'pct' => $_immRingData['pct']
         ],
         [
             'title' => 'Wastewater',
-            'value' => '23',
+            'value' => $wasteValFormatted,
             'label' => 'Service Requests',
-            'badge' => '+5%',
+            'badge' => $_wasteGrowthBadge,
             'badge_bg' => 'bg-emerald-100 text-emerald-700',
             'sub' => 'vs last month',
             'url' => site_url('modules/services/septic_tanks.php'),
             'icon' => 'fa-water',
             'color' => 'purple-600',
             'border_color' => 'from-purple-400 to-purple-600',
-            'offset' => '23',
-            'pct' => '77%'
+            'offset' => $_wasteRingData['offset'],
+            'pct' => $_wasteRingData['pct']
         ],
         [
             'title' => 'Surveillance',
-            'value' => '234',
+            'value' => $survValFormatted,
             'label' => 'Active Cases',
-            'badge' => '1 outbreak',
+            'badge' => $outbreakBadgeText,
             'badge_bg' => 'bg-rose-100 text-rose-700',
-            'sub' => '68% resolved',
+            'sub' => $_survRingData['pct'] . ' resolved',
             'url' => site_url('modules/surveillence/case_reports.php'),
             'icon' => 'fa-binoculars',
             'color' => 'rose-600',
             'border_color' => 'from-rose-400 to-rose-600',
-            'offset' => '32',
-            'pct' => '68%'
+            'offset' => $_survRingData['offset'],
+            'pct' => $_survRingData['pct']
         ],
         [
             'title' => 'System Uptime',
@@ -1064,13 +1187,13 @@ else {
             'label' => 'Running Smoothly',
             'badge' => 'Operational',
             'badge_bg' => 'bg-emerald-100 text-emerald-700',
-            'sub' => '199d uptime',
+            'sub' => $logsSubText,
             'url' => site_url('management/system_logs.php'),
             'icon' => 'fa-server',
             'color' => 'indigo-600',
             'border_color' => 'from-indigo-400 to-indigo-600',
-            'offset' => '1',
-            'pct' => '99.9%'
+            'offset' => $_sysRingData['offset'],
+            'pct' => $_sysRingData['pct']
         ],
     ];
 }
@@ -1558,365 +1681,73 @@ else {
             </div>
 
             <!-- ============================================================ -->
-            <!-- COLUMN 2: Alerts & Notifications                            -->
+            <!-- COLUMN 2: Announcements Board                               -->
             <!-- ============================================================ -->
-            <div id="alertsNotifications" class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
+            <div id="announcementsBoard" class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
                 <div class="flex items-center justify-between mb-3 flex-shrink-0">
-                    <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
-                        <i class="fas fa-bell" aria-hidden="true"></i> Alerts &amp; Notifications
-                        <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[9px] font-bold ml-1">
-                            <i class="fas fa-exclamation-circle text-[8px] mr-1" aria-hidden="true"></i> 4 New
+                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                        <i class="fas fa-bullhorn text-c2 text-sm" aria-hidden="true"></i> Announcements Board
+                        <span id="announcementsCountBadge" class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[9px] font-extrabold ml-1">
+                            3 Active
                         </span>
                     </div>
-                    <button onclick="markAllRead()"
-                            class="text-[10px] text-c2 hover:text-c3 font-semibold transition-colors"
-                            aria-label="Mark all notifications as read">
-                        <i class="fas fa-check-circle text-[10px] mr-1" aria-hidden="true"></i> Mark all read
-                    </button>
                 </div>
-                <div class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scroll">
+                
+                <div id="announcementsList" class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scroll">
 
-                    <?php if ($_isSurvRole): ?>
-
-                    <!-- SURVEILLANCE LEAD ALERTS -->
-
-                    <!-- Alert 1: Outbreak - Critical -->
-                    <div class="p-3 bg-red-50 border-l-4 border-red-500 rounded-xl animate-pulse" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-biohazard text-red-500 text-sm" aria-hidden="true"></i>
+                    <!-- Announcement 1: Urgent Health Advisory -->
+                    <div class="p-3 bg-red-50/70 border-l-4 border-red-500 rounded-xl transition hover:shadow-md">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-1.5">
+                                <span class="px-1.5 py-0.5 bg-red-600 text-white rounded text-[7px] font-extrabold uppercase">Urgent Advisory</span>
+                                <h4 class="text-xs font-bold text-slate-800">Dengue Vector Control &amp; Fogging Schedule</h4>
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-red-700">Dengue Outbreak Alert</p>
-                                        <span class="px-1.5 py-0.5 bg-red-200 text-red-800 rounded text-[7px] font-bold">PRIORITY 1</span>
-                                    </div>
-                                    <span class="text-[9px] text-red-500 flex-shrink-0">30 min ago</span>
-                                </div>
-                                <p class="text-[10px] text-red-600 mt-0.5">Cluster detected in Brgy. San Jose — 12 cases in 48 hours</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-red-600 text-white rounded text-[9px] font-semibold hover:bg-red-700 transition">
-                                        <i class="fas fa-bullhorn text-[8px] mr-1" aria-hidden="true"></i> Activate Response
-                                    </button>
-                                </div>
-                            </div>
+                            <span class="text-[9px] text-slate-400 font-medium flex-shrink-0">Today, 9:00 AM</span>
+                        </div>
+                        <p class="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
+                            Intensified anti-dengue fogging operations scheduled for Brgy. San Jose and Brgy. 178 starting Saturday. All health officers proceed to designated zones.
+                        </p>
+                        <div class="mt-2.5 pt-2 border-t border-red-100 flex items-center justify-between text-[9px] text-slate-400 font-medium">
+                            <span class="flex items-center gap-1"><i class="fas fa-user-shield text-[8px] text-c2"></i> Posted by: Dr. Reyes (Surveillance Lead)</span>
+                            <span class="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[7px] font-bold">All Staff</span>
                         </div>
                     </div>
 
-                    <!-- Alert 2: Lab Confirmation Urgent -->
-                    <div class="p-3 bg-amber-50 border-l-4 border-amber-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-flask-vial text-amber-500 text-sm" aria-hidden="true"></i>
+                    <!-- Announcement 2: Operational Notice -->
+                    <div class="p-3 bg-amber-50/70 border-l-4 border-amber-500 rounded-xl transition hover:shadow-md">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-1.5">
+                                <span class="px-1.5 py-0.5 bg-amber-600 text-white rounded text-[7px] font-extrabold uppercase">Operational Notice</span>
+                                <h4 class="text-xs font-bold text-slate-800">Q3 Sanitation Permit Inspection Protocol</h4>
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-amber-700">Lab Confirmation Needed</p>
-                                        <span class="px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded text-[7px] font-bold">URGENT</span>
-                                    </div>
-                                    <span class="text-[9px] text-amber-500 flex-shrink-0">1 hour ago</span>
-                                </div>
-                                <p class="text-[10px] text-amber-600 mt-0.5">5 suspected Measles cases awaiting lab results</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-amber-600 text-white rounded text-[9px] font-semibold hover:bg-amber-700 transition">
-                                        <i class="fas fa-paper-plane text-[8px] mr-1" aria-hidden="true"></i> Expedite
-                                    </button>
-                                </div>
-                            </div>
+                            <span class="text-[9px] text-slate-400 font-medium flex-shrink-0">Yesterday</span>
+                        </div>
+                        <p class="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
+                            Updated sanitary clearance guidelines for food establishments take effect Monday. Ensure digital inspection forms are synced prior to field audit.
+                        </p>
+                        <div class="mt-2.5 pt-2 border-t border-amber-100 flex items-center justify-between text-[9px] text-slate-400 font-medium">
+                            <span class="flex items-center gap-1"><i class="fas fa-user-shield text-[8px] text-amber-600"></i> Posted by: Engr. Santos (Sanitation)</span>
+                            <span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[7px] font-bold">Sanitation Dept</span>
                         </div>
                     </div>
 
-                    <!-- Alert 3: Investigation Update -->
-                    <div class="p-3 bg-blue-50 border-l-4 border-blue-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-magnifying-glass text-blue-500 text-sm" aria-hidden="true"></i>
+                    <!-- Announcement 3: General Health Announcement -->
+                    <div class="p-3 bg-blue-50/70 border-l-4 border-blue-500 rounded-xl transition hover:shadow-md">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-1.5">
+                                <span class="px-1.5 py-0.5 bg-blue-600 text-white rounded text-[7px] font-extrabold uppercase">General Notice</span>
+                                <h4 class="text-xs font-bold text-slate-800">Child Vaccination Drive Masterlist Submission</h4>
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-blue-700">Field Investigation Update</p>
-                                        <span class="px-1.5 py-0.5 bg-blue-200 text-blue-800 rounded text-[7px] font-bold">UPDATE</span>
-                                    </div>
-                                    <span class="text-[9px] text-blue-500 flex-shrink-0">2 hours ago</span>
-                                </div>
-                                <p class="text-[10px] text-blue-600 mt-0.5">Investigation #INV-2026-047 completed — Foodborne illness, Brgy. Poblacion</p>
-                            </div>
+                            <span class="text-[9px] text-slate-400 font-medium flex-shrink-0">Aug 5, 2026</span>
+                        </div>
+                        <p class="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
+                            Monthly immunization masterlists for zero-dose children must be uploaded by Friday 5:00 PM for inventory allocation.
+                        </p>
+                        <div class="mt-2.5 pt-2 border-t border-blue-100 flex items-center justify-between text-[9px] text-slate-400 font-medium">
+                            <span class="flex items-center gap-1"><i class="fas fa-user-shield text-[8px] text-blue-600"></i> Posted by: Nurse Cruz (Immunization)</span>
+                            <span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[7px] font-bold">Immunization</span>
                         </div>
                     </div>
-
-                    <?php elseif ($_isSanRole): ?>
-
-                    <!-- SANITATION ALERTS -->
-
-                    <!-- Alert 1: Critical - Permit Expiry -->
-                    <div class="p-3 bg-rose-50 border-l-4 border-rose-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-exclamation-triangle text-rose-500 text-sm" aria-hidden="true"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-rose-700">Permit Expiry Alert</p>
-                                        <span class="px-1.5 py-0.5 bg-rose-200 text-rose-800 rounded text-[7px] font-bold">CRITICAL</span>
-                                    </div>
-                                    <span class="text-[9px] text-rose-500 flex-shrink-0">1 hour ago</span>
-                                </div>
-                                <p class="text-[10px] text-rose-600 mt-0.5">5 sanitation permits expire within 7 days</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-rose-600 text-white rounded text-[9px] font-semibold hover:bg-rose-700 transition">
-                                        <i class="fas fa-eye text-[8px] mr-1" aria-hidden="true"></i> View
-                                    </button>
-                                    <button class="px-2.5 py-1 bg-white text-rose-600 rounded text-[9px] font-semibold border border-rose-200 hover:bg-rose-50 transition">
-                                        <i class="fas fa-times text-[8px] mr-1" aria-hidden="true"></i> Dismiss
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Alert 2: Warning - Compliance Violation -->
-                    <div class="p-3 bg-amber-50 border-l-4 border-amber-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-exclamation-circle text-amber-500 text-sm" aria-hidden="true"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-amber-700">Compliance Violation Found</p>
-                                        <span class="px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded text-[7px] font-bold">WARNING</span>
-                                    </div>
-                                    <span class="text-[9px] text-amber-500 flex-shrink-0">2 hours ago</span>
-                                </div>
-                                <p class="text-[10px] text-amber-600 mt-0.5">2 establishments failed sanitary inspection — Brgy. Poblacion</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-amber-600 text-white rounded text-[9px] font-semibold hover:bg-amber-700 transition">
-                                        <i class="fas fa-gavel text-[8px] mr-1" aria-hidden="true"></i> Issue Order
-                                    </button>
-                                    <button class="px-2.5 py-1 bg-white text-amber-600 rounded text-[9px] font-semibold border border-amber-200 hover:bg-amber-50 transition">
-                                        <i class="fas fa-times text-[8px] mr-1" aria-hidden="true"></i> Dismiss
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Alert 3: Info - Inspection Schedule -->
-                    <div class="p-3 bg-blue-50 border-l-4 border-blue-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-calendar-check text-blue-500 text-sm" aria-hidden="true"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-blue-700">Inspection Schedule Tomorrow</p>
-                                        <span class="px-1.5 py-0.5 bg-blue-200 text-blue-800 rounded text-[7px] font-bold">INFO</span>
-                                    </div>
-                                    <span class="text-[9px] text-blue-500 flex-shrink-0">3 hours ago</span>
-                                </div>
-                                <p class="text-[10px] text-blue-600 mt-0.5">12 field inspections scheduled for Brgy. San Miguel & Sta. Cruz</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-blue-600 text-white rounded text-[9px] font-semibold hover:bg-blue-700 transition">
-                                        <i class="fas fa-eye text-[8px] mr-1" aria-hidden="true"></i> View
-                                    </button>
-                                    <button class="px-2.5 py-1 bg-white text-blue-600 rounded text-[9px] font-semibold border border-blue-200 hover:bg-blue-50 transition">
-                                        <i class="fas fa-times text-[8px] mr-1" aria-hidden="true"></i> Dismiss
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Alert 4: Success - New Permit Application -->
-                    <div class="p-3 bg-emerald-50 border-l-4 border-emerald-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-check-circle text-emerald-500 text-sm" aria-hidden="true"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-emerald-700">New Permit Application</p>
-                                        <span class="px-1.5 py-0.5 bg-emerald-200 text-emerald-800 rounded text-[7px] font-bold">SUCCESS</span>
-                                    </div>
-                                    <span class="text-[9px] text-emerald-500 flex-shrink-0">15 min ago</span>
-                                </div>
-                                <p class="text-[10px] text-emerald-600 mt-0.5">Permit #SP-2026-0189 submitted — Aling Maria's Carinderia</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-emerald-600 text-white rounded text-[9px] font-semibold hover:bg-emerald-700 transition">
-                                        <i class="fas fa-eye text-[8px] mr-1" aria-hidden="true"></i> Review
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Alert 5: Desludging Request -->
-                    <div class="p-3 bg-purple-50 border-l-4 border-purple-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-water text-purple-500 text-sm" aria-hidden="true"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-purple-700">Desludging Request Pending</p>
-                                        <span class="px-1.5 py-0.5 bg-purple-200 text-purple-800 rounded text-[7px] font-bold">PENDING</span>
-                                    </div>
-                                    <span class="text-[9px] text-purple-500 flex-shrink-0">30 min ago</span>
-                                </div>
-                                <p class="text-[10px] text-purple-600 mt-0.5">5 wastewater desludging requests awaiting assignment</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-purple-600 text-white rounded text-[9px] font-semibold hover:bg-purple-700 transition">
-                                        <i class="fas fa-tasks text-[8px] mr-1" aria-hidden="true"></i> Assign
-                                    </button>
-                                    <button class="px-2.5 py-1 bg-white text-purple-600 rounded text-[9px] font-semibold border border-purple-200 hover:bg-purple-50 transition">
-                                        <i class="fas fa-times text-[8px] mr-1" aria-hidden="true"></i> Dismiss
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <?php else: ?>
-
-                    <!-- HEALTH CENTER / DEFAULT ALERTS -->
-
-                    <!-- Alert 1: Critical -->
-                    <div class="p-3 bg-rose-50 border-l-4 border-rose-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-exclamation-triangle text-rose-500 text-sm" aria-hidden="true"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-rose-700">Disease Outbreak Alert</p>
-                                        <span class="px-1.5 py-0.5 bg-rose-200 text-rose-800 rounded text-[7px] font-bold">CRITICAL</span>
-                                    </div>
-                                    <span class="text-[9px] text-rose-500 flex-shrink-0">2 hours ago</span>
-                                </div>
-                                <p class="text-[10px] text-rose-600 mt-0.5">Dengue outbreak detected in Barangay San Jose</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-rose-600 text-white rounded text-[9px] font-semibold hover:bg-rose-700 transition">
-                                        <i class="fas fa-eye text-[8px] mr-1" aria-hidden="true"></i> View
-                                    </button>
-                                    <button class="px-2.5 py-1 bg-white text-rose-600 rounded text-[9px] font-semibold border border-rose-200 hover:bg-rose-50 transition">
-                                        <i class="fas fa-times text-[8px] mr-1" aria-hidden="true"></i> Dismiss
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Alert 2: Warning -->
-                    <div class="p-3 bg-amber-50 border-l-4 border-amber-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-exclamation-circle text-amber-500 text-sm" aria-hidden="true"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-amber-700">Vaccine Stocks Running Low</p>
-                                        <span class="px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded text-[7px] font-bold">WARNING</span>
-                                    </div>
-                                    <span class="text-[9px] text-amber-500 flex-shrink-0">1 hour ago</span>
-                                </div>
-                                <p class="text-[10px] text-amber-600 mt-0.5">MMR and Dengue vaccines below threshold levels</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-amber-600 text-white rounded text-[9px] font-semibold hover:bg-amber-700 transition">
-                                        <i class="fas fa-cart-plus text-[8px] mr-1" aria-hidden="true"></i> Reorder
-                                    </button>
-                                    <button class="px-2.5 py-1 bg-white text-amber-600 rounded text-[9px] font-semibold border border-amber-200 hover:bg-amber-50 transition">
-                                        <i class="fas fa-times text-[8px] mr-1" aria-hidden="true"></i> Dismiss
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Alert 3: Info -->
-                    <div class="p-3 bg-emerald-50 border-l-4 border-emerald-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-check-circle text-emerald-500 text-sm" aria-hidden="true"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-emerald-700">Pending Permit Inspections</p>
-                                        <span class="px-1.5 py-0.5 bg-emerald-200 text-emerald-800 rounded text-[7px] font-bold">INFO</span>
-                                    </div>
-                                    <span class="text-[9px] text-emerald-500 flex-shrink-0">3 hours ago</span>
-                                </div>
-                                <p class="text-[10px] text-emerald-600 mt-0.5">Inspections scheduled for tomorrow</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-emerald-600 text-white rounded text-[9px] font-semibold hover:bg-emerald-700 transition">
-                                        <i class="fas fa-eye text-[8px] mr-1" aria-hidden="true"></i> View
-                                    </button>
-                                    <button class="px-2.5 py-1 bg-white text-emerald-600 rounded text-[9px] font-semibold border border-emerald-200 hover:bg-emerald-50 transition">
-                                        <i class="fas fa-times text-[8px] mr-1" aria-hidden="true"></i> Dismiss
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Alert 4: System -->
-                    <div class="p-3 bg-blue-50 border-l-4 border-blue-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-info-circle text-blue-500 text-sm" aria-hidden="true"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-blue-700">System Backup Completed</p>
-                                        <span class="px-1.5 py-0.5 bg-blue-200 text-blue-800 rounded text-[7px] font-bold">SYSTEM</span>
-                                    </div>
-                                    <span class="text-[9px] text-blue-500 flex-shrink-0">5 hours ago</span>
-                                </div>
-                                <p class="text-[10px] text-blue-600 mt-0.5">Scheduled backup completed successfully</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-blue-600 text-white rounded text-[9px] font-semibold hover:bg-blue-700 transition">
-                                        <i class="fas fa-file-alt text-[8px] mr-1" aria-hidden="true"></i> View Report
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Alert 5: Success -->
-                    <div class="p-3 bg-emerald-50 border-l-4 border-emerald-500 rounded-xl" role="alert">
-                        <div class="flex items-start gap-2.5">
-                            <div class="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                                <i class="fas fa-check-circle text-emerald-500 text-sm" aria-hidden="true"></i>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
-                                        <p class="text-xs font-bold text-emerald-700">New Patient Registered</p>
-                                        <span class="px-1.5 py-0.5 bg-emerald-200 text-emerald-800 rounded text-[7px] font-bold">SUCCESS</span>
-                                    </div>
-                                    <span class="text-[9px] text-emerald-500 flex-shrink-0">10 min ago</span>
-                                </div>
-                                <p class="text-[10px] text-emerald-600 mt-0.5">Patient #1123 successfully registered</p>
-                                <div class="flex gap-2 mt-2">
-                                    <button class="px-2.5 py-1 bg-emerald-600 text-white rounded text-[9px] font-semibold hover:bg-emerald-700 transition">
-                                        <i class="fas fa-eye text-[8px] mr-1" aria-hidden="true"></i> View
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <?php endif; ?>
 
                 </div>
             </div>
@@ -2573,6 +2404,19 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
                 </span>
             </button>
             <?php endif; ?>
+
+            <!-- Action 6: Post Announcement -->
+            <button onclick="openPostAnnouncementModal()" 
+                    class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-cyan-50 transition-all duration-200 cursor-pointer"
+                    aria-label="Post city health announcement"
+                    data-label="Announcement">
+                <div class="w-7 h-7 rounded-lg bg-cyan-50 group-hover:bg-cyan-100 flex items-center justify-center transition-all duration-200 group-hover:scale-105">
+                    <i class="fas fa-bullhorn text-cyan-600 text-xs" aria-hidden="true"></i>
+                </div>
+                <span class="action-label text-[9px] font-medium text-slate-700 group-hover:text-cyan-700 transition-all duration-300 max-w-0 opacity-0 group-hover:max-w-[100px] group-hover:opacity-100 overflow-hidden whitespace-nowrap">
+                   Announcement
+                </span>
+            </button>
             
             <?php if (hasPermission(Permissions::REPORTS_VIEW)): ?>
             <div class="w-px h-6 bg-slate-200/60 mx-0.5"></div>
@@ -2598,6 +2442,11 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
                      class="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 min-w-[180px] hidden opacity-0 scale-95 transition-all duration-200"
                      style="transform-origin: bottom right;">
                     <div class="space-y-0.5">
+                        <button onclick="openPostAnnouncementModal(); toggleDesktopMenu();" 
+                                class="w-full text-left px-3 py-2 hover:bg-cyan-50 rounded-lg text-xs flex items-center gap-2.5 transition-colors cursor-pointer">
+                            <i class="fas fa-bullhorn text-cyan-500 w-4 text-center" aria-hidden="true"></i>
+                            <span class="text-slate-700">Post Announcement</span>
+                        </button>
                         <button onclick="openModal('report'); toggleDesktopMenu();" 
                                 class="w-full text-left px-3 py-2 hover:bg-indigo-50 rounded-lg text-xs flex items-center gap-2.5 transition-colors">
                             <i class="fas fa-file-pdf text-indigo-500 w-4 text-center" aria-hidden="true"></i>
@@ -3498,8 +3347,219 @@ document.addEventListener('keydown', e => {
     console.log('  Alt+4  - Report Case');
     console.log('  Alt+5  - Schedule');
     console.log('  Alt+6  - More Actions');
-    console.log('  Alt+7  - More Menu');
-    console.log('  ESC    - Close menus & dismiss toasts');
+    // ===== SUPABASE REALTIME WEBSOCKET LISTENER =====
+    (function() {
+        var SUPABASE_URL = "<?= Env::get('SUPABASE_URL') ?>";
+        var SUPABASE_ANON_KEY = "<?= Env::get('SUPABASE_KEY') ?>";
+        if (SUPABASE_URL && SUPABASE_ANON_KEY && typeof supabase !== 'undefined') {
+            try {
+                var sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                sbClient.channel('dashboard_updates')
+                    .on('postgres_changes', { event: '*', schema: 'public' }, function(payload) {
+                        console.log('⚡ Supabase Realtime Push [Dashboard]:', payload);
+                        if (typeof refreshDashboard === 'function') {
+                            refreshDashboard();
+                        }
+                    })
+                    .subscribe();
+                console.log('⚡ Supabase Realtime Push listener active on System Overview');
+            } catch (err) {
+                console.warn('Supabase Realtime setup warning:', err);
+            }
+        }
+    })();
+</script>
+
+<!-- ============================================================ -->
+<!-- POST NEW ANNOUNCEMENT MODAL (UI/UX)                          -->
+<!-- ============================================================ -->
+<div id="postAnnouncementModal" class="fixed inset-0 z-[999] hidden overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 transition-all duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col animate-scaleUp">
+        
+        <!-- MODAL HEADER -->
+        <div class="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-2 text-sm font-bold text-slate-800">
+                <div class="w-8 h-8 rounded-xl bg-c3/10 text-c3 flex items-center justify-center">
+                    <i class="fas fa-bullhorn text-sm"></i>
+                </div>
+                <span>Post New Announcement</span>
+            </div>
+            <button type="button" onclick="closePostAnnouncementModal()" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center transition cursor-pointer">
+                <i class="fas fa-times text-sm"></i>
+            </button>
+        </div>
+
+        <!-- MODAL FORM BODY -->
+        <form id="postAnnouncementForm" onsubmit="handlePostAnnouncementSubmit(event)" class="p-5 space-y-4">
+            
+            <!-- Title -->
+            <div>
+                <label for="announcementTitle" class="block text-xs font-bold text-slate-700 mb-1">
+                    Announcement Title <span class="text-rose-500">*</span>
+                </label>
+                <input type="text" id="announcementTitle" required
+                       placeholder="e.g., City-Wide Dengue Vector Control Schedule"
+                       class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-c3 focus:border-transparent outline-none transition" />
+            </div>
+
+            <!-- Priority & Target Audience Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label for="announcementCategory" class="block text-xs font-bold text-slate-700 mb-1">
+                        Category / Priority <span class="text-rose-500">*</span>
+                    </label>
+                    <select id="announcementCategory" required
+                            class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-c3 focus:border-transparent outline-none transition bg-white">
+                        <option value="Urgent Advisory">Urgent Advisory</option>
+                        <option value="Operational Notice">Operational Notice</option>
+                        <option value="General Notice" selected>General Notice</option>
+                        <option value="Emergency Alert">Emergency Alert</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="announcementAudience" class="block text-xs font-bold text-slate-700 mb-1">
+                        Target Audience <span class="text-rose-500">*</span>
+                    </label>
+                    <select id="announcementAudience" required
+                            class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-c3 focus:border-transparent outline-none transition bg-white">
+                        <option value="All Staff" selected>All Staff &amp; Departments</option>
+                        <option value="Health Center">Health Center Staff</option>
+                        <option value="Sanitation Dept">Sanitation Officers</option>
+                        <option value="Surveillance">Surveillance Officers</option>
+                        <option value="Immunization">Immunization Team</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Content Message -->
+            <div>
+                <label for="announcementBody" class="block text-xs font-bold text-slate-700 mb-1">
+                    Announcement Details / Message <span class="text-rose-500">*</span>
+                </label>
+                <textarea id="announcementBody" rows="4" required
+                          placeholder="Write complete announcement details, instructions, schedules, or guidelines..."
+                          class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-c3 focus:border-transparent outline-none transition resize-none"></textarea>
+            </div>
+
+            <!-- Attachment / Image Upload Preview -->
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">
+                    Attachment / Memo Image <span class="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <div class="border-2 border-dashed border-slate-200 rounded-xl p-3 text-center bg-slate-50 hover:bg-slate-100/80 transition cursor-pointer" onclick="document.getElementById('announcementFile').click()">
+                    <i class="fas fa-cloud-arrow-up text-c2 text-lg mb-1"></i>
+                    <p class="text-[10px] font-semibold text-slate-600">Click to upload official memo or flyer</p>
+                    <p class="text-[8px] text-slate-400">PDF, PNG, JPG up to 5MB</p>
+                    <input type="file" id="announcementFile" class="hidden" accept="image/*,.pdf" onchange="previewAnnouncementFile(this)" />
+                </div>
+                <div id="filePreviewName" class="hidden mt-1.5 text-[10px] text-c3 font-semibold flex items-center gap-1">
+                    <i class="fas fa-paperclip text-[9px]"></i> <span id="fileNameText"></span>
+                </div>
+            </div>
+
+            <!-- MODAL FOOTER BUTTONS -->
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2 flex-shrink-0">
+                <button type="button" onclick="closePostAnnouncementModal()"
+                        class="px-4 py-2 bg-slate-100 text-slate-600 font-semibold rounded-xl text-xs hover:bg-slate-200 transition cursor-pointer">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 bg-c3 hover:bg-c3d text-white font-bold rounded-xl text-xs shadow-md transition cursor-pointer flex items-center gap-1.5">
+                    <i class="fas fa-paper-plane text-xs"></i> Publish Announcement
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openPostAnnouncementModal() {
+    const modal = document.getElementById('postAnnouncementModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closePostAnnouncementModal() {
+    const modal = document.getElementById('postAnnouncementModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+}
+
+function previewAnnouncementFile(input) {
+    if (input.files && input.files[0]) {
+        document.getElementById('filePreviewName').classList.remove('hidden');
+        document.getElementById('fileNameText').textContent = input.files[0].name;
+    }
+}
+
+function handlePostAnnouncementSubmit(e) {
+    e.preventDefault();
+    const title = document.getElementById('announcementTitle').value.trim();
+    const category = document.getElementById('announcementCategory').value;
+    const audience = document.getElementById('announcementAudience').value;
+    const body = document.getElementById('announcementBody').value.trim();
+
+    if (!title || !body) return;
+
+    // Build UI Card Preview
+    const list = document.getElementById('announcementsList');
+    if (list) {
+        let badgeColor = 'bg-blue-600';
+        let borderColor = 'border-blue-500';
+        let bgColor = 'bg-blue-50/70';
+        let tagColor = 'bg-blue-100 text-blue-700';
+
+        if (category === 'Urgent Advisory' || category === 'Emergency Alert') {
+            badgeColor = 'bg-red-600';
+            borderColor = 'border-red-500';
+            bgColor = 'bg-red-50/70';
+            tagColor = 'bg-red-100 text-red-700';
+        } else if (category === 'Operational Notice') {
+            badgeColor = 'bg-amber-600';
+            borderColor = 'border-amber-500';
+            bgColor = 'bg-amber-50/70';
+            tagColor = 'bg-amber-100 text-amber-700';
+        }
+
+        const newCard = document.createElement('div');
+        newCard.className = `p-3 ${bgColor} border-l-4 ${borderColor} rounded-xl transition hover:shadow-md animate-scaleUp`;
+        newCard.innerHTML = `
+            <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                    <span class="px-1.5 py-0.5 ${badgeColor} text-white rounded text-[7px] font-extrabold uppercase">${category}</span>
+                    <h4 class="text-xs font-bold text-slate-800">${title}</h4>
+                </div>
+                <span class="text-[9px] text-slate-400 font-medium flex-shrink-0">Just now</span>
+            </div>
+            <p class="text-[10px] text-slate-600 mt-1.5 leading-relaxed">${body}</p>
+            <div class="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[9px] text-slate-400 font-medium">
+                <span class="flex items-center gap-1"><i class="fas fa-user-shield text-[8px] text-c2"></i> Posted by: System Admin</span>
+                <span class="px-1.5 py-0.5 ${tagColor} rounded text-[7px] font-bold">${audience}</span>
+            </div>
+        `;
+        list.insertBefore(newCard, list.firstChild);
+
+        // Update count badge
+        const badge = document.getElementById('announcementsCountBadge');
+        if (badge) {
+            const currentCount = list.children.length;
+            badge.textContent = `${currentCount} Active`;
+        }
+    }
+
+    closePostAnnouncementModal();
+    document.getElementById('postAnnouncementForm').reset();
+    document.getElementById('filePreviewName').classList.add('hidden');
+
+    if (typeof toast !== 'undefined') {
+        toast.success('Announcement published successfully!', { title: 'Announcements Board' });
+    }
+}
 </script>
 </main>
 

@@ -139,7 +139,18 @@ class Triage
 
     public function updateStatus(string|int $id, string $status): array
     {
-        $updated = $this->db->update($this->table, ['status' => $status], ['id' => $id]);
+        $filter = ['id' => 'eq.' . $id];
+        if (is_string($id) && str_starts_with($id, 'TRG-')) {
+            $num = substr($id, 4);
+            if (is_numeric($num)) {
+                $filter = ['id' => 'eq.' . (int)$num];
+            } else {
+                $filter = ['triage_id' => 'eq.' . $id];
+            }
+        } elseif (is_numeric($id)) {
+            $filter = ['id' => 'eq.' . (int)$id];
+        }
+        $updated = $this->db->update($this->table, ['status' => $status], $filter);
         if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
             require_once __DIR__ . '/ActivityLog.php';
             try {

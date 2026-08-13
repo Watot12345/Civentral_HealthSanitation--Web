@@ -1,18 +1,19 @@
 {
-    "key": "analytics_66126fd41f40ea421c2841c882e4f9ad",
-    "created_at": 1786119158,
-    "expires_at": 1786119458,
+    "key": "analytics_5f681b83b130a8399b4be6390fe82c2f",
+    "created_at": 1786349324,
+    "expires_at": 1786349624,
     "data": {
         "success": true,
-        "timestamp": "2026-08-07 16:12:38",
+        "timestamp": "2026-08-10 16:08:44",
         "range": "6m",
+        "scope": "admin",
         "exec_overview": {
             "health_score": 94.8,
             "ai_confidence": 96.4,
             "status": "Optimal \/ Healthy",
             "risk_level": "Low Risk",
-            "executive_summary": "Overall system performance remains healthy. Active disease surveillance cases decreased while vaccination coverage improved across primary health centers. AI models project stable operational capacity over the next month with high confidence.",
-            "last_analysis": "2026-08-07 16:12:38",
+            "executive_summary": "Sanitation department performance remains healthy. Active operational workload processed smoothly. AI models project stable capacity over the next month with high confidence.",
+            "last_analysis": "2026-08-10 16:08:44",
             "processing_status": "Complete (Realtime Supabase Sync Active)"
         },
         "situational": [
@@ -61,58 +62,16 @@
         ],
         "prescriptive": [
             {
-                "id": "act_1",
-                "title": "Deploy Rapid Vector Fogging Team to Barangay 172",
-                "priority": "High",
-                "urgency": "Immediate (24 hrs)",
-                "impact": "High (-25% projected dengue transmission)",
-                "reason": "Dengue cluster threshold reached in Barangay 172.",
-                "department": "Epidemiology & Surveillance",
-                "confidence": 94,
-                "module": "surveillence\/response_management.php",
-                "explainability": {
-                    "what": "Dengue vector outbreak cluster detected in Barangay 172.",
-                    "why": "Stagnant rainwater accumulation following monsoon precipitation + 35% density surge in Aedes mosquitoes.",
-                    "how": "Calculated via Spatial DBSCAN Clustering & Time-Series Case Velocity Heuristics.",
-                    "reliability": "94% Confidence (R\u00b2 = 0.92, 1,248 historical logs analyzed).",
-                    "recommendation": "Execute targeted vector misting and deploy 2 sanitation officers for standing water elimination."
-                }
-            },
-            {
                 "id": "act_2",
                 "title": "Reassign 2 Health Inspectors to Commercial Permit Reviews",
                 "priority": "Medium",
                 "urgency": "Within 48 hrs",
-                "impact": "Moderate (-40% permit application queue backlog)",
+                "impact": "Reduces permit application queue backlog by ~40%",
                 "reason": "Commercial clearance application volume surge expected (+12.1% next month).",
-                "department": "Sanitation & Safety Permits",
+                "department": "Sanitation Permits",
+                "dept_key": "sanitation",
                 "confidence": 89,
-                "module": "sanitation\/permit_applications.php",
-                "explainability": {
-                    "what": "Commercial sanitation permit processing queue expanding.",
-                    "why": "Annual business permit renewal period alignment with local municipal licensing schedule.",
-                    "how": "Linear OLS trend forecasting over 3-year historical permit submission volumes.",
-                    "reliability": "89% Confidence (R\u00b2 = 0.89).",
-                    "recommendation": "Temporarily reallocate 2 inspectors from residential zoning to commercial clearances."
-                }
-            },
-            {
-                "id": "act_3",
-                "title": "Restock Influenza & Measles Vaccines at Sub-Station 4",
-                "priority": "High",
-                "urgency": "Within 72 hrs",
-                "impact": "High (Prevents inventory stockout during peak child immunization window)",
-                "reason": "Current inventory quantity is approaching reorder threshold.",
-                "department": "Immunization & Health Services",
-                "confidence": 96,
-                "module": "healthservices\/patients.php",
-                "explainability": {
-                    "what": "Sub-Station 4 vaccine inventory approaching critical reorder point.",
-                    "why": "Accelerated pediatric clinic visits + scheduled barangay health drive next week.",
-                    "how": "Inventory Burn-Rate Velocity Model & Demand Forecast.",
-                    "reliability": "96% Confidence.",
-                    "recommendation": "Issue immediate logistics transfer from Central Health Warehouse."
-                }
+                "module": "sanitation\/permit_applications.php"
             }
         ],
         "correlations": [
@@ -121,21 +80,21 @@
                 "coefficient": -0.84,
                 "strength": "Strong Negative Correlation",
                 "color": "emerald",
-                "interpretation": "Higher barangay immunization rates directly reduce infectious disease outbreak incidence by 84%."
+                "interpretation": "Barangays with higher immunization rates tend to report fewer disease cases (r = -0.84)."
             },
             {
                 "pair": "Inspection Frequency vs Sanitation Compliance",
                 "coefficient": 0.79,
                 "strength": "Strong Positive Correlation",
                 "color": "blue",
-                "interpretation": "Routine monthly sanitation inspections increase food establishment compliance by 79%."
+                "interpretation": "Routine monthly sanitation inspections strongly correlate with food establishment compliance (r = +0.79)."
             },
             {
                 "pair": "Staff Density vs Patient Queue Waiting Time",
                 "coefficient": -0.72,
                 "strength": "Strong Negative Correlation",
                 "color": "purple",
-                "interpretation": "Adding 2 triage nurses reduces clinic waiting times by an average of 35 minutes."
+                "interpretation": "Higher triage staff density correlates with reduced clinic waiting times (r = -0.72)."
             }
         ],
         "model_quality": {
@@ -145,7 +104,7 @@
             "mape": "4.2%",
             "model_health": "98% (High Precision)",
             "training_records": 1248,
-            "last_trained": "2026-08-07 16:12:38"
+            "last_trained": "2026-08-10 16:08:44"
         },
         "kpis": [
             {
@@ -301,24 +260,9 @@
                 "Aug",
                 "Sep (AI Forecast)"
             ],
-            "confidence_cases": 92,
-            "confidence_permits": 75,
-            "confidence_vaccines": 75,
             "series": [
                 {
-                    "name": "Expected Cases",
-                    "data": [
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0
-                    ]
-                },
-                {
-                    "name": "Permit Requests",
+                    "name": "Sanitation Permits",
                     "data": [
                         0,
                         0,
@@ -330,174 +274,56 @@
                     ]
                 },
                 {
-                    "name": "Vaccine Demand",
+                    "name": "Food Audits",
                     "data": [
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        2,
-                        1
+                        134,
+                        134,
+                        130,
+                        108,
+                        126,
+                        113,
+                        109
+                    ]
+                },
+                {
+                    "name": "Re-Inspections",
+                    "data": [
+                        74,
+                        88,
+                        86,
+                        73,
+                        90,
+                        89,
+                        90
                     ]
                 }
             ],
             "cards": [
                 {
-                    "title": "Expected Disease Cases",
-                    "value": "0",
-                    "confidence": "92%",
-                    "trend": "\u2191 8.3% vs current month",
-                    "color": "indigo",
-                    "icon": "alert",
-                    "detail": "Disease Cases Forecast (OLS & Gemini AI)",
-                    "subtitle": "Next month projection",
-                    "rows": [
-                        {
-                            "label": "Expected cases",
-                            "value": "0"
-                        },
-                        {
-                            "label": "Confidence interval",
-                            "value": "\u00b15%"
-                        },
-                        {
-                            "label": "Trend direction",
-                            "value": "\u2191 8.3% vs current month"
-                        },
-                        {
-                            "label": "Risk level",
-                            "value": "High Precision"
-                        }
-                    ],
-                    "pieData": [
-                        {
-                            "label": "Low Risk",
-                            "value": 25,
-                            "color": "#10b981"
-                        },
-                        {
-                            "label": "Moderate Risk",
-                            "value": 55,
-                            "color": "#f59e0b"
-                        },
-                        {
-                            "label": "High Risk",
-                            "value": 20,
-                            "color": "#ef4444"
-                        }
-                    ]
-                },
-                {
-                    "title": "Estimated Permit Requests",
+                    "key": "permits",
+                    "title": "Sanitation Permits",
                     "value": "3",
                     "confidence": "75%",
-                    "trend": "\u2193 40% vs current month",
-                    "color": "blue",
-                    "icon": "document",
-                    "detail": "Permit Requests Forecast",
-                    "subtitle": "Next month projection",
-                    "rows": [
-                        {
-                            "label": "Estimated requests",
-                            "value": "3"
-                        },
-                        {
-                            "label": "Confidence interval",
-                            "value": "\u00b14%"
-                        },
-                        {
-                            "label": "Trend direction",
-                            "value": "\u2193 40% vs current month"
-                        },
-                        {
-                            "label": "Staff required",
-                            "value": "8 officers"
-                        }
-                    ],
-                    "pieData": [
-                        {
-                            "label": "Residential",
-                            "value": 60,
-                            "color": "#3b82f6"
-                        },
-                        {
-                            "label": "Commercial",
-                            "value": 25,
-                            "color": "#8b5cf6"
-                        },
-                        {
-                            "label": "Industrial",
-                            "value": 15,
-                            "color": "#f59e0b"
-                        }
-                    ]
+                    "r_squared": 0.4286
                 },
                 {
-                    "title": "Vaccination Demand",
-                    "value": "1",
-                    "unit": "doses",
+                    "key": "audits",
+                    "title": "Food Audits",
+                    "value": "109",
                     "confidence": "75%",
-                    "trend": "\u2193 50% vs current month",
-                    "color": "amber",
-                    "icon": "health",
-                    "detail": "Vaccination Demand Forecast",
-                    "subtitle": "Next month projection",
-                    "rows": [
-                        {
-                            "label": "Doses needed",
-                            "value": "1"
-                        },
-                        {
-                            "label": "Confidence interval",
-                            "value": "\u00b18%"
-                        },
-                        {
-                            "label": "Trend direction",
-                            "value": "\u2193 50% vs current month"
-                        },
-                        {
-                            "label": "Stock status",
-                            "value": "Sufficient"
-                        }
-                    ],
-                    "pieData": [
-                        {
-                            "label": "Children",
-                            "value": 40,
-                            "color": "#f59e0b"
-                        },
-                        {
-                            "label": "Adults",
-                            "value": 35,
-                            "color": "#10b981"
-                        },
-                        {
-                            "label": "Seniors",
-                            "value": 25,
-                            "color": "#8b5cf6"
-                        }
-                    ]
-                }
-            ],
-            "confidence_interval": "\u00b15%",
-            "legend": [
-                {
-                    "color": "bg-red-500",
-                    "label": "Disease Cases (0 \u00b15%)"
+                    "r_squared": 0.5281
                 },
                 {
-                    "color": "bg-blue-500",
-                    "label": "Permit Requests (3)"
-                },
-                {
-                    "color": "bg-emerald-500",
-                    "label": "Vaccine Demand (1)"
+                    "key": "inspections",
+                    "title": "Re-Inspections",
+                    "value": "90",
+                    "confidence": "75%",
+                    "r_squared": 0.2207
                 }
             ]
         },
         "trend": {
-            "subtitle": "Disease Cases Trend",
+            "subtitle": "Sanitation Permits Trend",
             "categories": [
                 "Mar",
                 "Apr",
@@ -506,50 +332,101 @@
                 "Jul",
                 "Aug"
             ],
-            "series": [],
-            "colors": [],
-            "legend": []
+            "series": [
+                {
+                    "name": "Permit Applications",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        5
+                    ]
+                },
+                {
+                    "name": "Health Inspections",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        5
+                    ]
+                },
+                {
+                    "name": "Approved Clearances",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        4
+                    ]
+                }
+            ],
+            "colors": [
+                "#d97706",
+                "#f59e0b",
+                "#3b82f6"
+            ],
+            "legend": [
+                {
+                    "color": "bg-amber-600",
+                    "label": "Permit Applications (5)"
+                },
+                {
+                    "color": "bg-amber-400",
+                    "label": "Health Inspections"
+                },
+                {
+                    "color": "bg-blue-500",
+                    "label": "Approved Clearances (5)"
+                }
+            ]
         },
         "modules": [
             {
-                "label": "Health Center",
-                "share": 16.7,
-                "projected_share": 18.4,
-                "color": "#176b87",
-                "status": "Optimal",
-                "delta": "\u2191 1.7pts vs last month",
-                "confidence": "low",
-                "sample_size": 2
-            },
-            {
-                "label": "Sanitation Permits",
-                "share": 41.7,
-                "projected_share": 43.2,
+                "label": "Commercial Clearances",
+                "share": 45,
+                "projected_share": 48.2,
                 "color": "#d97706",
                 "status": "High Demand",
-                "delta": "\u2191 1.5pts vs last month",
-                "confidence": "low",
-                "sample_size": 5
+                "delta": "\u2191 3.2pts",
+                "confidence": "normal",
+                "sample_size": 180
             },
             {
-                "label": "Immunization & Surveillance",
-                "share": 0,
-                "projected_share": 0,
-                "color": "#2563eb",
+                "label": "Food Establishments",
+                "share": 30,
+                "projected_share": 28.5,
+                "color": "#f59e0b",
+                "status": "Optimal",
+                "delta": "\u2193 1.5pts",
+                "confidence": "normal",
+                "sample_size": 95
+            },
+            {
+                "label": "Institutional Audits",
+                "share": 15,
+                "projected_share": 14.8,
+                "color": "#b45309",
                 "status": "Normal",
-                "delta": "\u2191 0pts vs last month",
-                "confidence": "low",
-                "sample_size": 0
+                "delta": "\u2193 0.2pts",
+                "confidence": "normal",
+                "sample_size": 45
             },
             {
-                "label": "Wastewater Services",
-                "share": 41.6,
-                "projected_share": 38.4,
-                "color": "#9333ea",
+                "label": "Water Testing",
+                "share": 10,
+                "projected_share": 8.5,
+                "color": "#78350f",
                 "status": "Stable",
-                "delta": "\u2192 0.0pts vs last month",
-                "confidence": "low",
-                "sample_size": 5
+                "delta": "\u2193 1.5pts",
+                "confidence": "normal",
+                "sample_size": 30
             }
         ],
         "metrics": [
@@ -757,38 +634,22 @@
         ],
         "staff": [
             {
-                "name": "Dr. Manuel Reyes",
-                "score": 98,
-                "department": "Epidemiology Rapid Response",
-                "cases": 10
-            },
-            {
-                "name": "Nurse Ana Santos",
-                "score": 95,
-                "department": "Immunization Task Force",
-                "cases": 20
-            },
-            {
                 "name": "Insp. Juan Dela Cruz",
                 "score": 93,
                 "department": "Sanitation Permits",
+                "dept_key": "sanitation",
                 "cases": 100
             },
             {
-                "name": "Engr. Roberto Reyes",
-                "score": 90,
-                "department": "Wastewater Services",
-                "cases": 60
-            },
-            {
-                "name": "Dr. Carlos Mendoza",
-                "score": 88,
-                "department": "Health Surveillance",
-                "cases": 12
+                "name": "Maria Santos",
+                "score": 92,
+                "department": "Sanitation Permits",
+                "dept_key": "sanitation",
+                "cases": 90
             }
         ],
-        "forecast_insight": "No disease cases recorded in database \u2014 baseline forecast set to 0.",
-        "module_insight": "Sanitation Permits forecasted at 43.2% (+1.5pts vs current) \u2014 reassign 2 health inspectors to commercial permit reviews.",
+        "forecast_insight": "Disease Cases forecasted at 3 (-40% vs current) \u2014 maintain current resource allocation.",
+        "module_insight": "No sanitation permit requests recorded in database.",
         "correlation_insight": "Disease Surveillance and Health Center Services move together (+84% co-movement correlation) over the last 6 months."
     }
 }

@@ -53,6 +53,37 @@ try {
     $dbEmployees = [];
 }
 
+// Resolve logged in doctor / employee ID & Name based on role / session
+$sessionUserId = $_SESSION['user_id'] ?? null;
+$sessionEmployeeId = $_SESSION['employee_id'] ?? null;
+$sessionFullName = trim($_SESSION['full_name'] ?? ($_SESSION['name'] ?? ($_SESSION['username'] ?? '')));
+
+$loggedInDoctorId = null;
+$loggedInDoctorName = null;
+
+foreach ($dbEmployees as $e) {
+    $eId = (string)($e['id'] ?? '');
+    $uId = (string)($e['user_id'] ?? '');
+    $eName = trim($e['full_name'] ?? (($e['first_name'] ?? '') . ' ' . ($e['last_name'] ?? '')));
+    $eUser = trim($e['username'] ?? '');
+
+    if (
+        ($sessionEmployeeId && (string)$sessionEmployeeId === $eId) ||
+        ($sessionUserId && (string)$sessionUserId === $uId) ||
+        (!empty($sessionFullName) && (stripos($eName, $sessionFullName) !== false || stripos($sessionFullName, $eName) !== false || stripos($sessionFullName, $eUser) !== false))
+    ) {
+        $loggedInDoctorId = (int)$e['id'];
+        $loggedInDoctorName = $e['full_name'] ?? $eName;
+        break;
+    }
+}
+
+// Role checks — doctors see only their own assigned appointments unless Admin/Director
+$_sessionRoleDesc = strtolower(trim($_SESSION['role_description'] ?? $_SESSION['role'] ?? ''));
+$isDoctorRole = (str_contains($_sessionRoleDesc, 'doctor') || str_contains($_sessionRoleDesc, 'physician') || str_contains($_sessionRoleDesc, 'dentist') || str_contains($_sessionRoleDesc, 'medical practitioner'));
+$isAdminRole = (str_contains($_sessionRoleDesc, 'admin') || str_contains($_sessionRoleDesc, 'director') || str_contains($_sessionRoleDesc, 'system administrator'));
+$isDoctorOnly = ($isDoctorRole && !$isAdminRole);
+
 // Fetch Appointments
 $appointmentModel = new Appointment();
 $appointments = [];
@@ -77,6 +108,11 @@ try {
     }
 
     foreach ($rawAppointments as $a) {
+        $appEmployeeId = (int)($a['employee_id'] ?? 0);
+        if ($isDoctorOnly && $loggedInDoctorId && $appEmployeeId > 0 && $appEmployeeId !== $loggedInDoctorId) {
+            continue;
+        }
+
         $patientId = $a['patient_id'] ?? null;
         $patient = $patientsMap[$patientId] ?? null;
 
@@ -187,6 +223,11 @@ try {
         // Only include triage records that have an assigned doctor
         if (empty($t['doctor_id']) && empty($t['doctor_assigned'])) continue;
 
+        $tDocId = (int)($t['doctor_id'] ?? 0);
+        if ($isDoctorOnly && $loggedInDoctorId && $tDocId > 0 && $tDocId !== $loggedInDoctorId) {
+            continue;
+        }
+
         $tPatId = $t['patient_id'] ?? null;
         $tPat = $patientsMapLocal[$tPatId] ?? null;
 
@@ -268,10 +309,72 @@ $paginatedAppointments = array_slice($appointments, $offset, $limit);
 $title = 'Appointments';
 
 // Derived stats
+$todayDateStr = date('Y-m-d');
+$servedStatuses = ['completed', 'consulted', 'follow_up', 'referred', 'in_consultation'];
+
+$parseDate = function($dVal) {
+    if (empty($dVal)) return '';
+    try {
+        return date('Y-m-d', strtotime($dVal));
+    } catch (Throwable $ex) {
+        return '';
+    }
+};
+
 $totalApproved = count(array_filter($appointments, fn($a) => in_array($a['status'], ['approved', 'confirmed'])));
 $totalPending  = count(array_filter($appointments, fn($a) => $a['status'] === 'pending'));
-$totalCompleted = count(array_filter($appointments, fn($a) => $a['status'] === 'completed'));
-$todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === date('Y-m-d')));
+$totalCompleted = count(array_filter($appointments, fn($a) => in_array(strtolower($a['status']), $servedStatuses)));
+$todayAppointments = count(array_filter($appointments, fn($a) => $parseDate($a['date']) === $todayDateStr));
+
+// Doctor Consultations Filter
+$doctorConsultations = array_filter($rawConsultations, function($c) use ($isDoctorOnly, $loggedInDoctorId, $loggedInDoctorName) {
+    if (!$isDoctorOnly || !$loggedInDoctorId) return true;
+    $cEmpId = (int)($c['employee_id'] ?? 0);
+    if ($cEmpId > 0) return $cEmpId === $loggedInDoctorId;
+    if (!empty($c['doctor_name']) && !empty($loggedInDoctorName)) {
+        return stripos($c['doctor_name'], $loggedInDoctorName) !== false;
+    }
+    return true;
+});
+
+// Served consultations count for doctor
+$servedConsultationsTotal = count(array_filter($doctorConsultations, function($c) use ($servedStatuses) {
+    $st = strtolower(trim($c['status'] ?? ''));
+    return in_array($st, $servedStatuses) || !empty($c['diagnosis']) || !empty($c['treatment_plan']);
+}));
+
+$servedConsultationsToday = count(array_filter($doctorConsultations, function($c) use ($todayDateStr, $servedStatuses, $parseDate) {
+    $st = strtolower(trim($c['status'] ?? ''));
+    $cDate = $parseDate($c['date'] ?? ($c['created_at'] ?? ''));
+    return ($cDate === $todayDateStr) && (in_array($st, $servedStatuses) || !empty($c['diagnosis']));
+}));
+
+// Appointments served count
+$servedAppointmentsTotal = count(array_filter($appointments, function($a) use ($consultationMap, $servedStatuses) {
+    $st = strtolower(trim($a['status'] ?? ''));
+    $hasConsultation = !empty($consultationMap[$a['id']]) || !empty($consultationMap[$a['appointment_id']]);
+    return $hasConsultation || in_array($st, $servedStatuses);
+}));
+
+$servedAppointmentsToday = count(array_filter($appointments, function($a) use ($todayDateStr, $consultationMap, $servedStatuses, $parseDate) {
+    $st = strtolower(trim($a['status'] ?? ''));
+    $isToday = ($parseDate($a['date']) === $todayDateStr);
+    $hasConsultation = !empty($consultationMap[$a['id']]) || !empty($consultationMap[$a['appointment_id']]);
+    return $isToday && ($hasConsultation || in_array($st, $servedStatuses));
+}));
+
+// Combined total served count for doctor
+$doctorServedTotal = max($servedConsultationsTotal, $servedAppointmentsTotal);
+$doctorServedToday = max($servedConsultationsToday, $servedAppointmentsToday);
+
+$doctorTodayQueue = count(array_filter($appointments, function($a) use ($todayDateStr, $parseDate) {
+    $isToday = ($parseDate($a['date']) === $todayDateStr);
+    return $isToday && in_array(strtolower($a['status'] ?? ''), ['pending', 'approved', 'confirmed', 'triaged']);
+}));
+
+$doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDateStr, $parseDate) {
+    return ($parseDate($a['date']) === $todayDateStr);
+}));
 ?>
 <!-- ============================================================ -->
 <!-- 2. HTML + PHP EMBEDDED + Tailwind CSS                       -->
@@ -281,8 +384,8 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-            <h2 class="text-2xl font-black text-slate-900 tracking-tight">Appointment Scheduling</h2>
-            <p class="text-sm text-slate-500 mt-0.5">Manage patient bookings, approvals, and medical service schedules</p>
+            <h2 class="text-2xl font-black text-slate-900 tracking-tight"><?php echo $isDoctorOnly ? 'My Appointments' : 'Appointment Scheduling'; ?></h2>
+            <p class="text-sm text-slate-500 mt-0.5"><?php echo $isDoctorOnly ? 'View and manage your assigned patient appointments and daily consultations' : 'Manage patient bookings, approvals, and medical service schedules'; ?></p>
         </div>
         <div class="flex gap-3">
             <button onclick="ModalSystem.open('addAppointmentModal')"
@@ -292,8 +395,101 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
         </div>
     </div>
 
+    <?php if ($isDoctorOnly): ?>
+    <div class="mb-5 px-4 py-2.5 bg-blue-50/80 border border-blue-200/80 rounded-xl flex items-center justify-between text-xs text-blue-900 font-medium shadow-xs">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-user-doctor text-blue-600 text-sm"></i>
+            <span><strong>Doctor Schedule View:</strong> Showing appointments assigned to <strong><?php echo htmlspecialchars($loggedInDoctorName ?: 'your doctor account'); ?></strong>.</span>
+        </div>
+        <span class="px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[10px] font-extrabold">My Appointments Only</span>
+    </div>
+    <?php endif; ?>
+
     <!-- MODERN KPI CARDS -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <?php if ($isDoctorOnly): ?>
+        <!-- Card 1: Patients Served (Includes Follow-up, Completed, Consulted) -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-emerald-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
+                        <i class="fa-solid fa-user-check text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-emerald-600"><?php echo ($doctorServedTotal > 0 ? $doctorServedTotal : $doctorServedToday); ?></p>
+                        <p class="text-xs font-medium text-slate-500">Patients Served</p>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">🩺 Served & Consulted</span>
+                    <span class="text-[10px] text-slate-400"><?php echo $doctorServedToday; ?> served today • <?php echo $doctorServedTotal; ?> total</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Today's Waiting Queue -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-200">
+                        <i class="fa-solid fa-clock text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-amber-600"><?php echo $doctorTodayQueue; ?></p>
+                        <p class="text-xs font-medium text-slate-500">Waiting Queue Today</p>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">⏳ In Queue</span>
+                    <span class="text-[10px] text-slate-400">Awaiting consultation</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Today's Total Schedule -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-sky-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-sky-500 to-sky-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-sky-200">
+                        <i class="fa-solid fa-calendar-day text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-sky-600"><?php echo $doctorTodayTotal; ?></p>
+                        <p class="text-xs font-medium text-slate-500">Today's Schedule</p>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-sky-100 text-sky-700 rounded-full text-[10px] font-bold">📅 Today</span>
+                    <span class="text-[10px] text-slate-400"><?php echo date('M d, Y'); ?></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Total Assigned History -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-purple-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="relative">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-purple-200">
+                        <i class="fa-solid fa-calendar-check text-lg"></i>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-black text-purple-600"><?php echo $totalAppointments; ?></p>
+                        <p class="text-xs font-medium text-slate-500">Total Assigned History</p>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-bold">📂 All Time</span>
+                    <span class="text-[10px] text-slate-400">Total assigned bookings</span>
+                </div>
+            </div>
+        </div>
+
+        <?php else: ?>
+        <!-- Global Admin / Staff Cards -->
         <!-- Card 1: Total Appointments -->
         <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
             <div class="absolute -top-12 -right-12 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
@@ -373,6 +569,7 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
                 </div>
             </div>
         </div>
+        <?php endif; ?>
     </div>
 
     <!-- Search & Filters -->
@@ -1515,5 +1712,40 @@ $todayAppointments = count(array_filter($appointments, fn($a) => $a['date'] === 
 
         setInterval(checkTriageUpdates, 30000); // poll every 30 seconds
     })();
+
+    const LOGGED_IN_DOCTOR_ID = <?php echo json_encode($loggedInDoctorId); ?>;
+    const LOGGED_IN_DOCTOR_NAME = <?php echo json_encode($loggedInDoctorName); ?>;
+
+    // Centralized Workflow: Auto-open & prefill Add Appointment modal if redirected from Consultation
+    document.addEventListener('DOMContentLoaded', function() {
+        if (LOGGED_IN_DOCTOR_ID && LOGGED_IN_DOCTOR_NAME && typeof selectDoctor === 'function') {
+            selectDoctor('add', LOGGED_IN_DOCTOR_ID, LOGGED_IN_DOCTOR_NAME);
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetPatientId = urlParams.get('patient_id') || urlParams.get('patient');
+        const autoOpenNew = urlParams.get('from_consultation') !== null || urlParams.get('action') === 'new' || urlParams.get('new') === 'true';
+
+        if (autoOpenNew || targetPatientId) {
+            setTimeout(() => {
+                ModalSystem.open('addAppointmentModal');
+                if (targetPatientId && typeof PATIENTS_DATA !== 'undefined') {
+                    const p = PATIENTS_DATA.find(pt => pt.id == targetPatientId);
+                    if (p && typeof selectPatient === 'function') {
+                        selectPatient(p.id, p.name, p.patient_id);
+                    } else {
+                        const hiddenId = document.getElementById('add_patient_id');
+                        if (hiddenId) hiddenId.value = targetPatientId;
+                    }
+                }
+                if (LOGGED_IN_DOCTOR_ID && LOGGED_IN_DOCTOR_NAME && typeof selectDoctor === 'function') {
+                    selectDoctor('add', LOGGED_IN_DOCTOR_ID, LOGGED_IN_DOCTOR_NAME);
+                }
+                if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                    ModalSystem.toast.info('New follow-up appointment form pre-filled.', { title: '📅 Follow-up Appointment' });
+                }
+            }, 350);
+        }
+    });
 </script>
 <?php include_once '../../includes/footer.php'; ?>

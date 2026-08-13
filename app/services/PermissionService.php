@@ -126,7 +126,7 @@ class PermissionService
             ],
             'Doctor' => [
                 'dashboard.view', 'dashboard.health_center', 'reports.view',
-                'patients.view', 'patients.create', 'patients.edit',
+                'patients.view',
                 'consultations.view', 'consultations.create', 'triage.view',
                 'prescriptions.view', 'prescriptions.create'
             ],
@@ -138,7 +138,7 @@ class PermissionService
             ],
             'Dentist' => [
                 'dashboard.view', 'dashboard.health_center', 'reports.view',
-                'patients.view', 'patients.create', 'patients.edit',
+                'patients.view',
                 'consultations.view', 'consultations.create',
                 'prescriptions.view', 'prescriptions.create'
             ],
@@ -253,6 +253,9 @@ class PermissionService
         }
 
         $granted = $this->getGrantedPermissions();
+        if ($slug === 'view_ai_analytics' && (in_array('analytics.view', $granted, true) || in_array('view_ai_analytics', $granted, true))) {
+            return true;
+        }
         return in_array($slug, $granted, true);
     }
 

@@ -80,6 +80,12 @@ $targetPatientId = $_GET['patient'] ?? $_GET['id'] ?? null;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 5;
 
+// Permission Checks via RBAC System
+$canCreatePatient = hasPermission('patients.create');
+$canEditPatient   = hasPermission('patients.edit');
+$canDeletePatient = hasPermission('patients.delete');
+$isViewOnly       = !$canCreatePatient && !$canEditPatient;
+
 if ($targetPatientId && !isset($_GET['page'])) {
     foreach ($patients as $idx => $p) {
         if ((string)($p['id'] ?? '') === (string)$targetPatientId || (string)($p['patient_id'] ?? '') === (string)$targetPatientId) {
@@ -108,25 +114,42 @@ $title = 'Patient Management';
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
             <h2 class="text-2xl font-black text-slate-900 tracking-tight">Patient Management</h2>
-            <p class="text-sm text-slate-500 mt-0.5">Manage all patient records and information</p>
+            <p class="text-sm text-slate-500 mt-0.5"><?php echo $isViewOnly ? 'View patient records, clinical history, and vital signs' : 'Manage all patient records and information'; ?></p>
         </div>
         <div class="flex gap-3">
+            <?php if ($canCreatePatient || $canEditPatient): ?>
             <div class="flex rounded-lg border border-slate-200 overflow-hidden">
+                <?php if ($canCreatePatient): ?>
                 <button onclick="ModalSystem.open('importModal')"
                         class="px-4 py-2 bg-white text-slate-700 hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2 border-r border-slate-200">
                     <i class="fa-solid fa-file-import text-xs"></i> Import
                 </button>
+                <?php endif; ?>
                 <button onclick="ModalSystem.open('exportModal'); prepExportModal();"
                         class="px-4 py-2 bg-white text-slate-700 hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2">
                     <i class="fa-solid fa-file-export text-xs"></i> Export
                 </button>
             </div>
+            <?php endif; ?>
+
+            <?php if ($canCreatePatient): ?>
             <button onclick="ModalSystem.open('addPatientModal'); prepAddPatientModal();"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-plus text-xs"></i> Add Patient
             </button>
+            <?php endif; ?>
         </div>
     </div>
+
+    <?php if ($isViewOnly): ?>
+    <div class="mb-5 px-4 py-2.5 bg-blue-50/80 border border-blue-200/80 rounded-xl flex items-center justify-between text-xs text-blue-900 font-medium shadow-xs">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-eye text-blue-600 text-sm"></i>
+            <span><strong>View Only Mode:</strong> Accessing patient clinical history and records. Demographic editing is managed by Records Staff & Nurses.</span>
+        </div>
+        <span class="px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[10px] font-extrabold">Clinical View</span>
+    </div>
+    <?php endif; ?>
 
     <?php
     $criticalConditions = ['Heart Disease'];
@@ -259,10 +282,15 @@ $title = 'Patient Management';
     <td class="px-4 py-3">
         <div class="flex items-center justify-center gap-1">
             <button onclick="viewPatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye text-sm"></i></button>
+            <?php if ($canEditPatient): ?>
             <button onclick="editPatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Patient"><i class="fa-solid fa-pen-to-square text-sm"></i></button>
+            <?php endif; ?>
             <button onclick="scheduleAppointment(<?php echo $patient['id']; ?>)" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Schedule Appointment"><i class="fa-solid fa-calendar-plus text-sm"></i></button>
             <button onclick="checkInPatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Check-in / Queue"><i class="fa-solid fa-receipt text-sm"></i></button>
             <button onclick="openMedicalRecord(<?php echo $patient['id']; ?>)" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Medical Record"><i class="fa-solid fa-folder-open text-sm"></i></button>
+            <?php if ($canDeletePatient): ?>
+            <button onclick="deletePatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Delete Patient"><i class="fa-solid fa-trash-can text-sm"></i></button>
+            <?php endif; ?>
         </div>
     </td>
 </tr>
@@ -1199,6 +1227,22 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
+        // Auto-open patient details modal if requested or navigated from consultations
+        if (typeof viewPatient === 'function' && typeof PATIENTS !== 'undefined') {
+            let matchedKey = null;
+            for (const k in PATIENTS) {
+                if (PATIENTS[k].id == patientId || PATIENTS[k].patient_id == patientId) {
+                    matchedKey = k;
+                    break;
+                }
+            }
+            if (matchedKey) {
+                setTimeout(() => {
+                    viewPatient(matchedKey);
+                }, 450);
+            }
+        }
+
         if (!found) {
             console.warn('⚠️ Patient not found on current page:', patientId);
         }

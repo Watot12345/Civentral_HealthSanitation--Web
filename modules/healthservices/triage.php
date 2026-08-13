@@ -73,20 +73,32 @@ try {
 // ============================================================
 // Get IDs of patients already triaged TODAY to filter dropdown
 // ============================================================
-$triagedTodayIds = [];
+date_default_timezone_set('Asia/Manila');
 $today = date('Y-m-d');
+
+if (!function_exists('parseLocalDate')) {
+    function parseLocalDate($dateStr) {
+        if (empty($dateStr)) return date('Y-m-d');
+        try {
+            $dt = new DateTime($dateStr);
+            $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+            return $dt->format('Y-m-d');
+        } catch (Throwable $ex) {
+            return date('Y-m-d', strtotime($dateStr));
+        }
+    }
+}
+
+$triagedTodayIds = [];
 foreach ($rawTriage as $t) {
-    if (isset($t['created_at']) && date('Y-m-d', strtotime($t['created_at'])) === $today) {
+    if (isset($t['created_at']) && parseLocalDate($t['created_at']) === $today) {
         $triagedTodayIds[] = $t['patient_id'];
     }
 }
 
-// Build patients array for Triage dropdown (checked-in today, not yet triaged)
+// Build patients array for Triage dropdown (all active waiting check-ins)
 $checkedInTodayIds = [];
 foreach ($waitingCheckins as $c) {
-    if (!isset($c['created_at']) || date('Y-m-d', strtotime($c['created_at'])) !== $today) {
-        continue;
-    }
     $checkinStatus = strtolower($c['status'] ?? 'waiting');
     if ($checkinStatus === 'completed') {
         continue;
@@ -118,9 +130,12 @@ foreach ($rawPatients as $p) {
     ];
 }
 
-// NEW: Build all patients array for Check-in dropdown (all patients)
+// NEW: Build all patients array for Check-in dropdown (with checked-in status flag)
 $allPatientsForCheckin = [];
 foreach ($rawPatients as $p) {
+    $pIdInt = (int)$p['id'];
+    $isCheckedIn = in_array($pIdInt, $checkedInTodayIds, true);
+    
     $firstName = $p['first_name'] ?? '';
     $lastName = $p['last_name'] ?? '';
     $name = trim($firstName . ' ' . $lastName);
@@ -130,7 +145,8 @@ foreach ($rawPatients as $p) {
     $allPatientsForCheckin[] = [
         'id' => $p['id'],
         'patient_id' => $p['patient_id'] ?? ('P-' . $p['id']),
-        'name' => $name
+        'name' => $name,
+        'already_checked_in' => $isCheckedIn
     ];
 }
 
@@ -296,12 +312,9 @@ foreach ($rawTriage as $t) {
     ];
 }
 
-// Build today's check-in queue for display (patients waiting to be triaged)
+// Build check-in queue for display (patients waiting to be triaged)
 $checkinDisplayQueue = [];
 foreach ($waitingCheckins as $c) {
-    if (!isset($c['created_at']) || date('Y-m-d', strtotime($c['created_at'])) !== $today) {
-        continue;
-    }
     $checkinStatus = strtolower($c['status'] ?? 'waiting');
     if ($checkinStatus === 'completed') {
         continue;
@@ -328,6 +341,7 @@ foreach ($waitingCheckins as $c) {
         'patient_name' => $pName,
         'patient_avatar' => substr($initials, 0, 2) ?: 'P',
         'queue_number' => $c['queue_number'] ?? ('Q-' . $c['id']),
+        'reason_for_visit' => $c['reason_for_visit'] ?? 'Medical Consultation',
         'status' => $checkinStatus,
         'arrival_time' => isset($c['check_in_time']) ? date('h:i A', strtotime($c['check_in_time'])) : (isset($c['created_at']) ? date('h:i A', strtotime($c['created_at'])) : date('h:i A')),
     ];
@@ -355,14 +369,19 @@ $paginatedTriage = array_slice($triageQueue, $offset, $limit);
 
 $title = 'Check-in & Patient Assessment';
 
-// Stats (Reset daily every 24 hours based on today's intake)
+// Stats Calculation (Timezone-aware with fallback to active clinical records)
 $triageTodayQueue = array_filter($triageQueue, fn($t) => isset($t['date']) && $t['date'] === $today);
 
 $checkinWaitingCount = count(array_filter($checkinDisplayQueue, fn($c) => $c['status'] === 'waiting'));
-$totalWaiting = $checkinWaitingCount + count(array_filter($triageTodayQueue, fn($t) => $t['queue_status'] === 'waiting'));
-$totalCritical = count(array_filter($triageTodayQueue, fn($t) => $t['priority'] === 'critical'));
-$totalCompleted = count(array_filter($triageTodayQueue, fn($t) => $t['status'] === 'completed' || $t['status'] === 'sent_to_doctor'));
-$totalTriageToday = count($triageTodayQueue);
+$totalWaiting = $checkinWaitingCount + count(array_filter($triageQueue, fn($t) => strtolower($t['queue_status'] ?? '') === 'waiting'));
+
+$criticalTodayCount = count(array_filter($triageTodayQueue, fn($t) => $t['priority'] === 'critical'));
+$totalCritical = $criticalTodayCount > 0 ? $criticalTodayCount : count(array_filter($triageQueue, fn($t) => $t['priority'] === 'critical'));
+
+$completedTodayCount = count(array_filter($triageTodayQueue, fn($t) => $t['status'] === 'completed' || $t['status'] === 'sent_to_doctor'));
+$totalCompleted = $completedTodayCount > 0 ? $completedTodayCount : count(array_filter($triageQueue, fn($t) => $t['status'] === 'completed' || $t['status'] === 'sent_to_doctor'));
+
+$totalTriageToday = count($triageTodayQueue) > 0 ? count($triageTodayQueue) : count($triageQueue);
 $avgWaitTime = rand(15, 45);
 
 // NEW: Generate next queue number for check-in
@@ -510,8 +529,8 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         <div class="p-4 border-b border-amber-200/80 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-clipboard-list text-amber-600"></i>
-                <h3 class="text-sm font-bold text-amber-800">Check-in List</h3>
-                <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold"><?php echo count($checkinDisplayQueue); ?> waiting</span>
+                <h3 class="text-sm font-bold text-amber-800">Today's Patient Visits</h3>
+                <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold"><?php echo count($checkinDisplayQueue); ?> waiting for assessment</span>
             </div>
         </div>
         <div class="overflow-x-auto">
@@ -520,7 +539,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     <tr>
                         <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient ID</th>
                         <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Visit Type</th>
+                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Reason for Visit</th>
                         <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Check-in Time</th>
                         <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Status</th>
                         <th class="px-4 py-2 text-center text-[10px] font-bold text-slate-500 uppercase">Action</th>
@@ -537,7 +556,10 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                             </div>
                         </td>
                         <td class="px-4 py-3">
-                            <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">Walk-in</span>
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
+                                <i class="fa-solid fa-stethoscope text-[10px] text-amber-600"></i>
+                                <?php echo htmlspecialchars($checkin['reason_for_visit']); ?>
+                            </span>
                         </td>
                         <td class="px-4 py-3 text-slate-600 text-xs"><?php echo $checkin['arrival_time']; ?></td>
                         <td class="px-4 py-3">
@@ -821,33 +843,37 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         <p class="text-sm font-semibold text-amber-800">Check-in Process</p>
                         <p class="text-xs text-amber-600 mt-1">
                             1. Select patient<br>
-                            2. Queue number auto-assigned<br>
-                            3. Patient waits for triage nurse
+                            2. Select reason for visit<br>
+                            3. Submit patient check-in
                         </p>
                     </div>
                 </div>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Patient</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Patient <span class="text-rose-500">*</span></label>
                 <select id="checkin_patient" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="">Select Patient</option>
                     <?php foreach ($allPatientsForCheckin as $p): ?>
                         <option value="<?php echo $p['id']; ?>">
                             <?php echo htmlspecialchars($p['name']); ?> 
                             (<?php echo $p['patient_id']; ?>)
+                            <?php if (!empty($p['already_checked_in'])): ?> • (Has Active Visit)<?php endif; ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Queue Number</label>
-                <input type="text" id="checkin_queue" readonly 
-                       class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-700 font-mono font-bold"
-                       value="<?php echo $nextQueueNumber; ?>" 
-                       placeholder="Auto-generated">
-                <p class="text-xs text-slate-400 mt-1">Queue number is automatically assigned</p>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reason for Visit <span class="text-rose-500">*</span></label>
+                <select id="checkin_reason" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="">Select Reason for Visit</option>
+                    <option value="Medical Consultation">Medical Consultation</option>
+                    <option value="Dental Care">Dental Care</option>
+                    <option value="Immunization">Immunization</option>
+                    <option value="Nutrition Assessment">Nutrition Assessment</option>
+                    <option value="Maternal & Child Health">Maternal & Child Health</option>
+                </select>
             </div>
 
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -1265,10 +1291,15 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         event.preventDefault();
         
         const patientId = document.getElementById('checkin_patient').value;
-        const queueNumber = document.getElementById('checkin_queue').value;
+        const reasonForVisit = document.getElementById('checkin_reason').value;
         
         if (!patientId) {
             ModalSystem.toast.warning('Please select a patient');
+            return;
+        }
+
+        if (!reasonForVisit) {
+            ModalSystem.toast.warning('Please select a reason for visit');
             return;
         }
         
@@ -1278,20 +1309,40 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     patient_id: parseInt(patientId),
-                    queue_number: queueNumber
+                    reason_for_visit: reasonForVisit
                 })
             });
             
             const data = await res.json();
             
-            if (data.success) {
-                ModalSystem.toast.success(`Patient checked in! Queue #: ${data.queue_number}`);
-                setTimeout(() => {
-                    ModalSystem.close('checkInModal');
-                    window.location.reload();
-                }, 1000);
+            if (res.status === 409 || (data && !data.success)) {
+                ModalSystem.toast.warning(data.message || 'Patient is already checked in today');
+                return;
+            }
+
+            if (res.ok && data && data.success) {
+                let navMsg = `Patient checked in for ${reasonForVisit}!`;
+                if (reasonForVisit === 'Immunization') {
+                    navMsg += ' Redirecting to Immunization Visits...';
+                    ModalSystem.toast.success(navMsg);
+                    setTimeout(() => {
+                        window.location.href = '../immunization/vaccination_tracking.php';
+                    }, 1200);
+                } else if (reasonForVisit === 'Nutrition Assessment') {
+                    navMsg += ' Redirecting to Nutrition Visits...';
+                    ModalSystem.toast.success(navMsg);
+                    setTimeout(() => {
+                        window.location.href = '../immunization/nutrition_assessment.php';
+                    }, 1200);
+                } else {
+                    ModalSystem.toast.success(navMsg);
+                    setTimeout(() => {
+                        ModalSystem.close('checkInModal');
+                        window.location.reload();
+                    }, 1000);
+                }
             } else {
-                ModalSystem.toast.error(data.message || 'Check-in failed');
+                ModalSystem.toast.error((data && data.message) ? data.message : 'Check-in failed');
             }
         } catch (err) {
             ModalSystem.toast.error('Network error during check-in');

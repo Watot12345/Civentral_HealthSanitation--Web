@@ -28,8 +28,45 @@ require_once __DIR__ . '/../../app/Controllers/ConsultationController.php';
 
 $patientModel = new Patient();
 $dbPatients = [];
+$patientsJsMap = [];
 try {
     $dbPatients = $patientModel->all(['order' => 'first_name.asc']);
+    foreach ($dbPatients as $p) {
+        if (!isset($p['id'])) continue;
+        $age = 0;
+        if (!empty($p['birth_date'])) {
+            try {
+                $dob = new DateTime($p['birth_date']);
+                $now = new DateTime();
+                $age = $now->diff($dob)->y;
+            } catch (Throwable $ex) {}
+        }
+        $conditions = 'None';
+        if (!empty($p['medical_history'])) {
+            $history = is_string($p['medical_history']) 
+                ? json_decode($p['medical_history'], true) 
+                : $p['medical_history'];
+            $conditions = $history['conditions'] ?? 'None';
+        }
+        $patientsJsMap[$p['id']] = [
+            'id' => (int)$p['id'],
+            'patient_id' => $p['patient_id'] ?? "P-{$p['id']}",
+            'first_name' => $p['first_name'] ?? '',
+            'last_name' => $p['last_name'] ?? '',
+            'gender' => $p['gender'] ?? 'Unspecified',
+            'age' => $age,
+            'blood_type' => $p['blood_type'] ?? 'N/A',
+            'contact' => $p['contact'] ?? 'N/A',
+            'email' => $p['email'] ?? 'N/A',
+            'address' => $p['address'] ?? 'N/A',
+            'barangay' => $p['barangay'] ?? 'N/A',
+            'emergency_contact' => $p['emergency_contact'] ?? 'N/A',
+            'registration_date' => $p['registration_date'] ?? 'N/A',
+            'status' => $p['status'] ?? 'active',
+            'allergies' => $p['allergies'] ?? 'None',
+            'conditions' => $conditions
+        ];
+    }
 } catch (Throwable $e) {
     error_log('Error loading patients: ' . $e->getMessage());
 }
@@ -80,11 +117,17 @@ foreach ($dbEmployees as $e) {
         ($sessionUserId && (string)$sessionUserId === $uId) ||
         (!empty($sessionFullName) && (stripos($eName, $sessionFullName) !== false || stripos($sessionFullName, $eName) !== false || stripos($sessionFullName, $eUser) !== false))
     ) {
-        $loggedInDoctorId = $e['id'];
+        $loggedInDoctorId = (int)$e['id'];
         $loggedInDoctorName = $e['full_name'] ?? $eName;
         break;
     }
 }
+
+// Doctor Scoping — doctors only see consultations performed by themselves
+$_sessionRoleDesc = strtolower(trim($_SESSION['role_description'] ?? $_SESSION['role'] ?? ''));
+$isDoctorRole = (str_contains($_sessionRoleDesc, 'doctor') || str_contains($_sessionRoleDesc, 'physician') || str_contains($_sessionRoleDesc, 'dentist') || str_contains($_sessionRoleDesc, 'medical practitioner'));
+$isAdminRole = (str_contains($_sessionRoleDesc, 'admin') || str_contains($_sessionRoleDesc, 'director') || str_contains($_sessionRoleDesc, 'system administrator'));
+$isDoctorOnly = ($isDoctorRole && !$isAdminRole);
 
 // Fetch real consultations from database
 $consultationModel = new Consultation();
@@ -108,6 +151,11 @@ try {
     }
 
     foreach ($rawConsultations as $c) {
+        $cEmpId = (int)($c['employee_id'] ?? 0);
+        if ($isDoctorOnly && $loggedInDoctorId && $cEmpId > 0 && $cEmpId !== (int)$loggedInDoctorId) {
+            continue;
+        }
+
         $patientId = $c['patient_id'] ?? null;
         $patient = $patientsMap[$patientId] ?? null;
         
@@ -256,7 +304,8 @@ $paginatedConsultations = array_slice($consultations, $offset, $limit);
 $title = 'Consultations';
 
 // Derived KPI stats
-$completedCount = count(array_filter($consultations, fn($c) => strtolower($c['status']) === 'completed'));
+$servedStatuses = ['completed', 'consulted', 'follow_up', 'referred', 'in_consultation'];
+$completedCount = count(array_filter($consultations, fn($c) => in_array(strtolower($c['status']), $servedStatuses)));
 $referredCount = count(array_filter($consultations, fn($c) => strtolower($c['status']) === 'referred'));
 $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('Y-m-d')));
 ?>
@@ -269,8 +318,8 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-            <h2 class="text-2xl font-black text-slate-900 tracking-tight">Consultations</h2>
-            <p class="text-sm text-slate-500 mt-0.5">View and manage all patient consultations and medical notes</p>
+            <h2 class="text-2xl font-black text-slate-900 tracking-tight"><?php echo $isDoctorOnly ? 'My Consultations' : 'Consultations'; ?></h2>
+            <p class="text-sm text-slate-500 mt-0.5"><?php echo $isDoctorOnly ? 'View and manage medical consultations performed by you' : 'View and manage all patient consultations and medical notes'; ?></p>
         </div>
         <div class="flex gap-3">
             <?php if ($canCreateConsultation): ?>
@@ -285,6 +334,16 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
             <?php endif; ?>
         </div>
     </div>
+
+    <?php if ($isDoctorOnly): ?>
+    <div class="mb-5 px-4 py-2.5 bg-blue-50/80 border border-blue-200/80 rounded-xl flex items-center justify-between text-xs text-blue-900 font-medium shadow-xs">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-user-doctor text-blue-600 text-sm"></i>
+            <span><strong>Doctor Consultation View:</strong> Showing medical consultations performed by <strong><?php echo htmlspecialchars($loggedInDoctorName ?: 'your doctor account'); ?></strong> only.</span>
+        </div>
+        <span class="px-2.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[10px] font-extrabold">My Consultations Only</span>
+    </div>
+    <?php endif; ?>
 
     <!-- MODERN KPI CARDS -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -397,8 +456,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                 <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide mr-1">Consultation Date:</span>
                 <button onclick="setDateFilter('today')" class="date-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all"><i class="fa-solid fa-calendar-day mr-1"></i> Today</button>
                 <button onclick="setDateFilter('week')" class="date-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all"><i class="fa-solid fa-calendar-week mr-1"></i> This Week</button>
-                <button onclick="setDateFilter('month')" class="date-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all"><i class="fa-solid fa-calendar mr-1"></i> This Month</button>
-                <button onclick="setDateFilter('year')" class="date-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all"><i class="fa-solid fa-calendar-year mr-1"></i> This Year</button>
+                <button onclick="setDateFilter('month')" class="date-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all"><i class="fa-solid fa-calendar mr-1"></i> This Month</button>   
                 <button onclick="setDateFilter('all')" class="date-filter-btn px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-100 transition-all"><i class="fa-solid fa-times mr-1"></i> All</button>
                 <span id="activeDateFilter" class="text-xs text-brand-medium font-semibold hidden"><i class="fa-solid fa-filter mr-1"></i> <span id="activeDateFilterLabel">Today</span></span>
             </div>
@@ -432,8 +490,9 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                         <div class="flex items-center gap-2.5">
                             <div class="w-9 h-9 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0"><?php echo htmlspecialchars($c['patient_avatar']); ?></div>
                             <div>
-                                <!-- FIXED: Added maskable class -->
-                                <p class="font-semibold text-slate-800 text-sm line-clamp-1 maskable" data-real="<?php echo htmlspecialchars($c['patient_name']); ?>" data-masked="<?php echo htmlspecialchars(maskName($c['patient_name'])); ?>"><?php echo htmlspecialchars(maskName($c['patient_name'])); ?></p>
+                                <button type="button" onclick="openPatientProfile(<?php echo $c['patient_id']; ?>)" class="text-left group block">
+                                    <p class="font-semibold text-slate-800 text-sm line-clamp-1 group-hover:text-brand-medium transition maskable" data-real="<?php echo htmlspecialchars($c['patient_name']); ?>" data-masked="<?php echo htmlspecialchars(maskName($c['patient_name'])); ?>"><?php echo htmlspecialchars(maskName($c['patient_name'])); ?></p>
+                                </button>
                                 <p class="text-xs text-slate-400 font-mono"><?php echo htmlspecialchars($c['consultation_id']); ?></p>
                             </div>
                         </div>
@@ -456,6 +515,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                         <button onclick="editConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Record"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
                     </div>
                     <div class="flex items-center gap-1 flex-wrap">
+                        <button onclick="openPatientProfile(<?php echo $c['patient_id']; ?>)" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="View Patient Profile"><i class="fa-solid fa-address-card text-xs"></i></button>
                         <button onclick="issuePrescription(<?php echo $c['patient_id']; ?>, <?php echo $c['id']; ?>)" class="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition" title="Issue Prescription (Optional)"><i class="fa-solid fa-pills text-xs"></i></button>
                         <button onclick="createReferral(<?php echo $c['patient_id']; ?>, <?php echo $c['id']; ?>)" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Create Referral (Optional)"><i class="fa-solid fa-arrow-right-from-bracket text-xs"></i></button>
                         <button onclick="scheduleFollowUp(<?php echo $c['patient_id']; ?>, <?php echo $c['id']; ?>)" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Schedule Follow-up"><i class="fa-solid fa-calendar-plus text-xs"></i></button>
@@ -476,6 +536,23 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
 
 <!-- VIEW CONSULTATION MODAL -->
 <div id="viewConsultationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10"><h3 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-notes-medical text-brand-medium"></i> Consultation Details</h3><button onclick="ModalSystem.close('viewConsultationModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div><div id="consultationDetailsContent" class="p-6"><div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading consultation details...</div></div></div></div>
+
+<!-- PATIENT PROFILE MODAL IN CONSULTATIONS -->
+<div id="consultationPatientProfileModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-address-card text-brand-medium"></i> Patient Profile Overview
+            </h3>
+            <button onclick="ModalSystem.close('consultationPatientProfileModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="consultationPatientProfileContent" class="p-6">
+            <div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading profile...</div>
+        </div>
+    </div>
+</div>
 
 <!-- ADD CONSULTATION MODAL -->
 <?php if ($canCreateConsultation): ?>
@@ -576,6 +653,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
 <!-- ============================================================ -->
 <script>
     const CONSULTATIONS_DATA = <?php echo json_encode(array_column($consultations, null, 'id'), JSON_UNESCAPED_UNICODE); ?>;
+    const PATIENTS_MAP = <?php echo json_encode($patientsJsMap, JSON_UNESCAPED_UNICODE); ?>;
     let activeDateFilter = 'all';
    
     // ============================================================
@@ -590,6 +668,73 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     function maskPatientCode(code) {
         if (!code || code.length <= 2) return code || '';
         return code.substring(0, 2) + '*'.repeat(code.length - 2);
+    }
+
+    // ============================================================
+    // PATIENT PROFILE MODAL IN CONSULTATIONS
+    // ============================================================
+    function openPatientProfile(patientId) {
+        ModalSystem.open('consultationPatientProfileModal');
+        const content = document.getElementById('consultationPatientProfileContent');
+        content.innerHTML = '<div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading profile...</div>';
+        
+        setTimeout(() => {
+            const p = PATIENTS_MAP[patientId];
+            if (!p) {
+                content.innerHTML = '<p class="text-sm text-rose-500 text-center py-10">Patient profile details not found.</p>';
+                return;
+            }
+            const fName = p.first_name || '';
+            const lName = p.last_name || '';
+            const initials = (((fName[0] || 'P')) + ((lName[0] || 'T'))).toUpperCase();
+            const fullName = `${fName} ${lName}`.trim() || ('Patient #' + p.id);
+            const statusBadge = p.status === 'active' 
+                ? '<span class="inline-block px-2.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold mt-1">Active</span>' 
+                : '<span class="inline-block px-2.5 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs font-semibold mt-1">Inactive</span>';
+            
+            content.innerHTML = `
+                <div class="space-y-6">
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-200 gap-3">
+                        <div class="flex items-center gap-4">
+                            <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">${initials}</div>
+                            <div>
+                                <h4 class="text-lg font-bold text-slate-900 maskable" data-real="${fullName}" data-masked="${maskPatientName(fullName)}">${maskPatientName(fullName)}</h4>
+                                <p class="text-xs text-slate-500 font-mono">${p.patient_id} &bull; ${p.gender} &bull; ${p.age} yrs old</p>
+                                ${statusBadge}
+                            </div>
+                        </div>
+                        <a href="patients.php?patient=${p.id}&autoView=true" class="px-3.5 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-xs">
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> View Patient Info
+                        </a>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Contact</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.contact}" data-masked="${maskPatientName(p.contact)}">${maskPatientName(p.contact)}</p></div>
+                        <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Email</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.email}" data-masked="${maskPatientName(p.email)}">${maskPatientName(p.email)}</p></div>
+                        <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Blood Type</p><p class="text-slate-800 font-bold text-rose-600 mt-0.5">${p.blood_type}</p></div>
+                        <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Barangay</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.barangay}" data-masked="${maskPatientName(p.barangay)}">${maskPatientName(p.barangay)}</p></div>
+                        <div class="md:col-span-2"><p class="text-slate-400 font-semibold uppercase text-[10px]">Address</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.address}" data-masked="${maskPatientName(p.address)}">${maskPatientName(p.address)}</p></div>
+                        <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Emergency Contact</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.emergency_contact}" data-masked="${maskPatientName(p.emergency_contact)}">${maskPatientName(p.emergency_contact)}</p></div>
+                        <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Registration Date</p><p class="text-slate-800 font-medium mt-0.5">${p.registration_date}</p></div>
+                    </div>
+                    <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border text-xs">
+                        <h5 class="font-bold text-slate-700 mb-2 flex items-center gap-1.5"><i class="fa-solid fa-notes-medical text-brand-medium"></i> Medical Information</h5>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Allergies</p><p class="text-slate-800 font-medium mt-0.5">${p.allergies}</p></div>
+                            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Existing Conditions</p><p class="text-slate-800 font-medium mt-0.5">${p.conditions}</p></div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center pt-3 border-t border-slate-100">
+                        <button type="button" onclick="ModalSystem.close('consultationPatientProfileModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold">Close</button>
+                        <a href="patients.php?patient=${p.id}&autoView=true" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-users text-xs"></i> Open Full Profile in Patients Page
+                        </a>
+                    </div>
+                </div>
+            `;
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.refreshMasking) {
+                ModalSystem.refreshMasking('consultationPatientProfileModal');
+            }
+        }, 150);
     }
 
     // View Details Modal
@@ -640,6 +785,9 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                 ${c.notes ? `<div><h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Clinical Notes</h5><p class="text-sm text-slate-700 bg-slate-50 p-3 rounded-lg border border-slate-200">${c.notes}</p></div>` : ''}
                 <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-100">
                     <div class="flex gap-2 flex-wrap">
+                        <button onclick="openPatientProfile(${c.patient_id})" class="px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-lg transition text-xs font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-address-card text-indigo-600"></i> Patient Profile
+                        </button>
                         <button onclick="issuePrescription(${c.patient_id}, ${c.id})" class="px-3 py-1.5 bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-100 rounded-lg transition text-xs font-semibold flex items-center gap-1.5">
                             <i class="fa-solid fa-pills text-teal-600"></i> Issue Prescription
                         </button>
@@ -672,6 +820,20 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     }
 
     function createReferral(patientId, consultationId) {
+        if (consultationId && typeof CONSULTATIONS_DATA !== 'undefined' && CONSULTATIONS_DATA[consultationId]) {
+            const c = CONSULTATIONS_DATA[consultationId];
+            if (c.status && String(c.status).toLowerCase() === 'completed') {
+                const msg = 'Cannot create a referral for a completed consultation transaction.';
+                if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                    ModalSystem.toast.warning(msg, { title: 'Transaction Finalized' });
+                } else if (typeof toast !== 'undefined') {
+                    toast.warning(msg);
+                } else {
+                    alert(msg);
+                }
+                return;
+            }
+        }
         window.location.href = `referrals.php?patient_id=${patientId}&consultation_id=${consultationId}&action=new`;
     }
 
@@ -899,6 +1061,18 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     function editConsultation(id) {
         const c = CONSULTATIONS_DATA[id];
         if (!c) { ModalSystem.toast.error('Consultation not found'); return; }
+
+        if (c.status && String(c.status).toLowerCase() === 'completed') {
+            const msg = 'This consultation transaction is completed and finalized. Edits are locked for completed records.';
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                ModalSystem.toast.warning(msg, { title: 'Transaction Finalized' });
+            } else if (typeof toast !== 'undefined') {
+                toast.warning(msg);
+            } else {
+                alert(msg);
+            }
+            return;
+        }
 
         document.getElementById('edit_id').value = c.id;
         document.getElementById('edit_patient_id').value = c.patient_id;

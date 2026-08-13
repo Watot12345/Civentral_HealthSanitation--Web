@@ -27,14 +27,26 @@ class DepartmentResolver
         }
 
         // 1. Return session department if explicitly populated
-        $sessionDept = trim($_SESSION['department'] ?? '');
+        $sessionDept = trim($_SESSION['department'] ?? $_SESSION['user']['department'] ?? '');
         if (!empty($sessionDept)) {
             return $sessionDept;
         }
 
+        // 2. Map role_description to department via departmentRoleMap
+        $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? $_SESSION['role'] ?? '');
+        if (!empty($userRoleDesc)) {
+            foreach (self::departmentRoleMap() as $dept => $roles) {
+                foreach ($roles as $r) {
+                    if (strcasecmp(trim($r), $userRoleDesc) === 0) {
+                        return $dept;
+                    }
+                }
+            }
+        }
+
         $permService = PermissionService::getInstance();
 
-        // 2. Resolve department based on granted permission clusters
+        // 3. Resolve department based on granted permission clusters
         if ($permService->hasPermission(Permissions::ROLES_MANAGE) || $permService->hasPermission(Permissions::SETTINGS_MANAGE)) {
             return 'Administration';
         }
@@ -217,8 +229,8 @@ class DepartmentResolver
             @session_start();
         }
 
-        $userRoleDesc = trim($_SESSION['role_description'] ?? '');
-        $userRole     = trim($_SESSION['role'] ?? '');
+        $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? '');
+        $userRole     = trim($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '');
 
         // System Administrator access bypass
         if (PermissionService::getInstance()->isAdminRole($userRoleDesc) || PermissionService::getInstance()->isAdminRole($userRole)) {

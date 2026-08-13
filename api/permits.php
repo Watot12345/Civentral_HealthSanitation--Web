@@ -39,7 +39,7 @@ try {
 
     switch ($method) {
         case 'GET':
-            if (isset($_GET['stats']) && $_GET['stats'] === 'true') {
+            if ((isset($_GET['stats']) && $_GET['stats'] === 'true') || (isset($_GET['action']) && $_GET['action'] === 'summary') || isset($_GET['summary'])) {
                 $controller->stats();
             } elseif ($permitId) {
                 $controller->show($permitId);

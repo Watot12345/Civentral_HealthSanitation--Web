@@ -256,8 +256,14 @@ try {
         // SAVE PERMISSIONS — Sync role permissions
         // ==========================================================
         case 'save_permissions':
+        case 'update_role_permissions':
             $roleId = (int) ($_POST['role_id'] ?? 0);
-            $permissionIds = json_decode($_POST['permission_ids'] ?? '[]', true);
+            $permissionIds = [];
+            if (!empty($_POST['permission_ids'])) {
+                $permissionIds = json_decode($_POST['permission_ids'], true) ?: [];
+            } elseif (!empty($_POST['permissions'])) {
+                $permissionIds = is_array($_POST['permissions']) ? $_POST['permissions'] : (json_decode($_POST['permissions'], true) ?: []);
+            }
 
             if (!$roleId) {
                 $response = ['success' => false, 'message' => 'Role ID is required.'];

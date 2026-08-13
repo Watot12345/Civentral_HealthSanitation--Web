@@ -16,6 +16,50 @@ require_once '../../includes/sidebar.php';
 requireDepartmentAccess('immunization & nutrition');
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../app/Models/TriageQueue.php';
+require_once __DIR__ . '/../../app/Models/Patient.php';
+
+// Fetch Active Patients Waiting for Immunization Visits
+$triageQueueModel = new TriageQueue();
+$patientModel = new Patient();
+$immunizationVisitsRaw = [];
+try {
+    $immunizationVisitsRaw = $triageQueueModel->getVisitsByReason('Immunization');
+} catch (\Throwable $e) {
+    error_log('Error fetching immunization visits: ' . $e->getMessage());
+}
+
+$immunizationVisits = [];
+foreach ($immunizationVisitsRaw as $v) {
+    $pId = (int)($v['patient_id'] ?? 0);
+    $p = null;
+    try { if ($pId > 0) $p = $patientModel->find($pId); } catch (\Throwable $e) {}
+    
+    $name = 'Patient #' . $pId;
+    $pCode = 'P-' . $pId;
+    if ($p) {
+        $firstName = $p['first_name'] ?? '';
+        $lastName = $p['last_name'] ?? '';
+        $name = trim($firstName . ' ' . $lastName) ?: ($p['name'] ?? $name);
+        $pCode = $p['patient_id'] ?? $pCode;
+    }
+    
+    $parts = explode(' ', $name);
+    $initials = '';
+    foreach ($parts as $part) {
+        if (!empty($part)) $initials .= strtoupper($part[0]);
+    }
+    
+    $immunizationVisits[] = [
+        'id' => $v['id'],
+        'patient_id' => $pId,
+        'patient_name' => $name,
+        'patient_code' => $pCode,
+        'avatar' => substr($initials, 0, 2) ?: 'P',
+        'check_in_time' => isset($v['check_in_time']) ? date('h:i A', strtotime($v['check_in_time'])) : (isset($v['created_at']) ? date('h:i A', strtotime($v['created_at'])) : date('h:i A')),
+        'status' => $v['status'] ?? 'waiting'
+    ];
+}
 
 // ============================================================
 // DOH NATIONAL IMMUNIZATION PROGRAM SCHEDULE
@@ -214,6 +258,68 @@ $title = 'Vaccination Tracking';
                 <i class="fa-solid fa-syringe text-xs"></i> Record Vaccination
             </button>
         </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PATIENTS WAITING FOR IMMUNIZATION (TODAY'S VISITS)          -->
+    <!-- ============================================================ -->
+    <div class="bg-white rounded-xl shadow-xs border border-blue-200 mb-6 overflow-hidden">
+        <div class="p-4 border-b border-blue-200/80 flex items-center justify-between bg-blue-50/50">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-syringe text-blue-600"></i>
+                <h3 class="text-sm font-bold text-blue-900">Patients Waiting for Immunization</h3>
+                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold"><?php echo count($immunizationVisits); ?> active visit(s)</span>
+            </div>
+            <a href="../healthservices/triage.php" class="text-xs font-semibold text-blue-700 hover:text-blue-900 flex items-center gap-1">
+                <i class="fa-solid fa-plus-circle text-xs"></i> Waiting Queue
+            </a>
+        </div>
+        <?php if (!empty($immunizationVisits)): ?>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient ID</th>
+                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient Name</th>
+                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Reason for Visit</th>
+                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Check-in Time</th>
+                        <th class="px-4 py-2 text-center text-[10px] font-bold text-slate-500 uppercase">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($immunizationVisits as $visit): ?>
+                    <tr class="border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
+                        <td class="px-4 py-3 font-mono text-xs font-bold text-blue-700"><?php echo htmlspecialchars($visit['patient_code']); ?></td>
+                        <td class="px-4 py-3 font-semibold text-slate-800">
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-[10px]"><?php echo htmlspecialchars($visit['avatar']); ?></div>
+                                <span><?php echo htmlspecialchars($visit['patient_name']); ?></span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200 inline-flex items-center gap-1">
+                                <i class="fa-solid fa-syringe text-[10px] text-blue-600"></i> Immunization
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-slate-600 text-xs"><?php echo htmlspecialchars($visit['check_in_time']); ?></td>
+                        <td class="px-4 py-3 text-center">
+                            <button onclick="startImmunizationAssessment(<?php echo (int)$visit['patient_id']; ?>, '<?php echo htmlspecialchars(addslashes($visit['patient_name']), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($visit['patient_code']), ENT_QUOTES); ?>');" 
+                                    class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition inline-flex items-center gap-1 shadow-xs">
+                                <i class="fa-solid fa-stethoscope text-xs"></i> Start Assessment
+                            </button>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php else: ?>
+        <div class="p-6 text-center text-slate-500 bg-slate-50/50">
+            <i class="fa-solid fa-user-clock text-2xl text-slate-300 mb-2 block"></i>
+            <p class="text-xs font-semibold text-slate-700">No patients currently waiting for immunization</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Use <a href="../healthservices/triage.php" class="text-blue-600 underline font-semibold">Patient Check-in</a> to register incoming arrivals.</p>
+        </div>
+        <?php endif; ?>
     </div>
 
     <!-- ============================================================ -->
@@ -556,6 +662,127 @@ $title = 'Vaccination Tracking';
 </div>
 
 <!-- ============================================================ -->
+<!-- STEP 1: PRE-VACCINATION IMMUNIZATION ASSESSMENT MODAL        -->
+<!-- ============================================================ -->
+<div id="immunizationAssessmentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-stethoscope text-brand-medium"></i>
+                Pre-Vaccination Assessment (Step 1)
+            </h3>
+            <button onclick="closeModal('immunizationAssessmentModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="immunizationAssessmentForm" class="p-6 space-y-4" onsubmit="saveAssessmentAndProceed(event)">
+            <input type="hidden" id="assess_patient_id" value="">
+            
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Child / Patient</label>
+                    <div id="assess_patient_display" class="font-bold text-slate-800 text-sm mt-0.5">Select Patient</div>
+                </div>
+                <span class="px-2.5 py-1 bg-brand-light text-brand-dark rounded-full text-xs font-bold border border-brand-border">
+                    <i class="fa-solid fa-clipboard-check mr-1"></i> Pre-Screening
+                </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Weight (kg) <span class="text-rose-500">*</span></label>
+                    <input type="number" id="assess_weight" step="0.1" min="0.5" max="100" required placeholder="e.g. 8.5"
+                           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Temperature (°C) <span class="text-rose-500">*</span></label>
+                    <input type="number" id="assess_temp" step="0.1" min="30" max="45" required placeholder="e.g. 36.5" oninput="runAiEligibilityCheck()"
+                           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Current Health Status <span class="text-rose-500">*</span></label>
+                <select id="assess_health_status" required onchange="runAiEligibilityCheck()"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                    <option value="Healthy">Healthy (No apparent illness)</option>
+                    <option value="Fever">Fever (Elevated Temperature)</option>
+                    <option value="Cough/Cold">Cough / Cold symptoms</option>
+                    <option value="Other">Other acute illness</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contraindications <span class="text-rose-500">*</span></label>
+                <select id="assess_contraindications" required onchange="runAiEligibilityCheck()"
+                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                    <option value="None">None detected</option>
+                    <option value="Severe Allergy">Severe Allergy to vaccine components</option>
+                    <option value="Previous Reaction">Previous severe vaccine reaction</option>
+                    <option value="Immunocompromised">Immunocompromised / High Risk</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Target Vaccine Due</label>
+                <select id="assess_vaccine_due" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                    <?php foreach ($vaccineSchedule as $s): ?>
+                        <option value="<?php echo htmlspecialchars($s['vaccine'] . ' (Dose ' . $s['dose'] . ')'); ?>">
+                            <?php echo htmlspecialchars($s['vaccine'] . ' - Dose ' . $s['dose'] . ' (' . $s['due_age'] . ')'); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Assessment Notes</label>
+                <textarea id="assess_notes" rows="2" placeholder="Clinical notes, caregiver remarks, or observations..."
+                          class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 outline-none"></textarea>
+            </div>
+
+            <!-- GEMINI AI CLINICAL GUIDANCE (DECISION SUPPORT SYSTEM - ADVISORY) -->
+            <div id="aiAdvisoryBox" class="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 rounded-xl p-4 transition-all">
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                        <i class="fa-solid fa-brain text-sm"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <h4 class="text-xs font-bold text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
+                                Gemini AI Clinical Guidance
+                                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-teal-100 text-teal-800 border border-teal-200">Advisory DSS</span>
+                            </h4>
+                            <span id="assessResultBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                ✓ Eligible for Vaccination
+                            </span>
+                        </div>
+                        <p id="aiAdvisoryText" class="text-xs text-teal-800 mt-1.5 leading-relaxed font-medium">
+                            Based on recorded assessment: Patient appears healthy with no reported contraindications. Recommended to proceed with scheduled vaccine.
+                        </p>
+                        <p class="text-[10px] text-slate-500 mt-2 italic flex items-center gap-1">
+                            <i class="fa-solid fa-info-circle text-slate-400"></i>
+                            Advisory decision support only. Final clinical decision rests with the healthcare professional.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onclick="closeModal('immunizationAssessmentModal')"
+                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5 shadow-sm">
+                    <span>Proceed to Record Vaccination</span>
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- RECORD VACCINATION MODAL                                     -->
 <!-- ============================================================ -->
 <div id="recordVaccinationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
@@ -610,14 +837,6 @@ $title = 'Vaccination Tracking';
                     <option value="Nurse Anna Reyes">Nurse Anna Reyes</option>
                     <option value="Dr. Elena Santos">Dr. Elena Santos</option>
                     <option value="Dr. Ana Cruz">Dr. Ana Cruz</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Health Center</label>
-                <select id="vacc_center" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="Health Center 1">Health Center 1</option>
-                    <option value="Health Center 2">Health Center 2</option>
-                    <option value="Health Center 3">Health Center 3</option>
                 </select>
             </div>
             <div>
@@ -695,6 +914,116 @@ $title = 'Vaccination Tracking';
             }
         });
     });
+
+    // ============================================================
+    // PRE-VACCINATION IMMUNIZATION ASSESSMENT (STEP 1)
+    // ============================================================
+    let currentAssessmentData = {};
+
+    function startImmunizationAssessment(patientId, patientName, patientCode) {
+        document.getElementById('assess_patient_id').value = patientId;
+        document.getElementById('assess_patient_display').textContent = `${patientName} (${patientCode || 'P-' + patientId})`;
+        
+        // Auto-select child in record vaccination modal as well
+        const selectVaccChild = document.getElementById('vacc_child');
+        if (selectVaccChild) {
+            let found = false;
+            for (let i = 0; i < selectVaccChild.options.length; i++) {
+                if (parseInt(selectVaccChild.options[i].value) === parseInt(patientId)) {
+                    selectVaccChild.selectedIndex = i;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                let newOpt = document.createElement('option');
+                newOpt.value = String(patientId);
+                newOpt.textContent = `${patientName} (${patientCode || 'P-' + patientId})`;
+                newOpt.selected = true;
+                selectVaccChild.appendChild(newOpt);
+            }
+        }
+
+        // Set default values
+        document.getElementById('assess_weight').value = '8.5';
+        document.getElementById('assess_temp').value = '36.5';
+        document.getElementById('assess_health_status').value = 'Healthy';
+        document.getElementById('assess_contraindications').value = 'None';
+        document.getElementById('assess_notes').value = '';
+
+        runAiEligibilityCheck();
+        openModal('immunizationAssessmentModal');
+    }
+
+    function runAiEligibilityCheck() {
+        const temp = parseFloat(document.getElementById('assess_temp').value || 36.5);
+        const status = document.getElementById('assess_health_status').value;
+        const contra = document.getElementById('assess_contraindications').value;
+
+        const advisoryBox = document.getElementById('aiAdvisoryBox');
+        const advisoryText = document.getElementById('aiAdvisoryText');
+        const badge = document.getElementById('assessResultBadge');
+
+        if (temp >= 38.0 || contra !== 'None' || status === 'Fever') {
+            badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200';
+            badge.innerHTML = '⚠️ Vaccination Deferred';
+            
+            advisoryBox.className = 'bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 transition-all';
+            advisoryText.innerHTML = `Caution: Patient presents elevated temperature (${temp}°C) or reported contraindications (${contra}). Clinical recommendation: Defer vaccination and consult attending physician.`;
+        } else {
+            badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200';
+            badge.innerHTML = '✓ Eligible for Vaccination';
+            
+            advisoryBox.className = 'bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 rounded-xl p-4 transition-all';
+            advisoryText.innerHTML = 'Based on recorded assessment: Patient appears healthy with normal temperature and no reported contraindications. Recommended to proceed with scheduled vaccine administration.';
+        }
+    }
+
+    async function saveAssessmentAndProceed(event) {
+        event.preventDefault();
+
+        const patientId = document.getElementById('assess_patient_id').value;
+        const weight = document.getElementById('assess_weight').value;
+        const temp = document.getElementById('assess_temp').value;
+        const status = document.getElementById('assess_health_status').value;
+        const contra = document.getElementById('assess_contraindications').value;
+        const vaccineDue = document.getElementById('assess_vaccine_due').value;
+        const notes = document.getElementById('assess_notes').value;
+        const resultText = document.getElementById('assessResultBadge').textContent.trim();
+        const aiGuidance = document.getElementById('aiAdvisoryText').textContent.trim();
+
+        currentAssessmentData = {
+            patient_id: parseInt(patientId),
+            weight: weight,
+            temperature: temp,
+            health_status: status,
+            contraindications: contra,
+            vaccine_due: vaccineDue,
+            notes: notes,
+            ai_guidance: aiGuidance,
+            assessment_result: resultText
+        };
+
+        // Save pre-vaccination assessment audit record
+        try {
+            await fetch('../../api/triage.php?action=immunization_assessment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(currentAssessmentData)
+            });
+        } catch (e) {
+            console.warn('Notice saving assessment audit record:', e);
+        }
+
+        showToast('Pre-vaccination assessment recorded! Proceeding to vaccination...', 'success');
+        closeModal('immunizationAssessmentModal');
+        
+        // Auto-open Step 2 Record Vaccination Modal pre-filled
+        setTimeout(() => {
+            document.getElementById('vacc_date').value = new Date().toISOString().split('T')[0];
+            openModal('recordVaccinationModal');
+        }, 450);
+    }
 
     // ============================================================
     // VIEW IMMUNIZATION

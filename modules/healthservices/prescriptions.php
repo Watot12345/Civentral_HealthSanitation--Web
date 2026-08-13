@@ -27,10 +27,44 @@ requireDepartmentAccess('health center services');
 
     // Get patients and employees for enrichment
     $patients = [];
+    $patientsJsMap = [];
     try {
         $patientsRaw = $patientModel->all();
         foreach ($patientsRaw as $p) {
             $patients[$p['id']] = $p;
+            $age = 0;
+            if (!empty($p['birth_date'])) {
+                try {
+                    $dob = new DateTime($p['birth_date']);
+                    $now = new DateTime();
+                    $age = $now->diff($dob)->y;
+                } catch (Throwable $ex) {}
+            }
+            $conditions = 'None';
+            if (!empty($p['medical_history'])) {
+                $history = is_string($p['medical_history']) 
+                    ? json_decode($p['medical_history'], true) 
+                    : $p['medical_history'];
+                $conditions = $history['conditions'] ?? 'None';
+            }
+            $patientsJsMap[$p['id']] = [
+                'id' => (int)($p['id'] ?? 0),
+                'patient_id' => $p['patient_id'] ?? "P-{$p['id']}",
+                'first_name' => $p['first_name'] ?? '',
+                'last_name' => $p['last_name'] ?? '',
+                'gender' => $p['gender'] ?? 'Unspecified',
+                'age' => $age,
+                'blood_type' => $p['blood_type'] ?? 'N/A',
+                'contact' => $p['contact'] ?? 'N/A',
+                'email' => $p['email'] ?? 'N/A',
+                'address' => $p['address'] ?? 'N/A',
+                'barangay' => $p['barangay'] ?? 'N/A',
+                'emergency_contact' => $p['emergency_contact'] ?? 'N/A',
+                'registration_date' => $p['registration_date'] ?? 'N/A',
+                'status' => $p['status'] ?? 'active',
+                'allergies' => $p['allergies'] ?? 'None',
+                'conditions' => $conditions
+            ];
         }
     } catch (Throwable $e) {
         error_log('Error fetching patients: ' . $e->getMessage());
@@ -44,6 +78,31 @@ requireDepartmentAccess('health center services');
         }
     } catch (Throwable $e) {
         error_log('Error fetching employees: ' . $e->getMessage());
+    }
+
+    // Resolve logged in doctor / employee ID & Name based on role / session
+    $sessionUserId = $_SESSION['user_id'] ?? null;
+    $sessionEmployeeId = $_SESSION['employee_id'] ?? null;
+    $sessionFullName = trim($_SESSION['full_name'] ?? ($_SESSION['name'] ?? ($_SESSION['username'] ?? '')));
+
+    $loggedInDoctorId = null;
+    $loggedInDoctorName = null;
+
+    foreach ($employees as $e) {
+        $eId = (string)($e['id'] ?? '');
+        $uId = (string)($e['user_id'] ?? '');
+        $eName = trim($e['full_name'] ?? (($e['first_name'] ?? '') . ' ' . ($e['last_name'] ?? '')));
+        $eUser = trim($e['username'] ?? '');
+
+        if (
+            ($sessionEmployeeId && (string)$sessionEmployeeId === $eId) ||
+            ($sessionUserId && (string)$sessionUserId === $uId) ||
+            (!empty($sessionFullName) && (stripos($eName, $sessionFullName) !== false || stripos($sessionFullName, $eName) !== false || stripos($sessionFullName, $eUser) !== false))
+        ) {
+            $loggedInDoctorId = (int)$e['id'];
+            $loggedInDoctorName = $e['full_name'] ?? $eName;
+            break;
+        }
     }
 
     // Enrich prescriptions
@@ -280,6 +339,25 @@ requireDepartmentAccess('health center services');
                 <div class="flex gap-1" id="paginationControls">
                     <!-- Pagination buttons will be generated here -->
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PATIENT PROFILE MODAL IN PRESCRIPTIONS                        -->
+    <!-- ============================================================ -->
+    <div id="prescriptionPatientProfileModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+                <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-address-card text-brand-medium"></i> Patient Profile Overview
+                </h3>
+                <button onclick="ModalSystem.close('prescriptionPatientProfileModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="prescriptionPatientProfileContent" class="p-6">
+                <div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading profile...</div>
             </div>
         </div>
     </div>
@@ -559,11 +637,106 @@ requireDepartmentAccess('health center services');
     if (dateInput) {
         dateInput.value = new Date().toISOString().split('T')[0];
     }
+
+    // Centralized Workflow: Auto-open & prefill New Prescription modal if redirected from Consultation/Appointment
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetPatientId = urlParams.get('patient_id') || urlParams.get('patient');
+    const targetDoctorId = urlParams.get('doctor_id') || urlParams.get('employee_id');
+    const autoOpenNew = urlParams.get('from_consultation') !== null || urlParams.get('action') === 'new' || urlParams.get('new') === 'true';
+
+    if (autoOpenNew || targetPatientId) {
+        setTimeout(() => {
+            ModalSystem.open('newPrescriptionModal');
+            
+            const patientSelect = document.getElementById('rx_patient');
+            if (patientSelect && targetPatientId) {
+                patientSelect.value = targetPatientId;
+            }
+
+            const doctorSelect = document.getElementById('rx_doctor');
+            if (doctorSelect && targetDoctorId) {
+                doctorSelect.value = targetDoctorId;
+            }
+
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                ModalSystem.toast.info('New prescription form pre-filled for patient.', { title: '💊 Electronic Prescription' });
+            }
+        }, 350);
+    }
 });
 
         // ============================================================
         // LOAD DRUGS FROM API
         // ============================================================
+        const PATIENTS_MAP = <?php echo json_encode($patientsJsMap, JSON_UNESCAPED_UNICODE); ?>;
+
+        // ============================================================
+        // PATIENT PROFILE MODAL IN PRESCRIPTIONS
+        // ============================================================
+        function openPatientProfile(patientId) {
+            ModalSystem.open('prescriptionPatientProfileModal');
+            const content = document.getElementById('prescriptionPatientProfileContent');
+            content.innerHTML = '<div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading profile...</div>';
+            
+            setTimeout(() => {
+                const p = PATIENTS_MAP[patientId];
+                if (!p) {
+                    content.innerHTML = '<p class="text-sm text-rose-500 text-center py-10">Patient profile details not found.</p>';
+                    return;
+                }
+                const fName = p.first_name || '';
+                const lName = p.last_name || '';
+                const initials = (((fName[0] || 'P')) + ((lName[0] || 'T'))).toUpperCase();
+                const fullName = `${fName} ${lName}`.trim() || ('Patient #' + p.id);
+                const statusBadge = p.status === 'active' 
+                    ? '<span class="inline-block px-2.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold mt-1">Active</span>' 
+                    : '<span class="inline-block px-2.5 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs font-semibold mt-1">Inactive</span>';
+                
+                content.innerHTML = `
+                    <div class="space-y-6">
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-200 gap-3">
+                            <div class="flex items-center gap-4">
+                                <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">${initials}</div>
+                                <div>
+                                    <h4 class="text-lg font-bold text-slate-900 maskable" data-real="${fullName}" data-masked="${maskName(fullName)}">${maskName(fullName)}</h4>
+                                    <p class="text-xs text-slate-500 font-mono">${p.patient_id} &bull; ${p.gender} &bull; ${p.age} yrs old</p>
+                                    ${statusBadge}
+                                </div>
+                            </div>
+                            <a href="patients.php?patient=${p.id}&autoView=true" class="px-3.5 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-xs">
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> View in Patients.php
+                            </a>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Contact</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.contact}" data-masked="${maskName(p.contact)}">${maskName(p.contact)}</p></div>
+                            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Email</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.email}" data-masked="${maskName(p.email)}">${maskName(p.email)}</p></div>
+                            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Blood Type</p><p class="text-slate-800 font-bold text-rose-600 mt-0.5">${p.blood_type}</p></div>
+                            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Barangay</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.barangay}" data-masked="${maskName(p.barangay)}">${maskName(p.barangay)}</p></div>
+                            <div class="md:col-span-2"><p class="text-slate-400 font-semibold uppercase text-[10px]">Address</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.address}" data-masked="${maskName(p.address)}">${maskName(p.address)}</p></div>
+                            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Emergency Contact</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.emergency_contact}" data-masked="${maskName(p.emergency_contact)}">${maskName(p.emergency_contact)}</p></div>
+                            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Registration Date</p><p class="text-slate-800 font-medium mt-0.5">${p.registration_date}</p></div>
+                        </div>
+                        <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border text-xs">
+                            <h5 class="font-bold text-slate-700 mb-2 flex items-center gap-1.5"><i class="fa-solid fa-notes-medical text-brand-medium"></i> Medical Information</h5>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Allergies</p><p class="text-slate-800 font-medium mt-0.5">${p.allergies}</p></div>
+                                <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Existing Conditions</p><p class="text-slate-800 font-medium mt-0.5">${p.conditions}</p></div>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center pt-3 border-t border-slate-100">
+                            <button type="button" onclick="ModalSystem.close('prescriptionPatientProfileModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold">Close</button>
+                            <a href="patients.php?patient=${p.id}&autoView=true" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5">
+                                <i class="fa-solid fa-users text-xs"></i> Open Full Profile in Patients Page
+                            </a>
+                        </div>
+                    </div>
+                `;
+                if (typeof ModalSystem !== 'undefined' && ModalSystem.refreshMasking) {
+                    ModalSystem.refreshMasking('prescriptionPatientProfileModal');
+                }
+            }, 150);
+        }
+
         async function loadDrugs() {
             try {
                 const response = await fetch('/capstone/api/drugs.php');
@@ -673,41 +846,59 @@ requireDepartmentAccess('health center services');
         }
 
         function addSelectedDrug() {
-            if (!selectedDrug) {
-                ModalSystem.toast.warning('Please search and select a medication first');
+            const searchInput = document.getElementById('rx_drug_search');
+            const customName = searchInput ? searchInput.value.trim() : '';
+
+            if (!selectedDrug && !customName) {
+                if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                    ModalSystem.toast.warning('Please search and select a medication first');
+                }
                 return;
             }
+            
+            const drugName = selectedDrug ? selectedDrug.name : customName;
+            const drugStrength = selectedDrug ? (selectedDrug.strength || '') : '';
+            const drugId = selectedDrug ? selectedDrug.id : null;
             
             // Check if already added
-            if (prescriptionMedications.some(m => m.name === selectedDrug.name)) {
-                ModalSystem.toast.warning('Medication already added');
+            if (prescriptionMedications.some(m => m.name.toLowerCase() === drugName.toLowerCase())) {
+                if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                    ModalSystem.toast.warning('Medication already added');
+                }
                 return;
             }
             
+            const freqEl = document.getElementById('rx_frequency');
+            const durEl = document.getElementById('rx_duration');
+            const frequency = freqEl ? freqEl.value : '1 tablet daily';
+            const duration = durEl ? durEl.value : '7 days';
+
             // Add to prescription
             const medication = {
-                id: selectedDrug.id,
-                name: selectedDrug.name,
-                dosage: selectedDrug.strength || '',
-                frequency: document.getElementById('rx_frequency').value,
-                duration: document.getElementById('rx_duration').value,
-                quantity: calculateQuantity(
-                    document.getElementById('rx_frequency').value, 
-                    document.getElementById('rx_duration').value
-                )
+                id: drugId,
+                name: drugName,
+                dosage: drugStrength,
+                frequency: frequency,
+                duration: duration,
+                quantity: calculateQuantity(frequency, duration)
             };
             
             prescriptionMedications.push(medication);
             renderMedicationList();
             clearSelectedDrug();
-            ModalSystem.toast.success(selectedDrug.name + ' added to prescription');
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                ModalSystem.toast.success(drugName + ' added to prescription');
+            }
         }
 
         function clearSelectedDrug() {
             selectedDrug = null;
-            document.getElementById('selectedDrugDisplay').classList.add('hidden');
-            document.getElementById('rx_drug_search').value = '';
-            document.getElementById('drugDropdown').classList.add('hidden');
+            const searchInput = document.getElementById('rx_drug_search');
+            if (searchInput) searchInput.value = '';
+            const display = document.getElementById('selectedDrugDisplay');
+            if (display) display.classList.add('hidden');
+            const dropdown = document.getElementById('drugDropdown');
+            if (dropdown) dropdown.classList.add('hidden');
         }
 
         function showDrugDropdown() {
@@ -773,6 +964,8 @@ requireDepartmentAccess('health center services');
             });
         }
 
+        const LOGGED_IN_DOCTOR_ID = <?php echo json_encode($loggedInDoctorId); ?>;
+
         function populateDoctorSelects() {
             const select = document.getElementById('rx_doctor');
             const editSelect = document.getElementById('edit_rx_doctor');
@@ -783,8 +976,14 @@ requireDepartmentAccess('health center services');
                     const option = document.createElement('option');
                     option.value = d.id;
                     option.textContent = d.full_name || `${d.first_name || ''} ${d.last_name || ''}`.trim() || `Employee #${d.id}`;
+                    if (LOGGED_IN_DOCTOR_ID && parseInt(d.id) === parseInt(LOGGED_IN_DOCTOR_ID)) {
+                        option.selected = true;
+                    }
                     select.appendChild(option);
                 });
+                if (LOGGED_IN_DOCTOR_ID && !select.value) {
+                    select.value = LOGGED_IN_DOCTOR_ID;
+                }
             }
 
             if (editSelect) {
@@ -982,9 +1181,9 @@ requireDepartmentAccess('health center services');
                             <span class="maskable" data-real="${patientAvatar}" data-masked="??">${patientAvatar}</span>
                         </div>
                         <div>
-                            <p class="font-semibold text-slate-800 text-sm">
-                                <span class="maskable" data-real="${patientName}" data-masked="${maskName(patientName)}">${patientName}</span>
-                            </p>
+                            <button type="button" onclick="openPatientProfile(${p.patient_id})" class="text-left group block">
+                                <span class="font-semibold text-slate-800 text-sm group-hover:text-brand-medium transition maskable" data-real="${patientName}" data-masked="${maskName(patientName)}">${patientName}</span>
+                            </button>
                             <p class="text-xs text-slate-400">${medications.length} medication${medications.length !== 1 ? 's' : ''}</p>
                         </div>
                     </div>
@@ -1010,6 +1209,7 @@ requireDepartmentAccess('health center services');
                 </td>
                 <td class="px-4 py-3">
                     <div class="flex items-center justify-center gap-1">
+                        <button onclick="openPatientProfile(${p.patient_id})" title="View Patient Profile" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"><i class="fa-solid fa-address-card text-sm"></i></button>
                         <button onclick="viewPrescription(${p.id})" title="View" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition"><i class="fa-solid fa-eye text-sm"></i></button>
                         ${p.status === 'pending' ? `<button onclick="dispensePrescription(${p.id})" title="Dispense" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"><i class="fa-solid fa-check text-sm"></i></button>` : ''}
                         <button onclick="editPrescription(${p.id})" title="Edit" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition"><i class="fa-solid fa-pen text-sm"></i></button>

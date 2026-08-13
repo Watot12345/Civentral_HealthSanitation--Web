@@ -20,6 +20,9 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
 } elseif (strpos($currentPath, 'management/') !== false) {
     $activeModule = 'management';
 }
+
+$_sidebarRole = strtolower(trim($_SESSION['role_description'] ?? $_SESSION['role'] ?? ''));
+$isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_sidebarRole, 'physician') || str_contains($_sidebarRole, 'dentist') || str_contains($_sidebarRole, 'medical practitioner'));
 ?>
 <!-- admin/includes/sidebar.php -->
 <aside id="sidebar" class="bg-brand-light text-slate-600 w-72 min-h-[calc(100vh-5rem)] flex flex-col justify-between transition-all duration-300 border-r border-brand-border/60 sticky top-20 h-[calc(100vh-5rem)] z-30 shrink-0 shadow-sm">
@@ -130,7 +133,7 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
           <?php if (hasPermission('consultations.view')): ?>
           <a href="<?= site_url('modules/healthservices/consultations.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'consultations.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-stethoscope text-[10px] opacity-50"></i> 
-            <span>Consultations</span>
+            <span><?= $isDoctorSidebar ? 'My Consultations' : 'Consultations' ?></span>
           </a>
           <?php endif; ?>
 
@@ -144,7 +147,7 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
           <?php if (hasPermission('patients.view')): ?>
           <a href="<?= site_url('modules/healthservices/appointments.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'appointments.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-calendar-check text-[10px] opacity-50"></i> 
-            <span>Appointments</span>
+            <span><?= $isDoctorSidebar ? 'My Appointments' : 'Appointments' ?></span>
           </a>
           <?php endif; ?>
 

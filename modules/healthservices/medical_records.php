@@ -9,1068 +9,925 @@
 // ============================================================
 
 // ============================================================
-// 1. PHP BACKEND - Fetch Data
+// 1. PHP BACKEND - Aggregator & EHR Master Data Builder
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('health center services');
+
 require_once '../../app/Models/Patient.php';
+require_once '../../app/Models/Triage.php';
+require_once '../../app/Models/Consultation.php';
+require_once '../../app/Models/Prescription.php';
+require_once '../../app/Models/Referral.php';
+require_once '../../app/Models/Appointment.php';
 require_once '../../app/Models/Employee.php';
 require_once '../../app/Models/MedicalRecord.php';
 
-$healthCenterTests = [
-    'Complete Blood Count (CBC)',
-    'Urinalysis',
-    'Fecalysis',
-    'Fasting Blood Sugar (FBS)',
-    'Random Blood Sugar (RBS)',
-    'HbA1c',
-    'Lipid Profile',
-    'Blood Typing',
-    'Pregnancy Test',
-    'Dengue NS1 / IgM / IgG',
-    'Tuberculosis Sputum Test',
-    'Chest X-Ray',
-    'X-Ray',
-    'ECG',
-    'Blood Pressure Reading',
-    'Prenatal Ultrasound',
-    'Wound Dressing Record',
-    'Minor Procedure Record',
-    'Dental Checkup',
-    'Medical Certificate'
-];
+$patientModel = new Patient();
+$triageModel = new Triage();
+$consultationModel = new Consultation();
+$prescriptionModel = new Prescription();
+$referralModel = new Referral();
+$appointmentModel = new Appointment();
+$employeeModel = new Employee();
+$medicalRecordModel = new MedicalRecord();
 
-function medicalRecordInitials(string $name): string {
-    $letters = '';
-    foreach (preg_split('/\s+/', trim($name)) as $part) {
-        if ($part !== '') $letters .= strtoupper($part[0]);
-    }
-    return substr($letters ?: 'P', 0, 2);
-}
-
-function decodeMedicalRecordMeta($value): array {
-    if (is_array($value)) return $value;
-    if (!$value) return [];
-    $decoded = json_decode($value, true);
-    return is_array($decoded) ? $decoded : [];
-}
-
-function mapMedicalRecordForPage(array $record, array $patientsById, Employee $employeeModel): array {
-    $patient = $patientsById[$record['patient_id']] ?? null;
-    $patientName = $patient ? trim(($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? '')) : 'Patient #' . ($record['patient_id'] ?? '');
-    $meta = decodeMedicalRecordMeta($record['attachments'] ?? null);
-    $doctor = $meta['doctor'] ?? '';
-    if (!$doctor && !empty($record['created_by'])) {
-        $doctor = $employeeModel->getFullName($record['created_by']);
-    }
-
-    return [
-        'id' => $record['id'],
-        'patient_id' => $record['patient_id'],
-        'patient_name' => $patientName,
-        'patient_code' => $patient['patient_id'] ?? '',
-        'patient_avatar' => medicalRecordInitials($patientName),
-        'record_type' => $record['record_type'],
-        'title' => $meta['title'] ?? (ucfirst($record['record_type']) . ' Record'),
-        'description' => $record['description'],
-        'date' => $record['date'],
-        'doctor' => $doctor,
-        'status' => $meta['status'] ?? 'completed',
-        'shared_with' => $meta['shared_with'] ?? [],
-        'attachments' => $meta['files'] ?? [],
-        'created_by' => $record['created_by'] ?? null,
-    ];
-}
-
-$patients = [];
-$medicalRecords = [];
-$employees = [];
-$doctorEmployees = [];
-$recordsClerkEmployees = [];
-$pageError = '';
+$rawPatients = [];
+$rawTriages = [];
+$rawConsultations = [];
+$rawPrescriptions = [];
+$rawReferrals = [];
+$rawAppointments = [];
+$rawEmployees = [];
+$rawLegacyRecords = [];
 
 try {
-    $patientModel = new Patient();
-    $employeeModel = new Employee();
-    $recordModel = new MedicalRecord();
+    $rawPatients = $patientModel->all(['order' => 'first_name.asc,last_name.asc']);
+} catch (Throwable $e) { error_log('EHR Patient Error: ' . $e->getMessage()); }
 
-    $rawPatients = $patientModel->all(['order' => 'last_name.asc']);
-    foreach ($rawPatients as $patient) {
-        $patients[] = [
-            'id' => $patient['id'],
-            'patient_id' => $patient['patient_id'] ?? ('P-' . $patient['id']),
-            'name' => trim(($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? ''))
+try {
+    $rawTriages = $triageModel->all(['order' => 'created_at.desc']);
+} catch (Throwable $e) { error_log('EHR Triage Error: ' . $e->getMessage()); }
+
+try {
+    $rawConsultations = $consultationModel->all(['order' => 'date.desc,created_at.desc']);
+} catch (Throwable $e) { error_log('EHR Consultation Error: ' . $e->getMessage()); }
+
+try {
+    $rawPrescriptions = $prescriptionModel->all(['order' => 'date.desc,created_at.desc']);
+} catch (Throwable $e) { error_log('EHR Prescription Error: ' . $e->getMessage()); }
+
+try {
+    $rawReferrals = $referralModel->all(['order' => 'date.desc,created_at.desc']);
+} catch (Throwable $e) { error_log('EHR Referral Error: ' . $e->getMessage()); }
+
+try {
+    $rawAppointments = $appointmentModel->all(['order' => 'appointment_date.desc,created_at.desc']);
+} catch (Throwable $e) { error_log('EHR Appointment Error: ' . $e->getMessage()); }
+
+try {
+    $rawEmployees = $employeeModel->all();
+} catch (Throwable $e) { error_log('EHR Employee Error: ' . $e->getMessage()); }
+
+try {
+    $rawLegacyRecords = $medicalRecordModel->all(['order' => 'date.desc,created_at.desc']);
+} catch (Throwable $e) { error_log('EHR Legacy Records Error: ' . $e->getMessage()); }
+
+// Build employee lookup maps
+$employeesMap = [];
+foreach ($rawEmployees as $e) {
+    $name = trim($e['full_name'] ?? (($e['first_name'] ?? '') . ' ' . ($e['last_name'] ?? '')));
+    if (empty($name)) $name = $e['name'] ?? $e['username'] ?? ("Employee #{$e['id']}");
+    $displayName = (str_starts_with($name, 'Dr.') || str_starts_with($name, 'Doctor')) ? $name : ('Dr. ' . $name);
+    $employeesMap[$e['id']] = $displayName;
+}
+
+// Master Aggregated Data Map per Patient
+$ehrDataMap = [];
+$patientsList = [];
+
+foreach ($rawPatients as $p) {
+    $pId = (int)$p['id'];
+    $fName = trim($p['first_name'] ?? '');
+    $lName = trim($p['last_name'] ?? '');
+    $fullName = trim("$fName $lName") ?: "Patient #$pId";
+    $patientCode = $p['patient_id'] ?? "P-$pId";
+    $initials = strtoupper(substr($fName ?: 'P', 0, 1) . substr($lName ?: 'T', 0, 1));
+
+    $age = 0;
+    if (!empty($p['birth_date'])) {
+        try {
+            $dob = new DateTime($p['birth_date']);
+            $now = new DateTime();
+            $age = $now->diff($dob)->y;
+        } catch (Throwable $ex) {}
+    }
+
+    $allergies = $p['allergies'] ?? 'None';
+    $conditions = 'None';
+    if (!empty($p['medical_history'])) {
+        $history = is_string($p['medical_history']) 
+            ? json_decode($p['medical_history'], true) 
+            : $p['medical_history'];
+        $conditions = $history['conditions'] ?? 'None';
+    }
+
+    $profile = [
+        'id' => $pId,
+        'patient_id' => $patientCode,
+        'full_name' => $fullName,
+        'first_name' => $fName,
+        'last_name' => $lName,
+        'initials' => $initials,
+        'gender' => $p['gender'] ?? 'Unspecified',
+        'age' => $age,
+        'birth_date' => $p['birth_date'] ?? 'N/A',
+        'blood_type' => $p['blood_type'] ?? 'N/A',
+        'contact' => $p['contact'] ?? 'N/A',
+        'email' => $p['email'] ?? 'N/A',
+        'address' => $p['address'] ?? 'N/A',
+        'barangay' => $p['barangay'] ?? 'N/A',
+        'emergency_contact' => $p['emergency_contact'] ?? 'N/A',
+        'registration_date' => $p['registration_date'] ?? 'N/A',
+        'status' => $p['status'] ?? 'active',
+        'allergies' => $allergies,
+        'conditions' => $conditions
+    ];
+
+    // Filter sub-records for this patient
+    $pTriages = array_values(array_filter($rawTriages, fn($t) => (int)($t['patient_id'] ?? 0) === $pId));
+    $pConsultations = array_values(array_filter($rawConsultations, fn($c) => (int)($c['patient_id'] ?? 0) === $pId));
+    $pPrescriptions = array_values(array_filter($rawPrescriptions, fn($pr) => (int)($pr['patient_id'] ?? 0) === $pId));
+    $pReferrals = array_values(array_filter($rawReferrals, fn($r) => (int)($r['patient_id'] ?? 0) === $pId));
+    $pAppointments = array_values(array_filter($rawAppointments, fn($a) => (int)($a['patient_id'] ?? 0) === $pId));
+    $pLegacy = array_values(array_filter($rawLegacyRecords, fn($m) => (int)($m['patient_id'] ?? 0) === $pId));
+
+    // Formatted timeline entries
+    $timeline = [];
+
+    // 1. Consultations to Timeline
+    foreach ($pConsultations as $c) {
+        $docName = $c['doctor_name'] ?? ($employeesMap[$c['employee_id'] ?? 0] ?? 'Attending Doctor');
+        $dateStr = $c['date'] ?? (substr($c['created_at'] ?? '', 0, 10));
+        $timeStr = $c['time'] ?? '';
+        $timeline[] = [
+            'type' => 'consultation',
+            'timestamp' => strtotime("$dateStr $timeStr") ?: strtotime($c['created_at'] ?? 'now'),
+            'date_display' => $dateStr . ($timeStr ? " • $timeStr" : ''),
+            'title' => 'Doctor Consultation: ' . ($c['diagnosis'] ?? 'General Consultation'),
+            'badge' => 'bg-emerald-100 text-emerald-800 border-emerald-200',
+            'badge_label' => 'Consultation',
+            'icon' => 'fa-stethoscope text-emerald-600',
+            'provider' => $docName,
+            'summary' => "Diagnosis: " . ($c['diagnosis'] ?? 'N/A') . ($c['icd_code'] ? " (ICD-10: {$c['icd_code']})" : ''),
+            'data' => $c
         ];
     }
 
-    $doctorEmployees = array_values(array_filter($employees, function($employee) {
-        $role = $employee['role'] ?? '';
-        $desc = strtolower($employee['role_description'] ?? '');
-        $dept = strtolower(trim($employee['department'] ?? ''));
-        return (in_array($role, ['Medical Practitioner', 'Health Center Director']) || str_contains($desc, 'doctor') || str_contains($desc, 'physician'))
-            && ($dept === '' || str_contains($dept, 'health') || str_contains($dept, 'medical'));
-    }));
-    $recordsClerkEmployees = array_values(array_filter($employees, function($employee) {
-        $role = $employee['role'] ?? '';
-        $desc = strtolower($employee['role_description'] ?? '');
-        $dept = strtolower(trim($employee['department'] ?? ''));
-        return (in_array($role, ['Health Center Staff', 'Health Center Director']) || str_contains($desc, 'clerk') || str_contains($desc, 'records'))
-            && ($dept === '' || str_contains($dept, 'health') || str_contains($dept, 'medical'));
-    }));
-    $patientsById = array_column($rawPatients, null, 'id');
-    $rawRecords = $recordModel->all(['order' => 'date.desc,created_at.desc']);
-    $medicalRecords = array_map(fn($record) => mapMedicalRecordForPage($record, $patientsById, $employeeModel), $rawRecords);
-} catch (Throwable $e) {
-    $pageError = $e->getMessage();
+    // 2. Prescriptions to Timeline
+    foreach ($pPrescriptions as $pr) {
+        $docName = $pr['doctor_name'] ?? ($employeesMap[$pr['employee_id'] ?? 0] ?? 'Prescribing Physician');
+        $dateStr = $pr['date'] ?? (substr($pr['created_at'] ?? '', 0, 10));
+        $meds = is_string($pr['medications'] ?? null) ? json_decode($pr['medications'], true) : ($pr['medications'] ?? []);
+        $medsCount = is_array($meds) ? count($meds) : 0;
+        $statusLabel = ucfirst($pr['status'] ?? 'pending');
+
+        $timeline[] = [
+            'type' => 'prescription',
+            'timestamp' => strtotime($pr['created_at'] ?? $dateStr) ?: time(),
+            'date_display' => $dateStr,
+            'title' => "Prescription Issued ($medsCount items)",
+            'badge' => 'bg-teal-100 text-teal-800 border-teal-200',
+            'badge_label' => "Rx ($statusLabel)",
+            'icon' => 'fa-pills text-teal-600',
+            'provider' => $docName,
+            'summary' => "Prescription #{$pr['prescription_id']} • Status: $statusLabel",
+            'data' => array_merge($pr, ['meds_parsed' => $meds])
+        ];
+    }
+
+    // 3. Referrals to Timeline
+    foreach ($pReferrals as $rf) {
+        $fromDoc = $rf['from_doctor'] ?? ($employeesMap[$rf['from_doctor_id'] ?? 0] ?? 'Referring Doctor');
+        $target = $rf['to_specialist'] ?? ($rf['to_hospital'] ?? 'Specialist Clinic');
+        $dateStr = $rf['date'] ?? (substr($rf['created_at'] ?? '', 0, 10));
+
+        $timeline[] = [
+            'type' => 'referral',
+            'timestamp' => strtotime($rf['created_at'] ?? $dateStr) ?: time(),
+            'date_display' => $dateStr,
+            'title' => "Patient Referral to $target",
+            'badge' => 'bg-amber-100 text-amber-800 border-amber-200',
+            'badge_label' => 'Referral',
+            'icon' => 'fa-arrow-right-from-bracket text-amber-600',
+            'provider' => $fromDoc,
+            'summary' => "Reason: " . ($rf['reason'] ?? 'Specialist Consultation') . " • Urgency: " . ucfirst($rf['urgency'] ?? 'Routine'),
+            'data' => $rf
+        ];
+    }
+
+    // 4. Triages to Timeline
+    foreach ($pTriages as $tr) {
+        $nurse = $employeesMap[$tr['nurse_id'] ?? 0] ?? 'Triage Nurse';
+        $dateStr = substr($tr['created_at'] ?? '', 0, 10);
+        $timeStr = substr($tr['created_at'] ?? '', 11, 5);
+        $priority = ucfirst($tr['priority'] ?? 'Low');
+        $bp = $tr['blood_pressure'] ?? 'N/A';
+        $temp = $tr['temperature'] ? "{$tr['temperature']}°C" : 'N/A';
+        $hr = $tr['heart_rate'] ? "{$tr['heart_rate']} bpm" : 'N/A';
+
+        $timeline[] = [
+            'type' => 'triage',
+            'timestamp' => strtotime($tr['created_at'] ?? 'now') ?: time(),
+            'date_display' => $dateStr . ($timeStr ? " • $timeStr" : ''),
+            'title' => "Triage Vitals Check-in ($priority Priority)",
+            'badge' => 'bg-purple-100 text-purple-800 border-purple-200',
+            'badge_label' => 'Vitals & Triage',
+            'icon' => 'fa-heart-pulse text-purple-600',
+            'provider' => $nurse,
+            'summary' => "BP: $bp | Temp: $temp | HR: $hr | Priority: $priority",
+            'data' => $tr
+        ];
+    }
+
+    // 5. Appointments to Timeline
+    foreach ($pAppointments as $ap) {
+        $doc = $ap['doctor_name'] ?? ($employeesMap[$ap['employee_id'] ?? 0] ?? 'Attending Staff');
+        $dateStr = $ap['appointment_date'] ?? (substr($ap['created_at'] ?? '', 0, 10));
+        $timeStr = $ap['appointment_time'] ?? '';
+        $status = ucfirst($ap['status'] ?? 'Scheduled');
+
+        $timeline[] = [
+            'type' => 'appointment',
+            'timestamp' => strtotime("$dateStr $timeStr") ?: strtotime($ap['created_at'] ?? 'now'),
+            'date_display' => $dateStr . ($timeStr ? " • $timeStr" : ''),
+            'title' => "Appointment: " . ($ap['service_type'] ?? 'General Checkup'),
+            'badge' => 'bg-blue-100 text-blue-800 border-blue-200',
+            'badge_label' => "Appointment ($status)",
+            'icon' => 'fa-calendar-check text-blue-600',
+            'provider' => $doc,
+            'summary' => "Service: " . ($ap['service_type'] ?? 'General') . " • Status: $status",
+            'data' => $ap
+        ];
+    }
+
+    // Sort timeline descending by timestamp
+    usort($timeline, fn($a, $b) => $b['timestamp'] <=> $a['timestamp']);
+
+    $ehrDataMap[$pId] = [
+        'profile' => $profile,
+        'triages' => $pTriages,
+        'consultations' => $pConsultations,
+        'prescriptions' => $pPrescriptions,
+        'referrals' => $pReferrals,
+        'appointments' => $pAppointments,
+        'legacy' => $pLegacy,
+        'timeline' => $timeline,
+        'stats' => [
+            'total_visits' => count($pTriages) + count($pConsultations),
+            'total_consultations' => count($pConsultations),
+            'total_prescriptions' => count($pPrescriptions),
+            'total_referrals' => count($pReferrals),
+            'total_triages' => count($pTriages),
+            'total_appointments' => count($pAppointments)
+        ]
+    ];
+
+    $patientsList[] = [
+        'id' => $pId,
+        'patient_id' => $patientCode,
+        'name' => $fullName,
+        'initials' => $initials,
+        'age' => $age,
+        'gender' => $p['gender'] ?? 'Unspecified'
+    ];
 }
 
-// Pagination
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$limit = 6;
-$offset = ($page - 1) * $limit;
-$totalRecords = count($medicalRecords);
-$totalPages = ceil($totalRecords / $limit);
-$paginatedRecords = array_slice($medicalRecords, $offset, $limit);
-
-$title = 'Medical Records';
-
-// Stats
-$totalConsultations = count(array_filter($medicalRecords, fn($r) => $r['record_type'] === 'consultation'));
-$totalLabResults = count(array_filter($medicalRecords, fn($r) => $r['record_type'] === 'lab'));
-$totalImaging = count(array_filter($medicalRecords, fn($r) => $r['record_type'] === 'imaging'));
-$totalShared = count(array_filter($medicalRecords, fn($r) => count($r['shared_with']) > 0));
+// Initial selected patient ID from URL or default to first
+$requestedPatientId = (int)($_GET['patient_id'] ?? $_GET['patient'] ?? ($patientsList[0]['id'] ?? 0));
+$title = 'Patient Electronic Health Record (EHR)';
 ?>
 
 <!-- ============================================================ -->
-<!-- 2. HTML + PHP EMBEDDED + Tailwind CSS                       -->
+<!-- 2. HTML + TAILWIND CSS INTERFACE                              -->
 <!-- ============================================================ -->
+<div class="flex-1 px-6 pt-[26px] pb-20 mb-10 flex flex-col min-h-0 overflow-y-auto">
 
-<div class="flex-1 px-6 pt-[26px] pb-20 mb-10 flex flex-col min-h-0 overflow-hidden">
-
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <!-- Page Header & Patient Selector Bar -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
-            <h2 class="text-2xl font-black text-slate-900 tracking-tight">Medical Records</h2>
-            <p class="text-sm text-slate-500 mt-0.5">Electronic Health Record (EHR) - Documentation & Reporting</p>
-        </div>
-        <div class="flex gap-3">
-            <button onclick="openAddRecordModal()"
-                    class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
-                <i class="fa-solid fa-plus text-xs"></i> Add Record
-            </button>
-        </div>
-    </div>
-
-   <!-- ============================================================ -->
-<!-- MODERN KPI CARDS - Updated to match design               -->
-<!-- ============================================================ -->
-<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    <!-- Card 1: Total Records -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-                    <i class="fa-solid fa-notes-medical text-lg"></i>
-                </div>
-                <div>
-                    <p class="text-2xl font-black text-slate-900"><?php echo $totalRecords; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Total Records</p>
-                </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">📋 All records</span>
-                <span class="text-[10px] text-slate-400"><?php echo $totalConsultations; ?> consultations</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Card 2: Consultations -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-emerald-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
-                    <i class="fa-solid fa-stethoscope text-lg"></i>
-                </div>
-                <div>
-                    <p class="text-2xl font-black text-emerald-600"><?php echo $totalConsultations; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Consultations</p>
-                </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">🩺 Patient visits</span>
-                <span class="text-[10px] text-slate-400">Clinical encounters</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Card 3: Lab Results -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-violet-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200">
-                    <i class="fa-solid fa-flask text-lg"></i>
-                </div>
-                <div>
-                    <p class="text-2xl font-black text-violet-600"><?php echo $totalLabResults; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Lab Results</p>
-                </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-[10px] font-bold">🧪 Tests</span>
-                <span class="text-[10px] text-slate-400">Diagnostic results</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Card 4: Shared Records -->
-    <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-sky-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-        <div class="relative">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-gradient-to-br from-sky-500 to-sky-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-sky-200">
-                    <i class="fa-solid fa-share-nodes text-lg"></i>
-                </div>
-                <div>
-                    <p class="text-2xl font-black text-sky-600"><?php echo $totalShared; ?></p>
-                    <p class="text-xs font-medium text-slate-500">Shared Records</p>
-                </div>
-            </div>
-            <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-sky-100 text-sky-700 rounded-full text-[10px] font-bold">📤 Shared</span>
-                <span class="text-[10px] text-slate-400">Collaborative care</span>
-            </div>
-        </div>
-    </div>
-</div>
-
-    <!-- Search & Filter -->
-    <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
-        <div class="flex flex-col sm:flex-row gap-3">
-            <div class="flex-1 relative">
-                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                <input type="text"
-                       id="searchRecord"
-                       placeholder="Search by patient ID, patient name, test title, or record type..."
-                       class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
-            </div>
-            <div class="flex gap-2 flex-wrap">
-                <select id="filterTitle" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                    <option value="">All Lab / Test Titles</option>
-                    <?php foreach ($healthCenterTests as $testTitle): ?>
-                        <option value="<?php echo htmlspecialchars(strtolower($testTitle)); ?>"><?php echo htmlspecialchars($testTitle); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select id="filterType" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                    <option value="">All Types</option>
-                    <option value="consultation">Consultation</option>
-                    <option value="lab">Lab Result</option>
-                    <option value="imaging">Imaging</option>
-                    <option value="procedure">Procedure</option>
-                    <option value="other">Other</option>
-                </select>
-                <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                    <option value="">All Status</option>
-                    <option value="completed">Completed</option>
-                    <option value="pending">Pending</option>
-                </select>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span>From</span>
-                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                </label>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span>To</span>
-                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                </label>
-                <button onclick="resetFilters()" title="Reset filters"
-                        class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
-                    <i class="fa-solid fa-rotate-right"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Records Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="recordsGrid">
-        <?php foreach ($paginatedRecords as $record): ?>
-        <div class="record-card bg-white rounded-xl shadow-xs border border-slate-200 p-4 hover:shadow-md transition-all duration-200"
-             data-patient="<?php echo strtolower($record['patient_name']); ?>"
-             data-patient-id="<?php echo strtolower($record['patient_code'] ?: ('patient-' . $record['patient_id'])); ?>"
-             data-type="<?php echo $record['record_type']; ?>"
-             data-title="<?php echo strtolower($record['title']); ?>"
-             data-date="<?php echo htmlspecialchars($record['date']); ?>"
-             data-status="<?php echo $record['status']; ?>">
-            
-            <!-- Header -->
-            <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-2.5">
-                    <div class="w-9 h-9 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
-                        <?php echo $record['patient_avatar']; ?>
-                    </div>
-                    <div>
-                        <p class="font-semibold text-slate-800 text-sm maskable" data-real="<?php echo htmlspecialchars($record['patient_name']); ?>" data-masked="<?php echo htmlspecialchars(maskName($record['patient_name'])); ?>"><?php echo htmlspecialchars(maskName($record['patient_name'])); ?></p>
-                        <p class="text-xs text-slate-400">
-                            <span class="font-semibold text-slate-500"><?php echo htmlspecialchars($record['patient_code'] ?: ('Patient #' . $record['patient_id'])); ?></span>
-                            <span class="mx-1">-</span><?php echo htmlspecialchars(ucfirst($record['record_type'])); ?>
-                        </p>
-                    </div>
-                </div>
-                <?php
-                    $typeIcons = [
-                        'consultation' => 'fa-stethoscope text-emerald-600',
-                        'lab' => 'fa-flask text-violet-600',
-                        'imaging' => 'fa-image text-sky-600',
-                        'procedure' => 'fa-syringe text-amber-600',
-                        'other' => 'fa-file text-slate-400'
-                    ];
-                    $icon = $typeIcons[$record['record_type']] ?? $typeIcons['other'];
-                ?>
-                <span class="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center">
-                    <i class="fa-solid <?php echo $icon; ?>"></i>
+            <div class="flex items-center gap-2">
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-light text-brand-dark border border-brand-border">
+                    <i class="fa-solid fa-file-medical mr-1"></i> Centralized EHR Archive
                 </span>
+                <span class="text-xs text-slate-400">&bull; Comprehensive Medical History</span>
             </div>
-            
-            <!-- Title & Description -->
-            <div>
-                <p class="font-semibold text-slate-800 text-sm"><?php echo htmlspecialchars($record['title']); ?></p>
-                <p class="text-xs text-slate-500 line-clamp-2 mt-1 maskable" data-real="<?php echo htmlspecialchars($record['description']); ?>" data-masked="Protected clinical note"><?php echo htmlspecialchars('Protected clinical note'); ?></p>
-            </div>
-            
-            <!-- Details -->
-            <div class="mt-3 flex items-center justify-between text-xs">
-                <span class="text-slate-500"><?php echo date('M d, Y', strtotime($record['date'])); ?></span>
-                <span class="text-slate-500"><?php echo htmlspecialchars($record['doctor']); ?></span>
-            </div>
-            
-            <!-- Status & Shared -->
-            <div class="mt-2 flex items-center justify-between">
-                <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo $record['status'] === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'; ?>">
-                    <?php echo ucfirst($record['status']); ?>
-                </span>
-                <?php if (count($record['shared_with']) > 0): ?>
-                    <span class="text-xs text-slate-400" title="Shared with: <?php echo implode(', ', $record['shared_with']); ?>">
-                        <i class="fa-solid fa-share-nodes text-sky-500 mr-1"></i>
-                        <?php echo count($record['shared_with']); ?> shared
-                    </span>
-                <?php endif; ?>
-                <?php if (count($record['attachments']) > 0): ?>
-                    <span class="text-xs text-slate-400">
-                        <i class="fa-solid fa-paperclip mr-1"></i>
-                        <?php echo count($record['attachments']); ?>
-                    </span>
-                <?php endif; ?>
-            </div>
-            
-            <!-- Actions -->
-            <div class="mt-3 pt-3 border-t border-slate-100 flex justify-end gap-2">
-                <button onclick="viewRecord(<?php echo $record['id']; ?>)"
-                        class="px-3 py-1.5 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition">
-                    <i class="fa-solid fa-eye mr-1"></i> View
-                </button>
-                <button onclick="editRecord(<?php echo $record['id']; ?>)"
-                        class="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition">
-                    <i class="fa-solid fa-pen mr-1"></i> Edit
-                </button>
-                <button onclick="shareRecord(<?php echo $record['id']; ?>)"
-                        class="px-3 py-1.5 text-xs font-semibold text-sky-600 hover:bg-sky-50 rounded-lg transition">
-                    <i class="fa-solid fa-share-nodes mr-1"></i> Share
-                </button>
-                <button onclick="deleteRecord(<?php echo $record['id']; ?>)"
-                        class="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition">
-                    <i class="fa-solid fa-trash mr-1"></i> Delete
-                </button>
-            </div>
+            <h1 class="text-2xl font-bold text-slate-900 mt-1">Patient Electronic Health Record</h1>
+            <p class="text-xs text-slate-500">Aggregated clinical visits, triage assessments, consultations, prescriptions, referrals & follow-ups</p>
         </div>
-        <?php endforeach; ?>
-    </div>
 
-    <!-- Empty state -->
-    <div id="emptyState" class="hidden flex-col items-center justify-center py-14 text-center">
-        <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-            <i class="fa-solid fa-notes-medical text-slate-400"></i>
-        </div>
-        <p class="text-sm font-semibold text-slate-600">No records match your filters</p>
-        <p class="text-xs text-slate-400 mt-1">Try adjusting your search or clearing filters</p>
-        <button onclick="resetFilters()" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear all filters</button>
-    </div>
-
-    <!-- Pagination -->
-    <div class="mt-4 px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-white rounded-xl shadow-xs border border-slate-200">
-        <p class="text-xs text-slate-500">
-            Showing <span class="font-semibold text-slate-700"><?php echo $totalRecords ? $offset + 1 : 0; ?></span> to
-            <span class="font-semibold text-slate-700"><?php echo min($offset + $limit, $totalRecords); ?></span> of
-            <span class="font-semibold text-slate-700"><?php echo $totalRecords; ?></span> records
-        </p>
-        <div class="flex gap-1">
-            <button onclick="changePage(<?php echo $page - 1; ?>)"
-                    class="px-3 py-1.5 rounded-lg text-sm <?php echo $page <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
-                    <?php echo $page <= 1 ? 'disabled' : ''; ?>>
-                <i class="fa-solid fa-chevron-left text-xs"></i>
-            </button>
-            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                <button onclick="changePage(<?php echo $i; ?>)"
-                        class="px-3 py-1.5 rounded-lg text-sm font-medium <?php echo $i === $page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>">
-                    <?php echo $i; ?>
+        <!-- Patient Search & Selector (Live Autocomplete Search Bar) -->
+        <div class="flex items-center gap-3 flex-wrap">
+            <div class="relative w-80">
+                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs z-10"></i>
+                <input type="text" id="ehrPatientSearch" 
+                       placeholder="Search patient by name or ID (e.g. P-0070)..." 
+                       autocomplete="off"
+                       oninput="filterEhrPatients(false)" 
+                       onfocus="handleEhrSearchFocus(this)"
+                       class="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none shadow-xs font-medium text-slate-800 transition">
+                <button type="button" onclick="clearEhrPatientSearch()" id="clearEhrSearchBtn" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+                    <i class="fa-solid fa-circle-xmark"></i>
                 </button>
-            <?php endfor; ?>
-            <button onclick="changePage(<?php echo $page + 1; ?>)"
-                    class="px-3 py-1.5 rounded-lg text-sm <?php echo $page >= $totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
-                    <?php echo $page >= $totalPages ? 'disabled' : ''; ?>>
-                <i class="fa-solid fa-chevron-right text-xs"></i>
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- ============================================================ -->
-<!-- VIEW RECORD MODAL                                            -->
-<!-- ============================================================ -->
-<div id="viewRecordModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
-            <h3 class="font-bold text-slate-900">Medical Record Details</h3>
-            <button onclick="ModalSystem.close('viewRecordModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div id="recordDetailsContent" class="p-6">
-            <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
-                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ============================================================ -->
-<!-- ADD RECORD MODAL                                             -->
-<!-- ============================================================ -->
-<div id="addRecordModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
-            <h3 class="font-bold text-slate-900">Add Medical Record</h3>
-            <button onclick="ModalSystem.close('addRecordModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <form id="addRecordForm" class="p-6 space-y-4" onsubmit="saveNewRecord(event)">
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Patient</label>
-                <select id="add_patient" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">Select Patient</option>
-                    <?php foreach ($patients as $p): ?>
-                        <option value="<?php echo $p['id']; ?>"><?php echo $p['name']; ?> (<?php echo $p['patient_id']; ?>)</option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Record Type</label>
-                <select id="add_type" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="consultation">Consultation</option>
-                    <option value="lab">Lab Result</option>
-                    <option value="imaging">Imaging</option>
-                    <option value="procedure">Procedure</option>
-                    <option value="other">Other</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Title</label>
-                <select id="add_title" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">Select Lab / Test Title</option>
-                    <?php foreach ($healthCenterTests as $testTitle): ?>
-                        <option value="<?php echo htmlspecialchars($testTitle); ?>"><?php echo htmlspecialchars($testTitle); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Description</label>
-                <textarea id="add_description" rows="3" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></textarea>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label>
-                <input type="date" id="add_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Doctor</label>
-                <select id="add_doctor" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">Select Doctor</option>
-                    <?php foreach ($doctorEmployees as $employee): ?>
-                        <option value="<?php echo htmlspecialchars($employee['full_name']); ?>"><?php echo htmlspecialchars($employee['full_name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <?php if (empty($doctorEmployees)): ?>
-                    <p class="text-[10px] text-rose-500 mt-1">No Health Center employee with Doctor role description found.</p>
-                <?php endif; ?>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Recorded By</label>
-                <select id="add_created_by" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">Select Medical Records Clerk</option>
-                    <?php foreach ($recordsClerkEmployees as $employee): ?>
-                        <option value="<?php echo htmlspecialchars($employee['id']); ?>"><?php echo htmlspecialchars($employee['full_name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <?php if (empty($recordsClerkEmployees)): ?>
-                    <p class="text-[10px] text-rose-500 mt-1">No Health Center employee with Med Records Clerk role description found.</p>
-                <?php endif; ?>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label>
-                <select id="add_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="completed">Completed</option>
-                    <option value="pending">Pending</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Share With (Optional)</label>
-                <select id="add_shared" multiple class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none min-h-24">
-                    <?php foreach ($doctorEmployees as $employee): ?>
-                        <option value="<?php echo htmlspecialchars($employee['full_name']); ?>"><?php echo htmlspecialchars($employee['full_name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <p class="text-[10px] text-slate-400 mt-1">Hold Ctrl or Cmd to select more than one doctor</p>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Attachments</label>
-                <input type="file" id="add_attachments" multiple class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                <p class="text-[10px] text-slate-400 mt-1">Supported: PDF, JPG, PNG, GIF, WebP (Max 5MB each)</p>
-            </div>
-
-            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button type="button" onclick="ModalSystem.close('addRecordModal')"
-                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
-                    Cancel
-                </button>
-                <button type="submit"
-                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                    <i class="fa-solid fa-plus mr-1.5"></i> Add Record
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- ============================================================ -->
-<!-- SHARE RECORD MODAL                                           -->
-<!-- ============================================================ -->
-<div id="shareRecordModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-            <h3 class="font-bold text-slate-900">Share Medical Record</h3>
-            <button onclick="ModalSystem.close('shareRecordModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div class="p-6 space-y-4">
-            <div class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
-                <div class="w-10 h-10 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-sm flex-shrink-0">
-                    MS
-                </div>
-                <div>
-                    <p id="sharePatientName" class="font-semibold text-slate-800 text-sm">Maria Santos</p>
-                    <p id="shareRecordTitle" class="text-xs text-slate-400">Hypertension Follow-up</p>
+                
+                <!-- Autocomplete Results Dropdown -->
+                <div id="ehrPatientDropdown" class="hidden absolute z-30 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-72 overflow-y-auto divide-y divide-slate-100">
+                    <!-- Dynamic filtered items injected via JS -->
                 </div>
             </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Share With</label>
-                <select id="shareWithInput" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">Select Doctor</option>
-                    <?php foreach ($doctorEmployees as $employee): ?>
-                        <option value="<?php echo htmlspecialchars($employee['full_name']); ?>"><?php echo htmlspecialchars($employee['full_name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <button onclick="addShareDoctor()" class="mt-2 text-xs font-semibold text-brand-medium hover:text-brand-dark transition">
-                    <i class="fa-solid fa-plus mr-1"></i> Add Doctor
+            <button onclick="printEHRSummary()" class="px-3.5 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                <i class="fa-solid fa-print"></i> Print EHR Summary
+            </button>
+        </div>
+    </div>
+
+    <!-- PATIENT HERO PROFILE CARD -->
+    <div id="patientHeroCard" class="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs mb-6">
+        <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
+            <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading patient medical record...
+        </div>
+    </div>
+
+    <!-- TABBED NAVIGATION HEADER -->
+    <div class="flex items-center gap-2 border-b border-slate-200 overflow-x-auto pb-px mb-6 text-xs font-semibold">
+        <button onclick="switchTab('timeline')" id="tab_btn_timeline" class="ehr-tab-btn px-4 py-2.5 border-b-2 border-brand-medium text-brand-medium flex items-center gap-2 transition">
+            <i class="fa-solid fa-clock-rotate-left"></i> Full Clinical Timeline
+        </button>
+        <button onclick="switchTab('consultations')" id="tab_btn_consultations" class="ehr-tab-btn px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
+            <i class="fa-solid fa-stethoscope"></i> Consultations & Diagnoses
+        </button>
+        <button onclick="switchTab('prescriptions')" id="tab_btn_prescriptions" class="ehr-tab-btn px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
+            <i class="fa-solid fa-pills"></i> Prescriptions & Dispensed
+        </button>
+        <button onclick="switchTab('referrals')" id="tab_btn_referrals" class="ehr-tab-btn px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> Referrals
+        </button>
+        <button onclick="switchTab('triages')" id="tab_btn_triages" class="ehr-tab-btn px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
+            <i class="fa-solid fa-heart-pulse"></i> Triage & Vitals
+        </button>
+        <button onclick="switchTab('appointments')" id="tab_btn_appointments" class="ehr-tab-btn px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
+            <i class="fa-solid fa-calendar-check"></i> Appointments & Follow-ups
+        </button>
+    </div>
+
+    <!-- TAB CONTENTS -->
+    <div id="tabContentArea" class="space-y-6">
+        <!-- Content will be rendered dynamically via JS -->
+    </div>
+
+</div>
+
+<!-- PRINTABLE MEDICAL RECORD SUMMARY MODAL -->
+<div id="printEhrModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10 print:hidden">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-print text-brand-medium"></i> Printable Medical Record Summary
+            </h3>
+            <div class="flex items-center gap-2">
+                <button onclick="window.print()" class="px-3.5 py-1.5 bg-brand-dark text-white rounded-lg hover:bg-brand-medium text-xs font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-print"></i> Print Now
+                </button>
+                <button onclick="ModalSystem.close('printEhrModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <div id="shareDoctorsList" class="flex flex-wrap gap-2">
-                <span class="px-2 py-1 bg-brand-light/40 rounded-full text-xs text-slate-600 border border-brand-border">Dr. Elena Santos</span>
-                <span class="px-2 py-1 bg-brand-light/40 rounded-full text-xs text-slate-600 border border-brand-border">Dr. Miguel Reyes</span>
-            </div>
-            <p class="text-[10px] text-slate-400 mt-2">
-                <i class="fa-solid fa-info-circle mr-1"></i>
-                Shared doctors will have view-only access to this record.
-            </p>
         </div>
-        <div class="flex justify-end gap-2 px-6 pb-6">
-            <button type="button" onclick="ModalSystem.close('shareRecordModal')"
-                    class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
-                Cancel
-            </button>
-            <button type="button" onclick="confirmShareRecord()"
-                    class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                <i class="fa-solid fa-share-nodes mr-1.5"></i> Share Record
-            </button>
+        <div id="printEhrContent" class="p-8 space-y-6">
+            <!-- Printable Certificate Template -->
         </div>
     </div>
 </div>
 
-<!-- ============================================================ -->
-<!-- JAVASCRIPT                                                   -->
-<!-- ============================================================ -->
+<!-- PRINT STYLESHEET -->
 <style>
-    .record-card {
-        transition: all 0.2s ease;
-    }
-    .record-card:hover {
-        transform: translateY(-2px);
-    }
+@media print {
+    body * { visibility: hidden; }
+    #printEhrContent, #printEhrContent * { visibility: visible; }
+    #printEhrContent { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; }
+    .print\:hidden { display: none !important; }
+}
 </style>
 
+<!-- ============================================================ -->
+<!-- 3. JAVASCRIPT MASTER EHR RENDERER                             -->
+<!-- ============================================================ -->
 <script>
-    const RECORDS = <?php echo json_encode(array_column($medicalRecords, null, 'id'), JSON_PRETTY_PRINT); ?>;
-    const API_URL = '../../api/medical_records.php';
-    const PAGE_ERROR = <?php echo json_encode($pageError); ?>;
-    let editingRecordId = null;
+const EHR_MASTER = <?php echo json_encode($ehrDataMap, JSON_UNESCAPED_UNICODE); ?>;
+const PATIENTS_LIST = <?php echo json_encode($patientsList, JSON_UNESCAPED_UNICODE); ?>;
+let currentPatientId = <?php echo $requestedPatientId; ?>;
+let currentActiveTab = 'timeline';
 
-    function notify(type, message, title = '') {
-        if (window.toast && typeof window.toast[type] === 'function') {
-            window.toast[type](message, { title });
-            return;
-        }
-        if (window.ModalSystem && ModalSystem.toast && typeof ModalSystem.toast[type] === 'function') {
-            ModalSystem.toast[type](message);
+document.addEventListener('DOMContentLoaded', function () {
+    if (!EHR_MASTER[currentPatientId]) {
+        const availableIds = Object.keys(EHR_MASTER);
+        if (availableIds.length > 0) {
+            currentPatientId = parseInt(availableIds[0]);
         }
     }
-
-    async function sendRecordRequest(url, data) {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-        const result = await response.json();
-        if (!response.ok || !result.success) {
-            throw new Error(result.message || 'Request failed');
+    const initialPatient = PATIENTS_LIST.find(p => p.id == currentPatientId);
+    if (initialPatient) {
+        const input = document.getElementById('ehrPatientSearch');
+        if (input) {
+            input.value = `${initialPatient.name} (${initialPatient.patient_id})`;
         }
-        return result;
     }
+    renderCurrentPatient();
+});
 
-    function getAttachmentNames(inputId) {
-        const input = document.getElementById(inputId);
-        return input && input.files ? Array.from(input.files).map(file => file.name) : [];
+// ============================================================
+// LIVE AUTOCOMPLETE SEARCH FOR PATIENTS BY NAME OR ID
+// ============================================================
+function handleEhrSearchFocus(input) {
+    if (input) {
+        input.select();
     }
+    filterEhrPatients(true);
+}
 
-    function selectedValues(selectId) {
-        const select = document.getElementById(selectId);
-        return select ? Array.from(select.selectedOptions).map(option => option.value).filter(Boolean) : [];
-    }
+function filterEhrPatients(isFocusEvent = false) {
+    const searchEl = document.getElementById('ehrPatientSearch');
+    let query = searchEl ? searchEl.value.toLowerCase().trim() : '';
+    const dropdown = document.getElementById('ehrPatientDropdown');
+    const clearBtn = document.getElementById('clearEhrSearchBtn');
 
-    function setSelectedValues(selectId, values) {
-        const selected = Array.isArray(values) ? values : [];
-        const select = document.getElementById(selectId);
-        if (!select) return;
-        Array.from(select.options).forEach(option => {
-            option.selected = selected.includes(option.value);
-        });
-    }
-
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/[&<>"']/g, char => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        }[char]));
-    }
-
-    function maskedText(real, masked) {
-        return `data-real="${escapeHtml(real)}" data-masked="${escapeHtml(masked)}"`;
-    }
-
-    function maskOptionLabel(label) {
-        return String(label || '').split(' ').map(part => {
-            if (!part) return '';
-            if (part.startsWith('(') || part.startsWith('P-')) return part;
-            return part.charAt(0) + '*'.repeat(Math.max(0, part.length - 1));
-        }).join(' ');
-    }
-
-    function syncMedicalRecordSelectMasking() {
-        const shouldMask = typeof window.isDataMasked === 'function' ? window.isDataMasked() : true;
-        ['add_patient'].forEach(selectId => {
-            const select = document.getElementById(selectId);
-            if (!select) return;
-            Array.from(select.options).forEach(option => {
-                if (!option.value) return;
-                if (!option.dataset.realText) {
-                    option.dataset.realText = option.textContent;
-                    option.dataset.maskedText = maskOptionLabel(option.textContent);
-                }
-                option.textContent = shouldMask ? option.dataset.maskedText : option.dataset.realText;
-            });
-        });
-    }
-
-    function getRecordFormData(prefix) {
-        const selectedAttachments = getAttachmentNames(prefix + '_attachments');
-        const existingRecord = editingRecordId ? RECORDS[editingRecordId] : null;
-
-        return {
-            patient_id: document.getElementById(prefix + '_patient').value,
-            record_type: document.getElementById(prefix + '_type').value,
-            title: document.getElementById(prefix + '_title').value.trim(),
-            description: document.getElementById(prefix + '_description').value.trim(),
-            date: document.getElementById(prefix + '_date').value,
-            doctor: document.getElementById(prefix + '_doctor').value,
-            status: document.getElementById(prefix + '_status').value,
-            shared_with: selectedValues(prefix + '_shared'),
-            attachments: selectedAttachments.length ? selectedAttachments : (existingRecord ? (existingRecord.attachments || []) : []),
-            created_by: document.getElementById(prefix + '_created_by').value
-        };
-    }
-
-    function openAddRecordModal() {
-        editingRecordId = null;
-        document.getElementById('addRecordForm').reset();
-        document.querySelector('#addRecordModal h3').textContent = 'Add Medical Record';
-        document.querySelector('#addRecordForm button[type="submit"]').innerHTML = '<i class="fa-solid fa-plus mr-1.5"></i> Add Record';
-        document.getElementById('add_date').value = new Date().toISOString().slice(0, 10);
-        ModalSystem.open('addRecordModal');
-        setTimeout(() => {
-            if (window.ModalSystem) ModalSystem.refreshMasking('addRecordModal');
-            syncMedicalRecordSelectMasking();
-        }, 200);
-    }
-
-    function reloadAfterToast() {
-        setTimeout(() => window.location.reload(), 700);
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        if (PAGE_ERROR) {
-            notify('error', 'Could not load medical records: ' + PAGE_ERROR, 'Backend Error');
+    // If focus event and query matches currently selected patient's full display string, treat as empty search to list all patients
+    const selectedP = PATIENTS_LIST.find(p => p.id == currentPatientId);
+    if (selectedP && isFocusEvent) {
+        const selectedDisp = `${selectedP.name} (${selectedP.patient_id})`.toLowerCase();
+        if (query === selectedDisp) {
+            query = '';
         }
-        syncMedicalRecordSelectMasking();
-        if (typeof window.toggleDataMask === 'function' && !window.medicalRecordsMaskBridgeLoaded) {
-            const originalToggleDataMask = window.toggleDataMask;
-            window.toggleDataMask = function() {
-                originalToggleDataMask();
-                setTimeout(syncMedicalRecordSelectMasking, 50);
-            };
-            window.medicalRecordsMaskBridgeLoaded = true;
-        }
-        document.getElementById('addRecordModal').addEventListener('click', () => {
-            if (window.ModalSystem) ModalSystem.refreshMasking('addRecordModal');
-            syncMedicalRecordSelectMasking();
-        });
+    }
+
+    if (clearBtn) clearBtn.classList.toggle('hidden', searchEl ? searchEl.value.length === 0 : true);
+
+    const filtered = (query.length === 0) ? PATIENTS_LIST : PATIENTS_LIST.filter(p => {
+        const nameMatch = (p.name || '').toLowerCase().includes(query);
+        const codeMatch = (p.patient_id || '').toLowerCase().includes(query);
+        const idMatch = (p.id || '').toString().includes(query);
+        return nameMatch || codeMatch || idMatch;
     });
-    // ============================================================
-    // VIEW RECORD
-    // ============================================================
-    function viewRecord(id) {
-        ModalSystem.open('viewRecordModal');
-        const r = RECORDS[id];
-        if (!r) return;
 
-        setTimeout(() => {
-            const typeIcons = {
-                consultation: 'fa-stethoscope text-emerald-600',
-                lab: 'fa-flask text-violet-600',
-                imaging: 'fa-image text-sky-600',
-                procedure: 'fa-syringe text-amber-600',
-                other: 'fa-file text-slate-400'
-            };
-            const icon = typeIcons[r.record_type] || typeIcons.other;
+    renderEhrPatientDropdown(filtered);
+    if (dropdown) dropdown.classList.remove('hidden');
+}
 
-            const sharedHtml = r.shared_with && r.shared_with.length > 0 
-                ? r.shared_with.map(d => `<span class="px-2 py-1 bg-brand-light/40 rounded-full text-xs text-slate-600 border border-brand-border">${escapeHtml(d)}</span>`).join('')
-                : '<span class="text-xs text-slate-400">Not shared with anyone</span>';
+function showEhrPatientDropdown() {
+    handleEhrSearchFocus(document.getElementById('ehrPatientSearch'));
+}
 
-            const attachmentsHtml = r.attachments && r.attachments.length > 0
-                ? r.attachments.map(a => `
-                    <div class="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200">
-                        <i class="fa-solid fa-paperclip text-slate-400"></i>
-                        <span class="text-xs text-slate-600">${escapeHtml(a)}</span>
-                        <button class="ml-auto text-xs text-brand-medium hover:text-brand-dark transition">
-                            <i class="fa-solid fa-download"></i>
-                        </button>
-                    </div>
-                `).join('')
-                : '<span class="text-xs text-slate-400">No attachments</span>';
+function renderEhrPatientDropdown(patients) {
+    const dropdown = document.getElementById('ehrPatientDropdown');
+    if (!dropdown) return;
 
-            document.getElementById('recordDetailsContent').innerHTML = `
-                <div class="space-y-4">
-                    <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
-                        <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-lg flex-shrink-0">
-                            ${escapeHtml(r.patient_avatar)}
-                        </div>
-                        <div>
-                            <h4 ${maskedText(r.patient_name, 'P********')} class="maskable text-lg font-bold text-slate-900">${escapeHtml(r.patient_name)}</h4>
-                            <p class="text-sm text-slate-500">${escapeHtml(r.patient_code || ('Patient #' + r.patient_id))} - ${escapeHtml(r.title)}</p>
-                            <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${r.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
-                                ${escapeHtml(r.status.toUpperCase())}
-                            </span>
-                        </div>
+    if (patients.length === 0) {
+        dropdown.innerHTML = `
+            <div class="p-4 text-center text-xs text-slate-400">
+                <i class="fa-solid fa-user-slash text-base mb-1 block"></i>
+                No matching patients found
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    patients.forEach(p => {
+        const pName = p.name || '';
+        html += `
+            <div onclick="selectEhrPatientFromSearch(${p.id})" class="px-3.5 py-2.5 hover:bg-brand-light/50 cursor-pointer transition flex items-center justify-between group">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs group-hover:bg-brand-medium group-hover:text-white transition">
+                        ${p.initials}
                     </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div><p class="text-xs text-slate-400 font-semibold">Patient ID</p><p class="text-sm text-slate-800">${escapeHtml(r.patient_code || ('Patient #' + r.patient_id))}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Type</p><p class="text-sm text-slate-800 capitalize">${escapeHtml(r.record_type)}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Date</p><p class="text-sm text-slate-800">${new Date(r.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Doctor</p><p class="text-sm text-slate-800">${escapeHtml(r.doctor)}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Status</p><p class="text-sm text-slate-800 capitalize">${escapeHtml(r.status)}</p></div>
-                    </div>
-                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <h5 class="text-sm font-bold text-slate-700 mb-2">Description</h5>
-                        <p ${maskedText(r.description, 'Protected clinical note')} class="maskable text-sm text-slate-800">${escapeHtml(r.description)}</p>
-                    </div>
-                    <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border">
-                        <h5 class="text-sm font-bold text-slate-700 mb-2">
-                            <i class="fa-solid fa-share-nodes mr-1"></i> Shared With
-                        </h5>
-                        <div class="flex flex-wrap gap-2">${sharedHtml}</div>
-                    </div>
-                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <h5 class="text-sm font-bold text-slate-700 mb-2">
-                            <i class="fa-solid fa-paperclip mr-1"></i> Attachments
-                        </h5>
-                        <div class="space-y-2">${attachmentsHtml}</div>
-                    </div>
-                    <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
-                        <button onclick="ModalSystem.close('viewRecordModal')" 
-                                class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
-                            Close
-                        </button>
-                        <button onclick="ModalSystem.close('viewRecordModal'); editRecord(${r.id})"
-                                class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                            <i class="fa-solid fa-pen mr-1.5"></i> Edit Record
-                        </button>
+                    <div>
+                        <p class="text-xs font-bold text-slate-800 group-hover:text-brand-dark transition">${escapeHtml(pName)}</p>
+                        <p class="text-[10px] text-slate-400 font-mono">${p.patient_id} &bull; ${p.gender} &bull; ${p.age} yrs</p>
                     </div>
                 </div>
-            `;
-            if (window.ModalSystem) ModalSystem.refreshMasking('viewRecordModal');
-        }, 300);
-    }
+                <i class="fa-solid fa-chevron-right text-[10px] text-slate-300 group-hover:text-brand-medium transition"></i>
+            </div>
+        `;
+    });
+    dropdown.innerHTML = html;
+}
 
-    // ============================================================
-    // EDIT RECORD
-    // ============================================================
-    function editRecord(id) {
-        const r = RECORDS[id];
-        if (!r) return;
-
-        editingRecordId = id;
-        document.querySelector('#addRecordModal h3').textContent = 'Edit Medical Record';
-        document.querySelector('#addRecordForm button[type="submit"]').innerHTML = '<i class="fa-solid fa-floppy-disk mr-1.5"></i> Save Changes';
-        document.getElementById('add_patient').value = r.patient_id;
-        document.getElementById('add_type').value = r.record_type;
-        document.getElementById('add_title').value = r.title;
-        document.getElementById('add_description').value = r.description;
-        document.getElementById('add_date').value = r.date;
-        document.getElementById('add_doctor').value = r.doctor || '';
-        document.getElementById('add_status').value = r.status || 'completed';
-        setSelectedValues('add_shared', r.shared_with || []);
-        document.getElementById('add_created_by').value = r.created_by || '';
-        ModalSystem.open('addRecordModal');
-        setTimeout(() => {
-            if (window.ModalSystem) ModalSystem.refreshMasking('addRecordModal');
-            syncMedicalRecordSelectMasking();
-        }, 200);
-    }
-
-    // ============================================================
-    // SHARE RECORD
-    // ============================================================
-    let shareRecordId = null;
-
-    function shareRecord(id) {
-        shareRecordId = id;
-        const r = RECORDS[id];
-        if (!r) return;
-
-        const sharePatientName = document.getElementById('sharePatientName');
-        sharePatientName.textContent = r.patient_name;
-        sharePatientName.dataset.real = r.patient_name;
-        sharePatientName.dataset.masked = 'P********';
-        sharePatientName.classList.add('maskable');
-        document.getElementById('shareRecordTitle').textContent = r.title;
-        document.getElementById('shareWithInput').value = '';
-
-        // Load existing shared doctors
-        const list = document.getElementById('shareDoctorsList');
-        if (r.shared_with && r.shared_with.length > 0) {
-            list.innerHTML = r.shared_with.map(d => `
-                <span data-doctor="${escapeHtml(d)}" class="px-2 py-1 bg-brand-light/40 rounded-full text-xs text-slate-600 border border-brand-border">
-                    <span>${escapeHtml(d)}</span>
-                    <button onclick="this.parentElement.remove()" class="ml-1 text-slate-400 hover:text-rose-500">x</button>
-                </span>
-            `).join('');
-        } else {
-            list.innerHTML = '<span class="text-xs text-slate-400">No doctors added yet</span>';
+function selectEhrPatientFromSearch(patientId) {
+    currentPatientId = parseInt(patientId);
+    const p = PATIENTS_LIST.find(pt => pt.id == patientId);
+    if (p) {
+        const input = document.getElementById('ehrPatientSearch');
+        if (input) {
+            input.value = `${p.name} (${p.patient_id})`;
         }
-
-        ModalSystem.open('shareRecordModal');
-        setTimeout(() => {
-            if (window.ModalSystem) ModalSystem.refreshMasking('shareRecordModal');
-            syncMedicalRecordSelectMasking();
-        }, 200);
     }
+    const dropdown = document.getElementById('ehrPatientDropdown');
+    if (dropdown) dropdown.classList.add('hidden');
+    renderCurrentPatient();
+}
 
-    function addShareDoctor() {
-        const input = document.getElementById('shareWithInput');
-        const name = input.value;
-        if (!name) return;
-
-        const list = document.getElementById('shareDoctorsList');
-        if (Array.from(list.querySelectorAll('[data-doctor]')).some(item => item.dataset.doctor === name)) {
-            notify('warning', 'Doctor already added');
-            return;
-        }
-        if (list.textContent.includes('No doctors added yet')) {
-            list.innerHTML = '';
-        }
-
-        const span = document.createElement('span');
-        span.className = 'px-2 py-1 bg-brand-light/40 rounded-full text-xs text-slate-600 border border-brand-border';
-        span.dataset.doctor = name;
-        span.innerHTML = `<span>${escapeHtml(name)}</span> <button onclick="this.parentElement.remove()" class="ml-1 text-slate-400 hover:text-rose-500">x</button>`;
-        list.appendChild(span);
+function clearEhrPatientSearch() {
+    const input = document.getElementById('ehrPatientSearch');
+    if (input) {
         input.value = '';
-        if (window.ModalSystem) ModalSystem.refreshMasking('shareRecordModal');
+        input.focus();
+    }
+    const clearBtn = document.getElementById('clearEhrSearchBtn');
+    if (clearBtn) clearBtn.classList.add('hidden');
+    filterEhrPatients(false);
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#ehrPatientSearch') && !e.target.closest('#ehrPatientDropdown')) {
+        const dropdown = document.getElementById('ehrPatientDropdown');
+        if (dropdown) dropdown.classList.add('hidden');
+    }
+});
+
+function switchTab(tabKey) {
+    currentActiveTab = tabKey;
+    document.querySelectorAll('.ehr-tab-btn').forEach(btn => {
+        btn.classList.remove('border-brand-medium', 'text-brand-medium');
+        btn.classList.add('border-transparent', 'text-slate-500');
+    });
+    const activeBtn = document.getElementById('tab_btn_' + tabKey);
+    if (activeBtn) {
+        activeBtn.classList.remove('border-transparent', 'text-slate-500');
+        activeBtn.classList.add('border-brand-medium', 'text-brand-medium');
+    }
+    renderTabContent();
+}
+
+function renderCurrentPatient() {
+    const data = EHR_MASTER[currentPatientId];
+    const heroCard = document.getElementById('patientHeroCard');
+
+    if (!data) {
+        heroCard.innerHTML = `
+            <div class="py-12 text-center text-slate-400">
+                <i class="fa-solid fa-folder-open text-3xl mb-2"></i>
+                <p class="text-sm font-semibold">No medical records found for this patient.</p>
+            </div>
+        `;
+        document.getElementById('tabContentArea').innerHTML = '';
+        return;
     }
 
-    function removeShareDoctor(name) {
-        const list = document.getElementById('shareDoctorsList');
-        const items = list.querySelectorAll('span');
-        items.forEach(item => {
-            if (item.dataset.doctor === name || item.textContent.includes(name)) {
-                item.remove();
-            }
-        });
+    const p = data.profile;
+    const st = data.stats;
+
+    // Render Hero Profile Card
+    heroCard.innerHTML = `
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-6 border-b border-slate-100">
+            <div class="flex items-center gap-4">
+                <div class="w-16 h-16 rounded-2xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-2xl flex-shrink-0 shadow-xs">
+                    ${p.initials}
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-xl font-bold text-slate-900 maskable" data-real="${p.full_name}" data-masked="${maskName(p.full_name)}">${maskName(p.full_name)}</h2>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 uppercase">${p.status}</span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-mono mt-0.5">
+                        <span class="font-semibold text-slate-700">${p.patient_id}</span> &bull; ${p.gender} &bull; ${p.age} yrs old &bull; DOB: ${p.birth_date}
+                    </p>
+                    <div class="flex flex-wrap items-center gap-2 mt-2">
+                        <span class="px-2 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-md text-[10px] font-semibold">
+                            <i class="fa-solid fa-droplet text-rose-500 mr-1"></i> Blood: <strong>${p.blood_type}</strong>
+                        </span>
+                        <span class="px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-md text-[10px] font-semibold">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Allergies: <strong>${p.allergies}</strong>
+                        </span>
+                        <span class="px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-md text-[10px] font-semibold">
+                            <i class="fa-solid fa-notes-medical text-indigo-600 mr-1"></i> Conditions: <strong>${p.conditions}</strong>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Short-cuts -->
+            <div class="flex items-center gap-2 flex-wrap shrink-0">
+                <a href="consultations.php?patient_id=${p.id}&action=new" class="px-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 rounded-xl transition text-xs font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus text-xs"></i> New Consultation
+                </a>
+                <a href="prescriptions.php?patient_id=${p.id}&action=new" class="px-3 py-2 bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-100 rounded-xl transition text-xs font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-pills text-xs"></i> Issue Rx
+                </a>
+                <a href="referrals.php?patient_id=${p.id}&action=new" class="px-3 py-2 bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 rounded-xl transition text-xs font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i> Create Referral
+                </a>
+                <a href="patients.php?patient=${p.id}&autoView=true" class="px-3 py-2 bg-brand-dark text-white rounded-xl hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                    <i class="fa-solid fa-user-gear text-xs"></i> Full Demographic Profile
+                </a>
+            </div>
+        </div>
+
+        <!-- Contact & Demographic Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 text-xs">
+            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Contact Number</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.contact}" data-masked="${maskName(p.contact)}">${maskName(p.contact)}</p></div>
+            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Barangay</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.barangay}" data-masked="${maskName(p.barangay)}">${maskName(p.barangay)}</p></div>
+            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Emergency Contact</p><p class="text-slate-800 font-medium mt-0.5 maskable" data-real="${p.emergency_contact}" data-masked="${maskName(p.emergency_contact)}">${maskName(p.emergency_contact)}</p></div>
+            <div><p class="text-slate-400 font-semibold uppercase text-[10px]">Registration Date</p><p class="text-slate-800 font-medium mt-0.5">${p.registration_date}</p></div>
+        </div>
+
+        <!-- Lifetime Counters Strip -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-5 mt-5 border-t border-slate-100 text-center">
+            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                <span class="text-lg font-bold text-slate-800 block">${st.total_visits}</span>
+                <span class="text-[10px] font-semibold uppercase text-slate-400">Total Visits</span>
+            </div>
+            <div class="bg-emerald-50/60 p-2.5 rounded-xl border border-emerald-100">
+                <span class="text-lg font-bold text-emerald-700 block">${st.total_consultations}</span>
+                <span class="text-[10px] font-semibold uppercase text-emerald-600">Consultations</span>
+            </div>
+            <div class="bg-teal-50/60 p-2.5 rounded-xl border border-teal-100">
+                <span class="text-lg font-bold text-teal-700 block">${st.total_prescriptions}</span>
+                <span class="text-[10px] font-semibold uppercase text-teal-600">Prescriptions</span>
+            </div>
+            <div class="bg-amber-50/60 p-2.5 rounded-xl border border-amber-100">
+                <span class="text-lg font-bold text-amber-700 block">${st.total_referrals}</span>
+                <span class="text-[10px] font-semibold uppercase text-amber-600">Referrals</span>
+            </div>
+            <div class="bg-purple-50/60 p-2.5 rounded-xl border border-purple-100">
+                <span class="text-lg font-bold text-purple-700 block">${st.total_triages}</span>
+                <span class="text-[10px] font-semibold uppercase text-purple-600">Vitals & Triages</span>
+            </div>
+        </div>
+    `;
+
+    renderTabContent();
+    if (typeof ModalSystem !== 'undefined' && ModalSystem.refreshMasking) {
+        ModalSystem.refreshMasking('patientHeroCard');
+    }
+}
+
+function renderTabContent() {
+    const data = EHR_MASTER[currentPatientId];
+    const container = document.getElementById('tabContentArea');
+    if (!data) return;
+
+    if (currentActiveTab === 'timeline') {
+        renderTimelineView(data.timeline, container);
+    } else if (currentActiveTab === 'consultations') {
+        renderConsultationsView(data.consultations, container);
+    } else if (currentActiveTab === 'prescriptions') {
+        renderPrescriptionsView(data.prescriptions, container);
+    } else if (currentActiveTab === 'referrals') {
+        renderReferralsView(data.referrals, container);
+    } else if (currentActiveTab === 'triages') {
+        renderTriagesView(data.triages, container);
+    } else if (currentActiveTab === 'appointments') {
+        renderAppointmentsView(data.appointments, container);
+    }
+}
+
+// 1. TIMELINE VIEW
+function renderTimelineView(timeline, container) {
+    if (timeline.length === 0) {
+        container.innerHTML = `<div class="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-400"><i class="fa-solid fa-clock-rotate-left text-3xl mb-2"></i><p class="text-sm font-semibold">No timeline entries recorded yet for this patient.</p></div>`;
+        return;
     }
 
-    function confirmShareRecord() {
-        const list = document.getElementById('shareDoctorsList');
-        const doctors = [];
-        list.querySelectorAll('[data-doctor]').forEach(item => {
-            const text = item.dataset.doctor || item.textContent.replace('x', '').trim();
-            if (text && !text.includes('No doctors')) {
-                doctors.push(text);
-            }
-        });
+    let html = `<div class="relative border-l-2 border-slate-200 ml-4 space-y-6">`;
+    timeline.forEach(item => {
+        html += `
+            <div class="relative pl-6">
+                <div class="absolute -left-[17px] top-1 w-8 h-8 rounded-full bg-white border-2 border-brand-medium flex items-center justify-center text-xs shadow-xs">
+                    <i class="fa-solid ${item.icon}"></i>
+                </div>
+                <div class="bg-white rounded-xl border border-slate-200 p-4 shadow-xs hover:shadow-md transition">
+                    <div class="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-100">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${item.badge}">${item.badge_label}</span>
+                            <h4 class="text-sm font-bold text-slate-800">${escapeHtml(item.title)}</h4>
+                        </div>
+                        <span class="text-xs text-slate-400 font-mono"><i class="fa-regular fa-clock mr-1"></i>${item.date_display}</span>
+                    </div>
+                    <div class="pt-2 text-xs text-slate-600 space-y-1">
+                        <p class="text-slate-500 font-medium">Attending Staff: <strong class="text-slate-800">${escapeHtml(item.provider)}</strong></p>
+                        <p class="text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-100 mt-1">${escapeHtml(item.summary)}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    html += `</div>`;
+    container.innerHTML = html;
+}
 
-        if (doctors.length === 0) {
-            notify('warning', 'Please add at least one doctor to share with');
-            return;
+// 2. CONSULTATIONS VIEW
+function renderConsultationsView(consultations, container) {
+    if (consultations.length === 0) {
+        container.innerHTML = `<div class="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-400"><i class="fa-solid fa-stethoscope text-3xl mb-2"></i><p class="text-sm font-semibold">No doctor consultations recorded yet.</p></div>`;
+        return;
+    }
+    let html = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+    consultations.forEach(c => {
+        html += `
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div>
+                            <span class="text-xs font-mono font-bold text-brand-medium">${c.consultation_id}</span>
+                            <h4 class="text-base font-bold text-slate-900 mt-0.5">${escapeHtml(c.diagnosis)}</h4>
+                        </div>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${c.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">${c.status ? c.status.toUpperCase() : 'COMPLETED'}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 my-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                        <div><span class="text-slate-400 uppercase text-[10px] block font-semibold">Doctor</span><strong>${escapeHtml(c.doctor_name || 'N/A')}</strong></div>
+                        <div><span class="text-slate-400 uppercase text-[10px] block font-semibold">Date & Time</span><strong>${c.date} ${c.time || ''}</strong></div>
+                        <div><span class="text-slate-400 uppercase text-[10px] block font-semibold">ICD-10 Code</span><strong class="font-mono text-indigo-600">${c.icd_code || 'N/A'}</strong></div>
+                        <div><span class="text-slate-400 uppercase text-[10px] block font-semibold">Follow-up</span><strong>${c.follow_up_date || 'None'}</strong></div>
+                    </div>
+                    ${c.symptoms ? `<div class="mb-2"><span class="text-[10px] font-bold text-slate-400 uppercase">Symptoms:</span><p class="text-xs text-slate-700 bg-slate-50 p-2 rounded-md border border-slate-100">${escapeHtml(c.symptoms)}</p></div>` : ''}
+                    <div><span class="text-[10px] font-bold text-slate-400 uppercase">Treatment Plan:</span><p class="text-xs text-slate-800 bg-brand-light/30 p-2 rounded-md border border-brand-border">${escapeHtml(c.treatment_plan || 'No treatment plan specified.')}</p></div>
+                </div>
+            </div>
+        `;
+    });
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
+// 3. PRESCRIPTIONS VIEW
+function renderPrescriptionsView(prescriptions, container) {
+    if (prescriptions.length === 0) {
+        container.innerHTML = `<div class="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-400"><i class="fa-solid fa-pills text-3xl mb-2"></i><p class="text-sm font-semibold">No prescriptions issued for this patient.</p></div>`;
+        return;
+    }
+    let html = `<div class="space-y-4">`;
+    prescriptions.forEach(p => {
+        const meds = is_string(p.medications) ? json_decode(p.medications, true) : (p.medications || []);
+        const statusBadge = p.status === 'dispensed' 
+            ? '<span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold">Dispensed</span>' 
+            : '<span class="px-2.5 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-semibold">Pending Dispensation</span>';
+
+        let medsTable = `<div class="overflow-x-auto mt-3"><table class="w-full text-xs border border-slate-200 rounded-lg"><thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left">Medication</th><th class="px-3 py-2 text-left">Dosage</th><th class="px-3 py-2 text-left">Frequency</th><th class="px-3 py-2 text-left">Duration</th><th class="px-3 py-2 text-center">Qty</th></tr></thead><tbody>`;
+        if (Array.isArray(meds) && meds.length > 0) {
+            meds.forEach(m => {
+                medsTable += `<tr class="border-t border-slate-100"><td class="px-3 py-2 font-bold text-slate-800">${escapeHtml(m.name || '')}</td><td class="px-3 py-2 text-slate-600">${escapeHtml(m.dosage || 'N/A')}</td><td class="px-3 py-2 text-slate-600">${escapeHtml(m.frequency || '')}</td><td class="px-3 py-2 text-slate-600">${escapeHtml(m.duration || '')}</td><td class="px-3 py-2 text-center font-semibold text-brand-medium">${m.quantity || 1}</td></tr>`;
+            });
+        } else {
+            medsTable += `<tr><td colspan="5" class="px-3 py-4 text-center text-slate-400">No itemized medications recorded</td></tr>`;
         }
+        medsTable += `</tbody></table></div>`;
 
-        const r = RECORDS[shareRecordId];
-        if (r) {
-            sendRecordRequest(API_URL + '?action=update&id=' + shareRecordId, {
-                patient_id: r.patient_id,
-                record_type: r.record_type,
-                title: r.title,
-                description: r.description,
-                date: r.date,
-                doctor: r.doctor,
-                status: r.status,
-                shared_with: doctors,
-                attachments: r.attachments || [],
-                created_by: r.created_by
-            }).then(() => {
-                notify('success', 'Record shared with ' + doctors.length + ' doctor(s)');
-                ModalSystem.close('shareRecordModal');
-                reloadAfterToast();
-            }).catch(error => notify('error', error.message, 'Share Failed'));
-        }
+        html += `
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div>
+                        <span class="text-xs font-mono font-bold text-teal-600">Prescription #${p.prescription_id}</span>
+                        <p class="text-xs text-slate-500 font-medium mt-0.5">Doctor: <strong class="text-slate-800">${escapeHtml(p.doctor_name || 'Attending Physician')}</strong> &bull; Date: ${p.date || p.created_at}</p>
+                    </div>
+                    ${statusBadge}
+                </div>
+                ${medsTable}
+                ${p.notes ? `<p class="text-xs text-slate-500 italic mt-3 bg-slate-50 p-2 rounded-md">Notes: ${escapeHtml(p.notes)}</p>` : ''}
+            </div>
+        `;
+    });
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
+// 4. REFERRALS VIEW
+function renderReferralsView(referrals, container) {
+    if (referrals.length === 0) {
+        container.innerHTML = `<div class="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-400"><i class="fa-solid fa-arrow-right-from-bracket text-3xl mb-2"></i><p class="text-sm font-semibold">No referrals recorded for this patient.</p></div>`;
+        return;
     }
+    let html = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+    referrals.forEach(r => {
+        html += `
+            <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div>
+                        <span class="text-xs font-mono font-bold text-amber-600">${r.referral_id || ('REF-' + r.id)}</span>
+                        <h4 class="text-sm font-bold text-slate-900 mt-0.5">Referred to: ${escapeHtml(r.to_specialist || r.to_hospital || 'Specialist Clinic')}</h4>
+                    </div>
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${r.urgency === 'critical' || r.urgency === 'emergency' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}">${(r.urgency || 'routine').toUpperCase()}</span>
+                </div>
+                <div class="text-xs text-slate-600 my-3 space-y-1">
+                    <p><span class="text-slate-400 font-semibold">Referring Doctor:</span> <strong>${escapeHtml(r.from_doctor || 'Doctor')}</strong></p>
+                    <p><span class="text-slate-400 font-semibold">Reason:</span> ${escapeHtml(r.reason || 'N/A')}</p>
+                    ${r.diagnosis ? `<p><span class="text-slate-400 font-semibold">Diagnosis:</span> ${escapeHtml(r.diagnosis)}</p>` : ''}
+                    ${r.feedback ? `<p class="bg-amber-50 p-2 rounded-md border border-amber-100 mt-2 text-amber-900"><strong>Feedback/Outcome:</strong> ${escapeHtml(r.feedback)}</p>` : ''}
+                </div>
+            </div>
+        `;
+    });
+    html += `</div>`;
+    container.innerHTML = html;
+}
 
-    // ============================================================
-    // ADD RECORD
-    // ============================================================
-    async function saveNewRecord(event) {
-        event.preventDefault();
-        const data = getRecordFormData('add');
-        const url = editingRecordId ? API_URL + '?action=update&id=' + editingRecordId : API_URL;
-
-        try {
-            await sendRecordRequest(url, data);
-            notify('success', editingRecordId ? 'Medical record updated successfully' : 'Medical record added successfully');
-            ModalSystem.close('addRecordModal');
-            reloadAfterToast();
-        } catch (error) {
-            notify('error', error.message, editingRecordId ? 'Update Failed' : 'Save Failed');
-        }
+// 5. TRIAGES VIEW
+function renderTriagesView(triages, container) {
+    if (triages.length === 0) {
+        container.innerHTML = `<div class="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-400"><i class="fa-solid fa-heart-pulse text-3xl mb-2"></i><p class="text-sm font-semibold">No triage vital sign assessments recorded.</p></div>`;
+        return;
     }
+    let html = `<div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs"><table class="w-full text-xs"><thead class="bg-slate-50 border-b border-slate-200"><tr><th class="px-4 py-3 text-left">Date / Time</th><th class="px-4 py-3 text-left">Priority</th><th class="px-4 py-3 text-left">Blood Pressure</th><th class="px-4 py-3 text-left">Heart Rate</th><th class="px-4 py-3 text-left">Temperature</th><th class="px-4 py-3 text-left">SpO2</th><th class="px-4 py-3 text-left">Symptoms / Notes</th></tr></thead><tbody>`;
+    triages.forEach(t => {
+        html += `
+            <tr class="border-b border-slate-100 hover:bg-slate-50/60">
+                <td class="px-4 py-3 font-mono font-medium text-slate-700">${t.created_at ? t.created_at.substring(0, 16) : 'N/A'}</td>
+                <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${t.priority === 'high' || t.priority === 'emergency' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">${(t.priority || 'low').toUpperCase()}</span></td>
+                <td class="px-4 py-3 font-bold text-slate-800">${t.blood_pressure || 'N/A'}</td>
+                <td class="px-4 py-3 text-slate-700">${t.heart_rate ? t.heart_rate + ' bpm' : 'N/A'}</td>
+                <td class="px-4 py-3 text-slate-700">${t.temperature ? t.temperature + ' °C' : 'N/A'}</td>
+                <td class="px-4 py-3 text-slate-700">${t.oxygen_saturation ? t.oxygen_saturation + '%' : 'N/A'}</td>
+                <td class="px-4 py-3 text-slate-600">${escapeHtml(t.symptoms || t.notes || 'N/A')}</td>
+            </tr>
+        `;
+    });
+    html += `</tbody></table></div>`;
+    container.innerHTML = html;
+}
 
-    async function deleteRecord(id) {
-        const r = RECORDS[id];
-        if (!r || !confirm('Delete this medical record?')) return;
-
-        try {
-            await sendRecordRequest(API_URL + '?action=delete&id=' + id, {});
-            notify('success', 'Medical record deleted successfully');
-            reloadAfterToast();
-        } catch (error) {
-            notify('error', error.message, 'Delete Failed');
-        }
+// 6. APPOINTMENTS VIEW
+function renderAppointmentsView(appointments, container) {
+    if (appointments.length === 0) {
+        container.innerHTML = `<div class="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-400"><i class="fa-solid fa-calendar-check text-3xl mb-2"></i><p class="text-sm font-semibold">No appointments scheduled or recorded.</p></div>`;
+        return;
     }
+    let html = `<div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs"><table class="w-full text-xs"><thead class="bg-slate-50 border-b border-slate-200"><tr><th class="px-4 py-3 text-left">Appt ID</th><th class="px-4 py-3 text-left">Service Type</th><th class="px-4 py-3 text-left">Date & Time</th><th class="px-4 py-3 text-left">Attending Doctor/Staff</th><th class="px-4 py-3 text-left">Status</th></tr></thead><tbody>`;
+    appointments.forEach(a => {
+        html += `
+            <tr class="border-b border-slate-100 hover:bg-slate-50/60">
+                <td class="px-4 py-3 font-mono font-bold text-blue-600">${a.appointment_id || ('APT-' + a.id)}</td>
+                <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(a.service_type || 'General')}</td>
+                <td class="px-4 py-3 text-slate-600">${a.appointment_date || ''} ${a.appointment_time || ''}</td>
+                <td class="px-4 py-3 text-slate-700">${escapeHtml(a.doctor_name || 'N/A')}</td>
+                <td class="px-4 py-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${a.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}">${(a.status || 'scheduled').toUpperCase()}</span></td>
+            </tr>
+        `;
+    });
+    html += `</tbody></table></div>`;
+    container.innerHTML = html;
+}
 
-    // ============================================================
-    // SEARCH & FILTER
-    // ============================================================
-    document.getElementById('searchRecord').addEventListener('input', filterRecords);
-    document.getElementById('filterTitle').addEventListener('change', filterRecords);
-    document.getElementById('filterType').addEventListener('change', filterRecords);
-    document.getElementById('filterStatus').addEventListener('change', filterRecords);
-    document.getElementById('filterDateFrom').addEventListener('change', filterRecords);
-    document.getElementById('filterDateTo').addEventListener('change', filterRecords);
+// PRINT EHR SUMMARY GENERATOR
+function printEHRSummary() {
+    const data = EHR_MASTER[currentPatientId];
+    if (!data) return;
+    const p = data.profile;
+    const content = document.getElementById('printEhrContent');
 
-    function filterRecords() {
-        const search = document.getElementById('searchRecord').value.toLowerCase();
-        const title = document.getElementById('filterTitle').value.toLowerCase();
-        const type = document.getElementById('filterType').value.toLowerCase();
-        const status = document.getElementById('filterStatus').value.toLowerCase();
-        const dateFrom = document.getElementById('filterDateFrom').value;
-        const dateTo = document.getElementById('filterDateTo').value;
-        let visibleCount = 0;
+    let consultsList = '';
+    data.consultations.forEach(c => {
+        consultsList += `<div style="margin-bottom:10px; padding:8px; border:1px solid #e2e8f0; border-radius:6px;"><strong>Date: ${c.date}</strong> - Doctor: ${c.doctor_name || ''}<br/><strong>Diagnosis:</strong> ${c.diagnosis} (ICD-10: ${c.icd_code || 'N/A'})<br/><strong>Treatment Plan:</strong> ${c.treatment_plan || 'N/A'}</div>`;
+    });
 
-        if (dateFrom && dateTo && dateFrom > dateTo) {
-            notify('error', 'The start date cannot be after the end date', 'Invalid Date Range');
-            return;
-        }
+    content.innerHTML = `
+        <div style="font-family: sans-serif; color: #1e293b;">
+            <div style="text-align: center; border-bottom: 2px solid #0B4F4A; padding-bottom: 15px; margin-bottom: 20px;">
+                <h2 style="margin:0; color:#0B4F4A; font-size:20px;">BARANGAY HEALTH CENTER</h2>
+                <h3 style="margin:4px 0 0 0; color:#14807A; font-size:16px;">PATIENT ELECTRONIC HEALTH RECORD (EHR) SUMMARY</h3>
+                <p style="margin:2px 0 0 0; font-size:11px; color:#64748b;">Official Medical History Document &bull; Generated ${new Date().toLocaleDateString()}</p>
+            </div>
 
-        document.querySelectorAll('.record-card').forEach(card => {
-            const cardPatient = card.dataset.patient;
-            const cardPatientId = card.dataset.patientId;
-            const cardTitle = card.dataset.title;
-            const cardType = card.dataset.type;
-            const cardDate = card.dataset.date;
-            const cardStatus = card.dataset.status;
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:20px; font-size:12px; background:#f8fafc; padding:12px; border-radius:8px;">
+                <div>
+                    <p style="margin:2px 0;"><strong>Patient Name:</strong> ${p.full_name}</p>
+                    <p style="margin:2px 0;"><strong>Patient Code:</strong> ${p.patient_id}</p>
+                    <p style="margin:2px 0;"><strong>Age / Gender:</strong> ${p.age} yrs old / ${p.gender}</p>
+                    <p style="margin:2px 0;"><strong>Blood Type:</strong> ${p.blood_type}</p>
+                </div>
+                <div>
+                    <p style="margin:2px 0;"><strong>Contact:</strong> ${p.contact}</p>
+                    <p style="margin:2px 0;"><strong>Barangay:</strong> ${p.barangay}</p>
+                    <p style="margin:2px 0;"><strong>Known Allergies:</strong> ${p.allergies}</p>
+                    <p style="margin:2px 0;"><strong>Existing Conditions:</strong> ${p.conditions}</p>
+                </div>
+            </div>
 
-            const matchesSearch = cardPatient.includes(search) || cardPatientId.includes(search) || cardTitle.includes(search) || cardType.includes(search);
-            const matchesTitle = !title || cardTitle === title;
-            const matchesType = !type || cardType === type;
-            const matchesDateFrom = !dateFrom || cardDate >= dateFrom;
-            const matchesDateTo = !dateTo || cardDate <= dateTo;
-            const matchesStatus = !status || cardStatus === status;
-            const isVisible = matchesSearch && matchesTitle && matchesType && matchesDateFrom && matchesDateTo && matchesStatus;
+            <h4 style="color:#0B4F4A; border-bottom:1px solid #cbd5e1; padding-bottom:4px; margin-top:20px;">Medical Consultations & Diagnoses</h4>
+            ${consultsList || '<p style="font-size:12px; color:#94a3b8;">No consultation entries recorded.</p>'}
 
-            card.style.display = isVisible ? '' : 'none';
-            if (isVisible) visibleCount++;
-        });
+            <div style="margin-top:40px; display:flex; justify-content:between; font-size:12px;">
+                <div style="width:45%; border-top:1px solid #94a3b8; pt:6px; text-align:center;">
+                    <p style="margin:0;"><strong>Attending Physician Signature</strong></p>
+                    <p style="margin:2px 0; color:#64748b;">Licensed Medical Practitioner</p>
+                </div>
+                <div style="width:45%; border-top:1px solid #94a3b8; pt:6px; text-align:center;">
+                    <p style="margin:0;"><strong>Barangay Health Center Seal</strong></p>
+                    <p style="margin:2px 0; color:#64748b;">Health Services Office</p>
+                </div>
+            </div>
+        </div>
+    `;
 
-        document.getElementById('emptyState').style.display = visibleCount === 0 ? 'flex' : 'none';
+    ModalSystem.open('printEhrModal');
+}
+
+function maskName(name) {
+    if (!name) return '';
+    if (typeof ModalSystem !== 'undefined' && typeof ModalSystem.maskName === 'function') {
+        return ModalSystem.maskName(name);
     }
+    return String(name).split(' ').map(p => p ? p[0].toUpperCase() + '*'.repeat(Math.max(0, p.length - 1)) : '').join(' ');
+}
 
-    function resetFilters() {
-        document.getElementById('searchRecord').value = '';
-        document.getElementById('filterTitle').value = '';
-        document.getElementById('filterType').value = '';
-        document.getElementById('filterStatus').value = '';
-        document.getElementById('filterDateFrom').value = '';
-        document.getElementById('filterDateTo').value = '';
-        document.querySelectorAll('.record-card').forEach(card => card.style.display = '');
-        document.getElementById('emptyState').style.display = 'none';
-    }
-
-    function changePage(page) {
-        if (page < 1 || page > <?php echo $totalPages; ?>) return;
-        window.location.href = '?page=' + page;
-    }
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    const div = document.createElement('div');
+    div.textContent = String(str);
+    return div.innerHTML;
+}
+function is_string(val) { return typeof val === 'string'; }
+function json_decode(str) { try { return JSON.parse(str); } catch(e) { return null; } }
 </script>
 
 <?php include_once '../../includes/footer.php'; ?>

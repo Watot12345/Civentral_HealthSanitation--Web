@@ -26,9 +26,43 @@ try {
 
 // ── Build lookup maps ────────────────────────────────────────
 $patients  = [];
+$patientsJsMap = [];
 try {
     foreach ($patientModel->all() as $p) {
         $patients[$p['id']] = $p;
+        $age = 0;
+        if (!empty($p['birth_date'])) {
+            try {
+                $dob = new DateTime($p['birth_date']);
+                $now = new DateTime();
+                $age = $now->diff($dob)->y;
+            } catch (Throwable $ex) {}
+        }
+        $conditions = 'None';
+        if (!empty($p['medical_history'])) {
+            $history = is_string($p['medical_history']) 
+                ? json_decode($p['medical_history'], true) 
+                : $p['medical_history'];
+            $conditions = $history['conditions'] ?? 'None';
+        }
+        $patientsJsMap[$p['id']] = [
+            'id' => (int)($p['id'] ?? 0),
+            'patient_id' => $p['patient_id'] ?? "P-{$p['id']}",
+            'first_name' => $p['first_name'] ?? '',
+            'last_name' => $p['last_name'] ?? '',
+            'gender' => $p['gender'] ?? 'Unspecified',
+            'age' => $age,
+            'blood_type' => $p['blood_type'] ?? 'N/A',
+            'contact' => $p['contact'] ?? 'N/A',
+            'email' => $p['email'] ?? 'N/A',
+            'address' => $p['address'] ?? 'N/A',
+            'barangay' => $p['barangay'] ?? 'N/A',
+            'emergency_contact' => $p['emergency_contact'] ?? 'N/A',
+            'registration_date' => $p['registration_date'] ?? 'N/A',
+            'status' => $p['status'] ?? 'active',
+            'allergies' => $p['allergies'] ?? 'None',
+            'conditions' => $conditions
+        ];
     }
 } catch (Throwable $e) { error_log('Error fetching patients: ' . $e->getMessage()); }
 
@@ -38,6 +72,31 @@ try {
         $employees[$e['id']] = $e;
     }
 } catch (Throwable $e) { error_log('Error fetching employees: ' . $e->getMessage()); }
+
+// Resolve logged in doctor / employee ID & Name based on role / session
+$sessionUserId = $_SESSION['user_id'] ?? null;
+$sessionEmployeeId = $_SESSION['employee_id'] ?? null;
+$sessionFullName = trim($_SESSION['full_name'] ?? ($_SESSION['name'] ?? ($_SESSION['username'] ?? '')));
+
+$loggedInDoctorId = null;
+$loggedInDoctorName = null;
+
+foreach ($employees as $e) {
+    $eId = (string)($e['id'] ?? '');
+    $uId = (string)($e['user_id'] ?? '');
+    $eName = trim($e['full_name'] ?? (($e['first_name'] ?? '') . ' ' . ($e['last_name'] ?? '')));
+    $eUser = trim($e['username'] ?? '');
+
+    if (
+        ($sessionEmployeeId && (string)$sessionEmployeeId === $eId) ||
+        ($sessionUserId && (string)$sessionUserId === $uId) ||
+        (!empty($sessionFullName) && (stripos($eName, $sessionFullName) !== false || stripos($sessionFullName, $eName) !== false || stripos($sessionFullName, $eUser) !== false))
+    ) {
+        $loggedInDoctorId = (int)$e['id'];
+        $loggedInDoctorName = $e['full_name'] ?? $eName;
+        break;
+    }
+}
 
 // ── Enrich referrals ─────────────────────────────────────────
 $allReferrals = [];
@@ -92,6 +151,25 @@ $currentUserId = $_SESSION['user_id'] ?? 1;
 <!-- 2. HTML LAYOUT                                               -->
 <!-- ============================================================ -->
 <div class="flex-1 px-6 pt-[26px] pb-20 mb-10 flex flex-col min-h-0 overflow-hidden">
+
+    <!-- ============================================================ -->
+    <!-- PATIENT PROFILE MODAL IN REFERRALS                           -->
+    <!-- ============================================================ -->
+    <div id="referralPatientProfileModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+                <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-address-card text-brand-medium"></i> Patient Profile Overview
+                </h3>
+                <button onclick="ModalSystem.close('referralPatientProfileModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="referralPatientProfileContent" class="p-6">
+                <div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading profile...</div>
+            </div>
+        </div>
+    </div>
 
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -290,21 +368,21 @@ $currentUserId = $_SESSION['user_id'] ?? 1;
                 </div>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Referral Type</label>
-                <select id="ref_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Referral Type *</label>
+                <select id="ref_type" onchange="toggleReferralTypeFields()" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="specialist">Specialist Referral</option>
                     <option value="hospital">Hospital Referral</option>
                 </select>
             </div>
-            <div>
+            <div id="ref_specialist_wrapper">
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Refer To (Specialist) *</label>
-                <select id="ref_to_doctor" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <select id="ref_to_doctor" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="">Select Specialist</option>
                 </select>
             </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Hospital / Facility</label>
-                <input type="text" id="ref_hospital" placeholder="e.g. Caloocan City Medical Center"
+            <div id="ref_hospital_wrapper" class="hidden">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Hospital / Facility *</label>
+                <input type="text" id="ref_hospital" placeholder="e.g. Caloocan City Medical Center, Philippine General Hospital"
                        class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
@@ -452,7 +530,7 @@ $currentUserId = $_SESSION['user_id'] ?? 1;
 <!-- ============================================================ -->
 <script>
 const API_URL      = '/capstone/api/referrals.php';
-const CURRENT_USER = <?php echo (int)$currentUserId; ?>;
+const CURRENT_USER = <?php echo (int)($loggedInDoctorId ?? $currentUserId); ?>;
 
 // All data embedded from PHP — enriched server-side
 let allReferrals      = <?php echo json_encode(array_values($allReferrals)); ?>;
@@ -472,6 +550,7 @@ document.addEventListener('DOMContentLoaded', function () {
     renderTable();
     updateStats();
     populateFormSelects();
+    toggleReferralTypeFields();
 
     // Default follow-up date = 14 days from today
     const fu = document.getElementById('ref_follow_up');
@@ -480,47 +559,61 @@ document.addEventListener('DOMContentLoaded', function () {
         d.setDate(d.getDate() + 14);
         fu.value = d.toISOString().split('T')[0];
     }
+
+    // Centralized Workflow: Auto-open & prefill New Referral modal if redirected from Consultation/Appointment
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetPatientId = urlParams.get('patient_id') || urlParams.get('patient');
+    const targetDoctorId = urlParams.get('doctor_id') || urlParams.get('from_doctor_id') || urlParams.get('employee_id');
+    const autoOpenNew = urlParams.get('from_consultation') !== null || urlParams.get('action') === 'new' || urlParams.get('new') === 'true';
+
+    if (autoOpenNew || targetPatientId) {
+        setTimeout(() => {
+            ModalSystem.open('newReferralModal');
+            
+            const patientSelect = document.getElementById('ref_patient');
+            if (patientSelect && targetPatientId) {
+                patientSelect.value = targetPatientId;
+            }
+
+            const doctorSelect = document.getElementById('ref_from_doctor');
+            if (doctorSelect && targetDoctorId) {
+                doctorSelect.value = targetDoctorId;
+            }
+
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                ModalSystem.toast.info('New referral form pre-filled for patient.', { title: '📋 Patient Referral' });
+            }
+        }, 350);
+    }
 });
 
 // ============================================================
-// LOCAL ENRICHMENT — fills names from embedded PHP arrays
+// TOGGLE SPECIALIST VS HOSPITAL REFERRAL FIELDS
 // ============================================================
-function enrichLocally(r) {
-    // Patient
-    if (!r.patient_name || r.patient_name === 'Unknown') {
-        const pat = patients.find(p => p.id == r.patient_id);
-        if (pat) {
-            r.patient_name   = `${pat.first_name || ''} ${pat.last_name || ''}`.trim() || 'Unknown';
-            const f = (pat.first_name || '').charAt(0).toUpperCase();
-            const l = (pat.last_name  || '').charAt(0).toUpperCase();
-            r.patient_avatar = (f + l) || '??';
+function toggleReferralTypeFields() {
+    const refType = document.getElementById('ref_type')?.value || 'specialist';
+    const specWrapper = document.getElementById('ref_specialist_wrapper');
+    const hospWrapper = document.getElementById('ref_hospital_wrapper');
+    const toDoctorSelect = document.getElementById('ref_to_doctor');
+    const hospitalInput = document.getElementById('ref_hospital');
+
+    if (refType === 'specialist') {
+        if (specWrapper) specWrapper.classList.remove('hidden');
+        if (hospWrapper) hospWrapper.classList.add('hidden');
+        if (toDoctorSelect) toDoctorSelect.required = true;
+        if (hospitalInput) {
+            hospitalInput.required = false;
+            hospitalInput.value = '';
         }
-    }
-    // From-doctor
-    if (!r.from_doctor || r.from_doctor === 'Unknown') {
-        const doc = doctors.find(d => d.id == r.from_doctor_id);
-        if (doc) r.from_doctor = doc.full_name || 'Unknown';
-    }
-    // To-specialist
-    if (!r.to_specialist || r.to_specialist === 'N/A') {
-        if (r.to_doctor_id) {
-            const spec = doctors.find(d => d.id == r.to_doctor_id);
-            if (spec) {
-                r.to_specialist = spec.full_name || 'N/A';
-                r.specialty     = spec.role_description || 'Specialist';
-            }
-        } else if (r.to_hospital) {
-            r.to_specialist = r.to_hospital;
-            r.specialty     = 'Hospital';
+    } else {
+        if (specWrapper) specWrapper.classList.add('hidden');
+        if (hospWrapper) hospWrapper.classList.remove('hidden');
+        if (toDoctorSelect) {
+            toDoctorSelect.required = false;
+            toDoctorSelect.value = '';
         }
+        if (hospitalInput) hospitalInput.required = true;
     }
-    // Map emergency → critical
-    if (r.urgency === 'emergency') r.urgency = 'critical';
-    // Date
-    if (!r.date && r.created_at) {
-        r.date = r.created_at.substring(0, 10);
-    }
-    return r;
 }
 
 // ============================================================
@@ -550,17 +643,30 @@ function populateFormSelects() {
             fromSel.value = CURRENT_USER;
         }
     }
-    // To-doctor (specialist)
+    // To-doctor (specialist) - Filter ONLY Doctors, Dentists & Health Center Directors
     const toSel = document.getElementById('ref_to_doctor');
     if (toSel) {
         toSel.innerHTML = '<option value="">Select Specialist</option>';
         doctors.forEach(d => {
-            const label = d.full_name || `Employee #${d.id}`;
-            const spec  = d.role_description ? ` — ${d.role_description}` : '';
-            toSel.appendChild(new Option(label + spec, d.id));
+            const roleDesc = (d.role_description || '').toLowerCase();
+            const role = (d.role || '').toLowerCase();
+            const isEligibleSpecialist = (
+                roleDesc.includes('doctor') || 
+                roleDesc.includes('dentist') || 
+                roleDesc.includes('health center director') || 
+                roleDesc.includes('physician') || 
+                role.includes('doctor') || 
+                role.includes('dentist') ||
+                role.includes('health center director')
+            ) && !roleDesc.includes('nurse') && !roleDesc.includes('clerk') && !roleDesc.includes('tech') && !roleDesc.includes('sanitation');
+
+            if (isEligibleSpecialist) {
+                const label = d.full_name || `Employee #${d.id}`;
+                const spec  = d.role_description ? ` — ${d.role_description}` : '';
+                toSel.appendChild(new Option(label + spec, d.id));
+            }
         });
     }
-    // Edit modal doctor selects (already rendered in HTML — no extra populate needed)
 }
 
 // ============================================================
@@ -653,9 +759,9 @@ function renderTable() {
                             <span class="maskable" data-real="${escapeHtml(patAvatar)}" data-masked="??">${escapeHtml(patAvatar)}</span>
                         </div>
                         <div>
-                            <p class="font-semibold text-slate-800 text-sm">
-                                <span class="maskable" data-real="${escapeHtml(patName)}" data-masked="${maskName(patName)}">${escapeHtml(patName)}</span>
-                            </p>
+                            <button type="button" onclick="openPatientProfile(${r.patient_id})" class="text-left group block">
+                                <span class="font-semibold text-slate-800 text-sm group-hover:text-brand-medium transition maskable" data-real="${escapeHtml(patName)}" data-masked="${maskName(patName)}">${escapeHtml(patName)}</span>
+                            </button>
                             <p class="text-xs text-slate-400">${escapeHtml(fromDoc)}</p>
                         </div>
                     </div>
@@ -682,6 +788,10 @@ function renderTable() {
                 <td class="px-4 py-3 text-slate-600 text-xs">${formatDate(r.date)}</td>
                 <td class="px-4 py-3">
                     <div class="flex items-center justify-center gap-1">
+                        <button onclick="openPatientProfile(${r.patient_id})" title="View Patient Profile"
+                                class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition">
+                            <i class="fa-solid fa-address-card text-sm"></i>
+                        </button>
                         <button onclick="viewReferral(${r.id})" title="View"
                                 class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition">
                             <i class="fa-solid fa-eye text-sm"></i>
@@ -966,24 +1076,31 @@ async function saveReferral(event) {
 
     const patientId   = document.getElementById('ref_patient').value;
     const fromDoctorId= document.getElementById('ref_from_doctor').value;
+    const refType     = document.getElementById('ref_type').value || 'specialist';
     const toDoctorId  = document.getElementById('ref_to_doctor').value;
+    const hospital    = document.getElementById('ref_hospital').value.trim();
     const reason      = document.getElementById('ref_reason').value.trim();
 
-    if (!patientId)   { ModalSystem.toast.warning('Please select a patient');           return; }
-    if (!fromDoctorId){ ModalSystem.toast.warning('Please select a referring doctor');  return; }
-    if (!toDoctorId)  { ModalSystem.toast.warning('Please select a specialist');        return; }
-    if (!reason)      { ModalSystem.toast.warning('Please enter a reason for referral');return; }
+    if (!patientId)    { ModalSystem.toast.warning('Please select a patient'); return; }
+    if (!fromDoctorId) { ModalSystem.toast.warning('Please select a referring doctor'); return; }
 
-    const hospital = document.getElementById('ref_hospital').value.trim();
-    const payload  = {
+    if (refType === 'specialist') {
+        if (!toDoctorId) { ModalSystem.toast.warning('Please select a specialist doctor'); return; }
+    } else if (refType === 'hospital') {
+        if (!hospital) { ModalSystem.toast.warning('Please enter the hospital / facility name'); return; }
+    }
+
+    if (!reason) { ModalSystem.toast.warning('Please enter a reason for referral'); return; }
+
+    const payload = {
         patient_id:     parseInt(patientId),
         from_doctor_id: parseInt(fromDoctorId),
-        to_doctor_id:   parseInt(toDoctorId),
-        to_hospital:    hospital || null,
+        to_doctor_id:   (refType === 'specialist' && toDoctorId) ? parseInt(toDoctorId) : null,
+        to_hospital:    (refType === 'hospital') ? hospital : null,
         reason,
         diagnosis:      document.getElementById('ref_diagnosis').value.trim()   || null,
         urgency:        document.getElementById('ref_urgency').value             || 'medium',
-        referral_type:  document.getElementById('ref_type').value               || 'specialist',
+        referral_type:  refType,
         follow_up_date: document.getElementById('ref_follow_up').value          || null,
         notes:          document.getElementById('ref_notes').value.trim()       || null,
         status: 'pending'

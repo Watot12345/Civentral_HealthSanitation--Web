@@ -777,5 +777,110 @@ drives the sidebar logic via `getNavMenuHtml()`.
 - No hardcoded `if ('Sanitation' === ...)` checks in navigation code
 
 ---
+ Part 1: Literature Review & Synthesis
 
+  1. Government Information Systems & E-Governance
+   * Synthesis: Modern public administration increasingly relies on integrated e-governance platforms to transition from fragmented bureaucratic silos to unified
+     citizen-centric service delivery. Digital transformation in local government units (LGUs) improves transparency, reduces administrative friction, and accelerates
+     turnaround times for regulatory compliance, health services, and business licensing. By centralizing transactional data, government information systems enable
+     real-time public sector accountability and evidence-based policy formulation.
+   * References:
+     * Al-Khouri, A. M. (2014). E-government strategies: The case of the United Arab Emirates. European Journal of E-Government, 12(2), 115-132.
+     * United Nations. (2022). UN E-Government Survey 2022: The future of digital government. United Nations Department of Economic and Social Affairs.
+
+  2. Gemini AI & Generative Intelligence in Public Health
+   * Synthesis: The integration of large language models (LLMs) and multimodal generative artificial intelligence into health information systems revolutionizes
+     decision support by transforming unstructured clinical notes and epidemiological logs into actionable insights. Rather than replacing human expertise, generative
+     AI models like Google's Gemini act as cognitive co-pilots that synthesize large volumes of public health data, automate routine administrative documentation, and
+     highlight emerging health anomalies with high computational efficiency.
+   * References:
+     * Topol, E. J. (2019). High-performance medicine: the convergence of human and artificial intelligence. Nature Medicine, 25(1), 44-56.
+     * Google. (2024). Gemini API documentation and enterprise intelligence models. Google for Developers. https://ai.google.dev/docs
+
+  3. Decision Support Systems (DSS) in Public Health Administration
+   * Synthesis: Decision Support Systems (DSS) bridge the gap between raw data storage and strategic municipal planning. In public health and sanitation management,
+     DSS architectures ingest multi-source variables—such as triage queues, inspection logs, and surveillance alerts—to present administrators with synthesized
+     dashboards and predictive simulations. This empowers decision-makers to allocate constrained municipal resources proactively rather than reacting to crises after
+     escalation.
+   * References:
+     * Power, D. J. (2004). Decision support systems: concepts and resources for managers. Quorum Books.
+     * Turban, E., Sharda, R., & Delen, D. (2018). Business intelligence, analytics, and data science: A managerial perspective (4th ed.). Pearson.
+
+  4. Smart Cities & Urban Health Resilience
+   * Synthesis: The smart city paradigm integrates Internet of Things (IoT), spatial data analysis, and municipal database systems to optimize urban resilience and
+     public welfare. Urban health resilience specifically requires real-time surveillance of environmental sanitation, water quality, and communicable disease vectors.
+     Unified municipal portals serve as digital command centers that synchronize health department responses with sanitation enforcement across metropolitan districts.
+   * References:
+     * Batty, M. (2013). The new science of cities. MIT Press.
+     * Kitchin, R. (2014). The real-time city? Big data and urbanism. GeoJournal, 79(1), 1-14.
+
+  5. Predictive Analytics & Epidemiological Forecasting
+   * Synthesis: Predictive analytics employs historical time-series data, statistical modeling, and machine learning heuristics to forecast future events. In
+     epidemiological contexts, predictive models analyze historical morbidity rates, seasonal weather patterns, and demographic variables to anticipate disease
+     outbreaks (e.g., dengue or waterborne illness surges). This foresight enables health centers to stockpile medical supplies and deploy preventative public health
+     interventions ahead of peak transmission windows.
+   * References:
+     * Hastie, T., Tibshirani, R., & Friedman, J. (2009). The elements of statistical learning: data mining, inference, and prediction. Springer.
+     * Chretien, J. P., et al. (2014). The importance of 'first-mile' mobile data for rapid outbreak detection. Global Health Action, 7(1), 24145.
+
+  6. ISO/IEC 25010 Software Quality Standards
+   * Synthesis: Evaluating software product quality requires rigorous adherence to standardized evaluation frameworks such as ISO/IEC 25010. This standard defines a
+     comprehensive quality model comprising eight key characteristics: functional suitability, performance efficiency, compatibility, usability, reliability, security,
+     maintainability, and portability. Applying ISO/IEC 25010 ensures that mission-critical public health and municipal compliance platforms meet enterprise-grade
+     benchmarks for safety, resilience, and user satisfaction.
+   * References:
+     * International Organization for Standardization. (2011). Systems and software engineering — Systems and software Quality Requirements and Evaluation (SQuaRE) —
+       System and software quality models (ISO/IEC Standard No. 25010:2011). https://www.iso.org/standard/35733.html
+
+  7. Healthcare Information Systems (HIS)
+   * Synthesis: Healthcare Information Systems (HIS) are specialized socio-technical systems designed to manage patient health records, diagnostic workflows,
+     prescriptions, and institutional compliance. An effective HIS guarantees data interoperability, secure audit trails, and strict adherence to privacy regulations
+     (such as patient confidentiality). Integrating HIS with municipal sanitation and disease surveillance modules creates a holistic ecosystem where clinical
+     encounters inform broader public health policy.
+   * References:
+     * Shortliffe, E. H., & Cimino, J. J. (Eds.). (2013). Biomedical informatics: computer applications in health care and biomedicine. Springer.
+     * World Health Organization. (2018). Digital health guidelines: recommendations on digital interventions for health system strengthening. World Health
+       Organization.
+
+  ---
+
+  Part 2: Technical Background
+
+  1. Gemini API Integration
+   * Architecture & Implementation: The system integrates Google's Gemini API via dedicated service wrappers (app/services/GeminiAiService.php). By constructing secure
+     HTTP requests payloaded with structured JSON prompts, the backend queries Google's generative models to analyze municipal datasets (surveillance cases, triage
+     metrics, inspection logs).
+   * Optimization: To minimize API latency and control rate limits, responses are wrapped in transient caching layers (app/services/CacheService.php with 5-minute TTL
+     intervals), ensuring high performance without redundant external calls.
+
+  2. Model-View-Controller (MVC) Architecture
+   * Structure: The PHP backend strictly adheres to the MVC architectural pattern. 
+     * Models (app/Models/) encapsulate database interactions, entity logic, and data validation.
+     * Controllers (app/Controllers/) handle incoming HTTP requests, session authentication, business rule orchestration, and response formatting.
+     * Views (pages/ and includes/) render the user interface via Tailwind CSS and native responsive layouts, ensuring a clean separation of concerns.
+
+  3. React Native & Expo (Mobile Ecosystem)
+   * Implementation: Designed for field officers, inspectors, and mobile health workers, the React Native and Expo framework provides cross-platform (iOS/Android)
+     capabilities. Expo streamlines native builds, offline data caching, and secure token storage, allowing field personnel to log sanitation inspections or sync
+     patient triage records directly from mobile devices.
+
+  4. RESTful API Design
+   * Architecture: The platform exposes standard RESTful endpoints (api/) communicating via JSON payloads. Standard HTTP methods (GET, POST, PUT, DELETE) govern
+     resource CRUD operations across modules (patients, permits, prescriptions, triage queues), accompanied by standardized HTTP status codes and consistent
+     error-handling exceptions.
+
+  5. JSON Web Tokens (JWT) & Authentication
+   * Security: Stateless authentication is managed via JSON Web Tokens (JWT) alongside secure session cookies. Upon successful authentication, the server signs a token
+     containing user claims and permission scopes, which is subsequently transmitted in request headers to authorize API access securely across both web and mobile
+     clients.
+
+  6. Role-Based Access Control (RBAC)
+   * Security Model: Authorization is strictly enforced through a granular Role-Based Access Control matrix (app/Constants/Permissions.php and
+     app/Middleware/AuthorizationMiddleware.php). Users are assigned roles (e.g., System Administrator, Health Worker, Sanitation Inspector, Municipal Officer),
+     restricting access to sensitive endpoints, financial reports, and administrative management pages according to the principle of least privilege.
+
+  7. Supabase Database & Backend-as-a-Service (BaaS)
+   * Data Storage: The persistence layer utilizes PostgreSQL via Supabase, offering robust relational data integrity, triggers, row-level security (RLS), and real-time
+     database subscriptions. The backend communicates via optimized SQL queries and unified snapshots (app/services/AiAnalyticsService.php), drastically reducing HTTP
+     request overhead and ensuring high throughput under heavy municipal workloads.
 *Generated from codebase analysis — /opt/lampp/htdocs/capstone/ — 2026-07-30*

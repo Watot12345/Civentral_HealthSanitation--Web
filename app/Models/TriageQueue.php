@@ -77,6 +77,26 @@ class TriageQueue
         }
     }
 
+    /**
+     * Get active visits filtered by reason_for_visit
+     */
+    public function getVisitsByReason(string $reason): array
+    {
+        try {
+            $all = $this->all(['order' => 'created_at.asc']);
+            return array_values(array_filter($all, function($item) use ($reason) {
+                $status = strtolower($item['status'] ?? 'waiting');
+                if ($status === 'completed') return false;
+                
+                $itemReason = $item['reason_for_visit'] ?? '';
+                return strcasecmp(trim($itemReason), trim($reason)) === 0;
+            }));
+        } catch (Throwable $e) {
+            error_log('TriageQueue Model Error (getVisitsByReason): ' . $e->getMessage());
+            return [];
+        }
+    }
+
     public function create(array $data): array
     {
         if (empty($data['queue_number'])) {
@@ -131,9 +151,9 @@ class TriageQueue
     }
 
     /**
-     * Check if patient already checked in today (and not completed)
+     * Check if patient already has an active check-in today for the same reason for visit
      */
-    public function isPatientCheckedInToday(int $patientId): bool
+    public function isPatientCheckedInToday(int $patientId, ?string $reasonForVisit = null): bool
     {
         try {
             $todayQueue = $this->getTodayQueue();
@@ -143,7 +163,14 @@ class TriageQueue
                     (int)($item['patient_id'] ?? 0) === $patientId && 
                     ($item['status'] ?? '') !== 'completed'
                 ) {
-                    return true;
+                    // If a specific reason_for_visit is provided, only flag duplicate if reasons match
+                    if ($reasonForVisit !== null && !empty($item['reason_for_visit'])) {
+                        if (strcasecmp(trim($item['reason_for_visit']), trim($reasonForVisit)) === 0) {
+                            return true;
+                        }
+                    } else if ($reasonForVisit === null) {
+                        return true;
+                    }
                 }
             }
             

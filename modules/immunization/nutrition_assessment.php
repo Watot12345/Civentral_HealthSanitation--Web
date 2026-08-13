@@ -16,6 +16,50 @@ require_once '../../includes/sidebar.php';
 requireDepartmentAccess('immunization & nutrition');
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../app/Models/TriageQueue.php';
+require_once __DIR__ . '/../../app/Models/Patient.php';
+
+// Fetch Active Patients Waiting for Nutrition Assessment Visits
+$triageQueueModel = new TriageQueue();
+$patientModel = new Patient();
+$nutritionVisitsRaw = [];
+try {
+    $nutritionVisitsRaw = $triageQueueModel->getVisitsByReason('Nutrition Assessment');
+} catch (\Throwable $e) {
+    error_log('Error fetching nutrition visits: ' . $e->getMessage());
+}
+
+$nutritionVisits = [];
+foreach ($nutritionVisitsRaw as $v) {
+    $pId = (int)($v['patient_id'] ?? 0);
+    $p = null;
+    try { if ($pId > 0) $p = $patientModel->find($pId); } catch (\Throwable $e) {}
+    
+    $name = 'Patient #' . $pId;
+    $pCode = 'P-' . $pId;
+    if ($p) {
+        $firstName = $p['first_name'] ?? '';
+        $lastName = $p['last_name'] ?? '';
+        $name = trim($firstName . ' ' . $lastName) ?: ($p['name'] ?? $name);
+        $pCode = $p['patient_id'] ?? $pCode;
+    }
+    
+    $parts = explode(' ', $name);
+    $initials = '';
+    foreach ($parts as $part) {
+        if (!empty($part)) $initials .= strtoupper($part[0]);
+    }
+    
+    $nutritionVisits[] = [
+        'id' => $v['id'],
+        'patient_id' => $pId,
+        'patient_name' => $name,
+        'patient_code' => $pCode,
+        'avatar' => substr($initials, 0, 2) ?: 'P',
+        'check_in_time' => isset($v['check_in_time']) ? date('h:i A', strtotime($v['check_in_time'])) : (isset($v['created_at']) ? date('h:i A', strtotime($v['created_at'])) : date('h:i A')),
+        'status' => $v['status'] ?? 'waiting'
+    ];
+}
 
 // Base Children Data
 $children = [];
@@ -228,6 +272,59 @@ $title = 'Nutrition Assessment';
             </button>
         </div>
     </div>
+
+    <!-- ============================================================ -->
+    <!-- PATIENTS WAITING FOR NUTRITION ASSESSMENT (TODAY'S VISITS)  -->
+    <!-- ============================================================ -->
+    <?php if (!empty($nutritionVisits)): ?>
+    <div class="bg-white rounded-xl shadow-xs border border-emerald-200 mb-6 overflow-hidden">
+        <div class="p-4 border-b border-emerald-200/80 flex items-center justify-between bg-emerald-50/50">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-apple-whole text-emerald-600"></i>
+                <h3 class="text-sm font-bold text-emerald-900">Patients Waiting for Nutrition Assessment</h3>
+                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold"><?php echo count($nutritionVisits); ?> active visit(s)</span>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient ID</th>
+                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient Name</th>
+                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Reason for Visit</th>
+                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Check-in Time</th>
+                        <th class="px-4 py-2 text-center text-[10px] font-bold text-slate-500 uppercase">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($nutritionVisits as $visit): ?>
+                    <tr class="border-b border-slate-100 hover:bg-emerald-50/20 transition-colors">
+                        <td class="px-4 py-3 font-mono text-xs font-bold text-emerald-700"><?php echo htmlspecialchars($visit['patient_code']); ?></td>
+                        <td class="px-4 py-3 font-semibold text-slate-800">
+                            <div class="flex items-center gap-2">
+                                <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-[10px]"><?php echo htmlspecialchars($visit['avatar']); ?></div>
+                                <span><?php echo htmlspecialchars($visit['patient_name']); ?></span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                                <i class="fa-solid fa-apple-whole text-[10px] text-emerald-600"></i> Nutrition Assessment
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-slate-600 text-xs"><?php echo htmlspecialchars($visit['check_in_time']); ?></td>
+                        <td class="px-4 py-3 text-center">
+                            <button onclick="openModal('nutritionScreeningModal');" 
+                                    class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition inline-flex items-center gap-1">
+                                <i class="fa-solid fa-weight-scale text-xs"></i> Start Assessment
+                            </button>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- ============================================================ -->
     <!-- MODERN KPI CARDS - Updated to match design               -->
