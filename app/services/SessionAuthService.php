@@ -187,44 +187,37 @@ class SessionAuthService
     }
 
     /**
-     * Checks if this employee/device has an active verified 12h/7d session token.
-     * Used during login to bypass 6-digit OTP prompt if token is still valid.
+     * Checks if this specific device/cookie has an active verified 12h/7d session token.
+     * Strictly requires matching cookieToken and valid expires_at timestamp.
      */
     public function hasActiveVerifiedSession(int $employeeId, string $cookieToken = ''): bool
     {
+        if (empty($cookieToken)) {
+            return false; // No device cookie token -> Always require OTP code!
+        }
+
         try {
             $db = Database::getInstance();
-
-            if (!empty($cookieToken)) {
-                $sessions = $db->select('user_sessions', [
-                    'session_token' => $cookieToken,
-                    'employee_id'   => $employeeId
-                ]);
-
-                if (!empty($sessions)) {
-                    $session = $sessions[0];
-                    if (strtotime($session['expires_at']) > time()) {
-                        return true;
-                    }
-                }
-            }
-
-            // Fallback: Check latest session for employee
             $sessions = $db->select('user_sessions', [
-                'employee_id' => $employeeId
-            ], [
-                'order' => 'created_at.desc',
-                'limit' => 1
+                'session_token' => $cookieToken,
+                'employee_id'   => $employeeId
             ]);
 
-            if (!empty($sessions)) {
-                $session = $sessions[0];
-                if (strtotime($session['expires_at']) > time()) {
-                    return true;
-                }
+            if (empty($sessions)) {
+                return false; // Token not found -> Require OTP code!
             }
 
+            $session = $sessions[0];
+            $expiresTimestamp = strtotime($session['expires_at']);
+
+            // Strictly check if 12-hour / 7-day token is still active
+            if ($expiresTimestamp > time()) {
+                return true; // Token still valid -> Skip OTP code!
+            }
+
+            // Expiration timestamp reached -> Token expired -> Require OTP code!
             return false;
+
         } catch (\Throwable $e) {
             error_log('SessionAuthService hasActiveVerifiedSession error: ' . $e->getMessage());
             return false;
