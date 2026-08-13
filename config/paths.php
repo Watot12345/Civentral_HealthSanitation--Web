@@ -27,9 +27,6 @@ define('BASE_URL', $baseUrl);
 
 function site_url($path = '') {
     $clean = str_replace('../', '', $path);
-    if (str_ends_with(strtolower($clean), '.php')) {
-        $clean = substr($clean, 0, -4);
-    }
     return rtrim(BASE_URL, '/') . '/' . ltrim($clean, '/');
 }
 

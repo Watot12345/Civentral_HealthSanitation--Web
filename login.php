@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     echo json_encode([
                         'success'      => true,
                         'requires_otp' => false,
-                        'redirect'     => 'pages/dashboard.php',
+                        'redirect'     => site_url('pages/dashboard.php'),
                         'user'         => [
                             'name'        => $user['full_name'],
                             'employee_id' => $user['employee_id']
@@ -175,14 +175,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Redirect if already logged in or if active valid 12h/7d token cookie exists
 if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
-    header('Location: pages/dashboard.php');
+    header('Location: ' . site_url('pages/dashboard.php'));
     exit;
 }
 
 if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_GET['switch_account']) && empty($_GET['logged_out'])) {
     $authService = new SessionAuthService();
     if ($authService->validateActiveToken($_COOKIE['civentral_session'])) {
-        header('Location: pages/dashboard.php');
+        header('Location: ' . site_url('pages/dashboard.php'));
         exit;
     }
 }
