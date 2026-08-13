@@ -1,4 +1,7 @@
 <?php
+if (ob_get_level() === 0) {
+    ob_start();
+}
 // Load environment variables if available
 require_once __DIR__ . '/../Core/Env.php';
 

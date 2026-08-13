@@ -961,12 +961,12 @@ $title = 'Case Reports';
         openModal('investigateModal');
     }
 
-    const getCsrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const fetchCsrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
     function postCaseApi(action, data) {
         const formData = new FormData();
         formData.append('action', action);
-        formData.append('csrf_token', getCsrfToken());
+        formData.append('csrf_token', fetchCsrfToken());
         for (const key in data) {
             if (data[key] !== undefined && data[key] !== null) {
                 formData.append(key, data[key]);
@@ -975,7 +975,7 @@ $title = 'Case Reports';
         return fetch(window.location.href, {
             method: 'POST',
             headers: {
-                'X-CSRF-Token': getCsrfToken(),
+                'X-CSRF-Token': fetchCsrfToken(),
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: formData

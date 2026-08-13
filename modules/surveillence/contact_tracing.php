@@ -468,7 +468,7 @@ $title = 'Contact Tracing';
 
         <!-- ── FORMAL HEADER ── -->
         <div style="text-align:center; margin-bottom:28px;">
-            <img src="/capstone/assets/images/logo.png" alt="Logo" width="64" height="64" style="width:64px; height:64px; margin:0 auto 12px; display:block; object-fit:contain;">
+            <img src="<?= site_url('assets/images/logo.png') ?>" alt="Logo" width="64" height="64" style="width:64px; height:64px; margin:0 auto 12px; display:block; object-fit:contain;">
             <h1 style="font-size:17px; font-weight:900; color:#1a1a1a; letter-spacing:1.5px;
                        text-transform:uppercase; margin:0 0 6px; font-family:'Times New Roman',serif;">
                 Health Sanitation Management Caloocan
@@ -1141,7 +1141,7 @@ $title = 'Contact Tracing';
         <div class="WordSection1">
         <div class="report-wrapper">
             <div class="header">
-                <img class="logo-img" src="${window.location.origin}/capstone/assets/images/logo.png" alt="Logo" width="64" height="64" style="width:64px; height:64px;">
+                <img class="logo-img" src="<?= site_url('assets/images/logo.png') ?>" alt="Logo" width="64" height="64" style="width:64px; height:64px;">
                 <h1>Health Sanitation Management Caloocan</h1>
                 <p class="report-subtitle">Contact Tracing</p>
                 <hr class="header-divider">

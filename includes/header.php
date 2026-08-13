@@ -1,6 +1,9 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+if (ob_get_level() === 0) {
+    ob_start();
+}
+if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    @session_start();
 }
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));

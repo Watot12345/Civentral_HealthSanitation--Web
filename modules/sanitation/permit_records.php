@@ -966,7 +966,7 @@ $limit = 5;
         th { background: #176B87; color: #fff; padding: 7px; text-align: left; }
         td { border: 1px solid #cbd5e1; padding: 7px; }
     </style></head><body><div class="header">
-        <img src="${window.location.origin}/capstone/assets/images/logo.png" alt="Logo"><h1>Health Sanitation Management Caloocan</h1><h2>${escapeExportHtml(title)}</h2><p>Generated: ${new Date().toLocaleString()}</p>
+        <img src="<?= site_url('assets/images/logo.png') ?>" alt="Logo"><h1>Health Sanitation Management Caloocan</h1><h2>${escapeExportHtml(title)}</h2><p>Generated: ${new Date().toLocaleString()}</p>
     </div><table><thead><tr>${headers.map(header => `<th>${escapeExportHtml(header)}</th>`).join('')}</tr></thead><tbody>${tableRows}</tbody></table></body></html>`;
     }
 

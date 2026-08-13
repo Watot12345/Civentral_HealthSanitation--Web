@@ -45,7 +45,12 @@ class AuthorizationMiddleware
             }
 
             $_SESSION['flash_error'] = 'Access Denied: You do not have permission to perform that action.';
-            header('Location: ' . site_url('pages/dashboard.php'));
+            $targetUrl = site_url('pages/dashboard.php');
+            if (!headers_sent()) {
+                header('Location: ' . $targetUrl);
+            } else {
+                echo "<script>window.location.href = '" . htmlspecialchars($targetUrl, ENT_QUOTES) . "';</script>";
+            }
             exit;
         }
     }
@@ -65,8 +70,10 @@ class AuthorizationMiddleware
             $isApi = str_contains($uri, '/api/') || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
 
             if ($isApi) {
-                http_response_code(403);
-                header('Content-Type: application/json');
+                if (!headers_sent()) {
+                    http_response_code(403);
+                    header('Content-Type: application/json');
+                }
                 echo json_encode([
                     'success' => false,
                     'message' => "Forbidden: Department access restricted. Your assigned department is '{$userDept}'.",
@@ -76,7 +83,12 @@ class AuthorizationMiddleware
             }
 
             $_SESSION['flash_error'] = "Access Denied: You do not have access to the '{$moduleDepartment}' department modules. Your assigned department is '{$userDept}'.";
-            header('Location: ' . site_url('pages/dashboard.php'));
+            $targetUrl = site_url('pages/dashboard.php');
+            if (!headers_sent()) {
+                header('Location: ' . $targetUrl);
+            } else {
+                echo "<script>window.location.href = '" . htmlspecialchars($targetUrl, ENT_QUOTES) . "';</script>";
+            }
             exit;
         }
     }

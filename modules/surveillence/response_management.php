@@ -1275,7 +1275,7 @@ $title = 'Response Management';
         <div class="WordSection1">
         <div class="report-wrapper">
             <div class="header">
-                <img class="logo-img" src="${window.location.origin}/capstone/assets/images/logo.png" alt="Logo" width="64" height="64" style="width:64px; height:64px;">
+                <img class="logo-img" src="<?= site_url('assets/images/logo.png') ?>" alt="Logo" width="64" height="64" style="width:64px; height:64px;">
                 <h1>Health Sanitation Management Caloocan</h1>
                 <p class="report-subtitle">Response Management</p>
                 <hr class="header-divider">
