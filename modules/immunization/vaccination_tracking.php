@@ -755,16 +755,60 @@ $title = 'Vaccination Tracking';
         input.value = String(input.value || '').replace(/\D/g, '').slice(0, 4);
     }
 
-    function saveVaccinationRecord(event) {
+    async function saveVaccinationRecord(event) {
         event.preventDefault();
+        const childId = document.getElementById('vacc_child').value;
+        const vaccine = document.getElementById('vacc_vaccine').value;
         const dose = document.getElementById('vacc_dose').value;
+        const dateAdmin = document.getElementById('vacc_date').value;
+        const nextDue = document.getElementById('vacc_next_due').value;
+        const adminBy = document.getElementById('vacc_admin').value;
+        const center = document.getElementById('vacc_center').value;
+        const batch = document.getElementById('vacc_batch').value;
+
+        if (!childId) {
+            showToast('Please select a child.', 'warning');
+            return;
+        }
+        if (!vaccine) {
+            showToast('Please select a vaccine.', 'warning');
+            return;
+        }
         if (!/^\d{1,4}$/.test(dose) || Number(dose) < 1 || Number(dose) > 9999) {
             showToast('Dose number must be between 1 and 9999.', 'warning');
             document.getElementById('vacc_dose').focus();
             return;
         }
-        showToast('Vaccination recorded successfully!', 'success');
-        closeModal('recordVaccinationModal');
+
+        const payload = {
+            child_id: Number(childId),
+            vaccine: vaccine,
+            dose: Number(dose),
+            date_administered: dateAdmin || new Date().toISOString().split('T')[0],
+            next_due_date: nextDue || null,
+            administered_by: adminBy,
+            health_center: center,
+            batch_number: batch
+        };
+
+        try {
+            const res = await fetch('/api/immunization.php?action=record', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('recordVaccinationModal');
+                showToast('Vaccination recorded successfully!', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.message || 'Failed to record vaccination.', 'danger');
+            }
+        } catch (err) {
+            console.error('Record vaccination error:', err);
+            showToast('Error sending vaccination record to server.', 'danger');
+        }
     }
 
     // ============================================================

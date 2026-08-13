@@ -1,0 +1,53 @@
+# Immunization & Nutrition Module – Full Task & Change List
+
+## Phase 1 – Database Migrations
+- [x] Create SQL migration file `database/migrations/2026_08_07_immunization_module_tables.sql`
+  - [x] `immunizations` table (vaccine, dose, date_administered, next_due_date, batch_number, administered_by, health_center)
+  - [x] `growth_measurements` table (child_id, measurement_date, weight, height, head_circumference, notes)
+  - [x] `nutrition_assessments` table (child_id, assessment_date, weight, height, bmi, nutrition_status, risk_level, assessment_notes, plan_of_action, supplements, next_assessment_date, status)
+  - [x] `vaccine_inventory` table (vaccine_name, batch_number, quantity, minimum_stock, expiry_date, temperature, storage_location, supplier, unit)
+  - [x] `inventory_log` audit table (inventory_id, adjustment_type, quantity, reason, created_at)
+  - [x] Triggers for auto-updating `updated_at` timestamps
+
+## Phase 2 – Application Models (`app/Models/`)
+- [x] `app/Models/GrowthMeasurement.php` (CRUD queries for growth measurements)
+- [x] `app/Models/NutritionAssessment.php` (CRUD queries, automatic BMI calculation, and status sync to `children` table)
+- [x] `app/Models/VaccineInventory.php` (CRUD queries, single-source-of-truth status computation, stock adjustment helper, and log auditing)
+
+## Phase 3 – Application Controllers (`app/Controllers/`)
+- [x] `app/Controllers/GrowthController.php` (Validations and handlers for growth API)
+- [x] `app/Controllers/NutritionController.php` (Validations and handlers for nutrition screening/edits/emergency patches)
+- [x] `app/Controllers/InventoryController.php` (Validations and handlers for stock add/edit/adjust/reorder)
+
+## Phase 4 – RESTful API Layer (`api/`)
+- [x] `api/growth.php` (GET, POST, PUT, DELETE for growth measurements)
+- [x] `api/nutrition.php` (GET, POST, PATCH, DELETE for nutrition assessments)
+- [x] `api/inventory.php` (GET, POST, PUT, DELETE, `?action=adjust`, `?action=reorder` for vaccine inventory)
+- [x] `api/immunization.php` (extended with `POST ?action=record` to save vaccination records)
+
+## Phase 5 – Frontend Modules & Persistence Integration (`modules/immunization/`)
+- [x] `modules/immunization/growth_charts.php`
+  - [x] Query DB `growth_measurements` in PHP alongside child birth records
+  - [x] Connect `saveGrowthMeasurement()` form submit to `POST /api/growth.php`
+  - [x] Added **Actions** column with **Delete** button to Measurement History table (`DELETE /api/growth.php?id=X`)
+  - [x] Dynamically update ApexCharts graph and table without page reloads
+- [x] `modules/immunization/nutrition_assessment.php`
+  - [x] Query DB `nutrition_assessments` in PHP
+  - [x] Connect `saveNutritionScreening()` form submit to `POST /api/nutrition.php`
+  - [x] Connect `saveEditedAssessment()` to `PATCH /api/nutrition.php?id=X`
+  - [x] Connect `confirmEmergencyIntervention()` to `PATCH /api/nutrition.php?id=X&action=emergency`
+  - [x] Update in-memory state and DOM table dynamically without full page reloads
+- [x] `modules/immunization/vaccination_tracking.php`
+  - [x] Query DB `immunizations` in PHP
+  - [x] Connect `saveVaccinationRecord()` form submit to `POST /api/immunization.php?action=record`
+- [x] `modules/immunization/vaccine_inventory.php`
+  - [x] Query DB `vaccine_inventory` in PHP instead of mock table
+  - [x] Connect `saveAddStock()` to `POST /api/inventory.php`
+  - [x] Connect `saveEditVaccine()` to `PUT /api/inventory.php?id=X`
+  - [x] Connect `saveAdjustStock()` to `POST /api/inventory.php?action=adjust`
+  - [x] Connect `confirmReorder()` to `POST /api/inventory.php?action=reorder`
+  - [x] Smooth in-memory row updates using `updateInventoryRow()` without full page reloads
+
+## Phase 6 – Verification & Quality Assurance
+- [x] Run `php -l` syntax checks on all 14 files (0 syntax errors detected)
+- [x] Verify API payload formats and response structures match `Response::success` / `Response::error` contract

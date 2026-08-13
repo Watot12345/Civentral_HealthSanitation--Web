@@ -1,10 +1,10 @@
 {
-    "key": "analytics_66126fd41f40ea421c2841c882e4f9ad",
-    "created_at": 1786040612,
-    "expires_at": 1786040912,
+    "key": "analytics_aaea0faf091d4beb1c223907aaef6097",
+    "created_at": 1786027570,
+    "expires_at": 1786027870,
     "data": {
         "success": true,
-        "timestamp": "2026-08-06 20:23:32",
+        "timestamp": "2026-08-06 16:46:10",
         "range": "6m",
         "kpis": [
             {
@@ -105,14 +105,14 @@
                 "badge": "Positive",
                 "color": "emerald",
                 "priority": "Positive",
-                "title": "Processed <span class=\"highlight-success\">5<\/span> sanitation permits (4 approved).",
+                "title": "Processed <span class=\"highlight-success\">6<\/span> sanitation permits (4 approved).",
                 "impact": "Notice",
                 "confidence": 95,
                 "action": "Maintain current 24-hour turnaround for commercial clearance reviews.",
                 "metrics": [
                     {
                         "label": "Total Permits",
-                        "value": "5"
+                        "value": "6"
                     },
                     {
                         "label": "Approved",
@@ -184,8 +184,8 @@
                         0,
                         0,
                         0,
-                        5,
-                        3
+                        6,
+                        4
                     ]
                 },
                 {
@@ -209,7 +209,7 @@
                 },
                 {
                     "color": "bg-blue-500",
-                    "label": "Permit Requests (3)"
+                    "label": "Permit Requests (4)"
                 },
                 {
                     "color": "bg-emerald-500",
@@ -218,7 +218,7 @@
             ]
         },
         "trend": {
-            "subtitle": "Disease Cases Trend",
+            "subtitle": "Health Center Services Trend",
             "categories": [
                 "Mar",
                 "Apr",
@@ -227,15 +227,66 @@
                 "Jul",
                 "Aug"
             ],
-            "series": [],
-            "colors": [],
-            "legend": []
+            "series": [
+                {
+                    "name": "Patient Encounters",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        2
+                    ]
+                },
+                {
+                    "name": "Medical Consultations",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1
+                    ]
+                },
+                {
+                    "name": "Triage Screenings",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "colors": [
+                "#176b87",
+                "#3b82f6",
+                "#10b981"
+            ],
+            "legend": [
+                {
+                    "color": "bg-teal-600",
+                    "label": "Patient Encounters (2)"
+                },
+                {
+                    "color": "bg-blue-500",
+                    "label": "Medical Consultations (1)"
+                },
+                {
+                    "color": "bg-emerald-500",
+                    "label": "Triage Screenings"
+                }
+            ]
         },
         "modules": [
             {
                 "label": "Health Center",
-                "share": 16.7,
-                "projected_share": 18.4,
+                "share": 15.4,
+                "projected_share": 17.1,
                 "color": "#176b87",
                 "status": "Optimal",
                 "delta": "\u2191 1.7pts vs last month",
@@ -244,13 +295,13 @@
             },
             {
                 "label": "Sanitation Permits",
-                "share": 41.7,
-                "projected_share": 43.2,
+                "share": 46.2,
+                "projected_share": 47.7,
                 "color": "#d97706",
                 "status": "High Demand",
                 "delta": "\u2191 1.5pts vs last month",
                 "confidence": "low",
-                "sample_size": 5
+                "sample_size": 6
             },
             {
                 "label": "Immunization & Surveillance",
@@ -264,8 +315,8 @@
             },
             {
                 "label": "Wastewater Services",
-                "share": 41.6,
-                "projected_share": 38.4,
+                "share": 38.4,
+                "projected_share": 35.2,
                 "color": "#9333ea",
                 "status": "Stable",
                 "delta": "\u2192 0.0pts vs last month",
@@ -280,7 +331,7 @@
                 "unit": "Days",
                 "change": "\u2193 21%",
                 "changeColor": "emerald",
-                "progress": 80,
+                "progress": 67,
                 "glow": "glow-green",
                 "watermark": "fa-file-signature",
                 "details": [
@@ -290,7 +341,7 @@
                     },
                     {
                         "label": "Total Applications",
-                        "value": "5 permits"
+                        "value": "6 permits"
                     },
                     {
                         "label": "Approved",
@@ -298,11 +349,11 @@
                     },
                     {
                         "label": "Pending\/Review",
-                        "value": "0 permits"
+                        "value": "2 permits"
                     },
                     {
                         "label": "Rejected",
-                        "value": "1 permits"
+                        "value": "0 permits"
                     }
                 ],
                 "pieData": [
@@ -313,12 +364,12 @@
                     },
                     {
                         "label": "Pending",
-                        "value": 0,
+                        "value": 2,
                         "color": "#f59e0b"
                     },
                     {
                         "label": "Rejected",
-                        "value": 1,
+                        "value": 0,
                         "color": "#ef4444"
                     }
                 ]
@@ -405,21 +456,21 @@
             },
             {
                 "label": "Queue Resolution Rate",
-                "value": 84,
+                "value": 82,
                 "unit": "%",
                 "change": "\u2191 3.5%",
                 "changeColor": "purple",
-                "progress": 84,
+                "progress": 82,
                 "glow": "glow-purple",
                 "watermark": "fa-users-line",
                 "details": [
                     {
                         "label": "Resolution Rate",
-                        "value": "84%"
+                        "value": "82%"
                     },
                     {
                         "label": "Total Patient Encounters",
-                        "value": "4 visits"
+                        "value": "3 visits"
                     },
                     {
                         "label": "Target",
@@ -429,12 +480,12 @@
                 "pieData": [
                     {
                         "label": "Resolved",
-                        "value": 84,
+                        "value": 82,
                         "color": "#8b5cf6"
                     },
                     {
                         "label": "In Queue",
-                        "value": 16,
+                        "value": 18,
                         "color": "#e2e8f0"
                     }
                 ]
@@ -493,7 +544,7 @@
                 "name": "Insp. Juan Dela Cruz",
                 "score": 93,
                 "department": "Sanitation Permits",
-                "cases": 100
+                "cases": 120
             },
             {
                 "name": "Engr. Roberto Reyes",
@@ -509,7 +560,7 @@
             }
         ],
         "forecast_insight": "No disease cases recorded in database \u2014 baseline forecast set to 0.",
-        "module_insight": "Sanitation Permits forecasted at 43.2% (+1.5pts vs current) \u2014 reassign 2 health inspectors to commercial permit reviews.",
+        "module_insight": "Sanitation Permits forecasted at 47.7% (+1.5pts vs current) \u2014 reassign 2 health inspectors to commercial permit reviews.",
         "correlation_insight": "Disease Surveillance and Health Center Services move together (+84% co-movement correlation) over the last 6 months."
     }
 }

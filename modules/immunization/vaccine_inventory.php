@@ -16,38 +16,39 @@ require_once '../../includes/sidebar.php';
 requireDepartmentAccess('immunization & nutrition');
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../app/Models/VaccineInventory.php';
 
 // Base Vaccine Inventory Data
 $vaccineInventory = [];
 
 try {
     $db = Database::getInstance();
-    $dbResources = $db->query('surveillance_resources', 'GET');
-    if (!empty($dbResources) && is_array($dbResources)) {
-        foreach ($dbResources as $r) {
-            $rId = (int)$r['id'];
-            $qty = (int)($r['quantity'] ?? 0);
-            $min = (int)($r['min_threshold'] ?? 20);
-            $status = $qty > $min ? 'in_stock' : ($qty > 0 ? 'low_stock' : 'out_of_stock');
+    $dbInventory = $db->select('vaccine_inventory', [], ['order' => 'vaccine_name.asc']);
+    if (!empty($dbInventory) && is_array($dbInventory)) {
+        foreach ($dbInventory as $v) {
+            $rId = (int)$v['id'];
+            $qty = (int)($v['quantity'] ?? 0);
+            $min = (int)($v['minimum_stock'] ?? 20);
+            $status = VaccineInventory::computeStatus($qty, $min);
 
             $vaccineInventory[] = [
                 'id' => $rId,
-                'vaccine_name' => $r['item_name'] ?? 'Medical Resource',
-                'batch_number' => $r['resource_id'] ?? ('RES-' . sprintf('%03d', $rId)),
+                'vaccine_name' => $v['vaccine_name'] ?? 'Vaccine',
+                'batch_number' => $v['batch_number'] ?? ('VAC-' . sprintf('%03d', $rId)),
                 'quantity' => $qty,
                 'minimum_stock' => $min,
-                'received_date' => date('Y-m-d', strtotime($r['last_updated'] ?? 'now')),
-                'expiry_date' => date('Y-m-d', strtotime('+1 year')),
-                'temperature' => 4.0,
-                'storage_location' => $r['category'] ?? 'Storage A',
-                'supplier' => 'DOH Central',
+                'received_date' => date('Y-m-d', strtotime($v['received_date'] ?? 'now')),
+                'expiry_date' => date('Y-m-d', strtotime($v['expiry_date'] ?? '+1 year')),
+                'temperature' => (float)($v['temperature'] ?? 4.0),
+                'storage_location' => $v['storage_location'] ?? 'Refrigerator A1',
+                'supplier' => $v['supplier'] ?? 'DOH Central',
                 'status' => $status,
-                'unit' => $r['unit'] ?? 'units'
+                'unit' => $v['unit'] ?? 'doses'
             ];
         }
     }
 } catch (\Throwable $e) {
-    error_log('Supabase surveillance_resources query exception: ' . $e->getMessage());
+    error_log('Supabase vaccine_inventory query exception: ' . $e->getMessage());
 }
 
 // Real Supabase data loaded from surveillance_resources
@@ -924,7 +925,7 @@ $title = 'Vaccine Inventory';
         openModal('editVaccineModal');
     }
 
-    function saveEditVaccine(event) {
+    async function saveEditVaccine(event) {
         event.preventDefault();
         const quantity = document.getElementById('edit_quantity').value;
         const minimumStock = document.getElementById('edit_minimum_stock').value;
@@ -934,22 +935,41 @@ $title = 'Vaccine Inventory';
             return;
         }
         const id = parseInt(document.getElementById('edit_vaccine_id').value);
-        const v = INVENTORY[id];
-        if (!v) return;
 
-        v.vaccine_name = document.getElementById('edit_vaccine_name').value.trim();
-        v.batch_number = document.getElementById('edit_batch_number').value.trim();
-        v.quantity = parseInt(document.getElementById('edit_quantity').value);
-        v.minimum_stock = parseInt(document.getElementById('edit_minimum_stock').value);
-        v.expiry_date = document.getElementById('edit_expiry_date').value;
-        v.temperature = parseFloat(document.getElementById('edit_temperature').value);
-        v.storage_location = document.getElementById('edit_storage_location').value;
-        v.supplier = document.getElementById('edit_supplier').value.trim();
-        v.status = document.getElementById('edit_status').value;
+        const payload = {
+            vaccine_name: document.getElementById('edit_vaccine_name').value.trim(),
+            batch_number: document.getElementById('edit_batch_number').value.trim(),
+            quantity: parseInt(quantity),
+            minimum_stock: parseInt(minimumStock),
+            expiry_date: document.getElementById('edit_expiry_date').value,
+            temperature: parseFloat(temperature),
+            storage_location: document.getElementById('edit_storage_location').value,
+            supplier: document.getElementById('edit_supplier').value.trim()
+        };
 
-        updateInventoryRow(v);
-        closeModal('editVaccineModal');
-        showToast(v.vaccine_name + ' updated successfully!', 'success');
+        try {
+            const res = await fetch(`/api/inventory.php?id=${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('editVaccineModal');
+                showToast('Vaccine updated successfully!', 'success');
+                const updated = data.data || payload;
+                const item = INVENTORY[id];
+                if (item) {
+                    Object.assign(item, updated);
+                    updateInventoryRow(item);
+                }
+            } else {
+                showToast(data.message || 'Failed to update vaccine.', 'danger');
+            }
+        } catch (err) {
+            console.error('Update vaccine error:', err);
+            showToast('Error sending update to server.', 'danger');
+        }
     }
 
     function updateInventoryRow(v) {
@@ -995,7 +1015,7 @@ $title = 'Vaccine Inventory';
                 const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
                 if (statusBadge) {
                     statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[v.status] || statusColors.in_stock}`;
-                    statusBadge.textContent = v.status.replace('_', ' ').toUpperCase();
+                    statusBadge.textContent = (v.status || 'in_stock').replace('_', ' ').toUpperCase();
                 }
                 
                 row.className = `border-b border-slate-100 hover:bg-brand-light/40 transition-colors inventory-row ${v.status === 'critical' || v.status === 'out_of_stock' ? 'bg-rose-50/50' : ''}`;
@@ -1026,7 +1046,7 @@ $title = 'Vaccine Inventory';
         openModal('reorderModal');
     }
 
-    function confirmReorder() {
+    async function confirmReorder() {
         const v = INVENTORY[reorderVaccineId];
         if (!v) {
             showToast('Vaccine not found', 'danger');
@@ -1040,39 +1060,138 @@ $title = 'Vaccine Inventory';
             return;
         }
         const notes = document.getElementById('reorderNotes').value.trim() || 'Reorder requested';
-        
-        showToast('✅ Reorder request for ' + v.vaccine_name + ' (' + quantity + ' units) submitted successfully!', 'success');
-        
-        closeModal('reorderModal');
-        reorderVaccineId = null;
+
+        try {
+            const res = await fetch('/api/inventory.php?action=reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: v.id,
+                    quantity: quantity,
+                    reason: notes
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('reorderModal');
+                showToast(`✅ Reorder request for ${v.vaccine_name} (${quantity} units) logged successfully!`, 'success');
+            } else {
+                showToast(data.message || 'Failed to log reorder.', 'danger');
+            }
+        } catch (err) {
+            console.error('Reorder error:', err);
+            showToast('Error sending reorder to server.', 'danger');
+        } finally {
+            reorderVaccineId = null;
+        }
     }
 
     // ============================================================
     // ADD STOCK
     // ============================================================
-    function saveAddStock(event) {
+    async function saveAddStock(event) {
         event.preventDefault();
-        if (!isValidInventoryInteger(document.getElementById('stock_qty').value, 1) ||
-            !isValidInventoryInteger(document.getElementById('stock_min').value, 1) ||
-            !isValidTemperature(document.getElementById('stock_temp').value)) {
+        const vaccineName = document.getElementById('stock_vaccine').value.trim();
+        const batchNumber = document.getElementById('stock_batch').value.trim();
+        const quantity = document.getElementById('stock_qty').value;
+        const minStock = document.getElementById('stock_min').value;
+        const expiry = document.getElementById('stock_expiry').value;
+        const temp = document.getElementById('stock_temp').value;
+        const location = document.getElementById('stock_location').value;
+        const supplier = document.getElementById('stock_supplier').value.trim();
+
+        if (!isValidInventoryInteger(quantity, 1) ||
+            !isValidInventoryInteger(minStock, 1) ||
+            !isValidTemperature(temp)) {
             showToast('Quantity and minimum stock allow up to 8 digits; temperature allows up to 3 digits with decimals.', 'warning');
             return;
         }
-        showToast('Stock added successfully!', 'success');
-        closeModal('addStockModal');
+
+        const payload = {
+            vaccine_name: vaccineName,
+            batch_number: batchNumber,
+            quantity: Number(quantity),
+            minimum_stock: Number(minStock),
+            expiry_date: expiry,
+            temperature: Number(temp),
+            storage_location: location,
+            supplier: supplier,
+            unit: 'doses'
+        };
+
+        try {
+            const res = await fetch('/api/inventory.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('addStockModal');
+                showToast('Stock added successfully!', 'success');
+                setTimeout(() => location.reload(), 600);
+            } else {
+                showToast(data.message || 'Failed to add stock.', 'danger');
+            }
+        } catch (err) {
+            console.error('Add stock error:', err);
+            showToast('Error saving stock to server.', 'danger');
+        }
     }
 
     // ============================================================
     // ADJUST STOCK
     // ============================================================
-    function saveAdjustStock(event) {
+    async function saveAdjustStock(event) {
         event.preventDefault();
-        if (!isValidInventoryInteger(document.getElementById('adjust_qty').value, 1)) {
+        const id = document.getElementById('adjust_vaccine').value;
+        const type = document.getElementById('adjust_type').value;
+        const qty = document.getElementById('adjust_qty').value;
+        const reason = document.getElementById('adjust_reason').value.trim();
+
+        if (!id) {
+            showToast('Please select a vaccine.', 'warning');
+            return;
+        }
+
+        if (!isValidInventoryInteger(qty, 1)) {
             showToast('Adjustment quantity must be between 1 and 99999999.', 'warning');
             return;
         }
-        showToast('Stock adjusted successfully!', 'success');
-        closeModal('adjustStockModal');
+
+        const payload = {
+            id: Number(id),
+            adjustment_type: type,
+            quantity: Number(qty),
+            reason: reason
+        };
+
+        try {
+            const res = await fetch('/api/inventory.php?action=adjust', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeModal('adjustStockModal');
+                showToast('Stock adjusted successfully!', 'success');
+                const updated = data.data;
+                if (updated && updated.id) {
+                    const item = INVENTORY[updated.id];
+                    if (item) {
+                        item.quantity = updated.quantity;
+                        item.status = updated.status;
+                        updateInventoryRow(item);
+                    }
+                }
+            } else {
+                showToast(data.message || 'Failed to adjust stock.', 'danger');
+            }
+        } catch (err) {
+            console.error('Adjust stock error:', err);
+            showToast('Error sending stock adjustment to server.', 'danger');
+        }
     }
 
     // ============================================================

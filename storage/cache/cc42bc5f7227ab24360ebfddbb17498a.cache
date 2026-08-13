@@ -1,10 +1,10 @@
 {
-    "key": "analytics_66126fd41f40ea421c2841c882e4f9ad",
-    "created_at": 1786040612,
-    "expires_at": 1786040912,
+    "key": "analytics_5a08aee242047a0d90f3b08a1e520b06",
+    "created_at": 1786027588,
+    "expires_at": 1786027888,
     "data": {
         "success": true,
-        "timestamp": "2026-08-06 20:23:32",
+        "timestamp": "2026-08-06 16:46:28",
         "range": "6m",
         "kpis": [
             {
@@ -18,7 +18,7 @@
             {
                 "key": "resolved_cases",
                 "title": "Resolved & Processed",
-                "value": "7",
+                "value": "8",
                 "change": "\u2191 12.4%",
                 "status": "success",
                 "description": "Completed consultations & approved permits"
@@ -105,14 +105,14 @@
                 "badge": "Positive",
                 "color": "emerald",
                 "priority": "Positive",
-                "title": "Processed <span class=\"highlight-success\">5<\/span> sanitation permits (4 approved).",
+                "title": "Processed <span class=\"highlight-success\">6<\/span> sanitation permits (4 approved).",
                 "impact": "Notice",
                 "confidence": 95,
                 "action": "Maintain current 24-hour turnaround for commercial clearance reviews.",
                 "metrics": [
                     {
                         "label": "Total Permits",
-                        "value": "5"
+                        "value": "6"
                     },
                     {
                         "label": "Approved",
@@ -184,8 +184,8 @@
                         0,
                         0,
                         0,
-                        5,
-                        3
+                        6,
+                        4
                     ]
                 },
                 {
@@ -209,7 +209,7 @@
                 },
                 {
                     "color": "bg-blue-500",
-                    "label": "Permit Requests (3)"
+                    "label": "Permit Requests (4)"
                 },
                 {
                     "color": "bg-emerald-500",
@@ -218,7 +218,7 @@
             ]
         },
         "trend": {
-            "subtitle": "Disease Cases Trend",
+            "subtitle": "All 5 Modules Combined System Activity",
             "categories": [
                 "Mar",
                 "Apr",
@@ -227,15 +227,114 @@
                 "Jul",
                 "Aug"
             ],
-            "series": [],
-            "colors": [],
-            "legend": []
+            "series": [
+                {
+                    "name": "Surveillance",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "name": "Health Center",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        2
+                    ]
+                },
+                {
+                    "name": "Sanitation",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        6
+                    ]
+                },
+                {
+                    "name": "Immunization",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        2
+                    ]
+                },
+                {
+                    "name": "Wastewater",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        4,
+                        1
+                    ]
+                },
+                {
+                    "name": "Prior Year (YoY)",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "colors": [
+                "#ef4444",
+                "#176b87",
+                "#d97706",
+                "#2563eb",
+                "#9333ea",
+                "#a1a1aa"
+            ],
+            "legend": [
+                {
+                    "color": "bg-red-500",
+                    "label": "Surveillance (0)"
+                },
+                {
+                    "color": "bg-teal-600",
+                    "label": "Health Center (2)"
+                },
+                {
+                    "color": "bg-amber-600",
+                    "label": "Sanitation (6)"
+                },
+                {
+                    "color": "bg-blue-600",
+                    "label": "Immunization"
+                },
+                {
+                    "color": "bg-purple-600",
+                    "label": "Wastewater (5)"
+                },
+                {
+                    "color": "bg-zinc-400",
+                    "label": "Prior Year (YoY)"
+                }
+            ]
         },
         "modules": [
             {
                 "label": "Health Center",
-                "share": 16.7,
-                "projected_share": 18.4,
+                "share": 15.4,
+                "projected_share": 17.1,
                 "color": "#176b87",
                 "status": "Optimal",
                 "delta": "\u2191 1.7pts vs last month",
@@ -244,13 +343,13 @@
             },
             {
                 "label": "Sanitation Permits",
-                "share": 41.7,
-                "projected_share": 43.2,
+                "share": 46.2,
+                "projected_share": 47.7,
                 "color": "#d97706",
                 "status": "High Demand",
                 "delta": "\u2191 1.5pts vs last month",
                 "confidence": "low",
-                "sample_size": 5
+                "sample_size": 6
             },
             {
                 "label": "Immunization & Surveillance",
@@ -264,8 +363,8 @@
             },
             {
                 "label": "Wastewater Services",
-                "share": 41.6,
-                "projected_share": 38.4,
+                "share": 38.4,
+                "projected_share": 35.2,
                 "color": "#9333ea",
                 "status": "Stable",
                 "delta": "\u2192 0.0pts vs last month",
@@ -280,7 +379,7 @@
                 "unit": "Days",
                 "change": "\u2193 21%",
                 "changeColor": "emerald",
-                "progress": 80,
+                "progress": 67,
                 "glow": "glow-green",
                 "watermark": "fa-file-signature",
                 "details": [
@@ -290,7 +389,7 @@
                     },
                     {
                         "label": "Total Applications",
-                        "value": "5 permits"
+                        "value": "6 permits"
                     },
                     {
                         "label": "Approved",
@@ -298,11 +397,11 @@
                     },
                     {
                         "label": "Pending\/Review",
-                        "value": "0 permits"
+                        "value": "2 permits"
                     },
                     {
                         "label": "Rejected",
-                        "value": "1 permits"
+                        "value": "0 permits"
                     }
                 ],
                 "pieData": [
@@ -313,12 +412,12 @@
                     },
                     {
                         "label": "Pending",
-                        "value": 0,
+                        "value": 2,
                         "color": "#f59e0b"
                     },
                     {
                         "label": "Rejected",
-                        "value": 1,
+                        "value": 0,
                         "color": "#ef4444"
                     }
                 ]
@@ -493,7 +592,7 @@
                 "name": "Insp. Juan Dela Cruz",
                 "score": 93,
                 "department": "Sanitation Permits",
-                "cases": 100
+                "cases": 120
             },
             {
                 "name": "Engr. Roberto Reyes",
@@ -509,7 +608,7 @@
             }
         ],
         "forecast_insight": "No disease cases recorded in database \u2014 baseline forecast set to 0.",
-        "module_insight": "Sanitation Permits forecasted at 43.2% (+1.5pts vs current) \u2014 reassign 2 health inspectors to commercial permit reviews.",
+        "module_insight": "Sanitation Permits forecasted at 47.7% (+1.5pts vs current) \u2014 reassign 2 health inspectors to commercial permit reviews.",
         "correlation_insight": "Disease Surveillance and Health Center Services move together (+84% co-movement correlation) over the last 6 months."
     }
 }

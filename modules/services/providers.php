@@ -15,6 +15,18 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('wastewater services');
 
+// AJAX API Endpoint Handler
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    header('Content-Type: application/json');
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        echo json_encode(['success' => false, 'message' => 'CSRF token validation failed.']);
+        exit;
+    }
+    $action = $_POST['action'] ?? '';
+    echo json_encode(['success' => true, 'action' => $action, 'message' => 'Provider action processed successfully.']);
+    exit;
+}
+
 // Sample Service Providers Data
 $serviceProviders = [
     [
@@ -162,11 +174,16 @@ $title = 'Service Providers';
             <p class="text-sm text-slate-500 mt-0.5">Manage providers, assignments, performance & equipment</p>
         </div>
         <div class="flex gap-3">
+            <button onclick="exportProvidersCSV()"
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2"
+                    title="Export to CSV" aria-label="Export providers to CSV">
+                <i class="fa-solid fa-file-csv text-xs"></i> Export
+            </button>
             <button onclick="openModal('registerProviderModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-user-plus text-xs"></i> Register Provider
             </button>
-            <button onclick="openModal('equipmentManagementModal')"
+            <button onclick="openEquipmentManagementModal()"
                     class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2">
                 <i class="fa-solid fa-toolbox text-xs"></i> Equipment
             </button>
@@ -323,13 +340,15 @@ $title = 'Service Providers';
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="providersGrid">
         <?php foreach ($serviceProviders as $provider): ?>
         <div class="provider-card bg-white rounded-xl shadow-xs border border-slate-200 p-4 hover:shadow-md transition-all duration-200 <?php echo $provider['status'] === 'active' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-slate-400'; ?>"
-             data-name="<?php echo strtolower($provider['name']); ?>"
-             data-id="<?php echo $provider['provider_id']; ?>"
-             data-status="<?php echo $provider['status']; ?>"
-             data-specialization="<?php echo $provider['specialization']; ?>"
-             data-rating="<?php echo $provider['rating']; ?>"
-             data-contact="<?php echo htmlspecialchars($provider['contact']); ?>"
-             data-joined-date="<?php echo $provider['joined_date']; ?>">
+             data-name="<?php echo htmlspecialchars(strtolower($provider['name']), ENT_QUOTES, 'UTF-8'); ?>"
+             data-id="<?php echo htmlspecialchars($provider['provider_id'], ENT_QUOTES, 'UTF-8'); ?>"
+             data-row-id="<?php echo (int)$provider['id']; ?>"
+             data-status="<?php echo htmlspecialchars($provider['status'], ENT_QUOTES, 'UTF-8'); ?>"
+             data-specialization="<?php echo htmlspecialchars($provider['specialization'], ENT_QUOTES, 'UTF-8'); ?>"
+             data-rating="<?php echo htmlspecialchars($provider['rating'], ENT_QUOTES, 'UTF-8'); ?>"
+             data-contact="<?php echo htmlspecialchars($provider['contact'], ENT_QUOTES, 'UTF-8'); ?>"
+             data-joined-date="<?php echo htmlspecialchars($provider['joined_date'], ENT_QUOTES, 'UTF-8'); ?>"
+             id="provider-card-<?php echo (int)$provider['id']; ?>">
             
             <!-- Header -->
             <div class="flex items-center justify-between mb-3">
@@ -438,6 +457,7 @@ $title = 'Service Providers';
             </button>
         </div>
         <form id="registerProviderForm" class="p-6 space-y-4" onsubmit="saveProviderRegistration(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Provider Name</label>
                 <input type="text" id="prov_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
@@ -518,6 +538,7 @@ $title = 'Service Providers';
             <button type="button" onclick="closeModal('editProviderModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <form class="p-6 space-y-4" onsubmit="saveProviderEdit(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" id="edit_provider_id">
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Provider Name</label><input type="text" id="edit_provider_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -568,6 +589,7 @@ $title = 'Service Providers';
             </button>
         </div>
         <form id="assignProviderForm" class="p-6 space-y-4" onsubmit="saveProviderAssignment(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" id="assign_provider_id">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Provider</label>
@@ -625,7 +647,7 @@ $title = 'Service Providers';
                     <i class="fa-solid fa-plus mr-1"></i> Add Equipment
                 </button>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div id="equipmentListContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <?php foreach ($equipmentInventory as $eq): ?>
                 <div class="bg-white rounded-xl shadow-xs p-3 border border-slate-200 hover:shadow-md transition">
                     <div class="flex items-center justify-between">
@@ -673,6 +695,7 @@ $title = 'Service Providers';
             </button>
         </div>
         <form id="addEquipmentForm" class="p-6 space-y-4" onsubmit="saveEquipment(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Equipment Name</label>
                 <input type="text" id="eq_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
@@ -734,34 +757,12 @@ $title = 'Service Providers';
 <!-- ============================================================ -->
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
+<script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
     const PROVIDERS = <?php echo json_encode(array_column($serviceProviders, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+    const EQUIPMENT = <?php echo json_encode(array_column($equipmentInventory, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
-    // ============================================================
-    // MODAL FUNCTIONS
-    // ============================================================
-    function openModal(id) {
-        document.getElementById(id).classList.remove('hidden');
-        document.getElementById(id).classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-    }
-
-    function closeModal(id) {
-        document.getElementById(id).classList.add('hidden');
-        document.getElementById(id).classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
-    }
-
-    // Close modal on backdrop click
-    document.querySelectorAll('.fixed.inset-0').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-                this.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            }
-        });
-    });
+    // Modal functions, toast, sanitizeHTML, and export provided by common.js
 
     // ============================================================
     // VIEW PROVIDER
@@ -777,33 +778,45 @@ $title = 'Service Providers';
                 inactive: 'bg-slate-100 text-slate-500'
             };
 
+            // Use sanitizeHTML() from common.js to prevent XSS
+            const pName = sanitizeHTML(p.name);
+            const pPrvId = sanitizeHTML(p.provider_id);
+            const pSpec = sanitizeHTML(p.specialization);
+            const pContact = sanitizeHTML(p.contact);
+            const pEmail = sanitizeHTML(p.email);
+            const pAddress = sanitizeHTML(p.address);
+            const pLicense = sanitizeHTML(p.license_number);
+            const pCert = sanitizeHTML(p.certification);
+            const pNotes = sanitizeHTML(p.notes);
+            const pStatus = sanitizeHTML(p.status);
+
             document.getElementById('providerDetailsContent').innerHTML = `
                 <div class="space-y-4">
                     <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
                         <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">
-                            ${p.name.charAt(0)}
+                            ${pName.charAt(0)}
                         </div>
                         <div>
-                            <h4 class="text-lg font-bold text-slate-900">${p.name}</h4>
-                            <p class="text-sm text-slate-500">${p.provider_id} • ${p.specialization}</p>
+                            <h4 class="text-lg font-bold text-slate-900">${pName}</h4>
+                            <p class="text-sm text-slate-500">${pPrvId} &bull; ${pSpec}</p>
                             <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[p.status] || statusColors.active}">
-                                ${p.status.toUpperCase()}
+                                ${pStatus.toUpperCase()}
                             </span>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><p class="text-xs text-slate-400 font-semibold">Contact</p><p class="text-sm text-slate-800">${p.contact}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Email</p><p class="text-sm text-slate-800">${p.email}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Address</p><p class="text-sm text-slate-800">${p.address}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">License</p><p class="text-sm text-slate-800">${p.license_number}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Rating</p><p class="text-sm text-amber-500">${p.rating} ⭐</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Contact</p><p class="text-sm text-slate-800">${pContact}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Email</p><p class="text-sm text-slate-800">${pEmail}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Address</p><p class="text-sm text-slate-800">${pAddress}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">License</p><p class="text-sm text-slate-800">${pLicense}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Rating</p><p class="text-sm text-amber-500">${p.rating} &#x2B50;</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Equipment</p><p class="text-sm text-slate-800">${p.equipment_count} units</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Completed Jobs</p><p class="text-sm text-slate-800">${p.completed_jobs}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Response Time</p><p class="text-sm text-slate-800">${p.response_time}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Certification</p><p class="text-sm text-slate-800">${p.certification}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Response Time</p><p class="text-sm text-slate-800">${sanitizeHTML(p.response_time)}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Certification</p><p class="text-sm text-slate-800">${pCert}</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Joined</p><p class="text-sm text-slate-800">${new Date(p.joined_date).toLocaleDateString()}</p></div>
                     </div>
-                    ${p.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${p.notes}</p></div>` : ''}
+                    ${pNotes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${pNotes}</p></div>` : ''}
                     <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                         <button onclick="closeModal('viewProviderModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
                         <button onclick="closeModal('viewProviderModal'); assignProvider(${p.id})" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold"><i class="fa-solid fa-user-check mr-1.5"></i> Assign</button>
@@ -828,10 +841,18 @@ $title = 'Service Providers';
         openModal('assignProviderModal');
     }
 
-    function saveProviderAssignment(event) {
+    async function saveProviderAssignment(event) {
         event.preventDefault();
-        showToast('Provider assigned successfully!', 'success');
-        closeModal('assignProviderModal');
+        try {
+            const form = document.getElementById('assignProviderForm');
+            const formData = form ? new FormData(form) : new FormData();
+            await sendAjaxRequest('assign_provider', formData);
+            showToast('Provider assigned successfully!', 'success');
+            closeModal('assignProviderModal');
+        } catch (err) {
+            console.error('saveProviderAssignment error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
+        }
     }
 
     // ============================================================
@@ -852,8 +873,12 @@ $title = 'Service Providers';
         input.value = String(input.value || '').replace(/\D/g, '').slice(0, 11);
     }
 
-    function isValidProviderData(contact, license, equipment) {
-        return /^\d{12}$/.test(contact) && /^[A-Z0-9]{3}-\d{2}-\d{6}$/.test(license) && /^\d{1,11}$/.test(equipment);
+    function isValidProviderData(contact, license, equipment, email) {
+        const contactOk = /^\d{12}$/.test(contact);
+        const licenseOk = /^[A-Z0-9]{3}-\d{2}-\d{6}$/.test(license);
+        const equipmentOk = /^\d{1,11}$/.test(equipment);
+        const emailOk = !email || isValidEmail(email); // email is optional for registration (form has required attr)
+        return contactOk && licenseOk && equipmentOk && emailOk;
     }
 
     function editProvider(id) {
@@ -872,86 +897,183 @@ $title = 'Service Providers';
         openModal('editProviderModal');
     }
 
-    function saveProviderEdit(event) {
+    async function saveProviderEdit(event) {
         event.preventDefault();
-        const contact = document.getElementById('edit_provider_contact').value;
-        const license = document.getElementById('edit_provider_license').value;
-        const equipment = document.getElementById('edit_provider_equipment').value;
-        if (!isValidProviderData(contact, license, equipment)) {
-            showToast('Contact must be 12 digits, license must use 3-2-6 format, and equipment count must be up to 11 digits.', 'warning');
-            return;
+        try {
+            const contact = document.getElementById('edit_provider_contact').value;
+            const license = document.getElementById('edit_provider_license').value;
+            const equipment = document.getElementById('edit_provider_equipment').value;
+            const email = document.getElementById('edit_provider_email').value.trim();
+            if (!isValidEmail(email)) {
+                showToast('Please enter a valid email address.', 'warning');
+                document.getElementById('edit_provider_email').focus();
+                return;
+            }
+            if (!isValidProviderData(contact, license, equipment, email)) {
+                showToast('Contact must be 12 digits, license must use 3-2-6 format, and equipment count must be up to 11 digits.', 'warning');
+                return;
+            }
+            const id = document.getElementById('edit_provider_id').value;
+            const provider = PROVIDERS[id];
+            if (!provider) { showToast('Provider record not found.', 'danger'); return; }
+            provider.name = document.getElementById('edit_provider_name').value.trim();
+            provider.contact = contact;
+            provider.email = email;
+            provider.address = document.getElementById('edit_provider_address').value.trim();
+            provider.license_number = license;
+            provider.equipment_count = Number(equipment);
+            provider.joined_date = document.getElementById('edit_provider_joined').value;
+            provider.status = document.getElementById('edit_provider_status').value;
+            provider.notes = document.getElementById('edit_provider_notes').value.trim();
+            // Use id-based card selector for reliable lookup
+            const card = document.getElementById('provider-card-' + id);
+            if (card) {
+                card.dataset.name = provider.name.toLowerCase();
+                card.dataset.status = provider.status;
+                card.dataset.joinedDate = provider.joined_date;
+                const name = card.querySelector('.font-semibold.text-slate-800.text-sm');
+                if (name) name.textContent = provider.name;
+            }
+            await sendAjaxRequest('edit_provider', provider);
+            closeModal('editProviderModal');
+            showToast('Service provider updated successfully!', 'success');
+            filterProviders();
+        } catch (err) {
+            console.error('saveProviderEdit error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
         }
-        const id = document.getElementById('edit_provider_id').value;
-        const provider = PROVIDERS[id];
-        if (!provider) return;
-        provider.name = document.getElementById('edit_provider_name').value.trim();
-        provider.contact = contact;
-        provider.email = document.getElementById('edit_provider_email').value.trim();
-        provider.address = document.getElementById('edit_provider_address').value.trim();
-        provider.license_number = license;
-        provider.equipment_count = Number(equipment);
-        provider.joined_date = document.getElementById('edit_provider_joined').value;
-        provider.status = document.getElementById('edit_provider_status').value;
-        provider.notes = document.getElementById('edit_provider_notes').value.trim();
-        const card = document.querySelector(`.provider-card[data-id="${provider.provider_id}"]`);
-        if (card) {
-            card.dataset.name = provider.name.toLowerCase();
-            card.dataset.status = provider.status;
-            card.dataset.joinedDate = provider.joined_date;
-            const name = card.querySelector('.font-semibold.text-slate-800.text-sm');
-            if (name) name.textContent = provider.name;
-        }
-        closeModal('editProviderModal');
-        showToast('Service provider updated successfully!', 'success');
-        filterProviders();
     }
 
     // ============================================================
     // REGISTER PROVIDER
     // ============================================================
-    function saveProviderRegistration(event) {
+    async function saveProviderRegistration(event) {
         event.preventDefault();
-        if (!isValidProviderData(
-            document.getElementById('prov_contact').value,
-            document.getElementById('prov_license').value,
-            document.getElementById('prov_equipment').value || '0'
-        )) {
-            showToast('Contact must be 12 digits, license must use 3-2-6 format, and equipment count must be up to 11 digits.', 'warning');
-            return;
+        try {
+            const contact = document.getElementById('prov_contact').value;
+            const license = document.getElementById('prov_license').value;
+            const equipment = document.getElementById('prov_equipment').value || '0';
+            const email = document.getElementById('prov_email').value.trim();
+            if (!isValidEmail(email)) {
+                showToast('Please enter a valid email address.', 'warning');
+                document.getElementById('prov_email').focus();
+                return;
+            }
+            if (!isValidProviderData(contact, license, equipment, email)) {
+                showToast('Contact must be 12 digits, license must use 3-2-6 format, and equipment count must be up to 11 digits.', 'warning');
+                return;
+            }
+            const form = document.getElementById('registerProviderForm');
+            const formData = form ? new FormData(form) : new FormData();
+            await sendAjaxRequest('register_provider', formData);
+            showToast('Service provider registered successfully!', 'success');
+            closeModal('registerProviderModal');
+        } catch (err) {
+            console.error('saveProviderRegistration error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
         }
-        showToast('Service provider registered successfully!', 'success');
-        closeModal('registerProviderModal');
     }
 
     // ============================================================
     // EQUIPMENT MANAGEMENT
     // ============================================================
-    function saveEquipment(event) {
-        event.preventDefault();
-        showToast('Equipment added successfully!', 'success');
-        closeModal('addEquipmentModal');
+    function openEquipmentManagementModal() {
+        renderEquipmentList();
+        openModal('equipmentManagementModal');
     }
 
-    // ============================================================
-    // TOAST NOTIFICATIONS
-    // ============================================================
-    let toastTimer = null;
+    function renderEquipmentList() {
+        const container = document.getElementById('equipmentListContainer');
+        if (!container) return;
 
-    function showToast(message, type = 'success') {
-        const toast = document.getElementById('toast');
-        const colors = {
-            success: 'bg-brand-dark',
-            danger: 'bg-rose-600',
-            info: 'bg-blue-600',
-            warning: 'bg-amber-600'
+        const eqStatusColors = {
+            available:   'bg-emerald-100 text-emerald-700',
+            in_use:      'bg-amber-100 text-amber-700',
+            maintenance: 'bg-rose-100 text-rose-700'
         };
-        toast.className = 'fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2 ' + (colors[type] || colors.success);
-        toast.querySelector('i').className = 'fa-solid fa-circle-check';
-        document.getElementById('toastMessage').textContent = message;
-        toast.classList.remove('hidden');
 
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
+        const eqArray = Object.values(EQUIPMENT);
+        if (eqArray.length === 0) {
+            container.innerHTML = '<p class="text-sm text-slate-400 col-span-2 text-center py-4">No equipment found.</p>';
+            return;
+        }
+
+        container.innerHTML = eqArray.map(eq => `
+            <div class="bg-white rounded-xl shadow-xs p-3 border border-slate-200 hover:shadow-md transition">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="font-semibold text-slate-800 text-sm">${sanitizeHTML(eq.name)}</p>
+                        <p class="text-xs text-slate-400">${sanitizeHTML(eq.type)}</p>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${eqStatusColors[eq.status] || 'bg-slate-100 text-slate-500'}">
+                        ${sanitizeHTML(eq.status ? eq.status.replace('_', ' ').toUpperCase() : 'UNKNOWN')}
+                    </span>
+                </div>
+                <div class="mt-2 flex justify-between text-xs text-slate-500">
+                    <span>Capacity: ${sanitizeHTML(eq.capacity || 'N/A')}</span>
+                    <span>ID: #${eq.id}</span>
+                </div>
+                ${eq.license_plate ? `<div class="text-xs text-slate-400 mt-1">Plate: ${sanitizeHTML(eq.license_plate)}</div>` : ''}
+            </div>
+        `).join('');
+    }
+
+    async function saveEquipment(event) {
+        event.preventDefault();
+        try {
+            const form = document.getElementById('addEquipmentForm');
+            const formData = form ? new FormData(form) : new FormData();
+
+            const newId = Object.keys(EQUIPMENT).length + 1;
+            const newEq = {
+                id: newId,
+                name: document.getElementById('eq_name').value.trim(),
+                type: document.getElementById('eq_type').value,
+                provider_id: parseInt(document.getElementById('eq_provider').value) || null,
+                capacity: document.getElementById('eq_capacity').value.trim(),
+                license_plate: document.getElementById('eq_plate').value.trim(),
+                status: document.getElementById('eq_status').value
+            };
+            EQUIPMENT[newId] = newEq;
+
+            await sendAjaxRequest('add_equipment', formData);
+            renderEquipmentList();
+            showToast('Equipment added successfully!', 'success');
+            closeModal('addEquipmentModal');
+            if (form) form.reset();
+        } catch (err) {
+            console.error('saveEquipment error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
+        }
+    }
+
+    // Toast, openModal, closeModal, sanitizeHTML provided by common.js
+
+    // CSV export for providers
+    function exportProvidersCSV() {
+        try {
+            const headers = ['ID', 'Name', 'Contact', 'Email', 'Specialization', 'Status', 'Rating', 'Equipment', 'Jobs', 'Response Time', 'Joined'];
+            const rows = Object.values(PROVIDERS).map(p => [
+                p.provider_id, p.name, p.contact, p.email,
+                p.specialization, p.status, p.rating,
+                p.equipment_count, p.completed_jobs, p.response_time, p.joined_date
+            ]);
+            const csvContent = [headers, ...rows].map(r =>
+                r.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')
+            ).join('\n');
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'service_providers_' + new Date().toISOString().slice(0, 10) + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Exported to ' + a.download, 'success');
+        } catch (err) {
+            showToast('Export failed: ' + err.message, 'danger');
+        }
     }
 
     // ============================================================
@@ -1012,16 +1134,7 @@ $title = 'Service Providers';
         document.getElementById('emptyState').style.display = 'none';
     }
 
-    // ESC to close modals
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            });
-        }
-    });
+    // ESC key and backdrop-click are handled by common.js
 </script>
 
 <?php include_once '../../includes/footer.php'; ?>

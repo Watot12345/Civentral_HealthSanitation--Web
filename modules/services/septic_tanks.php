@@ -15,6 +15,18 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('wastewater services');
 
+// AJAX API Endpoint Handler
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    header('Content-Type: application/json');
+    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
+        echo json_encode(['success' => false, 'message' => 'CSRF token validation failed.']);
+        exit;
+    }
+    $action = $_POST['action'] ?? '';
+    echo json_encode(['success' => true, 'action' => $action, 'message' => 'Septic tank action processed successfully.']);
+    exit;
+}
+
 // Sample Septic Tanks Data
 $septicTanks = [
     [
@@ -150,6 +162,11 @@ $title = 'Septic Tank Registry';
             <p class="text-sm text-slate-500 mt-0.5">Manage septic tank registrations, details & maintenance history</p>
         </div>
         <div class="flex gap-3">
+            <button onclick="exportTanksCSV()"
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2"
+                    title="Export to CSV" aria-label="Export septic tanks to CSV">
+                <i class="fa-solid fa-file-csv text-xs"></i> Export
+            </button>
             <button onclick="openModal('registerTankModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-plus text-xs"></i> Register Tank
@@ -305,12 +322,14 @@ $title = 'Septic Tank Registry';
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="tanksGrid">
         <?php foreach ($septicTanks as $tank): ?>
         <div class="tank-card bg-white rounded-xl shadow-xs border border-slate-200 p-4 hover:shadow-md transition-all duration-200 <?php echo $tank['status'] === 'critical' ? 'border-l-4 border-l-rose-500' : ($tank['status'] === 'needs_maintenance' ? 'border-l-4 border-l-amber-500' : 'border-l-4 border-l-emerald-500'); ?>"
-             data-owner="<?php echo strtolower($tank['owner_name']); ?>"
-             data-id="<?php echo $tank['tank_id']; ?>"
-             data-status="<?php echo $tank['status']; ?>"
-             data-type="<?php echo $tank['type']; ?>"
-             data-barangay="<?php echo $tank['barangay']; ?>"
-             data-maintenance-date="<?php echo $tank['last_maintenance']; ?>">
+             data-owner="<?php echo htmlspecialchars(strtolower($tank['owner_name']), ENT_QUOTES, 'UTF-8'); ?>"
+             data-id="<?php echo htmlspecialchars($tank['tank_id'], ENT_QUOTES, 'UTF-8'); ?>"
+             data-row-id="<?php echo (int)$tank['id']; ?>"
+             data-status="<?php echo htmlspecialchars($tank['status'], ENT_QUOTES, 'UTF-8'); ?>"
+             data-type="<?php echo htmlspecialchars($tank['type'], ENT_QUOTES, 'UTF-8'); ?>"
+             data-barangay="<?php echo htmlspecialchars($tank['barangay'], ENT_QUOTES, 'UTF-8'); ?>"
+             data-maintenance-date="<?php echo htmlspecialchars($tank['last_maintenance'], ENT_QUOTES, 'UTF-8'); ?>"
+             id="tank-card-<?php echo (int)$tank['id']; ?>">
             
             <!-- Header -->
             <div class="flex items-center justify-between mb-3">
@@ -432,6 +451,7 @@ $title = 'Septic Tank Registry';
             </button>
         </div>
         <form id="registerTankForm" class="p-6 space-y-4" onsubmit="saveTankRegistration(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Owner Name</label>
                 <input type="text" id="tank_owner" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
@@ -523,6 +543,7 @@ $title = 'Septic Tank Registry';
             <button type="button" onclick="closeModal('editTankModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <form class="p-6 space-y-4" onsubmit="saveTankEdit(event)">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" id="edit_tank_id">
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Owner Name</label><input type="text" id="edit_tank_owner" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Address</label><input type="text" id="edit_tank_address" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
@@ -596,18 +617,11 @@ $title = 'Septic Tank Registry';
             </button>
         </div>
         <div id="mapContent" class="p-6">
-            <div class="bg-slate-100 rounded-xl h-80 flex items-center justify-center">
-                <div class="text-center text-slate-400">
-                    <i class="fa-solid fa-map-location-dot text-4xl block mb-3 text-brand-medium"></i>
-                    <p id="mapLocation" class="text-sm font-semibold text-slate-700">Loading location...</p>
-                    <p id="mapCoordinates" class="text-xs text-slate-500 mt-1">Latitude: 0.0000, Longitude: 0.0000</p>
-                    <div class="mt-4 p-4 bg-white rounded-lg border border-slate-200 inline-block">
-                        <i class="fa-solid fa-location-dot text-2xl text-rose-500"></i>
-                        <p class="text-xs text-slate-500 mt-1">📍 Location marker</p>
-                    </div>
-                    <p class="text-xs text-slate-400 mt-4">In production, this would display an interactive map with the exact location.</p>
-                </div>
+            <div class="mb-3 flex justify-between items-center text-xs text-slate-500">
+                <span id="mapLocation" class="font-semibold text-slate-700">Location map</span>
+                <span id="mapCoordinates" class="font-mono text-slate-400">Lat: 0, Lng: 0</span>
             </div>
+            <div id="leafletMap" class="w-full h-80 rounded-xl border border-slate-200 shadow-inner z-10"></div>
         </div>
     </div>
 </div>
@@ -618,37 +632,14 @@ $title = 'Septic Tank Registry';
     <span id="toastMessage"></span>
 </div>
 
-<!-- ============================================================ -->
-<!-- JAVASCRIPT                                                   -->
-<!-- ============================================================ -->
+<!-- Leaflet CSS & JS for Interactive Map -->
+<link rel="stylesheet" href="<?= site_url('assets/css/leaflet.css'); ?>" />
+<script src="<?= site_url('assets/js/leaflet.js'); ?>"></script>
+<script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
     const TANKS = <?php echo json_encode(array_column($septicTanks, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
-    // ============================================================
-    // MODAL FUNCTIONS
-    // ============================================================
-    function openModal(id) {
-        document.getElementById(id).classList.remove('hidden');
-        document.getElementById(id).classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-    }
-
-    function closeModal(id) {
-        document.getElementById(id).classList.add('hidden');
-        document.getElementById(id).classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
-    }
-
-    // Close modal on backdrop click
-    document.querySelectorAll('.fixed.inset-0').forEach(modal => {
-        modal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                this.classList.add('hidden');
-                this.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            }
-        });
-    });
+    // Modal functions, toast, sanitizeHTML provided by common.js
 
     // ============================================================
     // VIEW TANK
@@ -664,11 +655,23 @@ $title = 'Septic Tank Registry';
                 needs_maintenance: 'bg-amber-100 text-amber-700',
                 critical: 'bg-rose-100 text-rose-700'
             };
-            const historyHtml = t.history.map(h => `
+            // Use sanitizeHTML() to prevent XSS
+            const tOwner = sanitizeHTML(t.owner_name);
+            const tTankId = sanitizeHTML(t.tank_id);
+            const tType = sanitizeHTML(t.type);
+            const tAddress = sanitizeHTML(t.address);
+            const tBarangay = sanitizeHTML(t.barangay);
+            const tCap = sanitizeHTML(t.capacity);
+            const tNotes = sanitizeHTML(t.notes);
+            const tStatus = sanitizeHTML(t.status);
+            const currentYear = new Date().getFullYear();
+            const tankAge = t.installation_year ? (currentYear - t.installation_year) + ' yrs old' : 'N/A';
+
+            const historyHtml = (t.history || []).map(h => `
                 <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
                     <div>
-                        <p class="font-semibold text-slate-800 text-sm">${h.type}</p>
-                        <p class="text-xs text-slate-500">${h.notes}</p>
+                        <p class="font-semibold text-slate-800 text-sm">${sanitizeHTML(h.type)}</p>
+                        <p class="text-xs text-slate-500">${sanitizeHTML(h.notes)}</p>
                     </div>
                     <span class="text-xs text-slate-400">${new Date(h.date).toLocaleDateString()}</span>
                 </div>
@@ -678,38 +681,43 @@ $title = 'Septic Tank Registry';
                 <div class="space-y-4">
                     <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
                         <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">
-                            ${t.owner_name.charAt(0)}
+                            ${tOwner.charAt(0)}
                         </div>
                         <div>
-                            <h4 class="text-lg font-bold text-slate-900">${t.owner_name}</h4>
-                            <p class="text-sm text-slate-500">${t.tank_id} • ${t.type}</p>
+                            <h4 class="text-lg font-bold text-slate-900">${tOwner}</h4>
+                            <p class="text-sm text-slate-500">${tTankId} &bull; ${tType}</p>
                             <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[t.status] || statusColors.good}">
-                                ${t.status.replace('_', ' ').toUpperCase()}
+                                ${tStatus.replace('_', ' ').toUpperCase()}
                             </span>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div><p class="text-xs text-slate-400 font-semibold">Address</p><p class="text-sm text-slate-800">${t.address}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Barangay</p><p class="text-sm text-slate-800">${t.barangay}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Capacity</p><p class="text-sm text-slate-800 font-bold">${t.capacity}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Type</p><p class="text-sm text-slate-800">${t.type}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Installed</p><p class="text-sm text-slate-800">${t.installation_year}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Address</p><p class="text-sm text-slate-800">${tAddress}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Barangay</p><p class="text-sm text-slate-800">${tBarangay}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Capacity</p><p class="text-sm text-slate-800 font-bold">${tCap}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Type & Age</p><p class="text-sm text-slate-800">${tType} (${tankAge})</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Installed Year</p><p class="text-sm text-slate-800">${t.installation_year || 'N/A'}</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Last Maintenance</p><p class="text-sm text-slate-800">${new Date(t.last_maintenance).toLocaleDateString()}</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Frequency</p><p class="text-sm text-slate-800">Every ${t.maintenance_frequency} months</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Location</p><p class="text-sm text-slate-800 font-mono text-xs">${t.latitude}, ${t.longitude}</p></div>
                     </div>
-                    ${t.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${t.notes}</p></div>` : ''}
+                    ${tNotes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${tNotes}</p></div>` : ''}
                     <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border">
                         <h5 class="text-sm font-bold text-slate-700 mb-2">🔄 Maintenance History</h5>
-                        <div class="space-y-2">${historyHtml}</div>
+                        <div class="space-y-2">${historyHtml || '<p class="text-xs text-slate-400">No history available</p>'}</div>
                     </div>
                     <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                         <button onclick="closeModal('viewTankModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                        <button onclick="closeModal('viewTankModal'); viewMap(${t.latitude}, ${t.longitude}, '${t.owner_name}')" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-map mr-1.5"></i> View Map</button>
+                        <button onclick="scheduleServiceForTank('${sanitizeAttr(t.tank_id)}')" class="px-4 py-2 bg-brand-medium text-white rounded-lg hover:bg-brand-dark transition text-sm font-semibold"><i class="fa-solid fa-calendar-plus mr-1.5"></i> Schedule Service</button>
+                        <button onclick="closeModal('viewTankModal'); viewMap(${t.latitude}, ${t.longitude}, '${sanitizeAttr(t.owner_name)}')" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-map mr-1.5"></i> View Map</button>
                     </div>
                 </div>
             `;
         }, 300);
+    }
+
+    function scheduleServiceForTank(tankId) {
+        window.location.href = `maintenance.php?tank_id=${encodeURIComponent(tankId)}`;
     }
 
     // ============================================================
@@ -721,11 +729,13 @@ $title = 'Septic Tank Registry';
         if (!t) return;
 
         setTimeout(() => {
-            const historyHtml = t.history.map(h => `
+            const tOwner = sanitizeHTML(t.owner_name);
+            const tTankId = sanitizeHTML(t.tank_id);
+            const historyHtml = (t.history || []).map(h => `
                 <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200">
                     <div>
-                        <p class="font-semibold text-slate-800 text-sm">${h.type}</p>
-                        <p class="text-xs text-slate-500">${h.notes}</p>
+                        <p class="font-semibold text-slate-800 text-sm">${sanitizeHTML(h.type)}</p>
+                        <p class="text-xs text-slate-500">${sanitizeHTML(h.notes)}</p>
                     </div>
                     <span class="text-xs text-slate-400">${new Date(h.date).toLocaleDateString()}</span>
                 </div>
@@ -735,12 +745,12 @@ $title = 'Septic Tank Registry';
                 <div class="space-y-4">
                     <div class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
                         <div>
-                            <p class="font-semibold text-slate-800 text-sm">${t.owner_name}</p>
-                            <p class="text-xs text-slate-400">${t.tank_id}</p>
+                            <p class="font-semibold text-slate-800 text-sm">${tOwner}</p>
+                            <p class="text-xs text-slate-400">${tTankId}</p>
                         </div>
-                        <span class="ml-auto text-xs text-slate-500">${t.history.length} records</span>
+                        <span class="ml-auto text-xs text-slate-500">${(t.history || []).length} records</span>
                     </div>
-                    <div class="space-y-2">${historyHtml}</div>
+                    <div class="space-y-2">${historyHtml || '<p class="text-xs text-slate-400">No history records.</p>'}</div>
                 </div>
             `;
         }, 300);
@@ -749,10 +759,34 @@ $title = 'Septic Tank Registry';
     // ============================================================
     // VIEW MAP
     // ============================================================
+    // Leaflet map instance
+    let _leafletMapInstance = null;
+    let _leafletMarker = null;
+
     function viewMap(lat, lng, owner) {
-        document.getElementById('mapLocation').textContent = owner + '\'s Septic Tank Location';
-        document.getElementById('mapCoordinates').textContent = 'Latitude: ' + lat + ', Longitude: ' + lng;
+        document.getElementById('mapLocation').textContent = sanitizeHTML(owner) + "'s Septic Tank Location";
+        document.getElementById('mapCoordinates').textContent = 'Lat: ' + lat + ', Lng: ' + lng;
         openModal('mapModal');
+
+        setTimeout(() => {
+            if (typeof L === 'undefined') return;
+            const container = document.getElementById('leafletMap');
+            if (!container) return;
+
+            if (!_leafletMapInstance) {
+                _leafletMapInstance = L.map('leafletMap').setView([lat, lng], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap'
+                }).addTo(_leafletMapInstance);
+                _leafletMarker = L.marker([lat, lng]).addTo(_leafletMapInstance);
+            } else {
+                _leafletMapInstance.setView([lat, lng], 15);
+                _leafletMarker.setLatLng([lat, lng]);
+            }
+            _leafletMarker.bindPopup('<b>' + sanitizeHTML(owner) + '</b><br>Septic Tank Location').openPopup();
+            _leafletMapInstance.invalidateSize();
+        }, 200);
     }
 
     // ============================================================
@@ -774,64 +808,89 @@ $title = 'Septic Tank Registry';
         openModal('editTankModal');
     }
 
-    function saveTankEdit(event) {
+    async function saveTankEdit(event) {
         event.preventDefault();
-        const id = document.getElementById('edit_tank_id').value;
-        const tank = TANKS[id];
-        if (!tank) return;
-        tank.owner_name = document.getElementById('edit_tank_owner').value.trim();
-        tank.address = document.getElementById('edit_tank_address').value.trim();
-        tank.barangay = document.getElementById('edit_tank_barangay').value;
-        tank.capacity = document.getElementById('edit_tank_capacity').value;
-        tank.type = document.getElementById('edit_tank_type').value;
-        tank.last_maintenance = document.getElementById('edit_tank_maintenance').value;
-        tank.maintenance_frequency = Number(document.getElementById('edit_tank_frequency').value);
-        tank.status = document.getElementById('edit_tank_status').value;
-        tank.notes = document.getElementById('edit_tank_notes').value.trim();
-        const card = document.querySelector(`.tank-card[data-id="${id}"]`);
-        if (card) {
-            card.dataset.owner = tank.owner_name.toLowerCase();
-            card.dataset.status = tank.status;
-            card.dataset.type = tank.type;
-            card.dataset.barangay = tank.barangay;
-            card.dataset.maintenanceDate = tank.last_maintenance;
-            const owner = card.querySelector('.font-semibold.text-slate-800.text-sm');
-            if (owner) owner.textContent = tank.owner_name;
+        try {
+            const id = document.getElementById('edit_tank_id').value;
+            const tank = TANKS[id];
+            if (!tank) { showToast('Septic tank record not found.', 'danger'); return; }
+            tank.owner_name = document.getElementById('edit_tank_owner').value.trim();
+            tank.address = document.getElementById('edit_tank_address').value.trim();
+            tank.barangay = document.getElementById('edit_tank_barangay').value;
+            tank.capacity = document.getElementById('edit_tank_capacity').value;
+            tank.type = document.getElementById('edit_tank_type').value;
+            tank.last_maintenance = document.getElementById('edit_tank_maintenance').value;
+            tank.maintenance_frequency = Number(document.getElementById('edit_tank_frequency').value);
+            tank.status = document.getElementById('edit_tank_status').value;
+            tank.notes = document.getElementById('edit_tank_notes').value.trim();
+
+            const card = document.getElementById('tank-card-' + id);
+            if (card) {
+                card.dataset.owner = tank.owner_name.toLowerCase();
+                card.dataset.status = tank.status;
+                card.dataset.type = tank.type;
+                card.dataset.barangay = tank.barangay;
+                card.dataset.maintenanceDate = tank.last_maintenance;
+                const owner = card.querySelector('.font-semibold.text-slate-800.text-sm');
+                if (owner) owner.textContent = tank.owner_name;
+            }
+            await sendAjaxRequest('edit_tank', tank);
+            closeModal('editTankModal');
+            showToast('Septic tank updated successfully!', 'success');
+            filterTanks();
+        } catch (err) {
+            console.error('saveTankEdit error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
         }
-        closeModal('editTankModal');
-        showToast('Septic tank updated successfully!', 'success');
-        filterTanks();
     }
 
     // ============================================================
     // REGISTER TANK
     // ============================================================
-    function saveTankRegistration(event) {
+    async function saveTankRegistration(event) {
         event.preventDefault();
-        showToast('Septic tank registered successfully!', 'success');
-        closeModal('registerTankModal');
+        try {
+            const owner = document.getElementById('tank_owner').value.trim();
+            const address = document.getElementById('tank_address').value.trim();
+            if (!owner || !address) {
+                showToast('Owner name and address are required.', 'warning');
+                return;
+            }
+            const form = document.getElementById('registerTankForm');
+            const formData = form ? new FormData(form) : new FormData();
+            await sendAjaxRequest('register_tank', formData);
+            showToast('Septic tank registered successfully!', 'success');
+            closeModal('registerTankModal');
+        } catch (err) {
+            console.error('saveTankRegistration error:', err);
+            showToast('An error occurred: ' + err.message, 'danger');
+        }
     }
 
-    // ============================================================
-    // TOAST NOTIFICATIONS
-    // ============================================================
-    let toastTimer = null;
-
-    function showToast(message, type = 'success') {
-        const toast = document.getElementById('toast');
-        const colors = {
-            success: 'bg-brand-dark',
-            danger: 'bg-rose-600',
-            info: 'bg-blue-600',
-            warning: 'bg-amber-600'
-        };
-        toast.className = 'fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2 ' + (colors[type] || colors.success);
-        toast.querySelector('i').className = 'fa-solid fa-circle-check';
-        document.getElementById('toastMessage').textContent = message;
-        toast.classList.remove('hidden');
-
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
+    // Export Septic Tanks to CSV
+    function exportTanksCSV() {
+        try {
+            const headers = ['Tank ID', 'Owner Name', 'Address', 'Barangay', 'Capacity', 'Type', 'Installed Year', 'Last Maintenance', 'Status'];
+            const rows = Object.values(TANKS).map(t => [
+                t.tank_id, t.owner_name, t.address, t.barangay,
+                t.capacity, t.type, t.installation_year, t.last_maintenance, t.status
+            ]);
+            const csvContent = [headers, ...rows].map(r =>
+                r.map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(',')
+            ).join('\n');
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'septic_tanks_' + new Date().toISOString().slice(0, 10) + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Exported to ' + a.download, 'success');
+        } catch (err) {
+            showToast('Export failed: ' + err.message, 'danger');
+        }
     }
 
     // ============================================================
@@ -887,16 +946,7 @@ $title = 'Septic Tank Registry';
         document.getElementById('emptyState').style.display = 'none';
     }
 
-    // ESC to close modals
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(modal => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-                document.body.classList.remove('overflow-hidden');
-            });
-        }
-    });
+    // ESC key and backdrop-click handled by common.js
 </script>
 
 <?php include_once '../../includes/footer.php'; ?>

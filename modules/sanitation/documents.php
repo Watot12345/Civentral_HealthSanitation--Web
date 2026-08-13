@@ -76,7 +76,7 @@ $formattedDocuments = formatDocumentsForDisplay($documents, $employeeModel);
 
 // Get permits for dropdown
 $permits = $permitModel->all(['order' => 'created_at.desc']);
-$formattedPermits = array_map(function($p) {
+$formattedPermits = array_map(function ($p) {
     return [
         'id' => (int)($p['id'] ?? 0),
         'permit_id' => $p['permit_id'] ?? '',
@@ -96,10 +96,10 @@ $currentEmployeeName = $currentEmployee ? ($currentEmployee['full_name'] ?? '') 
 function formatDocumentsForDisplay(array $documents, Employee $employeeModel): array
 {
     // Collect all uploader IDs
-    $uploaderIds = array_unique(array_filter(array_map(function($d) {
+    $uploaderIds = array_unique(array_filter(array_map(function ($d) {
         return !empty($d['uploaded_by']) ? (int)$d['uploaded_by'] : null;
     }, $documents)));
-    
+
     // Load all employees in one query (if method exists)
     $employeeLookup = [];
     if (!empty($uploaderIds) && method_exists($employeeModel, 'findMultiple')) {
@@ -108,9 +108,9 @@ function formatDocumentsForDisplay(array $documents, Employee $employeeModel): a
             $employeeLookup[$emp['id']] = $emp['full_name'] ?? "Employee #{$emp['id']}";
         }
     }
-    
+
     // Format each document
-    return array_map(function($d) use ($employeeLookup) {
+    return array_map(function ($d) use ($employeeLookup) {
         return formatSingleDocument($d, $employeeLookup);
     }, $documents);
 }
@@ -122,11 +122,11 @@ function formatSingleDocument(array $d, array $employeeLookup): array
 {
     $uploadedById = (int)($d['uploaded_by'] ?? 0);
     $uploaderName = $employeeLookup[$uploadedById] ?? 'Unknown';
-    
+
     // Format file size
     $fileSize = (int)($d['file_size'] ?? 0);
     $fileSizeFormatted = formatFileSize($fileSize);
-    
+
     return [
         'id' => (int)($d['id'] ?? 0),
         'document_id' => $d['document_id'] ?? '',
@@ -199,7 +199,7 @@ $title = 'Documents';
         </div>
         <div class="flex gap-3">
             <button onclick="openModal('uploadDocumentModal')"
-                    class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
+                class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-upload text-xs"></i> Upload Document
             </button>
         </div>
@@ -310,36 +310,36 @@ $title = 'Documents';
 
     <!-- Expiry Alerts -->
     <?php if ($expiringCount > 0): ?>
-    <div class="relative overflow-hidden bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-center justify-between">
-        <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-30"></div>
-        <div class="relative flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <i class="fa-solid fa-clock text-amber-500 text-lg"></i>
-            </div>
-            <div>
-                <p class="text-sm font-semibold text-amber-700">
-                    ⏰ <span class="font-bold"><?php echo $expiringCount; ?></span> document(s) expiring within <?php echo EXPIRY_WARNING_DAYS; ?> days
-                </p>
-                <div class="flex flex-wrap gap-2 mt-1">
-                    <?php foreach (array_slice($expiringDocuments, 0, 3) as $doc): ?>
-                        <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
-                            <?php echo htmlspecialchars($doc['document_type'] ?? 'Document'); ?> 
-                            (<?php echo htmlspecialchars($doc['applicant'] ?? 'Unknown'); ?>)
-                        </span>
-                    <?php endforeach; ?>
-                    <?php if ($expiringCount > 3): ?>
-                        <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
-                            +<?php echo $expiringCount - 3; ?> more
-                        </span>
-                    <?php endif; ?>
+        <div class="relative overflow-hidden bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-center justify-between">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-30"></div>
+            <div class="relative flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-clock text-amber-500 text-lg"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-amber-700">
+                        ⏰ <span class="font-bold"><?php echo $expiringCount; ?></span> document(s) expiring within <?php echo EXPIRY_WARNING_DAYS; ?> days
+                    </p>
+                    <div class="flex flex-wrap gap-2 mt-1">
+                        <?php foreach (array_slice($expiringDocuments, 0, 3) as $doc): ?>
+                            <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                                <?php echo htmlspecialchars($doc['document_type'] ?? 'Document'); ?>
+                                (<?php echo htmlspecialchars($doc['applicant'] ?? 'Unknown'); ?>)
+                            </span>
+                        <?php endforeach; ?>
+                        <?php if ($expiringCount > 3): ?>
+                            <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
+                                +<?php echo $expiringCount - 3; ?> more
+                            </span>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
-        </div>
-        <button onclick="document.getElementById('filterStatus').value='expiring_soon'; filterDocuments();" 
+            <button onclick="document.getElementById('filterStatus').value='expiring_soon'; filterDocuments();"
                 class="relative px-4 py-2 text-xs font-semibold text-amber-700 hover:text-amber-900 bg-white/60 rounded-lg hover:bg-white transition border border-amber-200">
-            View All
-        </button>
-    </div>
+                View All
+            </button>
+        </div>
     <?php endif; ?>
 
     <!-- Search & Filter -->
@@ -348,9 +348,9 @@ $title = 'Documents';
             <div class="flex-1 relative">
                 <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                 <input type="text"
-                       id="searchDocument"
-                       placeholder="Search by document ID, applicant, or file name..."
-                       class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
+                    id="searchDocument"
+                    placeholder="Search by document ID, applicant, or file name..."
+                    class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
             </div>
             <div class="flex gap-2 flex-wrap">
                 <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
@@ -371,14 +371,14 @@ $title = 'Documents';
                     <option value="tax_clearance">Tax Clearance</option>
                     <option value="other">Other</option>
                 </select>
-                      <input type="date" id="filterExpiryFrom" value="<?php echo htmlspecialchars($expiryDateFrom ?? ''); ?>"
-                          aria-label="Expiry date from"
-                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                      <input type="date" id="filterExpiryTo" value="<?php echo htmlspecialchars($expiryDateTo ?? ''); ?>"
-                          aria-label="Expiry date to"
-                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                <input type="date" id="filterExpiryFrom" value="<?php echo htmlspecialchars($expiryDateFrom ?? ''); ?>"
+                    aria-label="Expiry date from"
+                    class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                <input type="date" id="filterExpiryTo" value="<?php echo htmlspecialchars($expiryDateTo ?? ''); ?>"
+                    aria-label="Expiry date to"
+                    class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters"
-                        class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
+                    class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
                 </button>
             </div>
@@ -403,109 +403,109 @@ $title = 'Documents';
                 </thead>
                 <tbody id="documentTableBody">
                     <?php foreach ($formattedDocuments as $document): ?>
-                    <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors document-row <?php echo $document['status'] === 'expired' ? 'bg-rose-50/50' : ''; ?>"
-                        data-applicant="<?php echo htmlspecialchars(strtolower($document['applicant'])); ?>"
-                        data-type="<?php echo htmlspecialchars(strtolower($document['document_type'])); ?>"
-                        data-status="<?php echo htmlspecialchars($document['status']); ?>"
-                        data-id="<?php echo htmlspecialchars($document['document_id']); ?>"
-                        data-expiry-date="<?php echo htmlspecialchars($document['expiry_date'] ?? ''); ?>">
-                        <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">
-                            <?php echo htmlspecialchars($document['document_id']); ?>
-                        </td>
-                        <td class="px-4 py-3">
-                            <div>
-                                <p class="font-semibold text-slate-800 text-sm maskable" 
-                                   data-masked="<?php echo htmlspecialchars(maskName($document['applicant'])); ?>"
-                                   data-real="<?php echo htmlspecialchars($document['applicant']); ?>">
-                                    <?php echo htmlspecialchars($document['applicant']); ?>
-                                </p>
-                                <p class="text-xs text-slate-400"><?php echo $document['permit_id']; ?></p>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs">
-                            <?php echo htmlspecialchars($document['document_type']); ?>
-                        </td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center gap-2">
-                                <i class="fa-solid fa-file-pdf text-rose-500"></i>
-                                <span class="text-xs text-slate-600 truncate max-w-[100px]">
-                                    <?php echo htmlspecialchars($document['file_name']); ?>
-                                </span>
-                            </div>
-                            <span class="text-[10px] text-slate-400"><?php echo $document['file_size']; ?></span>
-                        </td>
-                        <td class="px-4 py-3">
-                            <?php if ($document['qr_code']): ?>
-                                <span class="px-2 py-1 bg-brand-light/60 rounded text-xs font-mono text-brand-dark border border-brand-border">
-                                    <i class="fa-solid fa-qrcode mr-1"></i>
-                                    <?php echo htmlspecialchars($document['qr_code']); ?>
-                                </span>
-                            <?php else: ?>
-                                <span class="text-xs text-slate-400">—</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo getStatusClass($document['status']); ?>">
-                                <?php echo ucfirst($document['status']); ?>
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-slate-500 text-xs">
-                            <?php if ($document['expiry_date']): 
-                                $daysLeft = getDaysLeft($document['expiry_date']);
-                            ?>
-                                <span class="<?php echo $daysLeft <= EXPIRY_WARNING_DAYS ? 'text-rose-600 font-bold' : 'text-slate-500'; ?>">
-                                    <?php echo date('M d, Y', strtotime($document['expiry_date'])); ?>
-                                </span>
-                                <?php if ($document['status'] !== 'expired'): ?>
-                                    <span class="block text-[10px] <?php echo $daysLeft <= EXPIRY_WARNING_DAYS ? 'text-rose-500' : 'text-slate-400'; ?>">
-                                        <?php echo $daysLeft . ' days left'; ?>
+                        <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors document-row <?php echo $document['status'] === 'expired' ? 'bg-rose-50/50' : ''; ?>"
+                            data-applicant="<?php echo htmlspecialchars(strtolower($document['applicant'])); ?>"
+                            data-type="<?php echo htmlspecialchars(strtolower($document['document_type'])); ?>"
+                            data-status="<?php echo htmlspecialchars($document['status']); ?>"
+                            data-id="<?php echo htmlspecialchars($document['document_id']); ?>"
+                            data-expiry-date="<?php echo htmlspecialchars($document['expiry_date'] ?? ''); ?>">
+                            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">
+                                <?php echo htmlspecialchars($document['document_id']); ?>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div>
+                                    <p class="font-semibold text-slate-800 text-sm maskable"
+                                        data-masked="<?php echo htmlspecialchars(maskName($document['applicant'])); ?>"
+                                        data-real="<?php echo htmlspecialchars($document['applicant']); ?>">
+                                        <?php echo htmlspecialchars($document['applicant']); ?>
+                                    </p>
+                                    <p class="text-xs text-slate-400"><?php echo $document['permit_id']; ?></p>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-slate-600 text-xs">
+                                <?php echo htmlspecialchars($document['document_type']); ?>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid fa-file-pdf text-rose-500"></i>
+                                    <span class="text-xs text-slate-600 truncate max-w-[100px]">
+                                        <?php echo htmlspecialchars($document['file_name']); ?>
                                     </span>
-                                <?php endif; ?>
-                            <?php else: ?>
-                                <span class="text-slate-400">—</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center justify-center gap-1">
-                                <button onclick="viewDocument(<?php echo $document['id']; ?>)"
-                                        class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
-                                    <i class="fa-solid fa-eye text-sm"></i>
-                                </button>
-                                <button onclick="downloadDocument('<?php echo htmlspecialchars($document['file_name'], ENT_QUOTES); ?>')"
-                                        class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Download">
-                                    <i class="fa-solid fa-download text-sm"></i>
-                                </button>
+                                </div>
+                                <span class="text-[10px] text-slate-400"><?php echo $document['file_size']; ?></span>
+                            </td>
+                            <td class="px-4 py-3">
                                 <?php if ($document['qr_code']): ?>
-                                    <button onclick="viewQR('<?php echo htmlspecialchars($document['qr_code'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($document['applicant'], ENT_QUOTES); ?>')"
+                                    <span class="px-2 py-1 bg-brand-light/60 rounded text-xs font-mono text-brand-dark border border-brand-border">
+                                        <i class="fa-solid fa-qrcode mr-1"></i>
+                                        <?php echo htmlspecialchars($document['qr_code']); ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="text-xs text-slate-400">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo getStatusClass($document['status']); ?>">
+                                    <?php echo ucfirst($document['status']); ?>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-slate-500 text-xs">
+                                <?php if ($document['expiry_date']):
+                                    $daysLeft = getDaysLeft($document['expiry_date']);
+                                ?>
+                                    <span class="<?php echo $daysLeft <= EXPIRY_WARNING_DAYS ? 'text-rose-600 font-bold' : 'text-slate-500'; ?>">
+                                        <?php echo date('M d, Y', strtotime($document['expiry_date'])); ?>
+                                    </span>
+                                    <?php if ($document['status'] !== 'expired'): ?>
+                                        <span class="block text-[10px] <?php echo $daysLeft <= EXPIRY_WARNING_DAYS ? 'text-rose-500' : 'text-slate-400'; ?>">
+                                            <?php echo $daysLeft . ' days left'; ?>
+                                        </span>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="text-slate-400">—</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3">
+                                <div class="flex items-center justify-center gap-1">
+                                    <button onclick="viewDocument(<?php echo $document['id']; ?>)"
+                                        class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                                        <i class="fa-solid fa-eye text-sm"></i>
+                                    </button>
+                                    <button onclick="downloadDocument('<?php echo htmlspecialchars($document['file_name'], ENT_QUOTES); ?>')"
+                                        class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Download">
+                                        <i class="fa-solid fa-download text-sm"></i>
+                                    </button>
+                                    <?php if ($document['qr_code']): ?>
+                                        <button onclick="viewQR('<?php echo htmlspecialchars($document['qr_code'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($document['applicant'], ENT_QUOTES); ?>')"
                                             class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="QR Code">
-                                        <i class="fa-solid fa-qrcode text-sm"></i>
-                                    </button>
-                                <?php endif; ?>
-                                <?php if ($document['status'] === 'pending'): ?>
-                                    <button onclick="verifyDocument(<?php echo $document['id']; ?>)"
+                                            <i class="fa-solid fa-qrcode text-sm"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                    <?php if ($document['status'] === 'pending'): ?>
+                                        <button onclick="verifyDocument(<?php echo $document['id']; ?>)"
                                             class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Verify">
-                                        <i class="fa-solid fa-check text-sm"></i>
-                                    </button>
-                                <?php endif; ?>
-                            </div>
-                        </td>
-                    </tr>
+                                            <i class="fa-solid fa-check text-sm"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                        </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
 
-    <!-- Empty state -->
-    <div id="emptyState" class="hidden flex-col items-center justify-center py-14 text-center">
-        <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
-            <i class="fa-solid fa-folder-open text-slate-400 text-2xl"></i>
+        <!-- Empty state -->
+        <div id="emptyState" class="hidden flex-col items-center justify-center py-14 text-center">
+            <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                <i class="fa-solid fa-folder-open text-slate-400 text-2xl"></i>
+            </div>
+            <p class="text-base font-bold text-slate-700 mb-1">No Documents Found</p>
+            <p class="text-sm text-slate-500 mb-4">There are no documents to display at this time</p>
+            <button onclick="openModal('uploadDocumentModal')" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                <i class="fa-solid fa-upload mr-2"></i>Upload First Document
+            </button>
         </div>
-        <p class="text-base font-bold text-slate-700 mb-1">No Documents Found</p>
-        <p class="text-sm text-slate-500 mb-4">There are no documents to display at this time</p>
-        <button onclick="openModal('uploadDocumentModal')" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-            <i class="fa-solid fa-upload mr-2"></i>Upload First Document
-        </button>
-    </div>
 
         <!-- Pagination -->
         <div class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
@@ -516,19 +516,19 @@ $title = 'Documents';
             </p>
             <div class="flex gap-1">
                 <button onclick="changePage(<?php echo $page - 1; ?>)"
-                        class="px-3 py-1.5 rounded-lg text-sm <?php echo $page <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
-                        <?php echo $page <= 1 ? 'disabled' : ''; ?>>
+                    class="px-3 py-1.5 rounded-lg text-sm <?php echo $page <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
+                    <?php echo $page <= 1 ? 'disabled' : ''; ?>>
                     <i class="fa-solid fa-chevron-left text-xs"></i>
                 </button>
                 <?php for ($i = 1; $i <= $totalPages; $i++): ?>
                     <button onclick="changePage(<?php echo $i; ?>)"
-                            class="px-3 py-1.5 rounded-lg text-sm font-medium <?php echo $i === $page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>">
+                        class="px-3 py-1.5 rounded-lg text-sm font-medium <?php echo $i === $page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>">
                         <?php echo $i; ?>
                     </button>
                 <?php endfor; ?>
                 <button onclick="changePage(<?php echo $page + 1; ?>)"
-                        class="px-3 py-1.5 rounded-lg text-sm <?php echo $page >= $totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
-                        <?php echo $page >= $totalPages ? 'disabled' : ''; ?>>
+                    class="px-3 py-1.5 rounded-lg text-sm <?php echo $page >= $totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
+                    <?php echo $page >= $totalPages ? 'disabled' : ''; ?>>
                     <i class="fa-solid fa-chevron-right text-xs"></i>
                 </button>
             </div>
@@ -548,7 +548,7 @@ $title = 'Documents';
             console.warn('Modal not found:', id);
             return;
         }
-        
+
         if (typeof ModalSystem !== 'undefined') {
             ModalSystem.open(id);
         } else {
@@ -565,7 +565,7 @@ $title = 'Documents';
             console.warn('Modal not found:', id);
             return;
         }
-        
+
         if (typeof ModalSystem !== 'undefined') {
             ModalSystem.close(id);
         } else {
@@ -583,7 +583,7 @@ $title = 'Documents';
         const fileSelected = document.getElementById('fileSelected');
         const fileName = document.getElementById('fileNameDisplay');
         const fileSize = document.getElementById('fileSizeDisplay');
-        
+
         if (file) {
             fileName.textContent = file.name;
             fileSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
@@ -601,29 +601,29 @@ $title = 'Documents';
         try {
             const response = await fetch(apiUrl);
             const result = await response.json();
-            
+
             if (!response.ok) {
                 const errMsg = result && result.message ? result.message : 'HTTP error: ' + response.status;
                 throw new Error(errMsg);
             }
-            
+
             if (!result || !result.success) {
                 throw new Error(result && result.message ? result.message : 'Refresh failed');
             }
-            
+
             const data = result.data;
             if (!Array.isArray(data)) {
                 console.error('Unexpected data format', result);
                 return;
             }
-            
+
             // Show loading state on table
             const tbody = document.getElementById('documentTableBody');
             tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center"><i class="fa-solid fa-spinner fa-spin text-2xl text-brand-medium"></i><p class="text-sm text-slate-500 mt-2">Loading documents...</p></td></tr>';
-            
+
             // Small delay for UX
             await new Promise(resolve => setTimeout(resolve, 400));
-            
+
             // Rebuild table body
             tbody.innerHTML = '';
             data.forEach(doc => {
@@ -633,7 +633,7 @@ $title = 'Documents';
                     if (!p) return '';
                     return p.charAt(0) + '*'.repeat(Math.max(0, p.length - 1));
                 }).join(' ');
-                
+
                 // Format file size (inline - same logic as PHP formatFileSize)
                 var fs = parseInt(doc.file_size) || 0;
                 var fileSizeDisplay;
@@ -644,7 +644,7 @@ $title = 'Documents';
                 } else {
                     fileSizeDisplay = fs + ' B';
                 }
-                
+
                 // Get status class (inline - same logic as PHP getStatusClass)
                 var statusClass;
                 if (doc.status === 'verified') {
@@ -654,7 +654,7 @@ $title = 'Documents';
                 } else {
                     statusClass = 'bg-amber-100 text-amber-700';
                 }
-                
+
                 const row = document.createElement('tr');
                 row.className = 'border-b border-slate-100 hover:bg-brand-light/40 transition document-row ' + (doc.status === 'expired' ? 'bg-rose-50/50' : '');
                 row.dataset.applicant = unmasked.toLowerCase();
@@ -707,7 +707,10 @@ $title = 'Documents';
             }
         } catch (err) {
             console.error('Failed to refresh documents:', err);
-            toast.error(err.message, { title: 'Refresh Error', duration: 5000 });
+            toast.error(err.message, {
+                title: 'Refresh Error',
+                duration: 5000
+            });
         }
     }
 
@@ -716,47 +719,59 @@ $title = 'Documents';
     // ============================================================
     async function saveUploadedDocument(event) {
         event.preventDefault();
-        
+
         const form = event.target;
-        
+
         // Get selected permit and document type
         const permitSelect = form.querySelector('select');
         const docTypeSelect = form.querySelectorAll('select')[1];
         const fileInput = form.querySelector('input[type="file"]');
         const notesTextarea = form.querySelector('textarea');
         const applicantInput = form.querySelector('input[name="applicant"]');
-        
+
         // Validation
         if (!permitSelect.value) {
-            toast.error('Please select a permit', { title: 'Validation Error', duration: 3000 });
+            toast.error('Please select a permit', {
+                title: 'Validation Error',
+                duration: 3000
+            });
             return;
         }
         if (!docTypeSelect.value) {
-            toast.error('Please select a document type', { title: 'Validation Error', duration: 3000 });
+            toast.error('Please select a document type', {
+                title: 'Validation Error',
+                duration: 3000
+            });
             return;
         }
         if (!fileInput.files[0]) {
-            toast.error('Please select a file to upload', { title: 'Validation Error', duration: 3000 });
+            toast.error('Please select a file to upload', {
+                title: 'Validation Error',
+                duration: 3000
+            });
             return;
         }
         if (!applicantInput || !applicantInput.value.trim()) {
-            toast.error('Please enter applicant name', { title: 'Validation Error', duration: 3000 });
+            toast.error('Please enter applicant name', {
+                title: 'Validation Error',
+                duration: 3000
+            });
             return;
         }
-        
+
         // Show loading state
         const submitBtn = form.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
         const originalIcon = submitBtn.innerHTML;
         submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Uploading...';
         submitBtn.disabled = true;
-        
+
         // Show loading overlay
         const loadingOverlay = document.getElementById('uploadLoadingOverlay');
         if (loadingOverlay) {
             loadingOverlay.classList.remove('hidden');
         }
-        
+
         try {
             const file = fileInput.files[0];
             const uploadData = {
@@ -772,13 +787,13 @@ $title = 'Documents';
                 notes: notesTextarea.value || '',
                 status: 'pending'
             };
-            
+
             console.log('Uploading document:', uploadData);
-            
+
             // Submit to API
             const apiUrl = '<?php echo site_url('api/permit_documents.php'); ?>';
             console.log('API URL:', apiUrl);
-            
+
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
@@ -786,11 +801,11 @@ $title = 'Documents';
                 },
                 body: JSON.stringify(uploadData)
             });
-            
+
             console.log('Response status:', response.status);
             const responseText = await response.text();
             console.log('Response text:', responseText);
-            
+
             let result;
             if (responseText && responseText.trim() !== '') {
                 try {
@@ -799,27 +814,30 @@ $title = 'Documents';
                     console.error('Failed to parse JSON:', e, 'Response:', responseText);
                 }
             }
-            
+
             if (!response.ok) {
                 const errMsg = result && result.message ? result.message : `HTTP error! status: ${response.status}`;
                 const errDetails = result && result.data && Array.isArray(result.data) ? ': ' + result.data.join(', ') : '';
                 throw new Error(errMsg + errDetails);
             }
-            
+
             if (result && result.success) {
-    closeModal('uploadDocumentModal');
-    form.reset();
-    await refreshDocumentList();
-}
+                closeModal('uploadDocumentModal');
+                form.reset();
+                await refreshDocumentList();
+            }
         } catch (error) {
             console.error('Upload error:', error);
-            toast.error('Error uploading document: ' + error.message, { title: 'Error', duration: 4000 });
+            toast.error('Error uploading document: ' + error.message, {
+                title: 'Error',
+                duration: 4000
+            });
         } finally {
             // Reset button
             submitBtn.textContent = originalText;
             submitBtn.innerHTML = originalIcon;
             submitBtn.disabled = false;
-            
+
             // Hide loading overlay
             if (loadingOverlay) {
                 loadingOverlay.classList.add('hidden');
@@ -879,7 +897,10 @@ $title = 'Documents';
     // DOWNLOAD DOCUMENT
     // ============================================================
     function downloadDocument(fileName) {
-        toast.info('Downloading: ' + fileName, { title: 'Download', duration: 3000 });
+        toast.info('Downloading: ' + fileName, {
+            title: 'Download',
+            duration: 3000
+        });
     }
 
     // ============================================================
@@ -889,13 +910,16 @@ $title = 'Documents';
         if (!confirm('Verify this document?')) return;
         const d = DOCUMENTS[id];
         if (!d) return;
-        
+
         d.status = 'verified';
         if (!d.qr_code) {
             d.qr_code = 'QR-' + String(id).padStart(3, '0') + '-' + String(Math.floor(Math.random() * 900) + 100);
         }
         updateDocumentRow(d);
-        toast.success('Document ' + d.document_id + ' verified!', { title: 'Verified', duration: 3000 });
+        toast.success('Document ' + d.document_id + ' verified!', {
+            title: 'Verified',
+            duration: 3000
+        });
     }
 
     function updateDocumentRow(d) {
@@ -912,7 +936,7 @@ $title = 'Documents';
                 };
                 statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[d.status] || statusColors.pending}`;
                 statusBadge.textContent = d.status.charAt(0).toUpperCase() + d.status.slice(1);
-                
+
                 // Update QR
                 const qrCell = row.querySelector('.px-4.py-3 .px-2.py-1');
                 if (qrCell) {
@@ -935,7 +959,10 @@ $title = 'Documents';
     }
 
     function downloadQR() {
-        toast.success('QR Code downloaded successfully!', { title: 'Downloaded', duration: 3000 });
+        toast.success('QR Code downloaded successfully!', {
+            title: 'Downloaded',
+            duration: 3000
+        });
     }
 
 
@@ -1040,24 +1067,24 @@ $title = 'Documents';
     // ============================================================
     // INITIALIZATION
     // ============================================================
-    
+
     // Check if documents exist on page load
     function checkEmptyState() {
         const hasDocuments = document.querySelectorAll('.document-row').length > 0;
         const emptyState = document.getElementById('emptyState');
-        
+
         if (!hasDocuments && emptyState) {
             emptyState.style.display = 'flex';
         } else if (emptyState) {
             emptyState.style.display = 'none';
         }
     }
-    
+
     // Run on page load
     document.addEventListener('DOMContentLoaded', function() {
         checkEmptyState();
     });
-    
+
     // Run after filter changes
     const originalFilterDocuments = window.filterDocuments;
     window.filterDocuments = function() {
@@ -1069,127 +1096,127 @@ $title = 'Documents';
     };
 </script>
 
-    <!-- ============================================================ -->
-    <!-- MODALS -->
-    <!-- ============================================================ -->
-    
-    <!-- Upload Document Modal -->
-    <div id="uploadDocumentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
-                <h3 class="font-bold text-slate-900 flex items-center gap-2">
-                    <i class="fa-solid fa-upload text-brand-medium"></i> Upload Document
-                </h3>
-                <button onclick="closeModal('uploadDocumentModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            <div class="p-6 relative">
-                <!-- Loading Overlay -->
-                <div id="uploadLoadingOverlay" class="hidden absolute inset-0 bg-white/80 backdrop-blur-sm z-20 flex items-center justify-center rounded-2xl">
-                    <div class="text-center">
-                        <i class="fa-solid fa-spinner fa-spin text-4xl text-brand-medium mb-3"></i>
-                        <p class="text-sm font-semibold text-slate-700">Uploading document...</p>
-                        <p class="text-xs text-slate-500 mt-1">Please wait</p>
-                    </div>
+<!-- ============================================================ -->
+<!-- MODALS -->
+<!-- ============================================================ -->
+
+<!-- Upload Document Modal -->
+<div id="uploadDocumentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-upload text-brand-medium"></i> Upload Document
+            </h3>
+            <button onclick="closeModal('uploadDocumentModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 relative">
+            <!-- Loading Overlay -->
+            <div id="uploadLoadingOverlay" class="hidden absolute inset-0 bg-white/80 backdrop-blur-sm z-20 flex items-center justify-center rounded-2xl">
+                <div class="text-center">
+                    <i class="fa-solid fa-spinner fa-spin text-4xl text-brand-medium mb-3"></i>
+                    <p class="text-sm font-semibold text-slate-700">Uploading document...</p>
+                    <p class="text-xs text-slate-500 mt-1">Please wait</p>
                 </div>
-                
-                <form onsubmit="saveUploadedDocument(event)">
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Applicant Name <span class="text-rose-500">*</span></label>
-                            <input type="text" 
-                                   name="applicant" 
-                                   placeholder="Enter applicant name" 
-                                   class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm"
-                                   required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Select Permit</label>
-                            <select class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm">
-                                <option value="">Choose a permit...</option>
-                                <?php foreach ($formattedPermits as $permit): ?>
+            </div>
+
+            <form onsubmit="saveUploadedDocument(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Applicant Name <span class="text-rose-500">*</span></label>
+                        <input type="text"
+                            name="applicant"
+                            placeholder="Enter applicant name"
+                            class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm"
+                            required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Select Permit</label>
+                        <select class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm">
+                            <option value="">Choose a permit...</option>
+                            <?php foreach ($formattedPermits as $permit): ?>
                                 <option value="<?php echo $permit['id']; ?>">
                                     <?php echo htmlspecialchars($permit['permit_id'] . ' - ' . $permit['applicant']); ?>
                                 </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Document Type</label>
-                            <select class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm">
-                                <option value="">Select document type...</option>
-                                <option value="business_permit">Business Permit</option>
-                                <option value="sanitary_permit">Sanitary Permit</option>
-                                <option value="fire_safety">Fire Safety</option>
-                                <option value="zoning_clearance">Zoning Clearance</option>
-                                <option value="environmental_compliance">Environmental Compliance</option>
-                                <option value="building_permit">Building Permit</option>
-                                <option value="tax_clearance"> Tax Clearance</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Upload File <span class="text-rose-500">*</span></label>
-                            <div class="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:border-brand-medium transition">
-                                <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2"></i>
-                                <p class="text-sm text-slate-600">Drag and drop your file here or</p>
-                                <input type="file" class="mt-2 text-sm" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Notes (Optional)</label>
-                            <textarea rows="3" class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm"></textarea>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Document Type</label>
+                        <select class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm">
+                            <option value="">Select document type...</option>
+                            <option value="business_permit">Business Permit</option>
+                            <option value="sanitary_permit">Sanitary Permit</option>
+                            <option value="fire_safety">Fire Safety</option>
+                            <option value="zoning_clearance">Zoning Clearance</option>
+                            <option value="environmental_compliance">Environmental Compliance</option>
+                            <option value="building_permit">Building Permit</option>
+                            <option value="tax_clearance"> Tax Clearance</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Upload File <span class="text-rose-500">*</span></label>
+                        <div class="border-2 border-dashed border-slate-200 rounded-lg p-6 text-center hover:border-brand-medium transition">
+                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2"></i>
+                            <p class="text-sm text-slate-600">Drag and drop your file here or</p>
+                            <input type="file" class="mt-2 text-sm" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" required>
                         </div>
                     </div>
-                    <div class="flex justify-end gap-2 pt-4 mt-4 border-t border-slate-200">
-                        <button type="button" onclick="closeModal('uploadDocumentModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button>
-                        <button type="submit" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                            <i class="fa-solid fa-upload mr-2"></i>Upload
-                        </button>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Notes (Optional)</label>
+                        <textarea rows="3" class="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm"></textarea>
                     </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- View Document Modal -->
-    <div id="viewDocumentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
-                <h3 class="font-bold text-slate-900">Document Details</h3>
-                <button onclick="closeModal('viewDocumentModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            <div id="documentDetailsContent" class="p-6">
-                <!-- Content will be populated by JavaScript -->
-            </div>
-        </div>
-    </div>
-
-    <!-- QR Code Viewer Modal -->
-    <div id="qrViewerModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md" onclick="event.stopPropagation()">
-            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                <h3 class="font-bold text-slate-900">QR Code</h3>
-                <button onclick="closeModal('qrViewerModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            <div class="p-6 text-center">
-                <div class="w-48 h-48 bg-brand-light/40 rounded-xl flex items-center justify-center mx-auto mb-4">
-                    <i class="fa-solid fa-qrcode text-8xl text-brand-dark"></i>
                 </div>
-                <p class="text-sm font-semibold text-slate-700 mb-1">QR Code ID</p>
-                <p id="qrCodeId" class="text-lg font-mono text-brand-dark font-bold mb-4"></p>
-                <p class="text-sm font-semibold text-slate-700 mb-1">Applicant</p>
-                <p id="qrApplicant" class="text-base text-slate-600 mb-6"></p>
-                <button onclick="downloadQR()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                    <i class="fa-solid fa-download mr-2"></i>Download QR Code
-                </button>
-            </div>
+                <div class="flex justify-end gap-2 pt-4 mt-4 border-t border-slate-200">
+                    <button type="button" onclick="closeModal('uploadDocumentModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button>
+                    <button type="submit" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                        <i class="fa-solid fa-upload mr-2"></i>Upload
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
+</div>
+
+<!-- View Document Modal -->
+<div id="viewDocumentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <h3 class="font-bold text-slate-900">Document Details</h3>
+            <button onclick="closeModal('viewDocumentModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="documentDetailsContent" class="p-6">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- QR Code Viewer Modal -->
+<div id="qrViewerModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900">QR Code</h3>
+            <button onclick="closeModal('qrViewerModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 text-center">
+            <div class="w-48 h-48 bg-brand-light/40 rounded-xl flex items-center justify-center mx-auto mb-4">
+                <i class="fa-solid fa-qrcode text-8xl text-brand-dark"></i>
+            </div>
+            <p class="text-sm font-semibold text-slate-700 mb-1">QR Code ID</p>
+            <p id="qrCodeId" class="text-lg font-mono text-brand-dark font-bold mb-4"></p>
+            <p class="text-sm font-semibold text-slate-700 mb-1">Applicant</p>
+            <p id="qrApplicant" class="text-base text-slate-600 mb-6"></p>
+            <button onclick="downloadQR()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                <i class="fa-solid fa-download mr-2"></i>Download QR Code
+            </button>
+        </div>
+    </div>
+</div>
 
 <?php include_once '../../includes/footer.php'; ?>

@@ -68,6 +68,8 @@ $minimalHeader = $minimalHeader ?? false;
   
   <!-- Your custom styles -->
   <link rel="stylesheet" href="<?= site_url('assets/css/dashb-style.css'); ?>">
+  <!-- Common JS Utilities -->
+  <script src="<?= site_url('assets/js/common.js'); ?>"></script>
 </head>
 <?php if (!$minimalHeader) include_once __DIR__ . '/data-mask.php'; ?>
 <body class="bg-white font-sans antialiased text-slate-800 min-h-screen flex flex-col">
