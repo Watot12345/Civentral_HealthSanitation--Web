@@ -90,8 +90,8 @@ class SessionAuthService
             $employee = $employees[0];
 
             // Activate session in PHP $_SESSION
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
+            if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+                @session_start();
             }
 
             $functionalRole = $employee['role_description'] ?? $employee['role'] ?? 'Employee';
@@ -159,8 +159,8 @@ class SessionAuthService
 
             $employee = $employees[0];
 
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
+            if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+                @session_start();
             }
 
             $functionalRole = $employee['role_description'] ?? $employee['role'] ?? 'Employee';
