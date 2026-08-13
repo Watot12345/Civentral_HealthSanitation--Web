@@ -324,8 +324,15 @@ class PermissionService
      */
     public function isAdminRole(string $role): bool
     {
-        return strcasecmp($role, 'System Administrator') === 0 
-            || strcasecmp($role, 'System Admin') === 0 
-            || strcasecmp($role, 'admin') === 0;
+        $r = strtolower(trim($role));
+        return $r === 'system administrator' 
+            || $r === 'system admin' 
+            || $r === 'admin'
+            || $r === 'administrator'
+            || $r === 'sysadmin'
+            || $r === 'super admin'
+            || $r === 'lgu admin'
+            || str_contains($r, 'system admin')
+            || str_contains($r, 'administrator');
     }
 }
