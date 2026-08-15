@@ -27,124 +27,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     exit;
 }
 
-// Sample Septic Tanks Data
-$septicTanks = [
-    [
-        'id' => 1,
-        'tank_id' => 'ST-001',
-        'owner_name' => 'Pedro Garcia',
-        'address' => '123 Rizal St., Barangay San Jose',
-        'barangay' => 'Barangay San Jose',
-        'latitude' => 14.6542,
-        'longitude' => 120.9821,
-        'capacity' => '1200L',
-        'type' => 'Concrete',
-        'installation_year' => 2018,
-        'last_maintenance' => '2026-03-15',
-        'maintenance_frequency' => 12,
-        'status' => 'good',
-        'notes' => 'Regular maintenance schedule followed',
-        'created_at' => '2018-06-15 08:30:00',
-        'history' => [
-            ['date' => '2026-03-15', 'type' => 'Desludging', 'notes' => 'Complete desludging performed'],
-            ['date' => '2025-03-10', 'type' => 'Inspection', 'notes' => 'Routine inspection - all clear'],
-            ['date' => '2024-03-05', 'type' => 'Maintenance', 'notes' => 'Minor repairs done'],
-        ]
-    ],
-    [
-        'id' => 2,
-        'tank_id' => 'ST-002',
-        'owner_name' => 'Rosa Mendoza',
-        'address' => '456 Mabini Ave., Barangay Poblacion',
-        'barangay' => 'Barangay Poblacion',
-        'latitude' => 14.6610,
-        'longitude' => 120.9755,
-        'capacity' => '800L',
-        'type' => 'Plastic',
-        'installation_year' => 2020,
-        'last_maintenance' => '2026-04-20',
-        'maintenance_frequency' => 18,
-        'status' => 'needs_maintenance',
-        'notes' => 'Frequent blockages reported',
-        'created_at' => '2020-04-20 10:15:00',
-        'history' => [
-            ['date' => '2026-04-20', 'type' => 'Maintenance', 'notes' => 'Cleared blockage'],
-            ['date' => '2025-10-15', 'type' => 'Inspection', 'notes' => 'Found minor cracks'],
-            ['date' => '2024-04-20', 'type' => 'Desludging', 'notes' => 'Routine desludging'],
-        ]
-    ],
-    [
-        'id' => 3,
-        'tank_id' => 'ST-003',
-        'owner_name' => 'Carlos Lim',
-        'address' => '789 Bonifacio Rd., Barangay Riverside',
-        'barangay' => 'Barangay Riverside',
-        'latitude' => 14.6488,
-        'longitude' => 120.9882,
-        'capacity' => '1500L',
-        'type' => 'Fiberglass',
-        'installation_year' => 2015,
-        'last_maintenance' => '2026-01-10',
-        'maintenance_frequency' => 12,
-        'status' => 'critical',
-        'notes' => 'Cracked tank - needs immediate replacement',
-        'created_at' => '2015-01-10 14:00:00',
-        'history' => [
-            ['date' => '2026-01-10', 'type' => 'Inspection', 'notes' => 'Found major crack'],
-            ['date' => '2025-01-05', 'type' => 'Maintenance', 'notes' => 'Routine inspection'],
-            ['date' => '2024-01-02', 'type' => 'Desludging', 'notes' => 'Regular service'],
-        ]
-    ],
-    [
-        'id' => 4,
-        'tank_id' => 'ST-004',
-        'owner_name' => 'Elena Torres',
-        'address' => '202 Santos St., Barangay Sta. Cruz',
-        'barangay' => 'Barangay Sta. Cruz',
-        'latitude' => 14.6555,
-        'longitude' => 120.9790,
-        'capacity' => '1000L',
-        'type' => 'Concrete',
-        'installation_year' => 2022,
-        'last_maintenance' => '2026-05-20',
-        'maintenance_frequency' => 24,
-        'status' => 'good',
-        'notes' => 'Newly installed, well maintained',
-        'created_at' => '2022-05-20 09:45:00',
-        'history' => [
-            ['date' => '2026-05-20', 'type' => 'Inspection', 'notes' => 'First inspection - all good'],
-            ['date' => '2025-05-15', 'type' => 'Maintenance', 'notes' => 'Regular checkup'],
-        ]
-    ],
-    [
-        'id' => 5,
-        'tank_id' => 'ST-005',
-        'owner_name' => 'Ramon Garcia',
-        'address' => '505 Bonifacio Rd., Barangay Riverside',
-        'barangay' => 'Barangay Riverside',
-        'latitude' => 14.6450,
-        'longitude' => 120.9910,
-        'capacity' => '2000L',
-        'type' => 'Concrete',
-        'installation_year' => 2010,
-        'last_maintenance' => '2025-12-01',
-        'maintenance_frequency' => 12,
-        'status' => 'needs_maintenance',
-        'notes' => 'Overdue for maintenance',
-        'created_at' => '2010-12-01 11:20:00',
-        'history' => [
-            ['date' => '2025-12-01', 'type' => 'Inspection', 'notes' => 'Needs maintenance'],
-            ['date' => '2024-12-05', 'type' => 'Desludging', 'notes' => 'Regular desludging'],
-            ['date' => '2023-12-10', 'type' => 'Maintenance', 'notes' => 'Minor repairs'],
-        ]
-    ],
-];
+require_once __DIR__ . '/../../app/Models/SepticTank.php';
+$septicTankModel = new SepticTank();
+
+// Fetch live Septic Tanks from Supabase
+$septicTanks = $septicTankModel->all();
 
 // Stats
-$totalTanks = count($septicTanks);
-$goodStatus = count(array_filter($septicTanks, fn($t) => $t['status'] === 'good'));
-$needsMaintenance = count(array_filter($septicTanks, fn($t) => $t['status'] === 'needs_maintenance'));
-$criticalStatus = count(array_filter($septicTanks, fn($t) => $t['status'] === 'critical'));
+$counts = $septicTankModel->countByStatus();
+$totalTanks = $counts['total'];
+$goodStatus = $counts['good'];
+$needsMaintenance = $counts['needs_maintenance'];
+$criticalStatus = $counts['critical'];
 
 $title = 'Septic Tank Registry';
 ?>
@@ -812,32 +706,31 @@ $title = 'Septic Tank Registry';
         event.preventDefault();
         try {
             const id = document.getElementById('edit_tank_id').value;
-            const tank = TANKS[id];
-            if (!tank) { showToast('Septic tank record not found.', 'danger'); return; }
-            tank.owner_name = document.getElementById('edit_tank_owner').value.trim();
-            tank.address = document.getElementById('edit_tank_address').value.trim();
-            tank.barangay = document.getElementById('edit_tank_barangay').value;
-            tank.capacity = document.getElementById('edit_tank_capacity').value;
-            tank.type = document.getElementById('edit_tank_type').value;
-            tank.last_maintenance = document.getElementById('edit_tank_maintenance').value;
-            tank.maintenance_frequency = Number(document.getElementById('edit_tank_frequency').value);
-            tank.status = document.getElementById('edit_tank_status').value;
-            tank.notes = document.getElementById('edit_tank_notes').value.trim();
+            const payload = {
+                owner_name: document.getElementById('edit_tank_owner').value.trim(),
+                address: document.getElementById('edit_tank_address').value.trim(),
+                barangay: document.getElementById('edit_tank_barangay').value,
+                capacity: document.getElementById('edit_tank_capacity').value,
+                type: document.getElementById('edit_tank_type').value,
+                last_maintenance: document.getElementById('edit_tank_maintenance').value,
+                maintenance_frequency: Number(document.getElementById('edit_tank_frequency').value),
+                status: document.getElementById('edit_tank_status').value,
+                notes: document.getElementById('edit_tank_notes').value.trim()
+            };
 
-            const card = document.getElementById('tank-card-' + id);
-            if (card) {
-                card.dataset.owner = tank.owner_name.toLowerCase();
-                card.dataset.status = tank.status;
-                card.dataset.type = tank.type;
-                card.dataset.barangay = tank.barangay;
-                card.dataset.maintenanceDate = tank.last_maintenance;
-                const owner = card.querySelector('.font-semibold.text-slate-800.text-sm');
-                if (owner) owner.textContent = tank.owner_name;
+            const res = await fetch(`../../api/septic_tanks.php?id=${id}&action=update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                closeModal('editTankModal');
+                showToast('Septic tank updated successfully!', 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(json.message || 'Failed to update tank', 'danger');
             }
-            await sendAjaxRequest('edit_tank', tank);
-            closeModal('editTankModal');
-            showToast('Septic tank updated successfully!', 'success');
-            filterTanks();
         } catch (err) {
             console.error('saveTankEdit error:', err);
             showToast('An error occurred: ' + err.message, 'danger');
@@ -856,11 +749,31 @@ $title = 'Septic Tank Registry';
                 showToast('Owner name and address are required.', 'warning');
                 return;
             }
-            const form = document.getElementById('registerTankForm');
-            const formData = form ? new FormData(form) : new FormData();
-            await sendAjaxRequest('register_tank', formData);
-            showToast('Septic tank registered successfully!', 'success');
-            closeModal('registerTankModal');
+            const payload = {
+                owner_name: owner,
+                address: address,
+                barangay: document.getElementById('tank_barangay').value,
+                capacity: document.getElementById('tank_capacity').value,
+                type: document.getElementById('tank_type').value,
+                installation_year: document.getElementById('tank_year')?.value ? Number(document.getElementById('tank_year').value) : null,
+                maintenance_frequency: Number(document.getElementById('tank_frequency').value),
+                status: document.getElementById('tank_status').value,
+                notes: document.getElementById('tank_notes')?.value?.trim() || ''
+            };
+
+            const res = await fetch('../../api/septic_tanks.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                showToast('Septic tank registered successfully!', 'success');
+                closeModal('registerTankModal');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(json.message || 'Failed to register tank', 'danger');
+            }
         } catch (err) {
             console.error('saveTankRegistration error:', err);
             showToast('An error occurred: ' + err.message, 'danger');

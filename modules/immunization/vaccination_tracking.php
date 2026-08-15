@@ -1121,7 +1121,7 @@ $title = 'Vaccination Tracking';
         };
 
         try {
-            const res = await fetch('/api/immunization.php?action=record', {
+            const res = await fetch('<?php echo site_url('api/immunization.php?action=record'); ?>', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)

@@ -851,7 +851,7 @@ $title = 'Growth Charts';
     async function deleteGrowthMeasurement(id) {
         if (!confirm('Are you sure you want to delete this growth measurement?')) return;
         try {
-            const res = await fetch(`/api/growth.php?id=${id}`, { method: 'DELETE' });
+            const res = await fetch(`<?php echo site_url('api/growth.php'); ?>?id=${id}`, { method: 'DELETE' });
             const data = await res.json();
             if (data.success) {
                 const idx = GROWTH_DATA.findIndex(g => g.id == id);
@@ -909,7 +909,7 @@ $title = 'Growth Charts';
         };
 
         try {
-            const res = await fetch('/api/growth.php', {
+            const res = await fetch('<?php echo site_url('api/growth.php'); ?>', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newRecord)

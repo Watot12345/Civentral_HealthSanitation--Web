@@ -23,10 +23,13 @@ try {
     $parts = explode('/', trim($path, '/'));
     
     $patientId = null;
-    if (count($parts) >= 3 && is_numeric($parts[2])) {
-        $patientId = $parts[2];
+    foreach (array_reverse($parts) as $part) {
+        if (is_numeric($part)) {
+            $patientId = $part;
+            break;
+        }
     }
-    if (!$patientId && isset($_GET['id'])) {
+    if (!$patientId && isset($_GET['id']) && is_numeric($_GET['id'])) {
         $patientId = $_GET['id'];
     }
     

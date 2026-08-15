@@ -36,141 +36,19 @@ $technicians = [
     ['id' => 5, 'name' => 'Ana Reyes', 'status' => 'on_site', 'assignment' => 'ST-003'],
 ];
 
-// Sample Maintenance/Desludging Records
-$maintenanceRecords = [
-    [
-        'id' => 1,
-        'service_id' => 'SRV-001',
-        'tank_id' => 'ST-001',
-        'owner_name' => 'Pedro Garcia',
-        'address' => '123 Rizal St., Barangay San Jose',
-        'service_type' => 'desludging',
-        'scheduled_date' => '2026-07-20',
-        'scheduled_time' => '09:00 AM',
-        'technician' => 'Roberto Silva',
-        'status' => 'scheduled',
-        'completed_date' => null,
-        'completed_time' => null,
-        'findings' => null,
-        'recommendations' => null,
-        'notes' => 'Regular scheduled desludging',
-        'cost' => 1500.00,
-        'rating' => null
-    ],
-    [
-        'id' => 2,
-        'service_id' => 'SRV-002',
-        'tank_id' => 'ST-003',
-        'owner_name' => 'Carlos Lim',
-        'address' => '789 Bonifacio Rd., Barangay Riverside',
-        'service_type' => 'maintenance',
-        'scheduled_date' => '2026-07-18',
-        'scheduled_time' => '10:30 AM',
-        'technician' => 'Ana Reyes',
-        'status' => 'in_progress',
-        'completed_date' => null,
-        'completed_time' => null,
-        'findings' => 'Cracked tank detected',
-        'recommendations' => 'Immediate replacement recommended',
-        'notes' => 'Emergency maintenance call',
-        'cost' => 2500.00,
-        'rating' => null
-    ],
-    [
-        'id' => 3,
-        'service_id' => 'SRV-003',
-        'tank_id' => 'ST-005',
-        'owner_name' => 'Ramon Garcia',
-        'address' => '505 Bonifacio Rd., Barangay Riverside',
-        'service_type' => 'desludging',
-        'scheduled_date' => '2026-07-15',
-        'scheduled_time' => '08:00 AM',
-        'technician' => 'Jose Mendoza',
-        'status' => 'completed',
-        'completed_date' => '2026-07-15',
-        'completed_time' => '11:30 AM',
-        'findings' => 'Complete desludging performed. Tank in good condition.',
-        'recommendations' => 'Next service in 12 months',
-        'notes' => 'Regular maintenance',
-        'cost' => 1200.00,
-        'rating' => 5
-    ],
-    [
-        'id' => 4,
-        'service_id' => 'SRV-004',
-        'tank_id' => 'ST-002',
-        'owner_name' => 'Rosa Mendoza',
-        'address' => '456 Mabini Ave., Barangay Poblacion',
-        'service_type' => 'inspection',
-        'scheduled_date' => '2026-07-12',
-        'scheduled_time' => '02:00 PM',
-        'technician' => 'Luis Torres',
-        'status' => 'completed',
-        'completed_date' => '2026-07-12',
-        'completed_time' => '03:15 PM',
-        'findings' => 'Minor blockage found and cleared',
-        'recommendations' => 'Monitor regularly',
-        'notes' => 'Routine inspection',
-        'cost' => 800.00,
-        'rating' => 4
-    ],
-    [
-        'id' => 5,
-        'service_id' => 'SRV-005',
-        'tank_id' => 'ST-004',
-        'owner_name' => 'Elena Torres',
-        'address' => '202 Santos St., Barangay Sta. Cruz',
-        'service_type' => 'maintenance',
-        'scheduled_date' => '2026-07-25',
-        'scheduled_time' => '11:00 AM',
-        'technician' => 'Carlos Santos',
-        'status' => 'scheduled',
-        'completed_date' => null,
-        'completed_time' => null,
-        'findings' => null,
-        'recommendations' => null,
-        'notes' => 'Quarterly maintenance check',
-        'cost' => 1000.00,
-        'rating' => null
-    ],
-    [
-        'id' => 6,
-        'service_id' => 'SRV-006',
-        'tank_id' => 'ST-001',
-        'owner_name' => 'Pedro Garcia',
-        'address' => '123 Rizal St., Barangay San Jose',
-        'service_type' => 'desludging',
-        'scheduled_date' => '2026-07-10',
-        'scheduled_time' => '09:30 AM',
-        'technician' => 'Roberto Silva',
-        'status' => 'completed',
-        'completed_date' => '2026-07-10',
-        'completed_time' => '12:00 PM',
-        'findings' => 'Full desludging completed. System functioning properly.',
-        'recommendations' => 'Schedule next service in 6 months',
-        'notes' => 'Regular service',
-        'cost' => 1500.00,
-        'rating' => 5
-    ],
-    [
-        'id' => 7,
-        'service_id' => 'SRV-007',
-        'tank_id' => 'ST-006',
-        'owner_name' => 'Miguel Reyes',
-        'address' => '303 Rizal St., Barangay San Jose',
-        'service_type' => 'installation',
-        'scheduled_date' => '2026-07-08',
-        'scheduled_time' => '08:00 AM',
-        'technician' => 'Jose Mendoza',
-        'status' => 'completed',
-        'completed_date' => '2026-07-08',
-        'completed_time' => '04:30 PM',
-        'findings' => 'New septic tank installed. Full plumbing connection completed.',
-        'recommendations' => 'First inspection in 6 months',
-        'notes' => 'New tank installation',
-        'cost' => 5000.00,
-        'rating' => 5
-    ],
+require_once __DIR__ . '/../../app/Models/MaintenanceRecord.php';
+$maintenanceModel = new MaintenanceRecord();
+
+// Fetch live Maintenance Records from Supabase
+$maintenanceRecords = $maintenanceModel->all();
+
+// Technicians
+$technicians = [
+    ['id' => 1, 'name' => 'Roberto Silva', 'status' => 'on_site', 'assignment' => 'ST-002'],
+    ['id' => 2, 'name' => 'Jose Mendoza', 'status' => 'available', 'assignment' => null],
+    ['id' => 3, 'name' => 'Luis Torres', 'status' => 'en_route', 'assignment' => 'ST-001'],
+    ['id' => 4, 'name' => 'Carlos Santos', 'status' => 'available', 'assignment' => null],
+    ['id' => 5, 'name' => 'Ana Reyes', 'status' => 'on_site', 'assignment' => 'ST-003'],
 ];
 
 // Route Planning Data
@@ -181,10 +59,11 @@ $routeData = [
 ];
 
 // Stats
+$counts = $maintenanceModel->countByStatus();
 $totalServices = count($maintenanceRecords);
-$scheduledServices = count(array_filter($maintenanceRecords, fn($s) => $s['status'] === 'scheduled'));
-$inProgress = count(array_filter($maintenanceRecords, fn($s) => $s['status'] === 'in_progress'));
-$completedServices = count(array_filter($maintenanceRecords, fn($s) => $s['status'] === 'completed'));
+$scheduledServices = $counts['scheduled'];
+$inProgress = $counts['in_progress'];
+$completedServices = $counts['completed'];
 $totalRevenue = array_sum(array_column($maintenanceRecords, 'cost'));
 
 $title = 'Maintenance & Desludging';
@@ -763,7 +642,6 @@ $title = 'Maintenance & Desludging';
 <!-- ============================================================ -->
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
-<script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
     const SERVICES = <?php echo json_encode(array_column($maintenanceRecords, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
@@ -1010,31 +888,31 @@ $title = 'Maintenance & Desludging';
                 return;
             }
             const id = document.getElementById('edit_service_id').value;
-            const service = SERVICES[id];
-            if (!service) { showToast('Service record not found.', 'danger'); return; }
-            service.tank_id = document.getElementById('edit_service_tank').value.trim();
-            service.owner_name = document.getElementById('edit_service_owner').value.trim();
-            service.service_type = document.getElementById('edit_service_type').value;
-            service.technician = document.getElementById('edit_service_technician').value;
-            service.scheduled_date = document.getElementById('edit_service_date').value;
-            service.scheduled_time = document.getElementById('edit_service_time').value;
-            service.status = document.getElementById('edit_service_status').value;
-            service.cost = Number(costVal);
-            service.notes = document.getElementById('edit_service_notes').value.trim();
-            // Use id-based row selector for reliable lookup
-            const row = document.getElementById('maintenance-row-' + id);
-            if (row) {
-                row.dataset.owner = service.owner_name.toLowerCase();
-                row.dataset.tank = service.tank_id;
-                row.dataset.status = service.status;
-                row.dataset.type = service.service_type;
-                row.dataset.technician = service.technician.toLowerCase();
-                row.dataset.scheduledDate = service.scheduled_date;
+            const payload = {
+                tank_id: document.getElementById('edit_service_tank').value.trim(),
+                owner_name: document.getElementById('edit_service_owner').value.trim(),
+                service_type: document.getElementById('edit_service_type').value,
+                scheduled_date: document.getElementById('edit_service_date').value,
+                scheduled_time: document.getElementById('edit_service_time').value,
+                technician: document.getElementById('edit_service_technician').value,
+                status: document.getElementById('edit_service_status').value,
+                cost: Number(costVal),
+                notes: document.getElementById('edit_service_notes').value.trim()
+            };
+
+            const res = await fetch(`../../api/maintenance.php?id=${id}&action=update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                closeModal('editServiceModal');
+                showToast('Maintenance service updated successfully!', 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(json.message || 'Failed to update service', 'danger');
             }
-            await sendAjaxRequest('edit_service', service);
-            closeModal('editServiceModal');
-            showToast('Maintenance service updated successfully!', 'success');
-            filterMaintenance();
         } catch (err) {
             console.error('saveServiceEdit error:', err);
             showToast('An error occurred: ' + err.message, 'danger');
@@ -1047,11 +925,19 @@ $title = 'Maintenance & Desludging';
     async function rateService(id) {
         const rating = prompt('Rate this service (1-5 stars):', '5');
         if (rating && rating >= 1 && rating <= 5) {
-            const s = SERVICES[id];
-            if (s) {
-                s.rating = parseInt(rating);
-                await sendAjaxRequest('rate_service', { id: id, rating: rating });
-                showToast('Service rated ' + rating + ' stars!', 'success');
+            try {
+                const res = await fetch(`../../api/maintenance.php?id=${id}&action=update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rating: parseInt(rating) })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    showToast('Service rated ' + rating + ' stars!', 'success');
+                    setTimeout(() => location.reload(), 800);
+                }
+            } catch (err) {
+                console.error(err);
             }
         }
     }
@@ -1147,11 +1033,31 @@ $title = 'Maintenance & Desludging';
     async function saveScheduleService(event) {
         event.preventDefault();
         try {
-            const form = document.getElementById('scheduleServiceForm');
-            const formData = form ? new FormData(form) : new FormData();
-            await sendAjaxRequest('schedule_service', formData);
-            showToast('Service scheduled successfully!', 'success');
-            closeModal('scheduleServiceModal');
+            const payload = {
+                tank_id: document.getElementById('sched_tank')?.value?.trim() || '',
+                owner_name: document.getElementById('sched_owner')?.value?.trim() || '',
+                address: document.getElementById('sched_address')?.value?.trim() || '',
+                service_type: document.getElementById('sched_type')?.value || 'desludging',
+                scheduled_date: document.getElementById('sched_date')?.value || new Date().toISOString().split('T')[0],
+                scheduled_time: document.getElementById('sched_time')?.value || '09:00 AM',
+                technician: document.getElementById('sched_technician')?.value || '',
+                cost: Number(document.getElementById('sched_cost')?.value || 1500),
+                notes: document.getElementById('sched_notes')?.value?.trim() || ''
+            };
+
+            const res = await fetch('../../api/maintenance.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                showToast('Service scheduled successfully!', 'success');
+                closeModal('scheduleServiceModal');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(json.message || 'Failed to schedule service', 'danger');
+            }
         } catch (err) {
             console.error('saveScheduleService error:', err);
             showToast('An error occurred: ' + err.message, 'danger');

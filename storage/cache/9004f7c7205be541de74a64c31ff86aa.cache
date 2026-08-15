@@ -1,10 +1,10 @@
 {
     "key": "analytics_c4b896ed9a89213583ae26d6b212798b",
-    "created_at": 1786349327,
-    "expires_at": 1786349627,
+    "created_at": 1786777674,
+    "expires_at": 1786777974,
     "data": {
         "success": true,
-        "timestamp": "2026-08-10 16:08:47",
+        "timestamp": "2026-08-15 15:07:54",
         "range": "6m",
         "scope": "admin",
         "exec_overview": {
@@ -12,8 +12,8 @@
             "ai_confidence": 96.4,
             "status": "Optimal \/ Healthy",
             "risk_level": "Low Risk",
-            "executive_summary": "Immunization department performance remains healthy. Active operational workload processed smoothly. AI models project stable capacity over the next month with high confidence.",
-            "last_analysis": "2026-08-10 16:08:47",
+            "executive_summary": "Overall system performance remains healthy. Active operational workload processed smoothly. AI models project stable capacity over the next month with high confidence.",
+            "last_analysis": "2026-08-15 15:07:54",
             "processing_status": "Complete (Realtime Supabase Sync Active)"
         },
         "situational": [
@@ -62,6 +62,30 @@
         ],
         "prescriptive": [
             {
+                "id": "act_1",
+                "title": "Deploy Rapid Vector Control Team to Barangay 172",
+                "priority": "Normal",
+                "urgency": "Routine (Weekly)",
+                "impact": "Prevents potential dengue cluster transmission",
+                "reason": "Routine surveillance active; baseline monitoring recommended.",
+                "department": "Epidemiology & Surveillance",
+                "dept_key": "surveillance",
+                "confidence": 94,
+                "module": "surveillence\/response_management.php"
+            },
+            {
+                "id": "act_2",
+                "title": "Reassign 2 Health Inspectors to Commercial Permit Reviews",
+                "priority": "Medium",
+                "urgency": "Within 48 hrs",
+                "impact": "Reduces permit application queue backlog by ~40%",
+                "reason": "Commercial clearance application volume surge expected (+12.1% next month).",
+                "department": "Sanitation Permits",
+                "dept_key": "sanitation",
+                "confidence": 89,
+                "module": "sanitation\/permit_applications.php"
+            },
+            {
                 "id": "act_3",
                 "title": "Restock Vaccines at Community Sub-Station 4",
                 "priority": "Medium",
@@ -104,7 +128,7 @@
             "mape": "4.2%",
             "model_health": "98% (High Precision)",
             "training_records": 1248,
-            "last_trained": "2026-08-10 16:08:47"
+            "last_trained": "2026-08-15 15:07:54"
         },
         "kpis": [
             {
@@ -118,7 +142,7 @@
             {
                 "key": "resolved_cases",
                 "title": "Resolved & Processed",
-                "value": "7",
+                "value": "8",
                 "change": "\u2191 12.4%",
                 "status": "success",
                 "description": "Completed consultations & approved permits"
@@ -262,7 +286,31 @@
             ],
             "series": [
                 {
-                    "name": "Child Vaccine Demand",
+                    "name": "Expected Cases",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                },
+                {
+                    "name": "Permit Requests",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        5,
+                        3
+                    ]
+                },
+                {
+                    "name": "Vaccine Demand",
                     "data": [
                         0,
                         0,
@@ -272,53 +320,29 @@
                         2,
                         1
                     ]
-                },
-                {
-                    "name": "Nutrition Checks",
-                    "data": [
-                        81,
-                        83,
-                        87,
-                        98,
-                        93,
-                        80,
-                        91
-                    ]
-                },
-                {
-                    "name": "Growth Monitoring",
-                    "data": [
-                        142,
-                        136,
-                        136,
-                        126,
-                        130,
-                        145,
-                        135
-                    ]
                 }
             ],
             "cards": [
+                {
+                    "key": "cases",
+                    "title": "Expected Disease Cases",
+                    "value": "0",
+                    "confidence": "92%",
+                    "r_squared": 0.92
+                },
+                {
+                    "key": "permits",
+                    "title": "Estimated Permit Requests",
+                    "value": "3",
+                    "confidence": "75%",
+                    "r_squared": 0.4286
+                },
                 {
                     "key": "vaccines",
                     "title": "Vaccine Demand",
                     "value": "1",
                     "confidence": "75%",
                     "r_squared": 0.4286
-                },
-                {
-                    "key": "nutrition",
-                    "title": "Nutrition Checks",
-                    "value": "91",
-                    "confidence": "75%",
-                    "r_squared": 0.0718
-                },
-                {
-                    "key": "growth",
-                    "title": "Growth Logs",
-                    "value": "135",
-                    "confidence": "75%",
-                    "r_squared": 0.0095
                 }
             ]
         },
@@ -352,7 +376,7 @@
                         0,
                         0,
                         0,
-                        2
+                        3
                     ]
                 },
                 {
@@ -389,44 +413,44 @@
         },
         "modules": [
             {
-                "label": "Child Vaccinations",
-                "share": 52,
-                "projected_share": 55,
-                "color": "#2563eb",
-                "status": "High Priority",
-                "delta": "\u2191 3.0pts",
-                "confidence": "normal",
-                "sample_size": 160
-            },
-            {
-                "label": "Maternal Nutrition",
-                "share": 24,
-                "projected_share": 23,
-                "color": "#3b82f6",
+                "label": "Health Center",
+                "share": 16.7,
+                "projected_share": 18.4,
+                "color": "#176b87",
                 "status": "Optimal",
-                "delta": "\u2193 1.0pts",
-                "confidence": "normal",
-                "sample_size": 70
+                "delta": "\u2191 1.7pts vs last month",
+                "confidence": "low",
+                "sample_size": 2
             },
             {
-                "label": "Growth Monitoring",
-                "share": 16,
-                "projected_share": 15,
-                "color": "#60a5fa",
+                "label": "Sanitation Permits",
+                "share": 41.7,
+                "projected_share": 43.2,
+                "color": "#d97706",
+                "status": "High Demand",
+                "delta": "\u2191 1.5pts vs last month",
+                "confidence": "low",
+                "sample_size": 5
+            },
+            {
+                "label": "Immunization & Surveillance",
+                "share": 0,
+                "projected_share": 0,
+                "color": "#2563eb",
                 "status": "Normal",
-                "delta": "\u2193 1.0pts",
-                "confidence": "normal",
-                "sample_size": 35
+                "delta": "\u2191 0pts vs last month",
+                "confidence": "low",
+                "sample_size": 0
             },
             {
-                "label": "Vitamin A Drives",
-                "share": 8,
-                "projected_share": 7,
-                "color": "#93c5fd",
+                "label": "Wastewater Services",
+                "share": 41.6,
+                "projected_share": 38.4,
+                "color": "#9333ea",
                 "status": "Stable",
-                "delta": "\u2193 1.0pts",
-                "confidence": "normal",
-                "sample_size": 15
+                "delta": "\u2192 0.0pts vs last month",
+                "confidence": "low",
+                "sample_size": 5
             }
         ],
         "metrics": [
@@ -561,21 +585,21 @@
             },
             {
                 "label": "Queue Resolution Rate",
-                "value": 84,
+                "value": 86,
                 "unit": "%",
                 "change": "\u2191 3.5%",
                 "changeColor": "purple",
-                "progress": 84,
+                "progress": 86,
                 "glow": "glow-purple",
                 "watermark": "fa-users-line",
                 "details": [
                     {
                         "label": "Resolution Rate",
-                        "value": "84%"
+                        "value": "86%"
                     },
                     {
                         "label": "Total Patient Encounters",
-                        "value": "4 visits"
+                        "value": "5 visits"
                     },
                     {
                         "label": "Target",
@@ -585,12 +609,12 @@
                 "pieData": [
                     {
                         "label": "Resolved",
-                        "value": 84,
+                        "value": 86,
                         "color": "#8b5cf6"
                     },
                     {
                         "label": "In Queue",
-                        "value": 16,
+                        "value": 14,
                         "color": "#e2e8f0"
                     }
                 ]
@@ -634,22 +658,78 @@
         ],
         "staff": [
             {
-                "name": "Nurse Ana Santos",
-                "score": 95,
-                "department": "Immunization & Nutrition",
-                "dept_key": "immunization",
-                "cases": 20
+                "id": "1",
+                "name": "Joshua Sierra",
+                "role": "System Admin",
+                "score": 99,
+                "department": "Administration",
+                "dept_key": "health_center",
+                "cases": 7,
+                "response": 4.8
             },
             {
-                "name": "Midwife Elena Torres",
-                "score": 94,
-                "department": "Immunization & Nutrition",
-                "dept_key": "immunization",
-                "cases": 18
+                "id": "3",
+                "name": "Juan Dela Cruz",
+                "role": "Medical Practitioner",
+                "score": 89,
+                "department": "Health Center",
+                "dept_key": "health_center",
+                "cases": 4,
+                "response": 5.1
+            },
+            {
+                "id": "5",
+                "name": "Carlo Ramos",
+                "role": "Medical Practitioner",
+                "score": 82,
+                "department": "Health Center",
+                "dept_key": "health_center",
+                "cases": 2,
+                "response": 5.3
+            },
+            {
+                "id": "2",
+                "name": "Maria Santos",
+                "role": "Health Center Director",
+                "score": 82,
+                "department": "Health Center",
+                "dept_key": "health_center",
+                "cases": 2,
+                "response": 5.3
+            },
+            {
+                "id": "21",
+                "name": "rhyzon lacsi",
+                "role": "Medical Practitioner",
+                "score": 78,
+                "department": "Health Center Services",
+                "dept_key": "health_center",
+                "cases": 1,
+                "response": 5.4
+            },
+            {
+                "id": "11",
+                "name": "Kevin Reyes",
+                "role": "Sanitation Officer",
+                "score": 78,
+                "department": "Sanitation",
+                "dept_key": "sanitation",
+                "cases": 1,
+                "response": 5.4
+            },
+            {
+                "id": "12",
+                "name": "Jenny Flores",
+                "role": "Sanitation Officer",
+                "score": 78,
+                "department": "Sanitation",
+                "dept_key": "sanitation",
+                "cases": 1,
+                "response": 5.4
             }
         ],
-        "forecast_insight": "Disease Cases forecasted at 1 (-50% vs current) \u2014 maintain current resource allocation.",
-        "module_insight": "No sanitation permit requests recorded in database.",
+        "forecast_insight": "No disease cases recorded in database \u2014 baseline forecast set to 0.",
+        "module_insight": "Sanitation Permits forecasted at 43.2% (+1.5pts vs current) \u2014 reassign 2 health inspectors to commercial permit reviews.",
         "correlation_insight": "Disease Surveillance and Health Center Services move together (+84% co-movement correlation) over the last 6 months."
     }
 }

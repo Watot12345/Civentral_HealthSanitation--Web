@@ -27,149 +27,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     exit;
 }
 
-// Sample Service Requests Data
-$serviceRequests = [
-    [
-        'id' => 1,
-        'request_id' => 'SR-001',
-        'tank_id' => 'ST-001',
-        'owner_name' => 'Pedro Garcia',
-        'address' => '123 Rizal St., Barangay San Jose',
-        'barangay' => 'Barangay San Jose',
-        'service_type' => 'desludging',
-        'preferred_date' => '2026-07-25',
-        'preferred_time' => '09:00 AM',
-        'assigned_to' => 'Roberto Silva',
-        'status' => 'pending',
-        'priority' => 'medium',
-        'notes' => 'Tank is full, need immediate desludging',
-        'created_at' => '2026-07-20 08:30:00',
-        'completed_at' => null,
-        'feedback' => null,
-        'rating' => null
-    ],
-    [
-        'id' => 2,
-        'request_id' => 'SR-002',
-        'tank_id' => 'ST-003',
-        'owner_name' => 'Carlos Lim',
-        'address' => '789 Bonifacio Rd., Barangay Riverside',
-        'barangay' => 'Barangay Riverside',
-        'service_type' => 'maintenance',
-        'preferred_date' => '2026-07-18',
-        'preferred_time' => '10:30 AM',
-        'assigned_to' => 'Ana Reyes',
-        'status' => 'in_progress',
-        'priority' => 'high',
-        'notes' => 'Cracked tank - urgent repair needed',
-        'created_at' => '2026-07-17 14:15:00',
-        'completed_at' => null,
-        'feedback' => null,
-        'rating' => null
-    ],
-    [
-        'id' => 3,
-        'request_id' => 'SR-003',
-        'tank_id' => 'ST-005',
-        'owner_name' => 'Ramon Garcia',
-        'address' => '505 Bonifacio Rd., Barangay Riverside',
-        'barangay' => 'Barangay Riverside',
-        'service_type' => 'desludging',
-        'preferred_date' => '2026-07-15',
-        'preferred_time' => '08:00 AM',
-        'assigned_to' => 'Jose Mendoza',
-        'status' => 'completed',
-        'priority' => 'low',
-        'notes' => 'Regular desludging service',
-        'created_at' => '2026-07-14 09:00:00',
-        'completed_at' => '2026-07-15 11:30:00',
-        'feedback' => 'Very professional and thorough service. Tank is now clean.',
-        'rating' => 5
-    ],
-    [
-        'id' => 4,
-        'request_id' => 'SR-004',
-        'tank_id' => 'ST-002',
-        'owner_name' => 'Rosa Mendoza',
-        'address' => '456 Mabini Ave., Barangay Poblacion',
-        'barangay' => 'Barangay Poblacion',
-        'service_type' => 'inspection',
-        'preferred_date' => '2026-07-12',
-        'preferred_time' => '02:00 PM',
-        'assigned_to' => 'Luis Torres',
-        'status' => 'completed',
-        'priority' => 'medium',
-        'notes' => 'Routine inspection',
-        'created_at' => '2026-07-11 11:20:00',
-        'completed_at' => '2026-07-12 03:15:00',
-        'feedback' => 'Inspector was punctual and thorough. Found minor issues.',
-        'rating' => 4
-    ],
-    [
-        'id' => 5,
-        'request_id' => 'SR-005',
-        'tank_id' => 'ST-004',
-        'owner_name' => 'Elena Torres',
-        'address' => '202 Santos St., Barangay Sta. Cruz',
-        'barangay' => 'Barangay Sta. Cruz',
-        'service_type' => 'installation',
-        'preferred_date' => '2026-07-28',
-        'preferred_time' => '09:30 AM',
-        'assigned_to' => 'Carlos Santos',
-        'status' => 'pending',
-        'priority' => 'high',
-        'notes' => 'New septic tank installation',
-        'created_at' => '2026-07-21 16:45:00',
-        'completed_at' => null,
-        'feedback' => null,
-        'rating' => null
-    ],
-    [
-        'id' => 6,
-        'request_id' => 'SR-006',
-        'tank_id' => 'ST-006',
-        'owner_name' => 'Miguel Reyes',
-        'address' => '303 Rizal St., Barangay San Jose',
-        'barangay' => 'Barangay San Jose',
-        'service_type' => 'maintenance',
-        'preferred_date' => '2026-07-10',
-        'preferred_time' => '08:00 AM',
-        'assigned_to' => 'Jose Mendoza',
-        'status' => 'cancelled',
-        'priority' => 'low',
-        'notes' => 'Cancelled - customer rescheduled',
-        'created_at' => '2026-07-09 10:00:00',
-        'completed_at' => '2026-07-10 07:30:00',
-        'feedback' => 'Rescheduled due to conflict',
-        'rating' => null
-    ],
-    [
-        'id' => 7,
-        'request_id' => 'SR-007',
-        'tank_id' => 'ST-001',
-        'owner_name' => 'Pedro Garcia',
-        'address' => '123 Rizal St., Barangay San Jose',
-        'barangay' => 'Barangay San Jose',
-        'service_type' => 'maintenance',
-        'preferred_date' => '2026-07-22',
-        'preferred_time' => '11:00 AM',
-        'assigned_to' => 'Roberto Silva',
-        'status' => 'in_progress',
-        'priority' => 'medium',
-        'notes' => 'Check for leaks',
-        'created_at' => '2026-07-21 08:00:00',
-        'completed_at' => null,
-        'feedback' => null,
-        'rating' => null
-    ],
-];
+require_once __DIR__ . '/../../app/Models/ServiceRequest.php';
+$requestModel = new ServiceRequest();
+
+// Fetch live Service Requests from Supabase
+$serviceRequests = $requestModel->all();
 
 // Stats
+$counts = $requestModel->countByStatus();
 $totalRequests = count($serviceRequests);
-$pendingRequests = count(array_filter($serviceRequests, fn($r) => $r['status'] === 'pending'));
-$inProgressRequests = count(array_filter($serviceRequests, fn($r) => $r['status'] === 'in_progress'));
-$completedRequests = count(array_filter($serviceRequests, fn($r) => $r['status'] === 'completed'));
-$cancelledRequests = count(array_filter($serviceRequests, fn($r) => $r['status'] === 'cancelled'));
+$pendingRequests = $counts['pending'];
+$inProgressRequests = $counts['in_progress'];
+$completedRequests = $counts['completed'];
+$cancelledRequests = $counts['cancelled'];
 $avgRating = array_sum(array_filter(array_column($serviceRequests, 'rating'))) / max(1, count(array_filter($serviceRequests, fn($r) => $r['rating'])));
 
 $title = 'Service Requests';
@@ -980,30 +850,30 @@ $title = 'Service Requests';
         event.preventDefault();
         try {
             const id = document.getElementById('edit_request_id').value;
-            const request = REQUESTS[id];
-            if (!request) { showToast('Request record not found.', 'danger'); return; }
-            request.tank_id = document.getElementById('edit_request_tank').value.trim();
-            request.owner_name = document.getElementById('edit_request_owner').value.trim();
-            request.service_type = document.getElementById('edit_request_type').value;
-            request.preferred_date = document.getElementById('edit_request_date').value;
-            request.preferred_time = document.getElementById('edit_request_time').value;
-            request.priority = document.getElementById('edit_request_priority').value;
-            request.status = document.getElementById('edit_request_status').value;
-            request.notes = document.getElementById('edit_request_notes').value.trim();
-            
-            const row = document.getElementById('request-row-' + id);
-            if (row) {
-                row.dataset.owner = request.owner_name.toLowerCase();
-                row.dataset.tank = request.tank_id;
-                row.dataset.status = request.status;
-                row.dataset.type = request.service_type;
-                row.dataset.priority = request.priority;
-                row.dataset.preferredDate = request.preferred_date;
+            const payload = {
+                tank_id: document.getElementById('edit_request_tank').value.trim(),
+                owner_name: document.getElementById('edit_request_owner').value.trim(),
+                service_type: document.getElementById('edit_request_type').value,
+                preferred_date: document.getElementById('edit_request_date').value,
+                preferred_time: document.getElementById('edit_request_time').value,
+                priority: document.getElementById('edit_request_priority').value,
+                status: document.getElementById('edit_request_status').value,
+                notes: document.getElementById('edit_request_notes').value.trim()
+            };
+
+            const res = await fetch(`../../api/service_requests.php?id=${id}&action=update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                closeModal('editRequestModal');
+                showToast('Service request updated successfully!', 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(json.message || 'Failed to update service request', 'danger');
             }
-            await sendAjaxRequest('edit_request', request);
-            closeModal('editRequestModal');
-            showToast('Service request updated successfully!', 'success');
-            filterRequests();
         } catch (err) {
             console.error('saveRequestEdit error:', err);
             showToast('An error occurred: ' + err.message, 'danger');
@@ -1016,11 +886,31 @@ $title = 'Service Requests';
     async function saveNewRequest(event) {
         event.preventDefault();
         try {
-            const form = document.getElementById('newRequestForm');
-            const formData = form ? new FormData(form) : new FormData();
-            await sendAjaxRequest('create_request', formData);
-            showToast('Service request submitted successfully!', 'success');
-            closeModal('newRequestModal');
+            const payload = {
+                tank_id: document.getElementById('req_tank')?.value?.trim() || '',
+                owner_name: document.getElementById('req_owner')?.value?.trim() || '',
+                address: document.getElementById('req_address')?.value?.trim() || '',
+                barangay: document.getElementById('req_barangay')?.value || 'Barangay San Jose',
+                service_type: document.getElementById('req_type')?.value || 'desludging',
+                preferred_date: document.getElementById('req_date')?.value || new Date().toISOString().split('T')[0],
+                preferred_time: document.getElementById('req_time')?.value || '09:00 AM',
+                priority: document.getElementById('req_priority')?.value || 'medium',
+                notes: document.getElementById('req_notes')?.value?.trim() || ''
+            };
+
+            const res = await fetch('../../api/service_requests.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                showToast('Service request submitted successfully!', 'success');
+                closeModal('newRequestModal');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(json.message || 'Failed to submit request', 'danger');
+            }
         } catch (err) {
             console.error('saveNewRequest error:', err);
             showToast('An error occurred: ' + err.message, 'danger');

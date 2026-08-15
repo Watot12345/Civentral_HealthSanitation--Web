@@ -948,7 +948,7 @@ $title = 'Vaccine Inventory';
         };
 
         try {
-            const res = await fetch(`/api/inventory.php?id=${id}`, {
+            const res = await fetch(`<?php echo site_url('api/inventory.php'); ?>?id=${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1062,7 +1062,7 @@ $title = 'Vaccine Inventory';
         const notes = document.getElementById('reorderNotes').value.trim() || 'Reorder requested';
 
         try {
-            const res = await fetch('/api/inventory.php?action=reorder', {
+            const res = await fetch('<?php echo site_url('api/inventory.php?action=reorder'); ?>', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1120,7 +1120,7 @@ $title = 'Vaccine Inventory';
         };
 
         try {
-            const res = await fetch('/api/inventory.php', {
+            const res = await fetch('<?php echo site_url('api/inventory.php'); ?>', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1167,7 +1167,7 @@ $title = 'Vaccine Inventory';
         };
 
         try {
-            const res = await fetch('/api/inventory.php?action=adjust', {
+            const res = await fetch('<?php echo site_url('api/inventory.php?action=adjust'); ?>', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)

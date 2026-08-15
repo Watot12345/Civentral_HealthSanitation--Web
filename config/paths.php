@@ -11,13 +11,13 @@ $baseUrl = Env::get('BASE_URL');
 if ($baseUrl === null) {
     // Dynamic detection
     $projectRoot = str_replace('\\', '/', dirname(__DIR__));
-    $docRoot = str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? '');
+    $docRoot = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT'] ?? ''), '/');
 
-    if (!empty($docRoot) && str_starts_with($projectRoot, $docRoot)) {
+    if (!empty($docRoot) && str_starts_with(strtolower($projectRoot), strtolower($docRoot))) {
         $baseUrl = substr($projectRoot, strlen($docRoot));
     } else {
-        // Fallback: if server document root is not matching, use default '/capstone'
-        $baseUrl = '/capstone';
+        // Dynamic fallback: use current project folder name instead of hardcoded '/capstone'
+        $baseUrl = '/' . basename($projectRoot);
     }
 
     $baseUrl = '/' . trim($baseUrl, '/');

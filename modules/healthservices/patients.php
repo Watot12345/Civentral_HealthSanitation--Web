@@ -479,7 +479,7 @@ td .text-slate-600.maskable.masked::after {
     // ============================================================
     // DATA & API
     // ============================================================
-    const API_BASE = '/capstone/api';
+    const API_BASE = '<?php echo site_url('api'); ?>';
     const PATIENTS = <?php echo json_encode(array_column($patients, null, 'id'), JSON_PRETTY_PRINT); ?>;
     let pendingDeleteId = null;
     let selectedExportFormat = 'csv';

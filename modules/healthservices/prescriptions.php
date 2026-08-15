@@ -591,7 +591,7 @@ requireDepartmentAccess('health center services');
     <!-- JAVASCRIPT - Client-side pagination (NO PAGE RELOAD!)       -->
     <!-- ============================================================ -->
     <script>
-        const API_URL = '/capstone/api/prescriptions.php';
+        const API_URL = '<?php echo site_url('api/prescriptions.php'); ?>';
         const CURRENT_USER_ID = <?php echo $currentUserId; ?>;
         
         // Data loaded from PHP - ALL DATA available client-side
@@ -739,7 +739,7 @@ requireDepartmentAccess('health center services');
 
         async function loadDrugs() {
             try {
-                const response = await fetch('/capstone/api/drugs.php');
+                const response = await fetch('<?php echo site_url('api/drugs.php'); ?>');
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success && data.data && data.data.length > 0) {

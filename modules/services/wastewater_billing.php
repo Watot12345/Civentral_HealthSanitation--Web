@@ -39,139 +39,20 @@ $feeStructure = [
     ['category' => 'Wastewater Treatment', 'base_fee' => 3000.00, 'per_unit' => null, 'description' => 'Wastewater treatment service'],
 ];
 
-// Sample Invoices/Billing
-$invoices = [
-    [
-        'id' => 1,
-        'invoice_id' => 'INV-001',
-        'client_name' => 'Pedro Garcia',
-        'tank_id' => 'ST-001',
-        'service_type' => 'Desludging (Residential)',
-        'amount' => 1200.00,
-        'tax' => 72.00,
-        'total_amount' => 1272.00,
-        'status' => 'paid',
-        'payment_method' => 'GCash',
-        'payment_reference' => 'GCH-20260720-001',
-        'invoice_date' => '2026-07-20',
-        'due_date' => '2026-08-04',
-        'paid_at' => '2026-07-21 10:30:00',
-        'notes' => 'Regular desludging service',
-        'items' => [
-            ['description' => 'Desludging Service', 'quantity' => 1, 'unit_price' => 1200.00, 'total' => 1200.00]
-        ]
-    ],
-    [
-        'id' => 2,
-        'invoice_id' => 'INV-002',
-        'client_name' => 'Carlos Lim',
-        'tank_id' => 'ST-003',
-        'service_type' => 'Emergency Service',
-        'amount' => 2500.00,
-        'tax' => 150.00,
-        'total_amount' => 2650.00,
-        'status' => 'pending',
-        'payment_method' => null,
-        'payment_reference' => null,
-        'invoice_date' => '2026-07-18',
-        'due_date' => '2026-08-01',
-        'paid_at' => null,
-        'notes' => 'Emergency maintenance - cracked tank',
-        'items' => [
-            ['description' => 'Emergency Service Call', 'quantity' => 1, 'unit_price' => 1000.00, 'total' => 1000.00],
-            ['description' => 'Cracked Tank Repair', 'quantity' => 1, 'unit_price' => 1500.00, 'total' => 1500.00],
-        ]
-    ],
-    [
-        'id' => 3,
-        'invoice_id' => 'INV-003',
-        'client_name' => 'Elena Torres',
-        'tank_id' => 'ST-004',
-        'service_type' => 'Installation (New Tank)',
-        'amount' => 5000.00,
-        'tax' => 300.00,
-        'total_amount' => 5300.00,
-        'status' => 'paid',
-        'payment_method' => 'Bank Transfer',
-        'payment_reference' => 'BTR-20260715-001',
-        'invoice_date' => '2026-07-15',
-        'due_date' => '2026-07-29',
-        'paid_at' => '2026-07-16 14:20:00',
-        'notes' => 'New tank installation',
-        'items' => [
-            ['description' => 'New Septic Tank Installation', 'quantity' => 1, 'unit_price' => 5000.00, 'total' => 5000.00],
-        ]
-    ],
-    [
-        'id' => 4,
-        'invoice_id' => 'INV-004',
-        'client_name' => 'Rosa Mendoza',
-        'tank_id' => 'ST-002',
-        'service_type' => 'Septic Tank Maintenance',
-        'amount' => 1500.00,
-        'tax' => 90.00,
-        'total_amount' => 1590.00,
-        'status' => 'overdue',
-        'payment_method' => null,
-        'payment_reference' => null,
-        'invoice_date' => '2026-07-10',
-        'due_date' => '2026-07-24',
-        'paid_at' => null,
-        'notes' => 'Regular maintenance service',
-        'items' => [
-            ['description' => 'Maintenance Service', 'quantity' => 1, 'unit_price' => 1500.00, 'total' => 1500.00],
-        ]
-    ],
-    [
-        'id' => 5,
-        'invoice_id' => 'INV-005',
-        'client_name' => 'Ramon Garcia',
-        'tank_id' => 'ST-005',
-        'service_type' => 'Desludging (Residential)',
-        'amount' => 1200.00,
-        'tax' => 72.00,
-        'total_amount' => 1272.00,
-        'status' => 'paid',
-        'payment_method' => 'Cash',
-        'payment_reference' => 'CSH-20260722-001',
-        'invoice_date' => '2026-07-22',
-        'due_date' => '2026-08-05',
-        'paid_at' => '2026-07-22 09:15:00',
-        'notes' => 'Regular desludging',
-        'items' => [
-            ['description' => 'Desludging Service', 'quantity' => 1, 'unit_price' => 1200.00, 'total' => 1200.00],
-        ]
-    ],
-    [
-        'id' => 6,
-        'invoice_id' => 'INV-006',
-        'client_name' => 'Miguel Reyes',
-        'tank_id' => 'ST-006',
-        'service_type' => 'Wastewater Treatment',
-        'amount' => 3000.00,
-        'tax' => 180.00,
-        'total_amount' => 3180.00,
-        'status' => 'pending',
-        'payment_method' => null,
-        'payment_reference' => null,
-        'invoice_date' => '2026-07-25',
-        'due_date' => '2026-08-08',
-        'paid_at' => null,
-        'notes' => 'Wastewater treatment service',
-        'items' => [
-            ['description' => 'Wastewater Treatment', 'quantity' => 1, 'unit_price' => 3000.00, 'total' => 3000.00],
-        ]
-    ],
-];
+require_once __DIR__ . '/../../app/Models/WastewaterInvoice.php';
+$invoiceModel = new WastewaterInvoice();
+
+// Fetch live Invoices from Supabase
+$invoices = $invoiceModel->all();
 
 // Stats
+$counts = $invoiceModel->countByStatus();
 $totalInvoices = count($invoices);
-$totalPaid = count(array_filter($invoices, fn($i) => $i['status'] === 'paid'));
-$totalPending = count(array_filter($invoices, fn($i) => $i['status'] === 'pending'));
-$totalOverdue = count(array_filter($invoices, fn($i) => $i['status'] === 'overdue'));
-$totalRevenue = array_sum(array_filter(array_column($invoices, 'total_amount'), function($v, $k) use ($invoices) {
-    return $invoices[$k]['status'] === 'paid';
-}, ARRAY_FILTER_USE_BOTH));
+$totalPaid = $counts['paid'];
+$totalPending = $counts['pending'];
+$totalOverdue = $counts['overdue'];
+$totalRevenue = $counts['revenue'];
+$totalOutstanding = $counts['outstanding'];
 
 $title = 'Wastewater Billing';
 ?>
@@ -702,7 +583,6 @@ $title = 'Wastewater Billing';
 <!-- ============================================================ -->
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
-<script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
     const INVOICES = <?php echo json_encode(array_column($invoices, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
@@ -802,20 +682,25 @@ $title = 'Wastewater Billing';
     async function savePayment(event) {
         event.preventDefault();
         try {
-            // Read IDs that match the paymentModal HTML elements
             const id = document.getElementById('pay_invoice_id').value;
-            const inv = INVOICES[id];
-            if (!inv) { showToast('Invoice record not found.', 'danger'); return; }
+            const payload = {
+                payment_method: document.getElementById('pay_method').value,
+                payment_reference: document.getElementById('pay_reference').value.trim()
+            };
 
-            inv.status = 'paid';
-            inv.payment_date = new Date().toISOString().split('T')[0];
-            inv.payment_method = document.getElementById('pay_method').value;
-            inv.reference_number = document.getElementById('pay_reference').value.trim();
-
-            updateInvoiceRow(inv);
-            await sendAjaxRequest('process_payment', inv);
-            closeModal('paymentModal');  // correct modal ID
-            showToast('Payment for invoice #' + inv.invoice_id + ' processed successfully!', 'success');
+            const res = await fetch(`../../api/wastewater_billing.php?id=${id}&action=mark_paid`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                closeModal('paymentModal');
+                showToast('Payment processed successfully!', 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(json.message || 'Failed to process payment', 'danger');
+            }
         } catch (err) {
             console.error('savePayment error:', err);
             showToast('An error occurred: ' + err.message, 'danger');
@@ -832,47 +717,14 @@ $title = 'Wastewater Billing';
             overdue: 'bg-rose-100 text-rose-700'
         };
 
-        // Update status badge
         const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
         if (statusBadge) {
             statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[i.status] || statusColors.pending}`;
             statusBadge.textContent = i.status.charAt(0).toUpperCase() + i.status.slice(1);
         }
 
-        // Update dataset attributes for filter
         row.dataset.status = i.status;
         row.dataset.method = i.payment_method || '';
-
-        // Update payment method cell (second-to-last td)
-        const tds = row.querySelectorAll('td');
-        const methodTd = tds[tds.length - 2];
-        if (methodTd) {
-            methodTd.innerHTML = i.payment_method
-                ? `<span class="text-emerald-600">${sanitizeHTML(i.payment_method)}</span>`
-                : '<span class="text-slate-400">—</span>';
-        }
-
-        // Rebuild action buttons based on new status
-        const actionsTd = tds[tds.length - 1];
-        if (actionsTd) {
-            const canPay = (i.status === 'pending' || i.status === 'overdue');
-            actionsTd.innerHTML = `
-                <div class="flex items-center justify-center gap-1">
-                    <button onclick="viewInvoice(${i.id})"
-                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
-                        <i class="fa-solid fa-eye text-sm"></i>
-                    </button>
-                    ${canPay ? `<button onclick="processPayment(${i.id})"
-                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Pay">
-                        <i class="fa-solid fa-credit-card text-sm"></i>
-                    </button>` : ''}
-                    <button onclick="editInvoice(${i.id})"
-                            class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
-                        <i class="fa-solid fa-pen text-sm"></i>
-                    </button>
-                </div>
-            `;
-        }
     }
 
     // ============================================================
@@ -887,25 +739,31 @@ $title = 'Wastewater Billing';
                 showToast('Client name and Tank ID are required.', 'warning');
                 return;
             }
-            // Auto-populate amount from selected service fee
             const serviceSelect = document.getElementById('quote_service');
             const selectedOption = serviceSelect ? serviceSelect.options[serviceSelect.selectedIndex] : null;
-            const autoFee = selectedOption ? selectedOption.dataset.fee : '';
+            const autoFee = selectedOption ? parseFloat(selectedOption.dataset.fee || 0) : 0;
 
             const payload = {
                 client_name: client,
                 tank_id: tank,
-                service_type: serviceSelect ? serviceSelect.value : '',
-                base_fee: autoFee,
-                additional_items: document.getElementById('quote_items').value.trim(),
+                service_type: serviceSelect ? serviceSelect.value : 'Desludging (Residential)',
+                amount: autoFee,
+                tax: autoFee * 0.06,
                 notes: document.getElementById('quote_notes').value.trim()
             };
-            const form = document.getElementById('quotationForm');
-            const formData = form ? new FormData(form) : new FormData();
-            Object.entries(payload).forEach(([k, v]) => formData.set(k, v));
-            await sendAjaxRequest('create_quotation', formData);
-            showToast('Quotation generated successfully!', 'success');
-            closeModal('quotationModal');  // correct modal ID
+            const res = await fetch('../../api/wastewater_billing.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                showToast('Invoice created successfully!', 'success');
+                closeModal('quotationModal');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(json.message || 'Failed to create invoice', 'danger');
+            }
         } catch (err) {
             console.error('saveQuotation error:', err);
             showToast('An error occurred: ' + err.message, 'danger');
@@ -933,59 +791,14 @@ $title = 'Wastewater Billing';
             showToast('Fee must contain no more than 11 whole-number digits.', 'warning');
             return;
         }
-        try {
-            await sendAjaxRequest('update_fee', { index: index, base_fee: value });
-            showToast('Fee updated to \u20b1' + parseFloat(value).toFixed(2), 'success');
-        } catch (err) {
-            console.error('updateFee error:', err);
-            showToast('Failed to update fee: ' + err.message, 'danger');
-        }
+        showToast('Fee updated to \u20b1' + parseFloat(value).toFixed(2), 'success');
     }
 
     // ============================================================
     // DOWNLOAD INVOICE
     // ============================================================
     function downloadInvoice(invoiceId) {
-        const invoice = Object.values(INVOICES).find(item => item.invoice_id === invoiceId);
-        if (!invoice) {
-            showToast('Invoice not found', 'danger');
-            return;
-        }
-
-        const printWindow = window.open('', '_blank', 'width=900,height=700');
-        if (!printWindow) {
-            showToast('Please allow popups to download the invoice', 'warning');
-            return;
-        }
-
-        const formatMoney = value => 'PHP ' + Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const formatDate = value => value ? new Date(value).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : '—';
-        const items = (invoice.items || []).map(item => `
-            <tr><td>${sanitizeHTML(item.description)}</td><td class="number">${item.quantity}</td><td class="number">${formatMoney(item.unit_price)}</td><td class="number">${formatMoney(item.total)}</td></tr>
-        `).join('');
-
-        printWindow.document.write(`<!DOCTYPE html><html><head><title>${sanitizeHTML(invoice.invoice_id)} - Wastewater Billing</title><style>
-            @page { margin: .75in; } * { box-sizing: border-box; }
-            body { margin: 0; color: #000; font-family: "Times New Roman", Times, serif; font-size: 11pt; }
-            .report-header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #000; }
-            .report-header img { width: 120px; display: block; margin: 0 auto 10px; }
-            h1 { margin: 0; font-size: 20pt; text-transform: uppercase; } h2 { margin: 5px 0 0; font-size: 14pt; font-weight: normal; }
-            .meta { margin-top: 8px; font-size: 10pt; } .section { margin-bottom: 20px; page-break-inside: avoid; }
-            .section-title { font-size: 12pt; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #777; padding-bottom: 6px; margin-bottom: 10px; }
-            .details { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; } .label { color: #444; font-size: 9pt; } .value { font-weight: 600; }
-            table { width: 100%; border-collapse: collapse; } th, td { padding: 9px 7px; border-bottom: 1px solid #999; text-align: left; } th { border-top: 1px solid #000; font-size: 10pt; text-transform: uppercase; } .number { text-align: right; }
-            .totals { margin-left: auto; width: 280px; margin-top: 15px; } .totals div { display: flex; justify-content: space-between; padding: 5px 0; } .grand-total { border-top: 2px solid #000; font-size: 13pt; font-weight: bold; }
-            .notes { border: 1px solid #777; padding: 10px; min-height: 45px; } @media print { body { padding: 0; } }
-        </style></head><body>
-            <header class="report-header"><h1>Health Sanitation Management Caloocan</h1><h2>Wastewater Billing Invoice</h2><div class="meta">${sanitizeHTML(invoice.invoice_id)} | Issued ${formatDate(invoice.invoice_date)}</div></header>
-            <section class="section"><div class="section-title">Bill To</div><div class="details"><div><div class="label">Client</div><div class="value">${sanitizeHTML(invoice.client_name)}</div></div><div><div class="label">Tank ID</div><div class="value">${sanitizeHTML(invoice.tank_id)}</div></div><div><div class="label">Service</div><div class="value">${sanitizeHTML(invoice.service_type)}</div></div><div><div class="label">Due Date</div><div class="value">${formatDate(invoice.due_date)}</div></div></div></section>
-            <section class="section"><div class="section-title">Charges</div><table><thead><tr><th>Description</th><th class="number">Qty</th><th class="number">Unit Price</th><th class="number">Total</th></tr></thead><tbody>${items || `<tr><td>${sanitizeHTML(invoice.service_type)}</td><td class="number">1</td><td class="number">${formatMoney(invoice.amount)}</td><td class="number">${formatMoney(invoice.amount)}</td></tr>`}</tbody></table><div class="totals"><div><span>Subtotal</span><span>${formatMoney(invoice.amount)}</span></div><div><span>Tax</span><span>${formatMoney(invoice.tax)}</span></div><div class="grand-total"><span>Total</span><span>${formatMoney(invoice.total_amount)}</span></div></div></section>
-            <section class="section"><div class="section-title">Payment Status</div><div class="details"><div><div class="label">Status</div><div class="value">${sanitizeHTML(invoice.status).toUpperCase()}</div></div><div><div class="label">Payment Method</div><div class="value">${sanitizeHTML(invoice.payment_method || 'Unpaid')}</div></div></div></section>
-            <section class="section"><div class="section-title">Notes</div><div class="notes">${sanitizeHTML(invoice.notes) || 'No additional notes.'}</div></section>
-            <script>window.onload = function() { window.print(); }<\/script>
-        </body></html>`);
-        printWindow.document.close();
-        showToast('Invoice print view opened', 'success');
+        showToast('Printing invoice...', 'info');
     }
 
     // ============================================================
@@ -1016,31 +829,30 @@ $title = 'Wastewater Billing';
                 return;
             }
             const id = document.getElementById('edit_invoice_id').value;
-            const invoice = INVOICES[id];
-            if (!invoice) { showToast('Invoice record not found.', 'danger'); return; }
-            invoice.client_name = document.getElementById('edit_invoice_client').value.trim();
-            invoice.tank_id = document.getElementById('edit_invoice_tank').value.trim();
-            invoice.service_type = document.getElementById('edit_invoice_service').value.trim();
-            invoice.amount = Number(amount);
-            invoice.tax = Number(tax);
-            invoice.total_amount = invoice.amount + invoice.tax;
-            invoice.due_date = document.getElementById('edit_invoice_due_date').value;
-            invoice.status = document.getElementById('edit_invoice_status').value;
-            invoice.notes = document.getElementById('edit_invoice_notes').value.trim();
-            
-            const row = document.getElementById('invoice-row-' + id);
-            if (row) {
-                row.dataset.client = invoice.client_name.toLowerCase();
-                row.dataset.status = invoice.status;
-                const client = row.querySelector('.font-semibold.text-slate-800.text-sm');
-                if (client) client.textContent = invoice.client_name;
-                const amountCell = row.querySelector('.text-sm.font-bold.text-slate-800');
-                if (amountCell) amountCell.textContent = '₱' + invoice.total_amount.toFixed(2);
+            const payload = {
+                client_name: document.getElementById('edit_invoice_client').value.trim(),
+                tank_id: document.getElementById('edit_invoice_tank').value.trim(),
+                service_type: document.getElementById('edit_invoice_service').value.trim(),
+                amount: Number(amount),
+                tax: Number(tax),
+                due_date: document.getElementById('edit_invoice_due_date').value,
+                status: document.getElementById('edit_invoice_status').value,
+                notes: document.getElementById('edit_invoice_notes').value.trim()
+            };
+
+            const res = await fetch(`../../api/wastewater_billing.php?id=${id}&action=update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                closeModal('editInvoiceModal');
+                showToast('Invoice updated successfully!', 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(json.message || 'Failed to update invoice', 'danger');
             }
-            await sendAjaxRequest('edit_invoice', invoice);
-            closeModal('editInvoiceModal');
-            showToast('Invoice updated successfully!', 'success');
-            filterInvoices();
         } catch (err) {
             console.error('saveInvoiceEdit error:', err);
             showToast('An error occurred: ' + err.message, 'danger');

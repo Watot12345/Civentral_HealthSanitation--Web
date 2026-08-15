@@ -1013,7 +1013,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
     async function checkInScheduledPatient(patientId) {
         const qNum = 'Q-' + String(Math.floor(1000 + Math.random() * 9000));
         try {
-            await fetch('/capstone/api/triage-queue.php', {
+            await fetch('<?php echo site_url('api/triage-queue.php'); ?>', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1564,7 +1564,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
 
         ModalSystem.confirm(cfg.msg, async () => {
             try {
-                const res = await fetch('/capstone/api/appointments.php?action=status&id=' + id, {
+                const res = await fetch('<?php echo site_url('api/appointments.php?action=status&id='); ?>' + id, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: newStatus })
@@ -1591,7 +1591,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
     async function deleteAppointment(id) {
         ModalSystem.confirm('Cancel this appointment?', async () => {
             try {
-                const res = await fetch('/capstone/api/appointments.php?action=delete&id=' + id, {
+                const res = await fetch('<?php echo site_url('api/appointments.php?action=delete&id='); ?>' + id, {
                     method: 'POST',
                 });
                 const data = await res.json();

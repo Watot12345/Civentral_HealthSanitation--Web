@@ -1028,7 +1028,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         };
 
         try {
-            const res = await fetch('/capstone/api/consultations.php', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+            const res = await fetch('<?php echo site_url('api/consultations.php'); ?>', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
             const data = await res.json();
             if (data.success) {
                 ModalSystem.toast.success('Consultation created!');
@@ -1160,7 +1160,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         };
 
         try {
-            const res = await fetch('/capstone/api/consultations.php?action=update&id=' + id, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+            const res = await fetch('<?php echo site_url('api/consultations.php?action=update&id='); ?>' + id, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
             const data = await res.json();
             if (data.success) { ModalSystem.toast.success('Consultation updated!'); ModalSystem.close('editConsultationModal'); setTimeout(() => window.location.reload(), 1000); }
             else { ModalSystem.toast.error(data.message || 'Failed'); }
@@ -1174,7 +1174,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     async function deleteConsultation(id) {
         ModalSystem.confirm('This consultation record will be permanently removed.', async () => {
             try {
-                const res = await fetch('/capstone/api/consultations.php?action=delete&id=' + id, { method:'POST' });
+                const res = await fetch('<?php echo site_url('api/consultations.php?action=delete&id='); ?>' + id, { method:'POST' });
                 const data = await res.json();
                 if (data.success) { ModalSystem.toast.success('Consultation deleted!'); setTimeout(() => window.location.reload(), 800); }
                 else { ModalSystem.toast.error(data.message || 'Failed'); }

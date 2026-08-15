@@ -529,7 +529,7 @@ $currentUserId = $_SESSION['user_id'] ?? 1;
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
 <script>
-const API_URL      = '/capstone/api/referrals.php';
+const API_URL      = '<?php echo site_url('api/referrals.php'); ?>';
 const CURRENT_USER = <?php echo (int)($loggedInDoctorId ?? $currentUserId); ?>;
 
 // All data embedded from PHP — enriched server-side

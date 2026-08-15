@@ -27,135 +27,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     exit;
 }
 
-// Sample Service Providers Data
-$serviceProviders = [
-    [
-        'id' => 1,
-        'provider_id' => 'PRV-001',
-        'name' => 'EcoWaste Services',
-        'contact' => '099123456789',
-        'email' => 'ecowaste@email.com',
-        'address' => '123 Service Rd., Barangay San Jose',
-        'license_number' => 'NO8-24-000001',
-        'specialization' => 'desludging',
-        'rating' => 4.8,
-        'status' => 'active',
-        'equipment_count' => 5,
-        'completed_jobs' => 342,
-        'response_time' => '2.3 hrs',
-        'certification' => 'DOH Accredited',
-        'joined_date' => '2024-01-15',
-        'notes' => 'Reliable desludging service provider'
-    ],
-    [
-        'id' => 2,
-        'provider_id' => 'PRV-002',
-        'name' => 'AquaSafe Solutions',
-        'contact' => '099123456788',
-        'email' => 'aquasafe@email.com',
-        'address' => '456 Maintenance Ave., Barangay Poblacion',
-        'license_number' => 'NO8-24-000002',
-        'specialization' => 'maintenance',
-        'rating' => 4.5,
-        'status' => 'active',
-        'equipment_count' => 3,
-        'completed_jobs' => 215,
-        'response_time' => '3.1 hrs',
-        'certification' => 'DENR Approved',
-        'joined_date' => '2024-03-20',
-        'notes' => 'Specializes in tank maintenance'
-    ],
-    [
-        'id' => 3,
-        'provider_id' => 'PRV-003',
-        'name' => 'PipePro Services',
-        'contact' => '099123456787',
-        'email' => 'pipepro@email.com',
-        'address' => '789 Inspection St., Barangay Riverside',
-        'license_number' => 'NO8-24-000003',
-        'specialization' => 'inspection',
-        'rating' => 4.9,
-        'status' => 'active',
-        'equipment_count' => 4,
-        'completed_jobs' => 156,
-        'response_time' => '1.8 hrs',
-        'certification' => 'ISO Certified',
-        'joined_date' => '2024-06-01',
-        'notes' => 'Top-rated inspection service'
-    ],
-    [
-        'id' => 4,
-        'provider_id' => 'PRV-004',
-        'name' => 'InstallAll Tech',
-        'contact' => '099123456786',
-        'email' => 'installall@email.com',
-        'address' => '101 Installation Rd., Barangay San Roque',
-        'license_number' => 'NO8-24-000004',
-        'specialization' => 'installation',
-        'rating' => 4.3,
-        'status' => 'active',
-        'equipment_count' => 6,
-        'completed_jobs' => 98,
-        'response_time' => '4.2 hrs',
-        'certification' => 'PCAB Registered',
-        'joined_date' => '2024-08-10',
-        'notes' => 'New tank installation specialists'
-    ],
-    [
-        'id' => 5,
-        'provider_id' => 'PRV-005',
-        'name' => 'CleanFlow Services',
-        'contact' => '099123456785',
-        'email' => 'cleanflow@email.com',
-        'address' => '202 Cleanup St., Barangay Sta. Cruz',
-        'license_number' => 'NO8-24-000005',
-        'specialization' => 'desludging',
-        'rating' => 4.6,
-        'status' => 'inactive',
-        'equipment_count' => 2,
-        'completed_jobs' => 67,
-        'response_time' => '5.0 hrs',
-        'certification' => 'DOH Accredited',
-        'joined_date' => '2024-09-05',
-        'notes' => 'Currently on leave - equipment maintenance'
-    ],
-    [
-        'id' => 6,
-        'provider_id' => 'PRV-006',
-        'name' => 'HydroTech Solutions',
-        'contact' => '099123456784',
-        'email' => 'hydrotech@email.com',
-        'address' => '303 Tech Park, Barangay San Jose',
-        'license_number' => 'NO8-24-000006',
-        'specialization' => 'maintenance',
-        'rating' => 4.7,
-        'status' => 'active',
-        'equipment_count' => 4,
-        'completed_jobs' => 189,
-        'response_time' => '2.5 hrs',
-        'certification' => 'DENR Approved',
-        'joined_date' => '2024-10-15',
-        'notes' => 'Full-service maintenance provider'
-    ],
-];
+require_once __DIR__ . '/../../app/Models/ServiceProvider.php';
+$providerModel = new ServiceProvider();
 
-// Sample Equipment Inventory
+// Fetch live Service Providers from Supabase
+$serviceProviders = $providerModel->all();
+
+// Equipment Inventory
 $equipmentInventory = [
     ['id' => 1, 'name' => 'Vacuum Truck', 'type' => 'Vehicle', 'provider_id' => 1, 'status' => 'available', 'capacity' => '2000L', 'license_plate' => 'ABC-1234'],
     ['id' => 2, 'name' => 'High-Pressure Pump', 'type' => 'Equipment', 'provider_id' => 1, 'status' => 'in_use', 'capacity' => '1500PSI', 'license_plate' => null],
-    ['id' => 3, 'name' => 'Inspection Camera', 'type' => 'Equipment', 'provider_id' => 3, 'status' => 'available', 'capacity' => 'HD 1080p', 'license_plate' => null],
-    ['id' => 4, 'name' => 'Excavator', 'type' => 'Vehicle', 'provider_id' => 4, 'status' => 'in_use', 'capacity' => '2.5 tons', 'license_plate' => 'XYZ-5678'],
-    ['id' => 5, 'name' => 'Desludging Pump', 'type' => 'Equipment', 'provider_id' => 2, 'status' => 'available', 'capacity' => '3000L/hr', 'license_plate' => null],
-    ['id' => 6, 'name' => 'Transport Truck', 'type' => 'Vehicle', 'provider_id' => 4, 'status' => 'available', 'capacity' => '5 tons', 'license_plate' => 'DEF-9012'],
-    ['id' => 7, 'name' => 'Water Jet Machine', 'type' => 'Equipment', 'provider_id' => 2, 'status' => 'maintenance', 'capacity' => '2000PSI', 'license_plate' => null],
 ];
 
 // Stats
 $totalProviders = count($serviceProviders);
-$activeProviders = count(array_filter($serviceProviders, fn($p) => $p['status'] === 'active'));
-$inactiveProviders = count(array_filter($serviceProviders, fn($p) => $p['status'] === 'inactive'));
+$activeProviders = count(array_filter($serviceProviders, fn($p) => ($p['status'] ?? '') === 'active'));
+$inactiveProviders = count(array_filter($serviceProviders, fn($p) => ($p['status'] ?? '') === 'inactive'));
 $totalEquipment = count($equipmentInventory);
-$avgRating = array_sum(array_column($serviceProviders, 'rating')) / $totalProviders;
+$ratings = array_filter(array_column($serviceProviders, 'rating'));
+$avgRating = !empty($ratings) ? round(array_sum($ratings) / count($ratings), 1) : 0.0;
 $totalJobs = array_sum(array_column($serviceProviders, 'completed_jobs'));
 
 $title = 'Service Providers';
@@ -757,7 +647,6 @@ $title = 'Service Providers';
 <!-- ============================================================ -->
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
-<script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
     const PROVIDERS = <?php echo json_encode(array_column($serviceProviders, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
     const EQUIPMENT = <?php echo json_encode(array_column($equipmentInventory, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
@@ -914,30 +803,31 @@ $title = 'Service Providers';
                 return;
             }
             const id = document.getElementById('edit_provider_id').value;
-            const provider = PROVIDERS[id];
-            if (!provider) { showToast('Provider record not found.', 'danger'); return; }
-            provider.name = document.getElementById('edit_provider_name').value.trim();
-            provider.contact = contact;
-            provider.email = email;
-            provider.address = document.getElementById('edit_provider_address').value.trim();
-            provider.license_number = license;
-            provider.equipment_count = Number(equipment);
-            provider.joined_date = document.getElementById('edit_provider_joined').value;
-            provider.status = document.getElementById('edit_provider_status').value;
-            provider.notes = document.getElementById('edit_provider_notes').value.trim();
-            // Use id-based card selector for reliable lookup
-            const card = document.getElementById('provider-card-' + id);
-            if (card) {
-                card.dataset.name = provider.name.toLowerCase();
-                card.dataset.status = provider.status;
-                card.dataset.joinedDate = provider.joined_date;
-                const name = card.querySelector('.font-semibold.text-slate-800.text-sm');
-                if (name) name.textContent = provider.name;
+            const payload = {
+                name: document.getElementById('edit_provider_name').value.trim(),
+                contact: contact,
+                email: email,
+                address: document.getElementById('edit_provider_address').value.trim(),
+                license_number: license,
+                equipment_count: Number(equipment),
+                joined_date: document.getElementById('edit_provider_joined').value,
+                status: document.getElementById('edit_provider_status').value,
+                notes: document.getElementById('edit_provider_notes').value.trim()
+            };
+
+            const res = await fetch(`../../api/providers.php?id=${id}&action=update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                closeModal('editProviderModal');
+                showToast('Service provider updated successfully!', 'success');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(json.message || 'Failed to update provider', 'danger');
             }
-            await sendAjaxRequest('edit_provider', provider);
-            closeModal('editProviderModal');
-            showToast('Service provider updated successfully!', 'success');
-            filterProviders();
         } catch (err) {
             console.error('saveProviderEdit error:', err);
             showToast('An error occurred: ' + err.message, 'danger');
@@ -963,11 +853,33 @@ $title = 'Service Providers';
                 showToast('Contact must be 12 digits, license must use 3-2-6 format, and equipment count must be up to 11 digits.', 'warning');
                 return;
             }
-            const form = document.getElementById('registerProviderForm');
-            const formData = form ? new FormData(form) : new FormData();
-            await sendAjaxRequest('register_provider', formData);
-            showToast('Service provider registered successfully!', 'success');
-            closeModal('registerProviderModal');
+            const payload = {
+                name: document.getElementById('prov_name').value.trim(),
+                contact: contact,
+                email: email,
+                address: document.getElementById('prov_address').value.trim(),
+                license_number: license,
+                specialization: document.getElementById('prov_specialization').value,
+                certification: document.getElementById('prov_certification').value,
+                status: document.getElementById('prov_status').value,
+                equipment_count: Number(equipment),
+                joined_date: document.getElementById('prov_joined').value || new Date().toISOString().split('T')[0],
+                notes: document.getElementById('prov_notes')?.value?.trim() || ''
+            };
+
+            const res = await fetch('../../api/providers.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                showToast('Service provider registered successfully!', 'success');
+                closeModal('registerProviderModal');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(json.message || 'Failed to register provider', 'danger');
+            }
         } catch (err) {
             console.error('saveProviderRegistration error:', err);
             showToast('An error occurred: ' + err.message, 'danger');

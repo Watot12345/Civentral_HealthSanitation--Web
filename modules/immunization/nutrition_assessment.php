@@ -880,7 +880,7 @@ $title = 'Nutrition Assessment';
         };
 
         try {
-            const res = await fetch(`/api/nutrition.php?id=${id}`, {
+            const res = await fetch(`<?php echo site_url('api/nutrition.php'); ?>?id=${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -926,7 +926,7 @@ $title = 'Nutrition Assessment';
         const notes = document.getElementById('emergencyInterventionNotes').value.trim();
 
         try {
-            const res = await fetch(`/api/nutrition.php?id=${id}&action=emergency`, {
+            const res = await fetch(`<?php echo site_url('api/nutrition.php'); ?>?id=${id}&action=emergency`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ plan_of_action: notes })
@@ -990,7 +990,7 @@ $title = 'Nutrition Assessment';
         };
 
         try {
-            const res = await fetch('/api/nutrition.php', {
+            const res = await fetch('<?php echo site_url('api/nutrition.php'); ?>', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)

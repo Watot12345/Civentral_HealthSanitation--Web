@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', function () {
 // ============================================================
 // TOAST NOTIFICATIONS
 // ============================================================
-let _toastTimer = null;
+window._toastTimer = window._toastTimer || null;
 
 function showToast(message, type = 'success') {
     const toast = document.getElementById('toast');
@@ -134,8 +134,8 @@ function showToast(message, type = 'success') {
     const msgEl = document.getElementById('toastMessage');
     if (msgEl) msgEl.textContent = message;
     toast.classList.remove('hidden');
-    clearTimeout(_toastTimer);
-    _toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
+    clearTimeout(window._toastTimer);
+    window._toastTimer = setTimeout(() => toast.classList.add('hidden'), 4000);
 }
 
 // ============================================================

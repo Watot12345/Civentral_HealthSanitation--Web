@@ -1,10 +1,10 @@
 {
-    "key": "analytics_5e6a35d2055634435d79e460671e1029",
-    "created_at": 1786777654,
-    "expires_at": 1786777954,
+    "key": "analytics_b8ebe72e6882eef5b7a568aa5bb798a3",
+    "created_at": 1786777668,
+    "expires_at": 1786777968,
     "data": {
         "success": true,
-        "timestamp": "2026-08-15 15:07:34",
+        "timestamp": "2026-08-15 15:07:48",
         "range": "6m",
         "scope": "admin",
         "exec_overview": {
@@ -13,7 +13,7 @@
             "status": "Optimal \/ Healthy",
             "risk_level": "Low Risk",
             "executive_summary": "Overall system performance remains healthy. Active operational workload processed smoothly. AI models project stable capacity over the next month with high confidence.",
-            "last_analysis": "2026-08-15 15:07:34",
+            "last_analysis": "2026-08-15 15:07:48",
             "processing_status": "Complete (Realtime Supabase Sync Active)"
         },
         "situational": [
@@ -128,7 +128,7 @@
             "mape": "4.2%",
             "model_health": "98% (High Precision)",
             "training_records": 1248,
-            "last_trained": "2026-08-15 15:07:34"
+            "last_trained": "2026-08-15 15:07:48"
         },
         "kpis": [
             {
@@ -347,7 +347,7 @@
             ]
         },
         "trend": {
-            "subtitle": "Disease Cases Trend",
+            "subtitle": "Health Center Services Trend",
             "categories": [
                 "Mar",
                 "Apr",
@@ -356,9 +356,60 @@
                 "Jul",
                 "Aug"
             ],
-            "series": [],
-            "colors": [],
-            "legend": []
+            "series": [
+                {
+                    "name": "Patient Encounters",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        2
+                    ]
+                },
+                {
+                    "name": "Medical Consultations",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        3
+                    ]
+                },
+                {
+                    "name": "Triage Screenings",
+                    "data": [
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                }
+            ],
+            "colors": [
+                "#176b87",
+                "#3b82f6",
+                "#10b981"
+            ],
+            "legend": [
+                {
+                    "color": "bg-teal-600",
+                    "label": "Patient Encounters (2)"
+                },
+                {
+                    "color": "bg-blue-500",
+                    "label": "Medical Consultations (3)"
+                },
+                {
+                    "color": "bg-emerald-500",
+                    "label": "Triage Screenings"
+                }
+            ]
         },
         "modules": [
             {
