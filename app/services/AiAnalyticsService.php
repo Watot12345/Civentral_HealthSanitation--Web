@@ -320,7 +320,9 @@ class AiAnalyticsService
             ]
         ];
 
-        return $nativeInsights;
+        $enriched = $this->geminiAi->enrichInsights($nativeInsights, $snap);
+        $this->logInsightsToSupabase($enriched);
+        return $enriched;
     }
 
     private function logInsightsToSupabase(array $insights): void

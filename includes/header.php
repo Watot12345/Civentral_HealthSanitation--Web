@@ -6,6 +6,8 @@ if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
     @session_start();
 }
 
+require_once __DIR__ . '/../config/paths.php';
+
 // Auto-restore session from active 12h/7d civentral_session cookie if PHP session expired
 if (empty($_SESSION['logged_in']) && !empty($_COOKIE['civentral_session'])) {
     require_once __DIR__ . '/../app/services/SessionAuthService.php';
@@ -13,19 +15,31 @@ if (empty($_SESSION['logged_in']) && !empty($_COOKIE['civentral_session'])) {
     $authSvc->validateActiveToken($_COOKIE['civentral_session']);
 }
 
+// Global Authentication Guard: Ensure user is logged in for all pages including header.php
+$allowAnonymous = $allowAnonymous ?? false;
+if (!$allowAnonymous && empty($_SESSION['logged_in'])) {
+    $_SESSION['flash_error'] = 'Access Denied: Please log in to access the system.';
+    $loginUrl = site_url('login.php');
+    if (!headers_sent()) {
+        header('Location: ' . $loginUrl);
+    } else {
+        echo "<script>window.location.href = '" . htmlspecialchars($loginUrl, ENT_QUOTES) . "';</script>";
+    }
+    exit;
+}
+
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
-require_once __DIR__ . '/../config/paths.php';
 
 // Get user data from session
-$fullName = $_SESSION['full_name'] ?? 'Joshua Sierra';
-$employeeId = $_SESSION['employee_id'] ?? 'SYS--ADMIN-2011';
-$role = $_SESSION['role'] ?? 'System Admin';
-$roleDescription = $_SESSION['role_description'] ?? 'admin';
+$fullName = $_SESSION['full_name'] ?? 'User';
+$employeeId = $_SESSION['employee_id'] ?? '';
+$role = $_SESSION['role'] ?? 'Employee';
+$roleDescription = $_SESSION['role_description'] ?? 'employee';
 
 // Display actual user role dynamically
-$displayRole = !empty($_SESSION['role']) ? $_SESSION['role'] : (!empty($_SESSION['role_description']) ? $_SESSION['role_description'] : 'System Admin');
+$displayRole = !empty($_SESSION['role']) ? $_SESSION['role'] : (!empty($_SESSION['role_description']) ? $_SESSION['role_description'] : 'Employee');
 
 // Generate initials from full name (e.g., "Joshua Sierra" -> "JS")
 $initials = '';

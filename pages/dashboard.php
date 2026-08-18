@@ -1,5 +1,21 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require_once __DIR__ . '/../config/paths.php';
+
+// Auto-restore session from active 12h/7d civentral_session cookie if PHP session expired
+if (empty($_SESSION['logged_in']) && !empty($_COOKIE['civentral_session'])) {
+    require_once __DIR__ . '/../app/services/SessionAuthService.php';
+    $authSvc = new SessionAuthService();
+    $authSvc->validateActiveToken($_COOKIE['civentral_session']);
+}
+
+if (empty($_SESSION['logged_in'])) {
+    $_SESSION['flash_error'] = 'Access Denied: Please log in to access the dashboard.';
+    header('Location: ' . site_url('login.php'));
+    exit;
+}
 
 require_once __DIR__ . '/../app/Models/ActivityLog.php';
 $activityLogModel = new ActivityLog();
@@ -655,30 +671,38 @@ $_fetchSupabaseTableData = function($tableName, array $filters = [], array $opti
     }
 };
 
-$_patientsDbRecords   = $_fetchSupabaseTableData('patients', [], ['limit' => 1000]);
-$_permitsDbRecords    = $_fetchSupabaseTableData('permits', [], ['limit' => 1000]);
-$_childDbRecords      = $_fetchSupabaseTableData('child_records', [], ['limit' => 1000]);
+$_patientsDbRecords      = $_fetchSupabaseTableData('patients', [], ['limit' => 1000]);
+$_consultationsDbRecords = $_fetchSupabaseTableData('consultations', [], ['limit' => 1000]);
+$_prescriptionsDbRecords = $_fetchSupabaseTableData('prescriptions', [], ['limit' => 1000]);
+$_permitsDbRecords       = $_fetchSupabaseTableData('permits', [], ['limit' => 1000]);
+$_inspectionsDbRecords   = $_fetchSupabaseTableData('inspections', [], ['limit' => 1000]);
+$_triageDbRecords        = $_fetchSupabaseTableData('triage', [], ['limit' => 1000]);
+$_childDbRecords         = $_fetchSupabaseTableData('child_records', [], ['limit' => 1000]);
 if (empty($_childDbRecords)) {
-    $_childDbRecords  = $_fetchSupabaseTableData('immunization_assessments', [], ['limit' => 1000]);
+    $_childDbRecords     = $_fetchSupabaseTableData('immunization_assessments', [], ['limit' => 1000]);
 }
-$_wastewaterDbRecords = $_fetchSupabaseTableData('septic_tank_requests', [], ['limit' => 1000]);
+$_wastewaterDbRecords    = $_fetchSupabaseTableData('septic_tank_requests', [], ['limit' => 1000]);
 if (empty($_wastewaterDbRecords)) {
     $_wastewaterDbRecords = $_fetchSupabaseTableData('services', [], ['limit' => 1000]);
 }
-$_survCasesDbRecords  = $_fetchSupabaseTableData('surveillance_cases', [], ['limit' => 1000]);
+$_survCasesDbRecords     = $_fetchSupabaseTableData('surveillance_cases', [], ['limit' => 1000]);
 
-// Dynamic Counts & Metrics from Supabase
-$_patientCountTotal = count($_patientsDbRecords);
-$_permitCountTotal  = count($_permitsDbRecords);
-$_pendingPermitsCount = count(array_filter($_permitsDbRecords, fn($p) => strcasecmp($p['status'] ?? '', 'Pending') === 0));
-$_childCountTotal   = count($_childDbRecords);
-$_wasteCountTotal   = count($_wastewaterDbRecords);
-$_survCountTotal    = count($_survCasesDbRecords);
-$_outbreakCountTotal = count(array_filter($_survCasesDbRecords, fn($c) => in_array(strtolower($c['status'] ?? ''), ['outbreak', 'critical', 'alert'])));
+// Dynamic Counts & Metrics strictly from Real Database
+$_patientCountTotal       = count($_patientsDbRecords);
+$_consultationCountTotal  = count($_consultationsDbRecords);
+$_prescriptionCountTotal  = count($_prescriptionsDbRecords);
+$_permitCountTotal        = count($_permitsDbRecords);
+$_pendingPermitsCount     = count(array_filter($_permitsDbRecords, fn($p) => strcasecmp($p['status'] ?? '', 'Pending') === 0));
+$_inspectionCountTotal    = count($_inspectionsDbRecords);
+$_triageCountTotal        = count($_triageDbRecords);
+$_childCountTotal         = count($_childDbRecords);
+$_wasteCountTotal         = count($_wastewaterDbRecords);
+$_survCountTotal          = count($_survCasesDbRecords);
+$_outbreakCountTotal      = count(array_filter($_survCasesDbRecords, fn($c) => in_array(strtolower($c['status'] ?? ''), ['outbreak', 'critical', 'alert'])));
 
 // Helper to calculate monthly growth badge % from Supabase created_at timestamp
-$_calcGrowthBadge = function(array $records, string $defaultBadge = '+12.5%') {
-    if (empty($records)) return $defaultBadge;
+$_calcGrowthBadge = function(array $records, string $defaultBadge = '0.0%') {
+    if (empty($records)) return '0.0%';
     $thisMonthStart = strtotime('first day of this month 00:00:00');
     $lastMonthStart = strtotime('first day of last month 00:00:00');
     $lastMonthEnd   = strtotime('last day of last month 23:59:59');
@@ -697,7 +721,7 @@ $_calcGrowthBadge = function(array $records, string $defaultBadge = '+12.5%') {
         }
     }
 
-    if ($thisMonthCount === 0 && $lastMonthCount === 0) return $defaultBadge;
+    if ($thisMonthCount === 0 && $lastMonthCount === 0) return '0.0%';
     if ($lastMonthCount === 0) {
         return $thisMonthCount > 0 ? '+100.0%' : '0.0%';
     }
@@ -708,18 +732,18 @@ $_calcGrowthBadge = function(array $records, string $defaultBadge = '+12.5%') {
 };
 
 // Helper to calculate circular SVG ring percentage & offset dynamically
-$_calcRingPctData = function(array $records, callable $filterFn = null, int $defaultPct = 84) {
+$_calcRingPctData = function(array $records, callable $filterFn = null, int $defaultPct = 0) {
     if (empty($records)) {
-        return ['pct' => $defaultPct . '%', 'offset' => (string)(100 - $defaultPct)];
+        return ['pct' => '0%', 'offset' => '100'];
     }
     if ($filterFn !== null) {
         $matched = count(array_filter($records, $filterFn));
         $total   = count($records);
-        $val = $total > 0 ? (int)round(($matched / $total) * 100) : $defaultPct;
+        $val = $total > 0 ? (int)round(($matched / $total) * 100) : 0;
     } else {
-        $val = (int)round((count($records) / max(count($records) + 5, 1)) * 100);
+        $val = 100;
     }
-    $val = max(1, min(100, $val));
+    $val = max(0, min(100, $val));
     return [
         'pct' => $val . '%',
         'offset' => (string)(100 - $val)
@@ -727,104 +751,110 @@ $_calcRingPctData = function(array $records, callable $filterFn = null, int $def
 };
 
 if ($_isHcRole) {
+    $_hcConsultData = $_calcRingPctData($_consultationsDbRecords);
+    $_hcTriageData  = $_calcRingPctData($_triageDbRecords);
+    $_hcPrescData   = $_calcRingPctData($_prescriptionsDbRecords);
+    $_hcSurvData    = $_calcRingPctData($_survCasesDbRecords);
+    $_hcPatientData = $_calcRingPctData($_patientsDbRecords);
+
     $kpiCards = [
         [
             'title' => 'Patients Served',
-            'value' => $_patientCountTotal > 0 ? number_format($_patientCountTotal) : '3,812',
-            'label' => 'Total Patients This Month',
-            'badge' => $_calcGrowthBadge($_patientsDbRecords, '+9.4%'),
+            'value' => number_format($_patientCountTotal),
+            'label' => 'Total Patients In System',
+            'badge' => $_calcGrowthBadge($_patientsDbRecords),
             'badge_bg' => 'bg-emerald-100 text-emerald-700',
             'sub' => 'vs last month',
             'url' => site_url('modules/healthservices/patients.php'),
             'icon' => 'fa-users',
             'color' => 'emerald-600',
             'border_color' => 'from-emerald-400 to-emerald-600',
-            'offset' => $_calcRingPctData($_patientsDbRecords, null, 92)['offset'],
-            'pct' => $_calcRingPctData($_patientsDbRecords, null, 92)['pct']
+            'offset' => $_hcPatientData['offset'],
+            'pct' => $_hcPatientData['pct']
         ],
         [
             'title' => 'Consultations',
-            'value' => '2,134',
+            'value' => number_format($_consultationCountTotal),
             'label' => 'Consultations Completed',
-            'badge' => '+6.7%',
+            'badge' => $_calcGrowthBadge($_consultationsDbRecords),
             'badge_bg' => 'bg-sky-100 text-sky-700',
-            'sub' => 'this month',
+            'sub' => 'completed consults',
             'url' => site_url('modules/healthservices/consultations.php'),
             'icon' => 'fa-stethoscope',
             'color' => 'sky-600',
             'border_color' => 'from-sky-400 to-sky-600',
-            'offset' => '12',
-            'pct' => '88%'
+            'offset' => $_hcConsultData['offset'],
+            'pct' => $_hcConsultData['pct']
         ],
         [
             'title' => 'Triage Visits',
-            'value' => '1,245',
+            'value' => number_format($_triageCountTotal),
             'label' => 'Patients Triaged',
-            'badge' => '+12.3%',
+            'badge' => $_calcGrowthBadge($_triageDbRecords),
             'badge_bg' => 'bg-emerald-100 text-emerald-700',
-            'sub' => 'vs last month',
+            'sub' => 'triaged queue',
             'url' => site_url('modules/healthservices/triage.php'),
             'icon' => 'fa-heart-pulse',
             'color' => 'amber-600',
             'border_color' => 'from-amber-400 to-amber-600',
-            'offset' => '10',
-            'pct' => '90%'
+            'offset' => $_hcTriageData['offset'],
+            'pct' => $_hcTriageData['pct']
         ],
         [
             'title' => 'Prescriptions Issued',
-            'value' => '489',
+            'value' => number_format($_prescriptionCountTotal),
             'label' => 'Prescriptions Dispensed',
-            'badge' => '+8.2%',
+            'badge' => $_calcGrowthBadge($_prescriptionsDbRecords),
             'badge_bg' => 'bg-emerald-100 text-emerald-700',
             'sub' => 'pharmacy fulfilled',
             'url' => site_url('modules/healthservices/prescriptions.php'),
             'icon' => 'fa-prescription-bottle',
             'color' => 'blue-600',
             'border_color' => 'from-blue-400 to-blue-600',
-            'offset' => '15',
-            'pct' => '85%'
+            'offset' => $_hcPrescData['offset'],
+            'pct' => $_hcPrescData['pct']
         ],
         [
             'title' => 'Health Surveillance',
-            'value' => $_survCountTotal > 0 ? number_format($_survCountTotal) : '234',
+            'value' => number_format($_survCountTotal),
             'label' => 'Active Case Reports',
-            'badge' => '166 resolved',
+            'badge' => $_survCountTotal > 0 ? ($_survCountTotal . ' active') : '0 active',
             'badge_bg' => 'bg-indigo-100 text-indigo-700',
             'sub' => 'disease monitoring',
             'url' => site_url('modules/surveillence/case_reports.php'),
             'icon' => 'fa-binoculars',
             'color' => 'indigo-600',
             'border_color' => 'from-indigo-400 to-indigo-600',
-            'offset' => '32',
-            'pct' => '68%'
+            'offset' => $_hcSurvData['offset'],
+            'pct' => $_hcSurvData['pct']
         ],
         [
             'title' => 'Real-time Alerts',
-            'value' => '1',
-            'label' => 'Outbreak Watch Alert',
-            'badge' => 'Critical Watch',
-            'badge_bg' => 'bg-rose-100 text-rose-700',
+            'value' => (string)$_outbreakCountTotal,
+            'label' => 'Outbreak Watch Alerts',
+            'badge' => $_outbreakCountTotal > 0 ? ($_outbreakCountTotal . ' Critical') : 'Normal',
+            'badge_bg' => $_outbreakCountTotal > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700',
             'sub' => 'immediate response',
             'url' => site_url('modules/surveillence/alerts.php'),
             'icon' => 'fa-bell',
             'color' => 'rose-600',
             'border_color' => 'from-rose-500 to-red-600',
-            'offset' => '5',
-            'pct' => '95%'
+            'offset' => $_outbreakCountTotal > 0 ? '5' : '100',
+            'pct' => $_outbreakCountTotal > 0 ? '100%' : '0%'
         ],
     ];
-}
-// Sanitation & Wastewater KPI cards
-elseif ($_isSanRole) {
-    $_sanRingData = $_calcRingPctData($_permitsDbRecords, fn($p) => in_array(strtolower($p['status'] ?? ''), ['approved', 'active', 'issued']), 100);
-    $_wasteRingData = $_calcRingPctData($_wastewaterDbRecords, fn($w) => in_array(strtolower($w['status'] ?? ''), ['completed', 'resolved', 'serviced']), 77);
+} elseif ($_isSanRole) {
+    $_sanRingData = $_calcRingPctData($_permitsDbRecords, fn($p) => in_array(strtolower($p['status'] ?? ''), ['approved', 'active', 'issued']));
+    $_inspRingData = $_calcRingPctData($_inspectionsDbRecords);
+    $_wasteRingData = $_calcRingPctData($_wastewaterDbRecords);
+
     $kpiCards = [
         [
             'title' => 'Sanitation Permits',
-            'value' => $_permitCountTotal > 0 ? number_format($_permitCountTotal) : '156',
+            'value' => number_format($_permitCountTotal),
             'label' => 'Active Permits Issued',
-            'badge' => $_pendingPermitsCount . ' pending',
-            'badge_bg' => 'bg-amber-100 text-amber-700',
+            'badge' => $_pendingPermitsCount > 0 ? ($_pendingPermitsCount . ' pending') : 'No pending',
+            'badge_bg' => $_pendingPermitsCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700',
             'sub' => $_sanRingData['pct'] . ' approval',
             'url' => site_url('modules/sanitation/permit_applications.php'),
             'icon' => 'fa-file-signature',
@@ -835,40 +865,40 @@ elseif ($_isSanRole) {
         ],
         [
             'title' => 'Field Inspections',
-            'value' => '89',
+            'value' => number_format($_inspectionCountTotal),
             'label' => 'Inspections Conducted',
-            'badge' => '12 today',
+            'badge' => $_calcGrowthBadge($_inspectionsDbRecords),
             'badge_bg' => 'bg-emerald-100 text-emerald-700',
             'sub' => 'sanitary compliance',
             'url' => site_url('modules/sanitation/inspections.php'),
             'icon' => 'fa-search',
             'color' => 'emerald-600',
             'border_color' => 'from-emerald-400 to-emerald-600',
-            'offset' => '10',
-            'pct' => '90%'
+            'offset' => $_inspRingData['offset'],
+            'pct' => $_inspRingData['pct']
         ],
         [
             'title' => 'Permit Renewals',
-            'value' => '42',
-            'label' => 'Renewals Processing',
-            'badge' => '5 due soon',
+            'value' => number_format($_permitCountTotal),
+            'label' => 'Total Permit Records',
+            'badge' => $_pendingPermitsCount > 0 ? ($_pendingPermitsCount . ' pending') : 'No pending',
             'badge_bg' => 'bg-blue-100 text-blue-700',
             'sub' => 'annual renewal',
             'url' => site_url('modules/sanitation/renewals.php'),
             'icon' => 'fa-rotate',
             'color' => 'blue-600',
             'border_color' => 'from-blue-400 to-blue-600',
-            'offset' => '18',
-            'pct' => '82%'
+            'offset' => $_sanRingData['offset'],
+            'pct' => $_sanRingData['pct']
         ],
         [
             'title' => 'Wastewater Requests',
-            'value' => $_wasteCountTotal > 0 ? number_format($_wasteCountTotal) : '23',
-            'label' => 'Desludging Requests',
-            'badge' => $_calcGrowthBadge($_wastewaterDbRecords, '+5.0%'),
-            'badge_bg' => 'bg-purple-100 text-purple-700',
-            'sub' => 'vs last month',
-            'url' => site_url('modules/services/service_requests.php'),
+            'value' => number_format($_wasteCountTotal),
+            'label' => 'Septic Tank Services',
+            'badge' => $_calcGrowthBadge($_wastewaterDbRecords),
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'service requests',
+            'url' => site_url('modules/services/septic_tanks.php'),
             'icon' => 'fa-water',
             'color' => 'purple-600',
             'border_color' => 'from-purple-400 to-purple-600',
@@ -876,46 +906,44 @@ elseif ($_isSanRole) {
             'pct' => $_wasteRingData['pct']
         ],
         [
-            'title' => 'Septic Registry',
-            'value' => '1,284',
-            'label' => 'Registered Tanks',
-            'badge' => '+4.1%',
+            'title' => 'Sanitation Complaints',
+            'value' => '0',
+            'label' => 'Public Sanitation Reports',
+            'badge' => '0 pending',
             'badge_bg' => 'bg-emerald-100 text-emerald-700',
-            'sub' => 'total recorded',
-            'url' => site_url('modules/services/septic_tanks.php'),
-            'icon' => 'fa-flask',
-            'color' => 'indigo-600',
-            'border_color' => 'from-indigo-400 to-indigo-600',
-            'offset' => '8',
-            'pct' => '92%'
-        ],
-        [
-            'title' => 'Compliance Violations',
-            'value' => '5',
-            'label' => 'Corrective Action Orders',
-            'badge' => '2 unresolved',
-            'badge_bg' => 'bg-rose-100 text-rose-700',
-            'sub' => 'enforcement active',
-            'url' => site_url('pages/compliance_monitoring.php'),
-            'icon' => 'fa-gavel',
+            'sub' => 'field investigation',
+            'url' => site_url('modules/sanitation/inspections.php'),
+            'icon' => 'fa-triangle-exclamation',
             'color' => 'rose-600',
             'border_color' => 'from-rose-400 to-rose-600',
-            'offset' => '20',
-            'pct' => '80%'
+            'offset' => '100',
+            'pct' => '0%'
+        ],
+        [
+            'title' => 'Establishment Audit',
+            'value' => number_format($_permitCountTotal),
+            'label' => 'Commercial Audits',
+            'badge' => $_permitCountTotal > 0 ? ($_permitCountTotal . ' audited') : '0 audited',
+            'badge_bg' => 'bg-teal-100 text-teal-700',
+            'sub' => 'compliance monitoring',
+            'url' => site_url('modules/sanitation/inspections.php'),
+            'icon' => 'fa-building-circle-check',
+            'color' => 'teal-600',
+            'border_color' => 'from-teal-400 to-teal-600',
+            'offset' => $_sanRingData['offset'],
+            'pct' => $_sanRingData['pct']
         ],
     ];
-}
-// Immunization & Nutrition KPI cards
-elseif ($_isImmRole) {
-    $_immRingData = $_calcRingPctData($_childDbRecords, fn($c) => in_array(strtolower($c['status'] ?? ''), ['completed', 'fully_immunized', 'active']), 92);
+} elseif ($_isImmRole) {
+    $_immRingData = $_calcRingPctData($_childDbRecords);
     $kpiCards = [
         [
-            'title' => 'Immunized Children',
-            'value' => $_childCountTotal > 0 ? number_format($_childCountTotal) : '1,924',
-            'label' => 'Total Immunizations',
-            'badge' => $_immRingData['pct'] . ' coverage',
-            'badge_bg' => 'bg-blue-100 text-blue-700',
-            'sub' => 'vs last month',
+            'title' => 'Child Immunization',
+            'value' => number_format($_childCountTotal),
+            'label' => 'Children Enrolled',
+            'badge' => $_calcGrowthBadge($_childDbRecords),
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'health coverage',
             'url' => site_url('modules/immunization/child_records.php'),
             'icon' => 'fa-syringe',
             'color' => 'blue-600',
@@ -924,86 +952,84 @@ elseif ($_isImmRole) {
             'pct' => $_immRingData['pct']
         ],
         [
-            'title' => 'Growth Monitoring',
-            'value' => '842',
-            'label' => 'Children Assessed',
-            'badge' => '+5.2%',
-            'badge_bg' => 'bg-emerald-100 text-emerald-700',
-            'sub' => 'active records',
-            'url' => site_url('modules/immunization/growth_monitoring.php'),
-            'icon' => 'fa-weight-scale',
-            'color' => 'emerald-600',
-            'border_color' => 'from-emerald-400 to-emerald-600',
-            'offset' => '12',
-            'pct' => '88%'
-        ],
-        [
-            'title' => 'Vaccine Stock',
-            'value' => '3,450',
-            'label' => 'Doses in Inventory',
-            'badge' => '2 low stock',
-            'badge_bg' => 'bg-rose-100 text-rose-700',
+            'title' => 'Vaccine Inventory',
+            'value' => '0',
+            'label' => 'Doses in Stock',
+            'badge' => '0 low stock',
+            'badge_bg' => 'bg-slate-100 text-slate-600',
             'sub' => 'cold chain active',
             'url' => site_url('modules/immunization/vaccine_inventory.php'),
             'icon' => 'fa-vial-circle-check',
             'color' => 'purple-600',
             'border_color' => 'from-purple-400 to-purple-600',
-            'offset' => '15',
-            'pct' => '85%'
+            'offset' => '100',
+            'pct' => '0%'
         ],
         [
             'title' => 'Nutrition Alerts',
-            'value' => '18',
+            'value' => '0',
             'label' => 'Malnutrition Cases',
-            'badge' => '4 critical',
-            'badge_bg' => 'bg-amber-100 text-amber-700',
+            'badge' => '0 critical',
+            'badge_bg' => 'bg-slate-100 text-slate-600',
             'sub' => 'under surveillance',
             'url' => site_url('modules/immunization/nutrition_records.php'),
             'icon' => 'fa-apple-whole',
             'color' => 'amber-600',
             'border_color' => 'from-amber-400 to-amber-600',
-            'offset' => '20',
-            'pct' => '80%'
+            'offset' => '100',
+            'pct' => '0%'
         ],
         [
             'title' => 'Defaulter Tracing',
-            'value' => '34',
+            'value' => '0',
             'label' => 'Missed Second Doses',
-            'badge' => '12 contacted',
-            'badge_bg' => 'bg-teal-100 text-teal-700',
+            'badge' => '0 pending',
+            'badge_bg' => 'bg-slate-100 text-slate-600',
             'sub' => 'follow-up pending',
             'url' => site_url('modules/immunization/defaulter_tracking.php'),
             'icon' => 'fa-user-clock',
             'color' => 'teal-600',
             'border_color' => 'from-teal-400 to-teal-600',
-            'offset' => '10',
-            'pct' => '90%'
+            'offset' => '100',
+            'pct' => '0%'
         ],
         [
             'title' => 'Target Coverage',
-            'value' => '94.8%',
+            'value' => $_immRingData['pct'],
             'label' => 'Barangay Target',
-            'badge' => 'On Track',
-            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'badge' => $_childCountTotal > 0 ? 'Active' : 'No Data',
+            'badge_bg' => $_childCountTotal > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600',
             'sub' => 'annual goal',
             'url' => site_url('modules/immunization/coverage_reports.php'),
             'icon' => 'fa-bullseye',
             'color' => 'indigo-600',
             'border_color' => 'from-indigo-400 to-indigo-600',
-            'offset' => '5',
-            'pct' => '95%'
+            'offset' => $_immRingData['offset'],
+            'pct' => $_immRingData['pct']
+        ],
+        [
+            'title' => 'Immunization Sessions',
+            'value' => number_format($_childCountTotal),
+            'label' => 'Completed Sessions',
+            'badge' => $_calcGrowthBadge($_childDbRecords),
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'this month',
+            'url' => site_url('modules/immunization/child_records.php'),
+            'icon' => 'fa-calendar-check',
+            'color' => 'sky-600',
+            'border_color' => 'from-sky-400 to-sky-600',
+            'offset' => $_immRingData['offset'],
+            'pct' => $_immRingData['pct']
         ],
     ];
-}
-// Health Surveillance Lead KPI cards
-elseif ($_isSurvRole) {
-    $_survResData = $_calcRingPctData($_survCasesDbRecords, fn($s) => strcasecmp($s['status'] ?? '', 'Resolved') === 0, 68);
+} elseif ($_isSurvRole) {
+    $_survResData = $_calcRingPctData($_survCasesDbRecords);
     $kpiCards = [
         [
             'title' => 'Active Cases',
-            'value' => $_survCountTotal > 0 ? number_format($_survCountTotal) : '234',
+            'value' => number_format($_survCountTotal),
             'label' => 'Cases Under Monitoring',
-            'badge' => $_calcGrowthBadge($_survCasesDbRecords, '+12.3%'),
+            'badge' => $_calcGrowthBadge($_survCasesDbRecords),
             'badge_bg' => 'bg-rose-100 text-rose-700',
             'sub' => 'vs last month',
             'url' => site_url('modules/surveillence/case_reports.php'),
@@ -1015,100 +1041,96 @@ elseif ($_isSurvRole) {
         ],
         [
             'title' => 'Outbreak Alerts',
-            'value' => $_outbreakCountTotal > 0 ? (string)$_outbreakCountTotal : '3',
+            'value' => (string)$_outbreakCountTotal,
             'label' => 'Active Outbreak Watches',
-            'badge' => '1 Critical',
-            'badge_bg' => 'bg-red-100 text-red-700',
+            'badge' => $_outbreakCountTotal > 0 ? ($_outbreakCountTotal . ' Critical') : '0 Critical',
+            'badge_bg' => $_outbreakCountTotal > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600',
             'sub' => 'immediate response',
             'url' => site_url('modules/surveillence/alerts.php'),
             'icon' => 'fa-bell',
             'color' => 'red-600',
             'border_color' => 'from-red-400 to-red-600',
-            'offset' => '8',
-            'pct' => '92%'
+            'offset' => $_outbreakCountTotal > 0 ? '8' : '100',
+            'pct' => $_outbreakCountTotal > 0 ? '100%' : '0%'
         ],
         [
             'title' => 'Investigations',
-            'value' => '47',
+            'value' => number_format($_survCountTotal),
             'label' => 'Active Field Investigations',
-            'badge' => '15 new',
+            'badge' => $_survCountTotal . ' active',
             'badge_bg' => 'bg-amber-100 text-amber-700',
-            'sub' => 'this week',
+            'sub' => 'field cases',
             'url' => site_url('modules/surveillence/investigations.php'),
             'icon' => 'fa-magnifying-glass',
             'color' => 'amber-600',
             'border_color' => 'from-amber-400 to-amber-600',
-            'offset' => '10',
-            'pct' => '90%'
+            'offset' => $_survResData['offset'],
+            'pct' => $_survResData['pct']
         ],
         [
             'title' => 'Lab Results',
-            'value' => '89',
+            'value' => '0',
             'label' => 'Pending Lab Confirmations',
-            'badge' => '23 urgent',
-            'badge_bg' => 'bg-blue-100 text-blue-700',
+            'badge' => '0 urgent',
+            'badge_bg' => 'bg-slate-100 text-slate-600',
             'sub' => 'awaiting results',
             'url' => site_url('modules/surveillence/lab_results.php'),
             'icon' => 'fa-flask-vial',
             'color' => 'blue-600',
             'border_color' => 'from-blue-400 to-blue-600',
-            'offset' => '15',
-            'pct' => '85%'
+            'offset' => '100',
+            'pct' => '0%'
         ],
         [
             'title' => 'Contact Tracing',
-            'value' => '412',
+            'value' => '0',
             'label' => 'Contacts Tracked',
-            'badge' => '94% reached',
-            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'badge' => '0 reached',
+            'badge_bg' => 'bg-slate-100 text-slate-600',
             'sub' => 'active monitoring',
             'url' => site_url('modules/surveillence/contact_tracing.php'),
             'icon' => 'fa-people-arrows',
             'color' => 'emerald-600',
             'border_color' => 'from-emerald-400 to-emerald-600',
-            'offset' => '6',
-            'pct' => '94%'
+            'offset' => '100',
+            'pct' => '0%'
         ],
         [
             'title' => 'Reports Filed',
-            'value' => '156',
-            'label' => 'Epi Reports This Month',
-            'badge' => '+8.2%',
+            'value' => number_format($_survCountTotal),
+            'label' => 'Epi Reports Filed',
+            'badge' => $_calcGrowthBadge($_survCasesDbRecords),
             'badge_bg' => 'bg-purple-100 text-purple-700',
             'sub' => 'epidemiological data',
             'url' => site_url('modules/surveillence/reports.php'),
             'icon' => 'fa-file-medical',
             'color' => 'purple-600',
             'border_color' => 'from-purple-400 to-purple-600',
-            'offset' => '12',
-            'pct' => '88%'
+            'offset' => $_survResData['offset'],
+            'pct' => $_survResData['pct']
         ],
     ];
-}
-// Default system overview cards (Admin / System-wide)
-else {
-    $hcValFormatted = $_patientCountTotal > 0 ? number_format($_patientCountTotal) : '1,847';
-    $sanValFormatted = $_permitCountTotal > 0 ? number_format($_permitCountTotal) : '156';
-    $pendingBadgeText = $_pendingPermitsCount . ' pending';
-    $pendingBadgeBg = 'bg-amber-100 text-amber-700';
-    $immValFormatted = $_childCountTotal > 0 ? number_format($_childCountTotal) : '1,924';
-    $wasteValFormatted = $_wasteCountTotal > 0 ? number_format($_wasteCountTotal) : '23';
-    $survValFormatted = $_survCountTotal > 0 ? number_format($_survCountTotal) : '234';
-    $outbreakBadgeText = $_outbreakCountTotal > 0 ? ($_outbreakCountTotal . ' outbreak') : '1 outbreak';
+} else {
+    $hcValFormatted = number_format($_patientCountTotal);
+    $sanValFormatted = number_format($_permitCountTotal);
+    $pendingBadgeText = $_pendingPermitsCount > 0 ? ($_pendingPermitsCount . ' pending') : 'No pending';
+    $pendingBadgeBg = $_pendingPermitsCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+    $immValFormatted = number_format($_childCountTotal);
+    $wasteValFormatted = number_format($_wasteCountTotal);
+    $survValFormatted = number_format($_survCountTotal);
+    $outbreakBadgeText = $_outbreakCountTotal > 0 ? ($_outbreakCountTotal . ' outbreak') : '0 outbreak';
     $logsTotalCount = count($allDashboardLogs);
-    $logsSubText = $logsTotalCount > 0 ? ($logsTotalCount . ' logs rec.') : '199d uptime';
+    $logsSubText = $logsTotalCount . ' logs rec.';
 
-    // Dynamic ring percent & offsets
-    $_hcRingData    = $_calcRingPctData($_patientsDbRecords, null, 84);
-    $_sanRingData   = $_calcRingPctData($_permitsDbRecords, fn($p) => in_array(strtolower($p['status'] ?? ''), ['approved', 'active', 'issued']), 100);
-    $_immRingData   = $_calcRingPctData($_childDbRecords, fn($c) => in_array(strtolower($c['status'] ?? ''), ['completed', 'fully_immunized', 'active']), 92);
-    $_wasteRingData = $_calcRingPctData($_wastewaterDbRecords, fn($w) => in_array(strtolower($w['status'] ?? ''), ['completed', 'resolved', 'serviced']), 77);
-    $_survRingData  = $_calcRingPctData($_survCasesDbRecords, fn($s) => strcasecmp($s['status'] ?? '', 'Resolved') === 0, 68);
-    $_sysRingData   = $_calcRingPctData($allDashboardLogs, null, 99);
+    $_hcRingData    = $_calcRingPctData($_patientsDbRecords);
+    $_sanRingData   = $_calcRingPctData($_permitsDbRecords, fn($p) => in_array(strtolower($p['status'] ?? ''), ['approved', 'active', 'issued']));
+    $_immRingData   = $_calcRingPctData($_childDbRecords);
+    $_wasteRingData = $_calcRingPctData($_wastewaterDbRecords);
+    $_survRingData  = $_calcRingPctData($_survCasesDbRecords);
+    $_sysRingData   = $_calcRingPctData($allDashboardLogs);
 
-    // Dynamic monthly growth badges
-    $_hcGrowthBadge    = $_calcGrowthBadge($_patientsDbRecords, '+12.5%');
-    $_wasteGrowthBadge = $_calcGrowthBadge($_wastewaterDbRecords, '+5.0%');
+    $_hcGrowthBadge    = $_calcGrowthBadge($_patientsDbRecords);
+    $_wasteGrowthBadge = $_calcGrowthBadge($_wastewaterDbRecords);
 
     $kpiCards = [
         [
@@ -1143,8 +1165,8 @@ else {
             'title' => 'Immunization',
             'value' => $immValFormatted,
             'label' => 'Immunized',
-            'badge' => '2 low stock',
-            'badge_bg' => 'bg-rose-100 text-rose-700',
+            'badge' => $_childCountTotal > 0 ? 'Active' : '0 records',
+            'badge_bg' => $_childCountTotal > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600',
             'sub' => $_immRingData['pct'] . ' coverage',
             'url' => site_url('modules/immunization/child_records.php'),
             'icon' => 'fa-syringe',
@@ -1172,7 +1194,7 @@ else {
             'value' => $survValFormatted,
             'label' => 'Active Cases',
             'badge' => $outbreakBadgeText,
-            'badge_bg' => 'bg-rose-100 text-rose-700',
+            'badge_bg' => $_outbreakCountTotal > 0 ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600',
             'sub' => $_survRingData['pct'] . ' resolved',
             'url' => site_url('modules/surveillence/case_reports.php'),
             'icon' => 'fa-binoculars',
@@ -1182,9 +1204,9 @@ else {
             'pct' => $_survRingData['pct']
         ],
         [
-            'title' => 'System Uptime',
-            'value' => '99.97%',
-            'label' => 'Running Smoothly',
+            'title' => 'System Activity',
+            'value' => number_format($logsTotalCount),
+            'label' => 'Logs Recorded',
             'badge' => 'Operational',
             'badge_bg' => 'bg-emerald-100 text-emerald-700',
             'sub' => $logsSubText,
@@ -1274,75 +1296,75 @@ else {
                         'icon' => 'fa-users',
                         'color' => 'emerald-600',
                         'bg' => 'bg-emerald-50',
-                        'total' => '1,847 registered',
-                        'today' => '125 today',
-                        'pct' => '84%',
+                        'total' => number_format($_patientCountTotal) . ' registered',
+                        'today' => count(array_filter($_patientsDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_patientCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-emerald-500',
-                        'badge' => 'Healthy',
-                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                        'stat1' => '12 pending vitals',
-                        'stat2' => '342 consults',
-                        'bar_width' => '84%'
+                        'badge' => $_patientCountTotal > 0 ? 'Active' : 'No Data',
+                        'badge_bg' => $_patientCountTotal > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600',
+                        'stat1' => $_patientCountTotal . ' total patients',
+                        'stat2' => $_consultationCountTotal . ' consults',
+                        'bar_width' => ($_patientCountTotal > 0 ? '100' : '0') . '%'
                     ],
                     [
                         'name' => 'Medical Consultations',
                         'icon' => 'fa-stethoscope',
                         'color' => 'teal-600',
                         'bg' => 'bg-teal-50',
-                        'total' => '342 completed',
-                        'today' => '34 active today',
-                        'pct' => '88%',
+                        'total' => number_format($_consultationCountTotal) . ' completed',
+                        'today' => count(array_filter($_consultationsDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_consultationCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-teal-500',
-                        'badge' => 'Active Queue',
-                        'badge_bg' => 'bg-teal-100 text-teal-700',
-                        'stat1' => '5 waiting rooms',
-                        'stat2' => '5 doctors duty',
-                        'bar_width' => '88%'
+                        'badge' => $_consultationCountTotal > 0 ? 'Active Queue' : 'Empty Queue',
+                        'badge_bg' => $_consultationCountTotal > 0 ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-600',
+                        'stat1' => $_triageCountTotal . ' triage queue',
+                        'stat2' => $_consultationCountTotal . ' total consults',
+                        'bar_width' => ($_consultationCountTotal > 0 ? '100' : '0') . '%'
                     ],
                     [
                         'name' => 'Triage & Screenings',
                         'icon' => 'fa-heart-pulse',
                         'color' => 'amber-600',
                         'bg' => 'bg-amber-50',
-                        'total' => '125 screened',
-                        'today' => '2 emergency P1',
-                        'pct' => '90%',
+                        'total' => number_format($_triageCountTotal) . ' screened',
+                        'today' => count(array_filter($_triageDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_triageCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-amber-500',
-                        'badge' => 'Priority Active',
-                        'badge_bg' => 'bg-amber-100 text-amber-700',
-                        'stat1' => '2 P1 emergency',
-                        'stat2' => '5 P2 urgent',
-                        'bar_width' => '90%'
+                        'badge' => $_triageCountTotal > 0 ? 'Priority Active' : 'Clear Queue',
+                        'badge_bg' => $_triageCountTotal > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600',
+                        'stat1' => $_triageCountTotal . ' in queue',
+                        'stat2' => $_patientCountTotal . ' screened',
+                        'bar_width' => ($_triageCountTotal > 0 ? '100' : '0') . '%'
                     ],
                     [
                         'name' => 'Prescriptions & Pharmacy',
                         'icon' => 'fa-prescription-bottle',
                         'color' => 'blue-600',
                         'bg' => 'bg-blue-50',
-                        'total' => '489 dispensed',
-                        'today' => '42 fulfilled today',
-                        'pct' => '85%',
+                        'total' => number_format($_prescriptionCountTotal) . ' dispensed',
+                        'today' => count(array_filter($_prescriptionsDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_prescriptionCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-blue-500',
-                        'badge' => 'Stock Normal',
-                        'badge_bg' => 'bg-blue-100 text-blue-700',
-                        'stat1' => '12 reorder alerts',
-                        'stat2' => '92% fulfilled',
-                        'bar_width' => '85%'
+                        'badge' => $_prescriptionCountTotal > 0 ? 'Active' : 'No Orders',
+                        'badge_bg' => $_prescriptionCountTotal > 0 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600',
+                        'stat1' => $_prescriptionCountTotal . ' active orders',
+                        'stat2' => '100% fulfilled',
+                        'bar_width' => ($_prescriptionCountTotal > 0 ? '100' : '0') . '%'
                     ],
                     [
                         'name' => 'Disease Surveillance',
                         'icon' => 'fa-binoculars',
                         'color' => 'rose-600',
                         'bg' => 'bg-rose-50',
-                        'total' => '234 cases',
-                        'today' => '71 monitoring',
-                        'pct' => '68%',
+                        'total' => number_format($_survCountTotal) . ' cases',
+                        'today' => $_outbreakCountTotal . ' alerts',
+                        'pct' => ($_survCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-rose-500',
-                        'badge' => 'Critical Watch',
-                        'badge_bg' => 'bg-rose-100 text-rose-700',
-                        'stat1' => '1 outbreak watch',
-                        'stat2' => '166 resolved',
-                        'bar_width' => '68%'
+                        'badge' => $_survCountTotal > 0 ? 'Monitoring' : 'Normal',
+                        'badge_bg' => $_survCountTotal > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700',
+                        'stat1' => $_outbreakCountTotal . ' outbreak watch',
+                        'stat2' => $_survCountTotal . ' total cases',
+                        'bar_width' => ($_survCountTotal > 0 ? '100' : '0') . '%'
                     ]
                 ];
             } elseif ($_isSanRole) {
@@ -1352,201 +1374,45 @@ else {
                         'icon' => 'fa-file-signature',
                         'color' => 'amber-600',
                         'bg' => 'bg-amber-50',
-                        'total' => '156 active',
-                        'today' => '86 today',
-                        'pct' => '87%',
+                        'total' => number_format($_permitCountTotal) . ' active',
+                        'today' => count(array_filter($_permitsDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_permitCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-amber-500',
-                        'badge' => 'Attention',
-                        'badge_bg' => 'bg-amber-100 text-amber-700',
-                        'stat1' => '3 pending',
-                        'stat2' => '89 inspections',
-                        'bar_width' => '87%'
+                        'badge' => $_pendingPermitsCount > 0 ? ($_pendingPermitsCount . ' Pending') : 'Up to Date',
+                        'badge_bg' => $_pendingPermitsCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700',
+                        'stat1' => $_pendingPermitsCount . ' pending approval',
+                        'stat2' => $_inspectionCountTotal . ' inspections',
+                        'bar_width' => ($_permitCountTotal > 0 ? '100' : '0') . '%'
                     ],
                     [
                         'name' => 'Field Inspections',
                         'icon' => 'fa-search',
                         'color' => 'emerald-600',
                         'bg' => 'bg-emerald-50',
-                        'total' => '89 completed',
-                        'today' => '12 today',
-                        'pct' => '90%',
+                        'total' => number_format($_inspectionCountTotal) . ' completed',
+                        'today' => count(array_filter($_inspectionsDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_inspectionCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-emerald-500',
-                        'badge' => 'Compliant',
-                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                        'stat1' => '2 follow-ups',
-                        'stat2' => '87 passing',
-                        'bar_width' => '90%'
-                    ],
-                    [
-                        'name' => 'Permit Renewals',
-                        'icon' => 'fa-rotate',
-                        'color' => 'blue-600',
-                        'bg' => 'bg-blue-50',
-                        'total' => '42 renewals',
-                        'today' => '15 today',
-                        'pct' => '82%',
-                        'bar' => 'bg-blue-500',
-                        'badge' => 'Processing',
-                        'badge_bg' => 'bg-blue-100 text-blue-700',
-                        'stat1' => '5 expiring',
-                        'stat2' => '37 approved',
-                        'bar_width' => '82%'
+                        'badge' => $_inspectionCountTotal > 0 ? 'Compliant' : 'No Data',
+                        'badge_bg' => $_inspectionCountTotal > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600',
+                        'stat1' => $_inspectionCountTotal . ' Total Inspections',
+                        'stat2' => $_permitCountTotal . ' Active Permits',
+                        'bar_width' => ($_inspectionCountTotal > 0 ? '100' : '0') . '%'
                     ],
                     [
                         'name' => 'Wastewater & Septic',
                         'icon' => 'fa-water',
                         'color' => 'purple-600',
                         'bg' => 'bg-purple-50',
-                        'total' => '23 requests',
-                        'today' => '42 today',
-                        'pct' => '77%',
+                        'total' => number_format($_wasteCountTotal) . ' requests',
+                        'today' => count(array_filter($_wastewaterDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_wasteCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-purple-500',
-                        'badge' => 'Healthy',
-                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                        'stat1' => '5 pending',
-                        'stat2' => '1,284 tanks',
-                        'bar_width' => '77%'
-                    ],
-                    [
-                        'name' => 'Regulatory Compliance',
-                        'icon' => 'fa-gavel',
-                        'color' => 'rose-600',
-                        'bg' => 'bg-rose-50',
-                        'total' => '5 orders',
-                        'today' => '1 today',
-                        'pct' => '80%',
-                        'bar' => 'bg-rose-500',
-                        'badge' => 'Enforcing',
-                        'badge_bg' => 'bg-rose-100 text-rose-700',
-                        'stat1' => '2 open',
-                        'stat2' => '3 corrected',
-                        'bar_width' => '80%'
-                    ]
-                ];
-            } elseif ($_isSurvRole) {
-                $moduleSummaryCards = [
-                    [
-                        'name' => 'Disease Surveillance',
-                        'icon' => 'fa-binoculars',
-                        'color' => 'rose-600',
-                        'bg' => 'bg-rose-50',
-                        'total' => '234 active cases',
-                        'today' => '71 monitoring',
-                        'pct' => '68%',
-                        'bar' => 'bg-rose-500',
-                        'badge' => 'Active',
-                        'badge_bg' => 'bg-rose-100 text-rose-700',
-                        'stat1' => '1 outbreak watch',
-                        'stat2' => '166 resolved',
-                        'bar_width' => '68%'
-                    ],
-                    [
-                        'name' => 'Field Investigations',
-                        'icon' => 'fa-magnifying-glass',
-                        'color' => 'amber-600',
-                        'bg' => 'bg-amber-50',
-                        'total' => '47 ongoing',
-                        'today' => '15 new this week',
-                        'pct' => '72%',
-                        'bar' => 'bg-amber-500',
-                        'badge' => 'Priority',
-                        'badge_bg' => 'bg-amber-100 text-amber-700',
-                        'stat1' => '5 critical',
-                        'stat2' => '42 routine',
-                        'bar_width' => '72%'
-                    ],
-                    [
-                        'name' => 'Laboratory Network',
-                        'icon' => 'fa-flask-vial',
-                        'color' => 'blue-600',
-                        'bg' => 'bg-blue-50',
-                        'total' => '89 pending',
-                        'today' => '23 urgent tests',
-                        'pct' => '85%',
-                        'bar' => 'bg-blue-500',
-                        'badge' => 'Processing',
-                        'badge_bg' => 'bg-blue-100 text-blue-700',
-                        'stat1' => '3 labs active',
-                        'stat2' => '156 processed',
-                        'bar_width' => '85%'
-                    ],
-                    [
-                        'name' => 'Contact Tracing',
-                        'icon' => 'fa-people-arrows',
-                        'color' => 'emerald-600',
-                        'bg' => 'bg-emerald-50',
-                        'total' => '412 contacts',
-                        'today' => '388 reached',
-                        'pct' => '94%',
-                        'bar' => 'bg-emerald-500',
-                        'badge' => 'Effective',
-                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                        'stat1' => '24 unreachable',
-                        'stat2' => '12 tracers active',
-                        'bar_width' => '94%'
-                    ],
-                    [
-                        'name' => 'Epidemiological Reports',
-                        'icon' => 'fa-file-medical',
-                        'color' => 'purple-600',
-                        'bg' => 'bg-purple-50',
-                        'total' => '156 filed',
-                        'today' => '8 this week',
-                        'pct' => '88%',
-                        'bar' => 'bg-purple-500',
-                        'badge' => 'On Track',
-                        'badge_bg' => 'bg-purple-100 text-purple-700',
-                        'stat1' => '12 pending review',
-                        'stat2' => '144 approved',
-                        'bar_width' => '88%'
-                    ]
-                ];
-            } elseif ($_isImmRole) {
-                $moduleSummaryCards = [
-                    [
-                        'name' => 'Child Immunizations',
-                        'icon' => 'fa-syringe',
-                        'color' => 'blue-600',
-                        'bg' => 'bg-blue-50',
-                        'total' => '1,924 records',
-                        'today' => '42 today',
-                        'pct' => '92%',
-                        'bar' => 'bg-blue-500',
-                        'badge' => 'On Track',
-                        'badge_bg' => 'bg-blue-100 text-blue-700',
-                        'stat1' => '34 defaulters',
-                        'stat2' => '92% coverage',
-                        'bar_width' => '92%'
-                    ],
-                    [
-                        'name' => 'Growth & Nutrition',
-                        'icon' => 'fa-weight-scale',
-                        'color' => 'emerald-600',
-                        'bg' => 'bg-emerald-50',
-                        'total' => '842 children',
-                        'today' => '18 monitoring',
-                        'pct' => '88%',
-                        'bar' => 'bg-emerald-500',
-                        'badge' => 'Healthy',
-                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                        'stat1' => '4 critical malnutrition',
-                        'stat2' => '838 normal',
-                        'bar_width' => '88%'
-                    ],
-                    [
-                        'name' => 'Vaccine Stock Control',
-                        'icon' => 'fa-vial-circle-check',
-                        'color' => 'purple-600',
-                        'bg' => 'bg-purple-50',
-                        'total' => '3,450 doses',
-                        'today' => '2 reorders',
-                        'pct' => '85%',
-                        'bar' => 'bg-purple-500',
-                        'badge' => 'Sufficient',
-                        'badge_bg' => 'bg-purple-100 text-purple-700',
-                        'stat1' => '2 low stock alerts',
-                        'stat2' => 'Cold chain 2.8°C',
-                        'bar_width' => '85%'
+                        'badge' => $_wasteCountTotal > 0 ? 'Active' : 'Normal',
+                        'badge_bg' => $_wasteCountTotal > 0 ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700',
+                        'stat1' => $_wasteCountTotal . ' total requests',
+                        'stat2' => $_wasteCountTotal . ' serviced',
+                        'bar_width' => ($_wasteCountTotal > 0 ? '100' : '0') . '%'
                     ]
                 ];
             } else {
@@ -1556,75 +1422,75 @@ else {
                         'icon' => 'fa-hospital',
                         'color' => 'emerald-600',
                         'bg' => 'bg-emerald-50',
-                        'total' => '1,847 total',
-                        'today' => '125 today',
-                        'pct' => '84%',
+                        'total' => number_format($_patientCountTotal) . ' total',
+                        'today' => count(array_filter($_patientsDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_patientCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-emerald-500',
-                        'badge' => 'Healthy',
-                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                        'stat1' => '12 pending',
-                        'stat2' => '342 consults',
-                        'bar_width' => '84%'
+                        'badge' => $_patientCountTotal > 0 ? 'Active' : 'No Data',
+                        'badge_bg' => $_patientCountTotal > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600',
+                        'stat1' => $_patientCountTotal . ' patients',
+                        'stat2' => $_consultationCountTotal . ' consults',
+                        'bar_width' => ($_patientCountTotal > 0 ? '100' : '0') . '%'
                     ],
                     [
                         'name' => 'Sanitation Permit',
                         'icon' => 'fa-clipboard-check',
                         'color' => 'amber-600',
                         'bg' => 'bg-amber-50',
-                        'total' => '156 total',
-                        'today' => '86 today',
-                        'pct' => '87%',
+                        'total' => number_format($_permitCountTotal) . ' total',
+                        'today' => count(array_filter($_permitsDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_permitCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-amber-500',
-                        'badge' => 'Attention',
-                        'badge_bg' => 'bg-amber-100 text-amber-700',
-                        'stat1' => '3 pending',
-                        'stat2' => '89 inspections',
-                        'bar_width' => '87%'
+                        'badge' => $_pendingPermitsCount > 0 ? ($_pendingPermitsCount . ' Pending') : 'Normal',
+                        'badge_bg' => $_pendingPermitsCount > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700',
+                        'stat1' => $_pendingPermitsCount . ' pending',
+                        'stat2' => $_inspectionCountTotal . ' inspections',
+                        'bar_width' => ($_permitCountTotal > 0 ? '100' : '0') . '%'
                     ],
                     [
                         'name' => 'Immunization Tracker',
                         'icon' => 'fa-syringe',
                         'color' => 'blue-600',
                         'bg' => 'bg-blue-50',
-                        'total' => '1,924 total',
-                        'today' => '104 today',
-                        'pct' => '92%',
+                        'total' => number_format($_childCountTotal) . ' total',
+                        'today' => count(array_filter($_childDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_childCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-blue-500',
-                        'badge' => 'Critical',
-                        'badge_bg' => 'bg-rose-100 text-rose-700',
-                        'stat1' => '2 low stock',
-                        'stat2' => '92% coverage',
-                        'bar_width' => '92%'
+                        'badge' => $_childCountTotal > 0 ? 'Active' : 'No Data',
+                        'badge_bg' => $_childCountTotal > 0 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600',
+                        'stat1' => $_childCountTotal . ' children',
+                        'stat2' => '100% recorded',
+                        'bar_width' => ($_childCountTotal > 0 ? '100' : '0') . '%'
                     ],
                     [
                         'name' => 'Wastewater Services',
                         'icon' => 'fa-water',
                         'color' => 'purple-600',
                         'bg' => 'bg-purple-50',
-                        'total' => '23 total',
-                        'today' => '42 today',
-                        'pct' => '77%',
+                        'total' => number_format($_wasteCountTotal) . ' total',
+                        'today' => count(array_filter($_wastewaterDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_wasteCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-purple-500',
-                        'badge' => 'Healthy',
-                        'badge_bg' => 'bg-emerald-100 text-emerald-700',
-                        'stat1' => '5 pending',
-                        'stat2' => '1,284 tanks',
-                        'bar_width' => '77%'
+                        'badge' => $_wasteCountTotal > 0 ? 'Active' : 'Normal',
+                        'badge_bg' => $_wasteCountTotal > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600',
+                        'stat1' => $_wasteCountTotal . ' requests',
+                        'stat2' => $_wasteCountTotal . ' serviced',
+                        'bar_width' => ($_wasteCountTotal > 0 ? '100' : '0') . '%'
                     ],
                     [
                         'name' => 'Health Surveillance',
                         'icon' => 'fa-binoculars',
                         'color' => 'rose-600',
                         'bg' => 'bg-rose-50',
-                        'total' => '234 total',
-                        'today' => '71 today',
-                        'pct' => '68%',
+                        'total' => number_format($_survCountTotal) . ' total',
+                        'today' => $_outbreakCountTotal . ' alerts',
+                        'pct' => ($_survCountTotal > 0 ? '100' : '0') . '%',
                         'bar' => 'bg-rose-500',
-                        'badge' => 'Critical',
-                        'badge_bg' => 'bg-rose-100 text-rose-700',
-                        'stat1' => '1 outbreak',
-                        'stat2' => '166 resolved',
-                        'bar_width' => '68%'
+                        'badge' => $_survCountTotal > 0 ? 'Monitoring' : 'Clear',
+                        'badge_bg' => $_survCountTotal > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700',
+                        'stat1' => $_outbreakCountTotal . ' outbreaks',
+                        'stat2' => $_survCountTotal . ' cases',
+                        'bar_width' => ($_survCountTotal > 0 ? '100' : '0') . '%'
                     ]
                 ];
             }
@@ -1684,71 +1550,37 @@ else {
             <!-- COLUMN 2: Announcements Board                               -->
             <!-- ============================================================ -->
             <div id="announcementsBoard" class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
-                <div class="flex items-center justify-between mb-3 flex-shrink-0">
+                <div class="flex items-center justify-between mb-3 flex-shrink-0 flex-wrap gap-2">
                     <div class="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                         <i class="fas fa-bullhorn text-c2 text-sm" aria-hidden="true"></i> Announcements Board
                         <span id="announcementsCountBadge" class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[9px] font-extrabold ml-1">
-                            3 Active
+                            0 Active
                         </span>
+                    </div>
+
+                    <!-- DATE RANGE & CATEGORY FILTERS -->
+                    <div class="flex items-center gap-1.5">
+                        <select id="announcementTimeRangeFilter" onchange="loadAnnouncements()" class="text-[10px] bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-2 py-1 focus:ring-1 focus:ring-c3 focus:border-transparent outline-none cursor-pointer font-semibold transition">
+                            <option value="all" selected>All Time</option>
+                            <option value="today">Today (24h)</option>
+                            <option value="7days">Last 7 Days</option>
+                            <option value="30days">Last 30 Days</option>
+                        </select>
+
+                        <select id="announcementCategoryFilter" onchange="loadAnnouncements()" class="text-[10px] bg-slate-50 border border-slate-200 text-slate-700 rounded-lg px-2 py-1 focus:ring-1 focus:ring-c3 focus:border-transparent outline-none cursor-pointer font-semibold transition">
+                            <option value="all" selected>All Categories</option>
+                            <option value="Urgent Advisory">Urgent Advisory</option>
+                            <option value="Operational Notice">Operational Notice</option>
+                            <option value="General Notice">General Notice</option>
+                            <option value="Emergency Alert">Emergency Alert</option>
+                        </select>
                     </div>
                 </div>
                 
                 <div id="announcementsList" class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scroll">
-
-                    <!-- Announcement 1: Urgent Health Advisory -->
-                    <div class="p-3 bg-red-50/70 border-l-4 border-red-500 rounded-xl transition hover:shadow-md">
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="flex items-center gap-1.5">
-                                <span class="px-1.5 py-0.5 bg-red-600 text-white rounded text-[7px] font-extrabold uppercase">Urgent Advisory</span>
-                                <h4 class="text-xs font-bold text-slate-800">Dengue Vector Control &amp; Fogging Schedule</h4>
-                            </div>
-                            <span class="text-[9px] text-slate-400 font-medium flex-shrink-0">Today, 9:00 AM</span>
-                        </div>
-                        <p class="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
-                            Intensified anti-dengue fogging operations scheduled for Brgy. San Jose and Brgy. 178 starting Saturday. All health officers proceed to designated zones.
-                        </p>
-                        <div class="mt-2.5 pt-2 border-t border-red-100 flex items-center justify-between text-[9px] text-slate-400 font-medium">
-                            <span class="flex items-center gap-1"><i class="fas fa-user-shield text-[8px] text-c2"></i> Posted by: Dr. Reyes (Surveillance Lead)</span>
-                            <span class="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[7px] font-bold">All Staff</span>
-                        </div>
+                    <div class="flex items-center justify-center h-32 text-xs text-slate-400 gap-2">
+                        <i class="fas fa-spinner fa-spin"></i> Loading live city health announcements...
                     </div>
-
-                    <!-- Announcement 2: Operational Notice -->
-                    <div class="p-3 bg-amber-50/70 border-l-4 border-amber-500 rounded-xl transition hover:shadow-md">
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="flex items-center gap-1.5">
-                                <span class="px-1.5 py-0.5 bg-amber-600 text-white rounded text-[7px] font-extrabold uppercase">Operational Notice</span>
-                                <h4 class="text-xs font-bold text-slate-800">Q3 Sanitation Permit Inspection Protocol</h4>
-                            </div>
-                            <span class="text-[9px] text-slate-400 font-medium flex-shrink-0">Yesterday</span>
-                        </div>
-                        <p class="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
-                            Updated sanitary clearance guidelines for food establishments take effect Monday. Ensure digital inspection forms are synced prior to field audit.
-                        </p>
-                        <div class="mt-2.5 pt-2 border-t border-amber-100 flex items-center justify-between text-[9px] text-slate-400 font-medium">
-                            <span class="flex items-center gap-1"><i class="fas fa-user-shield text-[8px] text-amber-600"></i> Posted by: Engr. Santos (Sanitation)</span>
-                            <span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[7px] font-bold">Sanitation Dept</span>
-                        </div>
-                    </div>
-
-                    <!-- Announcement 3: General Health Announcement -->
-                    <div class="p-3 bg-blue-50/70 border-l-4 border-blue-500 rounded-xl transition hover:shadow-md">
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="flex items-center gap-1.5">
-                                <span class="px-1.5 py-0.5 bg-blue-600 text-white rounded text-[7px] font-extrabold uppercase">General Notice</span>
-                                <h4 class="text-xs font-bold text-slate-800">Child Vaccination Drive Masterlist Submission</h4>
-                            </div>
-                            <span class="text-[9px] text-slate-400 font-medium flex-shrink-0">Aug 5, 2026</span>
-                        </div>
-                        <p class="text-[10px] text-slate-600 mt-1.5 leading-relaxed">
-                            Monthly immunization masterlists for zero-dose children must be uploaded by Friday 5:00 PM for inventory allocation.
-                        </p>
-                        <div class="mt-2.5 pt-2 border-t border-blue-100 flex items-center justify-between text-[9px] text-slate-400 font-medium">
-                            <span class="flex items-center gap-1"><i class="fas fa-user-shield text-[8px] text-blue-600"></i> Posted by: Nurse Cruz (Immunization)</span>
-                            <span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[7px] font-bold">Immunization</span>
-                        </div>
-                    </div>
-
                 </div>
             </div>
 
@@ -3377,12 +3209,18 @@ document.addEventListener('keydown', e => {
         <!-- MODAL FORM BODY -->
         <form id="postAnnouncementForm" onsubmit="handlePostAnnouncementSubmit(event)" class="p-5 space-y-4">
             
+            <!-- In-Modal Validation Error Banner -->
+            <div id="postAnnouncementErrorAlert" class="hidden p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
+                <i class="fas fa-exclamation-circle text-rose-500 flex-shrink-0"></i>
+                <span id="postAnnouncementErrorMessage">Please complete all required fields.</span>
+            </div>
+
             <!-- Title -->
             <div>
                 <label for="announcementTitle" class="block text-xs font-bold text-slate-700 mb-1">
                     Announcement Title <span class="text-rose-500">*</span>
                 </label>
-                <input type="text" id="announcementTitle" required
+                <input type="text" id="announcementTitle" name="title" required
                        placeholder="e.g., City-Wide Dengue Vector Control Schedule"
                        class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-c3 focus:border-transparent outline-none transition" />
             </div>
@@ -3393,7 +3231,7 @@ document.addEventListener('keydown', e => {
                     <label for="announcementCategory" class="block text-xs font-bold text-slate-700 mb-1">
                         Category / Priority <span class="text-rose-500">*</span>
                     </label>
-                    <select id="announcementCategory" required
+                    <select id="announcementCategory" name="category" required
                             class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-c3 focus:border-transparent outline-none transition bg-white">
                         <option value="Urgent Advisory">Urgent Advisory</option>
                         <option value="Operational Notice">Operational Notice</option>
@@ -3406,7 +3244,7 @@ document.addEventListener('keydown', e => {
                     <label for="announcementAudience" class="block text-xs font-bold text-slate-700 mb-1">
                         Target Audience <span class="text-rose-500">*</span>
                     </label>
-                    <select id="announcementAudience" required
+                    <select id="announcementAudience" name="audience" required
                             class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-c3 focus:border-transparent outline-none transition bg-white">
                         <option value="All Staff" selected>All Staff &amp; Departments</option>
                         <option value="Health Center">Health Center Staff</option>
@@ -3422,7 +3260,7 @@ document.addEventListener('keydown', e => {
                 <label for="announcementBody" class="block text-xs font-bold text-slate-700 mb-1">
                     Announcement Details / Message <span class="text-rose-500">*</span>
                 </label>
-                <textarea id="announcementBody" rows="4" required
+                <textarea id="announcementBody" name="body" rows="4" required
                           placeholder="Write complete announcement details, instructions, schedules, or guidelines..."
                           class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-c3 focus:border-transparent outline-none transition resize-none"></textarea>
             </div>
@@ -3436,10 +3274,21 @@ document.addEventListener('keydown', e => {
                     <i class="fas fa-cloud-arrow-up text-c2 text-lg mb-1"></i>
                     <p class="text-[10px] font-semibold text-slate-600">Click to upload official memo or flyer</p>
                     <p class="text-[8px] text-slate-400">PDF, PNG, JPG up to 5MB</p>
-                    <input type="file" id="announcementFile" class="hidden" accept="image/*,.pdf" onchange="previewAnnouncementFile(this)" />
+                    <input type="file" id="announcementFile" name="announcementFile" class="hidden" accept="image/*,.pdf" onchange="previewAnnouncementFile(this)" />
+                    <input type="hidden" id="announcementFileBase64" name="file_base64" />
                 </div>
-                <div id="filePreviewName" class="hidden mt-1.5 text-[10px] text-c3 font-semibold flex items-center gap-1">
-                    <i class="fas fa-paperclip text-[9px]"></i> <span id="fileNameText"></span>
+                
+                <!-- Live Image Upload Preview Box -->
+                <div id="filePreviewContainer" class="hidden mt-2 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div class="flex items-center justify-between mb-1.5 px-1">
+                        <span id="fileNameText" class="text-[10px] font-semibold text-slate-700 truncate max-w-[200px]"></span>
+                        <button type="button" onclick="removeAnnouncementFile()" class="text-rose-500 hover:text-rose-700 text-[10px] font-bold cursor-pointer">
+                            <i class="fas fa-times-circle"></i> Remove
+                        </button>
+                    </div>
+                    <div id="imagePreviewBox" class="hidden overflow-hidden rounded-lg border border-slate-200 max-h-36 bg-slate-900/5">
+                        <img id="imagePreviewImg" src="" alt="Upload Preview" class="w-full h-32 object-cover" />
+                    </div>
                 </div>
             </div>
 
@@ -3458,13 +3307,72 @@ document.addEventListener('keydown', e => {
     </div>
 </div>
 
+<!-- DELETE ANNOUNCEMENT CONFIRMATION MODAL -->
+<div id="deleteAnnouncementModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs hidden">
+    <div class="bg-white rounded-2xl p-5 max-w-xs w-full shadow-2xl border border-slate-100 transform transition-all animate-scaleUp">
+        <div class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3">
+            <i class="fas fa-trash-alt text-sm"></i>
+        </div>
+        <h3 class="text-xs font-bold text-slate-800 text-center">Delete Announcement?</h3>
+        <p class="text-[10px] text-slate-500 text-center mt-1 leading-relaxed">
+            Are you sure you want to delete this announcement? This action cannot be undone.
+        </p>
+        <div class="mt-4 flex items-center justify-end gap-2">
+            <button type="button" onclick="closeDeleteAnnouncementModal()" class="w-1/2 py-2 bg-slate-100 text-slate-600 font-semibold rounded-xl text-xs hover:bg-slate-200 transition cursor-pointer">
+                Cancel
+            </button>
+            <button type="button" id="confirmDeleteAnnouncementBtn" class="w-1/2 py-2 bg-rose-600 text-white font-bold rounded-xl text-xs hover:bg-rose-700 shadow-md transition cursor-pointer flex items-center justify-center gap-1">
+                <i class="fas fa-trash-alt text-xs"></i> Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ANNOUNCEMENT IMAGE ZOOM & FULLSCREEN LIGHTBOX MODAL -->
+<div id="imageZoomModal" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md hidden transition-all duration-300">
+    <!-- Header Controls Bar -->
+    <div class="w-full px-5 py-3 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between z-10 text-white shadow-md">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-image text-c2 text-sm"></i>
+            <span id="zoomModalTitle" class="text-xs font-bold truncate max-w-xs sm:max-w-md text-slate-200">Announcement Image Viewer</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="zoomOutImage()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition cursor-pointer text-xs" title="Zoom Out">
+                <i class="fas fa-minus"></i>
+            </button>
+            <span id="zoomLevelBadge" class="text-[10px] font-mono text-slate-300 px-1.5 font-bold">100%</span>
+            <button onclick="zoomInImage()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition cursor-pointer text-xs" title="Zoom In">
+                <i class="fas fa-plus"></i>
+            </button>
+            <button onclick="resetZoomImage()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer text-xs" title="Reset Zoom">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+            <button onclick="toggleFullscreenImage()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition cursor-pointer text-xs ml-1" title="Fullscreen Mode">
+                <i class="fas fa-expand"></i>
+            </button>
+            <button onclick="closeImageZoomModal()" class="w-8 h-8 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white flex items-center justify-center transition cursor-pointer text-xs ml-2" title="Close Viewer">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Image Viewport -->
+    <div id="zoomViewport" class="flex-1 w-full overflow-auto flex items-center justify-center p-4 cursor-grab active:cursor-grabbing select-none" onclick="closeImageZoomModalOnBg(event)">
+        <img id="zoomModalImage" src="" alt="Announcement Full Preview" class="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl transition-transform duration-150 ease-out" />
+    </div>
+</div>
+
 <script>
+let targetAnnouncementDeleteId = null;
+let currentZoomScale = 1;
+
 function openPostAnnouncementModal() {
     const modal = document.getElementById('postAnnouncementModal');
     if (modal) {
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
     }
+    hidePostAnnouncementError();
 }
 
 function closePostAnnouncementModal() {
@@ -3473,27 +3381,281 @@ function closePostAnnouncementModal() {
         modal.classList.add('hidden');
         document.body.style.overflow = '';
     }
+    hidePostAnnouncementError();
 }
 
-function previewAnnouncementFile(input) {
-    if (input.files && input.files[0]) {
-        document.getElementById('filePreviewName').classList.remove('hidden');
-        document.getElementById('fileNameText').textContent = input.files[0].name;
+function showPostAnnouncementError(message) {
+    const alert = document.getElementById('postAnnouncementErrorAlert');
+    const msgSpan = document.getElementById('postAnnouncementErrorMessage');
+    if (alert && msgSpan) {
+        msgSpan.textContent = message;
+        alert.classList.remove('hidden');
+    } else if (typeof showToast === 'function') {
+        showToast(message, 'error');
     }
 }
 
-function handlePostAnnouncementSubmit(e) {
-    e.preventDefault();
-    const title = document.getElementById('announcementTitle').value.trim();
-    const category = document.getElementById('announcementCategory').value;
-    const audience = document.getElementById('announcementAudience').value;
-    const body = document.getElementById('announcementBody').value.trim();
+function hidePostAnnouncementError() {
+    const alert = document.getElementById('postAnnouncementErrorAlert');
+    if (alert) alert.classList.add('hidden');
+}
 
-    if (!title || !body) return;
+function deleteAnnouncement(id) {
+    targetAnnouncementDeleteId = id;
+    const modal = document.getElementById('deleteAnnouncementModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+}
 
-    // Build UI Card Preview
+function closeDeleteAnnouncementModal() {
+    targetAnnouncementDeleteId = null;
+    const modal = document.getElementById('deleteAnnouncementModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+}
+
+function previewAnnouncementFile(input) {
+    const container = document.getElementById('filePreviewContainer');
+    const nameText = document.getElementById('fileNameText');
+    const imgBox = document.getElementById('imagePreviewBox');
+    const imgTag = document.getElementById('imagePreviewImg');
+    const base64Input = document.getElementById('announcementFileBase64');
+
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        if (nameText) nameText.textContent = file.name;
+        if (container) container.classList.remove('hidden');
+
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 1400;
+
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+                    if (base64Input) base64Input.value = compressedDataUrl;
+                    if (imgTag) imgTag.src = compressedDataUrl;
+                    if (imgBox) imgBox.classList.remove('hidden');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        } else {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (base64Input) base64Input.value = e.target.result;
+                if (imgBox) imgBox.classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+}
+
+function removeAnnouncementFile() {
+    const input = document.getElementById('announcementFile');
+    const container = document.getElementById('filePreviewContainer');
+    const imgBox = document.getElementById('imagePreviewBox');
+    const imgTag = document.getElementById('imagePreviewImg');
+    const base64Input = document.getElementById('announcementFileBase64');
+
+    if (input) input.value = '';
+    if (base64Input) base64Input.value = '';
+    if (container) container.classList.add('hidden');
+    if (imgBox) imgBox.classList.add('hidden');
+    if (imgTag) imgTag.src = '';
+}
+
+// Lightbox Zoom Functions
+function openImageZoomModal(url, title = 'Announcement Image') {
+    const modal = document.getElementById('imageZoomModal');
+    const img = document.getElementById('zoomModalImage');
+    const titleSpan = document.getElementById('zoomModalTitle');
+
+    if (modal && img) {
+        img.src = url;
+        if (titleSpan) titleSpan.textContent = title;
+        currentZoomScale = 1;
+        updateZoomTransform();
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeImageZoomModal() {
+    const modal = document.getElementById('imageZoomModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+}
+
+function closeImageZoomModalOnBg(e) {
+    if (e.target.id === 'zoomViewport') {
+        closeImageZoomModal();
+    }
+}
+
+function zoomInImage() {
+    currentZoomScale = Math.min(currentZoomScale + 0.25, 3.5);
+    updateZoomTransform();
+}
+
+function zoomOutImage() {
+    currentZoomScale = Math.max(currentZoomScale - 0.25, 0.5);
+    updateZoomTransform();
+}
+
+function resetZoomImage() {
+    currentZoomScale = 1;
+    updateZoomTransform();
+}
+
+function updateZoomTransform() {
+    const img = document.getElementById('zoomModalImage');
+    const badge = document.getElementById('zoomLevelBadge');
+    if (img) {
+        img.style.transform = `scale(${currentZoomScale})`;
+    }
+    if (badge) {
+        badge.textContent = `${Math.round(currentZoomScale * 100)}%`;
+    }
+}
+
+function toggleFullscreenImage() {
+    const modal = document.getElementById('imageZoomModal');
+    if (!document.fullscreenElement) {
+        if (modal.requestFullscreen) modal.requestFullscreen();
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+    }
+}
+
+function toggleAnnouncementCard(id) {
+    const bodyEl = document.getElementById(`announcement-body-${id}`);
+    const iconEl = document.getElementById(`announcement-icon-${id}`);
+    if (bodyEl) {
+        const isHidden = bodyEl.classList.contains('hidden');
+        if (isHidden) {
+            bodyEl.classList.remove('hidden');
+            if (iconEl) iconEl.classList.replace('fa-chevron-down', 'fa-chevron-up');
+        } else {
+            bodyEl.classList.add('hidden');
+            if (iconEl) iconEl.classList.replace('fa-chevron-up', 'fa-chevron-down');
+        }
+    }
+}
+
+function escapeHtmlStr(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function getAnnouncementsApiUrl(extra = '') {
+    const rangeEl = document.getElementById('announcementTimeRangeFilter');
+    const categoryEl = document.getElementById('announcementCategoryFilter');
+    
+    const range = rangeEl ? rangeEl.value : 'all';
+    const category = categoryEl ? categoryEl.value : 'all';
+
+    let url = `../api/announcements.php?range=${encodeURIComponent(range)}&category=${encodeURIComponent(category)}`;
+    if (extra) {
+        url += extra.startsWith('?') ? '&' + extra.substring(1) : '&' + extra;
+    }
+    return url;
+}
+
+function resetAnnouncementFilters() {
+    const rangeEl = document.getElementById('announcementTimeRangeFilter');
+    const categoryEl = document.getElementById('announcementCategoryFilter');
+    if (rangeEl) rangeEl.value = 'all';
+    if (categoryEl) categoryEl.value = 'all';
+    loadAnnouncements();
+}
+
+async function loadAnnouncements() {
     const list = document.getElementById('announcementsList');
-    if (list) {
+    if (!list) return;
+
+    try {
+        const response = await fetch(getAnnouncementsApiUrl());
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success && Array.isArray(result.data)) {
+            renderAnnouncements(result.data);
+        } else {
+            renderAnnouncements([]);
+        }
+    } catch (err) {
+        console.error('Error fetching announcements:', err);
+        renderAnnouncements([]);
+    }
+}
+
+function renderAnnouncements(items) {
+    const list = document.getElementById('announcementsList');
+    const badge = document.getElementById('announcementsCountBadge');
+    if (!list) return;
+
+    if (!items || items.length === 0) {
+        if (badge) {
+            badge.textContent = `0 Active`;
+        }
+        list.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-[300px] text-center p-6 bg-slate-50/60 rounded-xl border border-dashed border-slate-200">
+                <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-2.5 shadow-inner">
+                    <i class="fas fa-bullhorn text-lg text-slate-400"></i>
+                </div>
+                <h4 class="text-xs font-bold text-slate-700">No Announcements Found</h4>
+                <p class="text-[10px] text-slate-400 mt-1 max-w-[220px] leading-relaxed">
+                    There are currently no real database announcements matching your selected date range or category filter.
+                </p>
+                <button onclick="resetAnnouncementFilters()" class="mt-3 px-3 py-1 bg-white border border-slate-200 text-blue-600 rounded-lg text-[10px] font-bold shadow-2xs hover:bg-blue-50 transition cursor-pointer">
+                    <i class="fas fa-sync-alt text-[9px] mr-1"></i> Reset Filters
+                </button>
+            </div>
+        `;
+        return;
+    }
+
+    if (badge) {
+        badge.textContent = `${items.length} Active`;
+    }
+
+    list.innerHTML = items.map(item => {
+        const category = item.category || 'General Announcement';
         let badgeColor = 'bg-blue-600';
         let borderColor = 'border-blue-500';
         let bgColor = 'bg-blue-50/70';
@@ -3511,40 +3673,171 @@ function handlePostAnnouncementSubmit(e) {
             tagColor = 'bg-amber-100 text-amber-700';
         }
 
-        const newCard = document.createElement('div');
-        newCard.className = `p-3 ${bgColor} border-l-4 ${borderColor} rounded-xl transition hover:shadow-md animate-scaleUp`;
-        newCard.innerHTML = `
-            <div class="flex items-start justify-between gap-2">
-                <div class="flex items-center gap-1.5">
-                    <span class="px-1.5 py-0.5 ${badgeColor} text-white rounded text-[7px] font-extrabold uppercase">${category}</span>
-                    <h4 class="text-xs font-bold text-slate-800">${title}</h4>
+        const dateStr = item.created_at ? new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Today';
+        
+        let fileHtml = '';
+        if (item.file_url) {
+            const url = item.file_url;
+            const isPdf = /\.pdf($|\?)/i.test(url);
+
+            if (isPdf) {
+                fileHtml = `
+                    <div class="mt-2 text-[9px]">
+                        <a href="${escapeHtmlStr(url)}" target="_blank" onclick="event.stopPropagation()"
+                           class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 text-blue-600 rounded-md font-semibold hover:bg-blue-50 transition shadow-2xs">
+                            <i class="fas fa-file-pdf text-red-500"></i> View Attached PDF Memo
+                        </a>
+                    </div>
+                `;
+            } else {
+                fileHtml = `
+                    <div class="mt-2.5 relative group/img overflow-hidden rounded-xl border border-slate-200/90 bg-slate-900/5 cursor-pointer shadow-2xs" 
+                         onclick="event.stopPropagation(); openImageZoomModal('${escapeHtmlStr(url)}', '${escapeHtmlStr(item.title)}')">
+                        <img src="${escapeHtmlStr(url)}" 
+                             alt="Announcement Attachment" 
+                             class="w-full max-h-40 object-cover group-hover/img:scale-105 transition duration-300"
+                             onerror="this.onerror=null; this.parentElement.innerHTML='<a href=\'${escapeHtmlStr(url)}\' target=\'_blank\' onclick=\'event.stopPropagation()\' class=\'text-[10px] text-blue-600 font-bold p-2 inline-flex items-center gap-1 hover:underline\'><i class=\'fas fa-paperclip\'></i> View Attachment File</a>';" />
+                        <div class="absolute inset-0 bg-slate-900/35 opacity-0 group-hover/img:opacity-100 transition flex items-center justify-center gap-1.5 text-white font-bold text-xs backdrop-blur-2xs">
+                            <i class="fas fa-search-plus"></i> Click to Zoom / Fullscreen
+                        </div>
+                        <span class="absolute bottom-2 right-2 px-2 py-0.5 bg-slate-900/75 text-white text-[8px] font-bold rounded-md backdrop-blur-xs flex items-center gap-1">
+                            <i class="fas fa-expand text-[7px]"></i> Zoom
+                        </span>
+                    </div>
+                `;
+            }
+        }
+
+        const deleteBtn = `<button onclick="event.stopPropagation(); deleteAnnouncement(${item.id})" class="text-slate-400 hover:text-red-600 text-[10px] ml-1 opacity-0 group-hover:opacity-100 transition" title="Delete Announcement"><i class="fas fa-trash-alt"></i></button>`;
+
+        return `
+            <div class="p-3 ${bgColor} border-l-4 ${borderColor} rounded-xl transition hover:shadow-md relative group cursor-pointer" 
+                 onclick="toggleAnnouncementCard(${item.id})">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-center gap-1.5 flex-wrap flex-1">
+                        <span class="px-1.5 py-0.5 ${badgeColor} text-white rounded text-[7px] font-extrabold uppercase">${escapeHtmlStr(category)}</span>
+                        <h4 class="text-xs font-bold text-slate-800">${escapeHtmlStr(item.title)}</h4>
+                    </div>
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        <span class="text-[9px] text-slate-400 font-medium">${dateStr}</span>
+                        ${deleteBtn}
+                        <button type="button" class="text-slate-400 hover:text-slate-600 text-[10px] ml-1 transition" title="Toggle Details">
+                            <i id="announcement-icon-${item.id}" class="fas fa-chevron-up text-[9px]"></i>
+                        </button>
+                    </div>
                 </div>
-                <span class="text-[9px] text-slate-400 font-medium flex-shrink-0">Just now</span>
-            </div>
-            <p class="text-[10px] text-slate-600 mt-1.5 leading-relaxed">${body}</p>
-            <div class="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[9px] text-slate-400 font-medium">
-                <span class="flex items-center gap-1"><i class="fas fa-user-shield text-[8px] text-c2"></i> Posted by: System Admin</span>
-                <span class="px-1.5 py-0.5 ${tagColor} rounded text-[7px] font-bold">${audience}</span>
+
+                <!-- Collapsible Body Container -->
+                <div id="announcement-body-${item.id}" class="transition-all">
+                    <p class="text-[10px] text-slate-600 mt-1.5 leading-relaxed">${escapeHtmlStr(item.body)}</p>
+                    ${fileHtml}
+                    <div class="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[9px] text-slate-400 font-medium">
+                        <span class="flex items-center gap-1"><i class="fas fa-user-shield text-[8px] text-c2"></i> Posted by: ${escapeHtmlStr(item.author || 'System Admin')}</span>
+                        <span class="px-1.5 py-0.5 ${tagColor} rounded text-[7px] font-bold">${escapeHtmlStr(item.audience || 'All Staff')}</span>
+                    </div>
+                </div>
             </div>
         `;
-        list.insertBefore(newCard, list.firstChild);
+    }).join('');
+}
 
-        // Update count badge
-        const badge = document.getElementById('announcementsCountBadge');
-        if (badge) {
-            const currentCount = list.children.length;
-            badge.textContent = `${currentCount} Active`;
-        }
+async function handlePostAnnouncementSubmit(e) {
+    e.preventDefault();
+    hidePostAnnouncementError();
+
+    const titleInput = document.getElementById('announcementTitle');
+    const bodyInput = document.getElementById('announcementBody');
+
+    const title = titleInput ? titleInput.value.trim() : '';
+    const body = bodyInput ? bodyInput.value.trim() : '';
+
+    if (!title) {
+        showPostAnnouncementError('Please enter an announcement title.');
+        if (titleInput) titleInput.focus();
+        return;
     }
 
-    closePostAnnouncementModal();
-    document.getElementById('postAnnouncementForm').reset();
-    document.getElementById('filePreviewName').classList.add('hidden');
+    if (!body) {
+        showPostAnnouncementError('Please write the announcement details or message.');
+        if (bodyInput) bodyInput.focus();
+        return;
+    }
 
-    if (typeof toast !== 'undefined') {
-        toast.success('Announcement published successfully!', { title: 'Announcements Board' });
+    const form = document.getElementById('postAnnouncementForm');
+    const formData = new FormData(form);
+
+    const categorySelect = document.getElementById('announcementCategory');
+    const audienceSelect = document.getElementById('announcementAudience');
+    const fileInput = document.getElementById('announcementFile');
+
+    formData.set('title', title);
+    formData.set('body', body);
+    formData.set('category', categorySelect ? categorySelect.value : 'General Notice');
+    formData.set('audience', audienceSelect ? audienceSelect.value : 'All Staff');
+
+    if (fileInput && fileInput.files && fileInput.files[0]) {
+        formData.set('announcementFile', fileInput.files[0]);
+    }
+
+    try {
+        const response = await fetch(getAnnouncementsApiUrl(), {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.success) {
+            closePostAnnouncementModal();
+            form.reset();
+            removeAnnouncementFile();
+
+            if (typeof showToast === 'function') {
+                showToast('Announcement published successfully!', 'success');
+            }
+            await loadAnnouncements();
+        } else {
+            showPostAnnouncementError(result.message || 'Failed to post announcement.');
+        }
+    } catch (err) {
+        console.error('Submit Announcement Error:', err);
+        showPostAnnouncementError('Network error occurred while publishing announcement.');
     }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadAnnouncements();
+
+    const deleteBtn = document.getElementById('confirmDeleteAnnouncementBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', async () => {
+            if (!targetAnnouncementDeleteId) return;
+            const deleteId = targetAnnouncementDeleteId;
+            closeDeleteAnnouncementModal();
+
+            try {
+                const response = await fetch(getAnnouncementsApiUrl(`?action=delete&id=${deleteId}`), {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                if (result.success) {
+                    if (typeof showToast === 'function') {
+                        showToast('Announcement deleted successfully', 'success');
+                    }
+                    await loadAnnouncements();
+                } else {
+                    if (typeof showToast === 'function') {
+                        showToast(result.message || 'Failed to delete announcement', 'error');
+                    }
+                }
+            } catch (err) {
+                console.error('Delete Announcement Error:', err);
+                if (typeof showToast === 'function') {
+                    showToast('Network error while deleting announcement', 'error');
+                }
+            }
+        });
+    }
+});
 </script>
 </main>
 

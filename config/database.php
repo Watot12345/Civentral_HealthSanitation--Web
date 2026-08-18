@@ -36,6 +36,7 @@ class Database
      * Executes a request against PostgREST.
      */
     public function query(
+        
         string $table,
         string $method = 'GET',
         ?array $data = null,
@@ -182,5 +183,67 @@ class Database
             error_log("Database count error: " . $e->getMessage());
             return 0;
         }
+    }
+
+    /**
+     * Uploads a file to Supabase Storage bucket and returns its public CDN URL.
+     */
+    public function uploadStorage(string $bucket, string $remotePath, string $localFilePath, string $mimeType = 'image/jpeg'): ?string
+    {
+        try {
+            $key = !empty($this->serviceKey) ? $this->serviceKey : $this->anonKey;
+            $cleanPath = ltrim($remotePath, '/');
+            $endpoint = "{$this->url}/storage/v1/object/{$bucket}/{$cleanPath}";
+
+            $fileData = @file_get_contents($localFilePath);
+            if ($fileData === false) {
+                return null;
+            }
+
+            // Standardize MIME types matching Supabase bucket rules (e.g., Image/jpg, image/png, image/jpeg)
+            $mimeTypesToTry = array_unique(array_filter([
+                'Image/jpg',
+                'image/png',
+                $mimeType,
+                'image/jpeg',
+                'image/jpg',
+                'application/octet-stream'
+            ]));
+
+            foreach ($mimeTypesToTry as $typeToTry) {
+                $headers = [
+                    'apikey: ' . $key,
+                    'Authorization: Bearer ' . $key,
+                    'Content-Type: ' . $typeToTry,
+                    'x-upsert: true',
+                ];
+
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $endpoint);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $fileData);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($httpCode >= 200 && $httpCode < 300) {
+                    return "{$this->url}/storage/v1/object/public/{$bucket}/{$cleanPath}";
+                }
+
+                $decodedResp = json_decode($response, true);
+                if (!is_array($decodedResp) || ($decodedResp['error'] ?? '') !== 'invalid_mime_type') {
+                    error_log("Supabase Storage Upload to bucket '{$bucket}' failed [{$httpCode}]: {$response}");
+                    break;
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log("Supabase Storage Exception: " . $e->getMessage());
+        }
+
+        return null;
     }
 }

@@ -7,6 +7,7 @@ class GeminiAiService
 {
     private ?string $apiKey;
     private string $model;
+    private array $fallbackModels;
     private string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/';
     private string $cacheDir;
     private int $ttlSeconds = 1800; // 30 Minutes Cache TTL
@@ -16,11 +17,92 @@ class GeminiAiService
     {
         Env::load();
         $this->apiKey = Env::get('GEMINI_API_KEY') ?: (getenv('GEMINI_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? null));
-        $this->model  = Env::get('GEMINI_MODEL') ?: 'gemini-3.5-flash-lite';
+        $this->model  = Env::get('GEMINI_MODEL') ?: 'gemini-3.6-flash';
+        
+        $fallbackConfig = Env::get('GEMINI_FALLBACK_MODELS');
+        if ($fallbackConfig) {
+            $this->fallbackModels = array_filter(array_map('trim', explode(',', $fallbackConfig)));
+        } else {
+            $this->fallbackModels = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.0-flash-lite'];
+        }
+
         $this->cacheDir = __DIR__ . '/../../storage/cache';
         if (!is_dir($this->cacheDir)) {
             @mkdir($this->cacheDir, 0755, true);
         }
+    }
+
+    /**
+     * Get the ordered sequence of models to attempt (Primary -> Fallback 1 -> Fallback 2...)
+     */
+    public function getModelQueue(): array
+    {
+        $queue = [$this->model];
+        foreach ($this->fallbackModels as $fm) {
+            if ($fm && !in_array($fm, $queue, true)) {
+                $queue[] = $fm;
+            }
+        }
+        return $queue;
+    }
+
+    /**
+     * Executes API call with automatic model fallback on HTTP 429 / 5xx / Rate Limits
+     */
+    private function makeApiCallWithFallback(array $payload, int $timeout = 3): ?array
+    {
+        if (empty($this->apiKey) || !$this->canMakeApiCall()) {
+            return null;
+        }
+
+        $queue = $this->getModelQueue();
+
+        foreach ($queue as $attemptedModel) {
+            try {
+                $endpoint = $this->baseUrl . urlencode($attemptedModel) . ':generateContent?key=' . urlencode($this->apiKey);
+
+                $ch = curl_init($endpoint);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+                curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($httpCode === 200 && $response) {
+                    $result = json_decode($response, true);
+                    $text = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                    if (!empty($text)) {
+                        $this->recordApiCall();
+                        return [
+                            'model_used' => $attemptedModel,
+                            'text'       => $text,
+                            'raw'        => $result
+                        ];
+                    }
+                }
+
+                // If HTTP 429 (Rate Limit / Quota Exceeded), 503 (Unavailable) or 404/500, attempt next model in queue
+                if (in_array($httpCode, [429, 404, 500, 502, 503, 504])) {
+                    error_log("GeminiAiService: Model '{$attemptedModel}' hit rate limit/error (HTTP {$httpCode}). Falling back to next model in queue.");
+                    continue;
+                }
+
+                // If 401 or 403, API key is invalid/unauthorized; do not attempt further model fallbacks
+                if (in_array($httpCode, [401, 403])) {
+                    error_log("GeminiAiService: Authentication failed (HTTP {$httpCode}). Stopping model fallbacks.");
+                    break;
+                }
+            } catch (Throwable $e) {
+                error_log("GeminiAiService: Exception on model '{$attemptedModel}': " . $e->getMessage());
+                continue;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -36,16 +118,10 @@ class GeminiAiService
             }
         }
 
-        // Return live computed database insights directly so database inserts immediately update card titles
-        return $nativeInsights;
-
-        // 3. Execute Gemini Flash-Lite Call with full Database Snapshot context
         try {
             $systemInstruction = "STRICT INSTRUCTION: Analyze the live database snapshot and output a JSON array of 4 short operational suggestion strings (10 words MAX each). Keep all calculated DB numbers intact. Output raw JSON array only.";
             
             $prompt = $systemInstruction . "\nLive Database Snapshot: " . json_encode($dbContext) . "\nCalculated Database Insights: " . json_encode($nativeInsights);
-
-            $endpoint = $this->baseUrl . urlencode($this->model) . ':generateContent?key=' . urlencode($this->apiKey);
 
             $payload = [
                 'contents' => [
@@ -61,22 +137,10 @@ class GeminiAiService
                 ]
             ];
 
-            $ch = curl_init($endpoint);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-            curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+            $apiResult = $this->makeApiCallWithFallback($payload, 2);
 
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-
-            if ($httpCode === 200 && $response) {
-                $result = json_decode($response, true);
-                $rawText = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
-                
-                // Parse JSON array from raw output
+            if ($apiResult) {
+                $rawText = $apiResult['text'];
                 $jsonStart = strpos($rawText, '[');
                 $jsonEnd = strrpos($rawText, ']');
                 if ($jsonStart !== false && $jsonEnd !== false) {
@@ -91,13 +155,6 @@ class GeminiAiService
                         }
                     }
                 }
-                
-                // Cache response for 30 minutes
-                @file_put_contents($cacheFile, json_encode([
-                    'expires_at' => time() + 1800,
-                    'data' => $nativeInsights
-                ]));
-                $this->recordApiCall();
             }
         } catch (Throwable $e) {
             error_log('GeminiAiService API Error: ' . $e->getMessage());
