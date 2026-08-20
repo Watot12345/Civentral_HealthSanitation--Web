@@ -12,12 +12,15 @@ class PermissionService
 {
     private static ?PermissionService $instance = null;
     private array $allSlugs = [
-        'dashboard.view', 'analytics.view', 'reports.view', 'compliance.view',
+        'dashboard.view', 'dashboard.system_admin', 'dashboard.health_center', 'dashboard.sanitation', 'dashboard.immunization', 'dashboard.wastewater', 'dashboard.surveillance',
+        'analytics.view', 'reports.view', 'compliance.view',
         'patients.view', 'patients.create', 'patients.edit', 'patients.delete',
         'consultations.view', 'consultations.create', 'triage.view', 'triage.create',
         'prescriptions.view', 'prescriptions.create',
         'permits.view', 'permits.create', 'permits.approve', 'inspections.view', 'inspections.conduct',
         'immunization.view', 'immunization.create', 'immunization.edit',
+        'wastewater.view', 'wastewater.create', 'wastewater.edit', 'wastewater.manage',
+        'surveillance.view', 'surveillance.create', 'surveillance.edit', 'surveillance.manage',
         'users.view', 'users.create', 'users.edit', 'users.delete', 'roles.manage', 'settings.manage', 'logs.view'
     ];
 
@@ -27,6 +30,15 @@ class PermissionService
             self::$instance = new PermissionService();
         }
         return self::$instance;
+    }
+
+    public static function normalizeRoleTitle(string $role): string
+    {
+        $role = trim($role);
+        if (strcasecmp($role, 'Immunization Lead') === 0) return 'Immunization Coordinator';
+        if (strcasecmp($role, 'Wastewater Lead') === 0) return 'Wastewater Officer';
+        if (strcasecmp($role, 'Surveillance Lead') === 0) return 'Surveillance Coordinator';
+        return $role;
     }
 
     /**
@@ -40,7 +52,7 @@ class PermissionService
 
         $userRoleDesc = trim($_SESSION['role_description'] ?? '');
         $userRole = trim($_SESSION['role'] ?? 'employee');
-        $currentSessionRoleKey = $userRoleDesc . ':' . $userRole . ':v5';
+        $currentSessionRoleKey = $userRoleDesc . ':' . $userRole . ':v7';
 
         // Return session cache if populated for current active role
         if (isset($_SESSION['granted_permission_slugs_key']) 
@@ -59,13 +71,20 @@ class PermissionService
 
         try {
             require_once __DIR__ . '/../Models/Role.php';
+            require_once __DIR__ . '/../Models/ActivityLog.php';
             $roleModel = new Role();
             $roles = $roleModel->all();
 
+            $normDesc = self::normalizeRoleTitle($userRoleDesc);
+            $normRole = self::normalizeRoleTitle($userRole);
+
             $matchedRole = null;
             foreach ($roles as $r) {
-                $rName = trim($r['name']);
-                if (($userRoleDesc !== '' && strcasecmp($rName, $userRoleDesc) === 0) || strcasecmp($rName, $userRole) === 0) {
+                $rName = trim($r['name'] ?? '');
+                $rNorm = self::normalizeRoleTitle($rName);
+                if (($userRoleDesc !== '' && (strcasecmp($rName, $userRoleDesc) === 0 || strcasecmp($rNorm, $normDesc) === 0))
+                    || strcasecmp($rName, $userRole) === 0 
+                    || strcasecmp($rNorm, $normRole) === 0) {
                     $matchedRole = $r;
                     break;
                 }
@@ -78,19 +97,42 @@ class PermissionService
                         $grantedSlugs[] = $p['slug'];
                     }
                 }
-            }
-
-            // Always merge baseline matrix defaults for the role
-            $matrixDefaults = [];
-            $matrix = self::defaultRolePermissionMatrix();
-            foreach ($matrix as $rName => $slugs) {
-                if (($userRoleDesc !== '' && strcasecmp(trim($rName), $userRoleDesc) === 0) || strcasecmp(trim($rName), $userRole) === 0) {
-                    $matrixDefaults = $slugs;
-                    break;
+            } else {
+                // Baseline matrix defaults if role not found in database
+                $matrix = self::defaultRolePermissionMatrix();
+                foreach ($matrix as $rName => $slugs) {
+                    $rNorm = self::normalizeRoleTitle($rName);
+                    if (($userRoleDesc !== '' && (strcasecmp(trim($rName), $userRoleDesc) === 0 || strcasecmp($rNorm, $normDesc) === 0))
+                        || strcasecmp(trim($rName), $userRole) === 0
+                        || strcasecmp($rNorm, $normRole) === 0) {
+                        $grantedSlugs = $slugs;
+                        break;
+                    }
                 }
             }
 
-            $grantedSlugs = array_values(array_unique(array_merge($grantedSlugs, $matrixDefaults)));
+            // Department Heads RBAC Guarantee: They manage their own department staff inside User Management
+            $isDeptHead = \ActivityLog::isDepartmentHeadRole($userRoleDesc) || \ActivityLog::isDepartmentHeadRole($userRole);
+            if ($isDeptHead) {
+                $headBase = ['users.view', 'users.create', 'users.edit', 'dashboard.view'];
+                $grantedSlugs = array_merge($grantedSlugs, $headBase);
+
+                // Add module dashboard slug
+                $checkRoleStr = strtolower($userRoleDesc . ' ' . $userRole);
+                if (str_contains($checkRoleStr, 'health center') || str_contains($checkRoleStr, 'medical')) {
+                    $grantedSlugs[] = 'dashboard.health_center';
+                } elseif (str_contains($checkRoleStr, 'sanitation')) {
+                    $grantedSlugs[] = 'dashboard.sanitation';
+                } elseif (str_contains($checkRoleStr, 'immunization') || str_contains($checkRoleStr, 'nutrition')) {
+                    $grantedSlugs[] = 'dashboard.immunization';
+                } elseif (str_contains($checkRoleStr, 'waste')) {
+                    $grantedSlugs[] = 'dashboard.wastewater';
+                } elseif (str_contains($checkRoleStr, 'surveillance')) {
+                    $grantedSlugs[] = 'dashboard.surveillance';
+                }
+            }
+
+            $grantedSlugs = array_values(array_unique($grantedSlugs));
 
             $_SESSION['granted_permission_slugs_key'] = $currentSessionRoleKey;
             $_SESSION['granted_permission_slugs'] = $grantedSlugs;
@@ -114,6 +156,8 @@ class PermissionService
                 'prescriptions.view', 'prescriptions.create',
                 'permits.view', 'permits.create', 'permits.approve', 'inspections.view', 'inspections.conduct',
                 'immunization.view', 'immunization.create', 'immunization.edit',
+                'wastewater.view', 'wastewater.create', 'wastewater.edit', 'wastewater.manage',
+                'surveillance.view', 'surveillance.create', 'surveillance.edit', 'surveillance.manage',
                 'users.view', 'users.create', 'users.edit', 'users.delete', 'roles.manage', 'settings.manage', 'logs.view'
             ],
             'Health Center Director' => [
@@ -159,11 +203,12 @@ class PermissionService
                 'analytics.view', 'reports.view', 'compliance.view',
                 'permits.view', 'permits.create', 'permits.approve',
                 'inspections.view', 'inspections.conduct',
+                'wastewater.view', 'wastewater.create', 'wastewater.edit',
                 'users.view', 'users.create', 'users.edit'
             ],
             'Inspector' => [
                 'dashboard.view', 'dashboard.sanitation',
-                'reports.view', 'permits.view', 'inspections.view', 'inspections.conduct'
+                'reports.view', 'permits.view', 'inspections.view', 'inspections.conduct', 'wastewater.view'
             ],
             'Permit Clerk' => [
                 'dashboard.view', 'dashboard.sanitation',
@@ -195,7 +240,15 @@ class PermissionService
             'Wastewater Officer' => [
                 'dashboard.view', 'dashboard.sanitation',
                 'analytics.view', 'reports.view',
+                'wastewater.view', 'wastewater.create', 'wastewater.edit', 'wastewater.manage',
                 'inspections.view', 'inspections.conduct', 'permits.view'
+            ],
+            'Wastewater Lead' => [
+                'dashboard.view', 'dashboard.sanitation',
+                'analytics.view', 'reports.view',
+                'wastewater.view', 'wastewater.create', 'wastewater.edit', 'wastewater.manage',
+                'inspections.view', 'inspections.conduct', 'permits.view',
+                'users.view', 'users.create', 'users.edit'
             ],
             'Surveillance Officer' => [
                 'dashboard.view', 'dashboard.surveillance',
@@ -334,5 +387,24 @@ class PermissionService
             || $r === 'lgu admin'
             || str_contains($r, 'system admin')
             || str_contains($r, 'administrator');
+    }
+
+    /**
+     * Helper to check if role is a Department Head, Director, Supervisor, or Admin.
+     */
+    public function isHeadOrAdminRole(string $role): bool
+    {
+        if ($this->isAdminRole($role)) {
+            return true;
+        }
+        $r = strtolower(trim($role));
+        return str_contains($r, 'director')
+            || str_contains($r, 'head')
+            || str_contains($r, 'supervisor')
+            || str_contains($r, 'officer-in-charge')
+            || str_contains($r, 'oic')
+            || str_contains($r, 'chief')
+            || str_contains($r, 'lead')
+            || str_contains($r, 'manager');
     }
 }

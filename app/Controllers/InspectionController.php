@@ -165,6 +165,20 @@ class InspectionController extends BaseController
 
             $result = $this->inspectionModel->create($dbData);
 
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $inspCode = $dbData['inspection_id'] ?? ($result['inspection_id'] ?? 'INSP');
+                    $permitCode = $data['permit_id'] ?? 'Permit';
+                    $logger->log("Scheduled Sanitary Inspection ({$inspCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Permit: {$permitCode} | Date: " . ($dbData['scheduled_date'] ?? date('Y-m-d')),
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {}
+            }
+
             return [
                 'success' => true,
                 'message' => 'Inspection scheduled successfully',

@@ -19,27 +19,8 @@ class SurveillanceCase
             $opts = array_merge(['order' => 'id.desc'], $options);
             return $this->db->select($this->table, [], $opts);
         } catch (Throwable $e) {
-            error_log("SurveillanceCase DB query fallback: " . $e->getMessage());
-            return [
-                [
-                    'id' => 1, 'case_code' => 'CS-2026-001', 'disease' => 'Dengue Fever', 'patient_name' => 'Juan Dela Cruz',
-                    'age' => 34, 'gender' => 'Male', 'address' => '123 Mabini St', 'barangay' => 'San Jose',
-                    'contact_number' => '0917-123-4567', 'symptoms' => 'High Fever, Severe Headache, Joint Pain',
-                    'onset_date' => '2026-07-20', 'reporting_facility' => 'San Jose Health Center', 'status' => 'Confirmed',
-                    'severity' => 'High', 'reported_by' => 'Dr. Reyes', 'investigator_id' => 'INV-101',
-                    'investigation_notes' => 'Patient confirmed Dengue NS1 positive. Larvicidal treatment conducted.',
-                    'contact_tracing_done' => true, 'outbreak_id' => 'OB-2026-01', 'created_at' => date('Y-m-d H:i:s')
-                ],
-                [
-                    'id' => 2, 'case_code' => 'CS-2026-002', 'disease' => 'Dengue Fever', 'patient_name' => 'Maria Santos',
-                    'age' => 28, 'gender' => 'Female', 'address' => '45 Rizal Ave', 'barangay' => 'San Jose',
-                    'contact_number' => '0918-234-5678', 'symptoms' => 'High Fever, Rash, Muscle Pain',
-                    'onset_date' => '2026-07-21', 'reporting_facility' => 'City General Hospital', 'status' => 'Confirmed',
-                    'severity' => 'Critical', 'reported_by' => 'Dr. Reyes', 'investigator_id' => 'INV-101',
-                    'investigation_notes' => 'Admitted to ICU. Household contacts screened.',
-                    'contact_tracing_done' => true, 'outbreak_id' => 'OB-2026-01', 'created_at' => date('Y-m-d H:i:s')
-                ]
-            ];
+            error_log("SurveillanceCase DB query error: " . $e->getMessage());
+            return [];
         }
     }
 

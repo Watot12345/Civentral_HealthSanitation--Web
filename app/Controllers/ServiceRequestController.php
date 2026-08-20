@@ -125,6 +125,21 @@ class ServiceRequestController extends BaseController
                 error_log('Automated cascade error in ServiceRequestController: ' . $e->getMessage());
             }
 
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $srCode = $req['request_id'] ?? ($data['request_id'] ?? 'SR');
+                    $st = ucfirst($req['service_type'] ?? ($data['service_type'] ?? 'Desludging'));
+                    $owner = $req['owner_name'] ?? ($data['owner_name'] ?? 'Applicant');
+                    $logger->log("Logged {$st} Service Request ({$srCode})", [
+                        'module'  => 'Wastewater Services',
+                        'details' => "Owner: {$owner} | Barangay: " . ($req['barangay'] ?? 'N/A'),
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {}
+            }
+
             return ['success' => true, 'message' => 'Service request submitted successfully and connected records generated!', 'data' => $req];
         });
     }

@@ -211,15 +211,21 @@ return [
                     'permissions' => [Permissions::SURVEILLANCE_VIEW, Permissions::SURVEILLANCE_MANAGE, Permissions::COMPLIANCE_VIEW, Permissions::ANALYTICS_VIEW],
                     'children'    => [
                         [
-                            'label'      => 'Outbreak Monitoring',
-                            'icon'       => 'fa-solid fa-virus',
-                            'route'      => 'modules/surveillence/outbreak_monitoring.php',
+                            'label'      => 'Case Reports',
+                            'icon'       => 'fa-solid fa-file-medical',
+                            'route'      => 'modules/surveillence/case_reports.php',
                             'permission' => Permissions::SURVEILLANCE_VIEW,
                         ],
                         [
-                            'label'      => 'Disease Tracking',
-                            'icon'       => 'fa-solid fa-chart-pie',
-                            'route'      => 'modules/surveillence/disease_tracking.php',
+                            'label'      => 'Mapping & Clustering',
+                            'icon'       => 'fa-solid fa-map',
+                            'route'      => 'modules/surveillence/mapping.php',
+                            'permission' => Permissions::SURVEILLANCE_VIEW,
+                        ],
+                        [
+                            'label'      => 'Outbreak Surveillance',
+                            'icon'       => 'fa-solid fa-shield-virus',
+                            'route'      => 'modules/surveillence/outbreak_command.php',
                             'permission' => Permissions::SURVEILLANCE_VIEW,
                         ],
                     ],

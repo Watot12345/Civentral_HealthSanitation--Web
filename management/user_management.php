@@ -34,7 +34,8 @@ $logModel = new ActivityLog();
 $isSystemAdmin = getPermissionService()->isAdminRole($_SESSION['role'] ?? '') 
     || getPermissionService()->isAdminRole($_SESSION['role_description'] ?? '') 
     || hasPermission(\App\Constants\Permissions::ROLES_MANAGE);
-$userDept = getDepartmentResolver()->resolveDepartmentName();
+$isDeptHead    = ActivityLog::isDepartmentHeadRole($_SESSION['role_description'] ?? '') || ActivityLog::isDepartmentHeadRole($_SESSION['role'] ?? '');
+$userDept      = getDepartmentResolver()->resolveDepartmentName();
 
 
 try {
@@ -144,20 +145,31 @@ ksort($filterRoleOptions);
 
 // --- Fetch Activity Logs (User Management actions only, excluding login/logout) ---
 try {
-    $logOptions = ['limit' => 100, 'order' => 'created_at.desc'];
-    if (!$isSystemAdmin && !empty($userDept)) {
-        $logOptions['department'] = $userDept;
-    }
-    $allUserLogs  = $logModel->all($logOptions);
+    if (!$isSystemAdmin && !$isDeptHead) {
+        $activityLogs = [];
+    } else {
+        $logOptions = ['limit' => 100, 'order' => 'created_at.desc'];
+        if (!$isSystemAdmin && !empty($userDept)) {
+            $logOptions['department'] = $userDept;
+        }
+        $allUserLogs  = $logModel->all($logOptions);
 
-    $activityLogs = array_values(array_filter($allUserLogs, function($log) {
-        $module = strtolower($log['module'] ?? '');
-        $action = strtolower($log['action'] ?? '');
-        return (str_contains($module, 'user management') || str_contains($action, 'user') || str_contains($action, 'employee') || str_contains($action, 'permission') || str_contains($action, 'role') || str_contains($action, 'status'))
-            && !str_contains($action, 'logged in') 
-            && !str_contains($action, 'logged out');
-    }));
-    $activityLogs = array_slice($activityLogs, 0, 20);
+        $activityLogs = array_values(array_filter($allUserLogs, function($log) use ($isSystemAdmin) {
+            $logRole = trim($log['role'] ?? '');
+
+            // Department Heads cannot view Head or Admin activity
+            if (!$isSystemAdmin && (ActivityLog::isDepartmentHeadRole($logRole) || ActivityLog::isAdminRole($logRole))) {
+                return false;
+            }
+
+            $module = strtolower($log['module'] ?? '');
+            $action = strtolower($log['action'] ?? '');
+            return (str_contains($module, 'user management') || str_contains($action, 'user') || str_contains($action, 'employee') || str_contains($action, 'permission') || str_contains($action, 'role') || str_contains($action, 'status'))
+                && !str_contains($action, 'logged in') 
+                && !str_contains($action, 'logged out');
+        }));
+        $activityLogs = array_slice($activityLogs, 0, 20);
+    }
 } catch (Throwable $e) {
     error_log('User Management — logs fetch error: ' . $e->getMessage());
     $activityLogs = [];
@@ -487,8 +499,9 @@ $title = 'User Management';
     </div>
 
     <!-- ============================================================ -->
-    <!-- USER ACTIVITY LOG                                          -->
+    <!-- USER ACTIVITY LOG (Visible only for 5 Heads and Admin)       -->
     <!-- ============================================================ -->
+    <?php if ($isSystemAdmin || $isDeptHead): ?>
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
             <h3 class="font-semibold text-slate-800 flex items-center gap-2">
@@ -500,9 +513,11 @@ $title = 'User Management';
                 <button onclick="filterActivity('all')" class="filter-btn-activity active px-3 py-1 text-xs font-semibold rounded-full bg-brand-dark text-white hover:bg-brand-medium transition" id="act-all">All</button>
                 <button onclick="filterActivity('Success')" class="filter-btn-activity px-3 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition" id="act-success">Success</button>
                 <button onclick="filterActivity('Failed')" class="filter-btn-activity px-3 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700 hover:bg-red-200 transition" id="act-failed">Failed</button>
+                <?php if ($isSystemAdmin): ?>
                 <button onclick="openClearLogsModal()" class="text-xs text-red-500 hover:text-red-700 transition font-semibold flex items-center gap-1">
                     <i class="fa-solid fa-trash-can text-[10px]"></i> Clear logs
                 </button>
+                <?php endif; ?>
             </div>
         </div>
         <div class="overflow-x-auto">
@@ -520,7 +535,7 @@ $title = 'User Management';
                 <tbody id="activityTableBody">
                     <?php if (empty($activityLogs)): ?>
                     <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-slate-400 text-sm">No user management or permission activity recorded yet.</td>
+                        <td colspan="6" class="px-4 py-8 text-center text-slate-400 text-sm"><?php echo $isSystemAdmin ? 'No user management or permission activity recorded yet.' : 'No subordinate staff activity recorded yet under your department.'; ?></td>
                     </tr>
                     <?php endif; ?>
                     <?php foreach ($activityLogs as $log): 
@@ -552,6 +567,7 @@ $title = 'User Management';
             </table>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 
 <!-- ============================================================ -->

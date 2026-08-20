@@ -339,7 +339,6 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
         <div id="surveillanceDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
           
           <a href="<?= site_url('modules/surveillence/case_reports.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'case_reports.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-
             <i class="fa-solid fa-file-medical text-[10px] opacity-50"></i> 
             <span>Case Reports</span>
           </a>
@@ -349,24 +348,9 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
             <span>Mapping & Clustering</span>
           </a>
           
-          <a href="<?= site_url('modules/surveillence/outbreak_detection.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'outbreak_detection.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-triangle-exclamation text-[10px] opacity-50"></i> 
-            <span>Outbreak Detection</span>
-          </a>
-          
-          <a href="<?= site_url('modules/surveillence/alerts.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'alerts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-bell text-[10px] opacity-50"></i> 
-            <span>Real-time Alerts</span>
-          </a>
-          
-          <a href="<?= site_url('modules/surveillence/contact_tracing.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'contact_tracing.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-people-arrows text-[10px] opacity-50"></i> 
-            <span>Contact Tracing</span>
-          </a>
-          
-          <a href="<?= site_url('modules/surveillence/response_management.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'response_management.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-phone-alt text-[10px] opacity-50"></i> 
-            <span>Response Management</span>
+          <a href="<?= site_url('modules/surveillence/outbreak_command.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'outbreak_command.php') !== false || strpos($currentPath, 'outbreak_detection.php') !== false || strpos($currentPath, 'alerts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+            <i class="fa-solid fa-shield-virus text-[10px] opacity-50"></i> 
+            <span>Outbreak Surveillance</span>
           </a>
 
         </div>

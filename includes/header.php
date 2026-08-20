@@ -59,6 +59,12 @@ $initials = substr($initials, 0, 2); // Get first 2 initials
 // data-mask toggle. Every other page is unaffected.
 // ------------------------------------------------------------
 $minimalHeader = $minimalHeader ?? false;
+
+// Dynamic System Notifications from Database
+require_once __DIR__ . '/../app/services/NotificationService.php';
+$notificationService = new NotificationService();
+$headerNotifications = $notificationService->getNotifications(10);
+$initialTotalCount = count($headerNotifications);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -298,7 +304,7 @@ $minimalHeader = $minimalHeader ?? false;
       <div class="relative inline-block">
         <button type="button" id="notifBellBtn" onclick="toggleNotificationDropdown(event)" class="relative p-2 text-slate-400 hover:text-brand-dark rounded-lg hover:bg-slate-50 transition focus:outline-none cursor-pointer" title="Alerts & Notifications">
           <i class="fa-solid fa-bell text-lg"></i>
-          <span id="notifBadgeDot" class="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white animate-pulse"></span>
+          <span id="notifBadgeCount" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center ring-2 ring-white shadow-xs leading-none z-10 pointer-events-none <?php echo $initialTotalCount > 0 ? '' : 'hidden'; ?>"><?php echo $initialTotalCount > 99 ? '99+' : $initialTotalCount; ?></span>
         </button>
 
         <!-- Dropdown Popover Panel -->
@@ -308,7 +314,7 @@ $minimalHeader = $minimalHeader ?? false;
             <div class="flex items-center gap-1.5 text-xs font-bold text-slate-800">
               <i class="fas fa-bell text-brand-medium text-xs"></i>
               <span>Notifications</span>
-              <span id="dropdownNotifBadge" class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[9px] font-extrabold ml-1">4 New</span>
+              <span id="dropdownNotifBadge" class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[9px] font-extrabold ml-1"><?php echo $initialTotalCount; ?> New</span>
             </div>
             <button type="button" onclick="markAllNotificationsRead(event)" class="text-[10px] text-brand-medium hover:text-brand-dark font-semibold transition-colors flex items-center gap-1 cursor-pointer">
               <i class="fas fa-check-circle text-[10px]"></i> Mark read
@@ -320,11 +326,11 @@ $minimalHeader = $minimalHeader ?? false;
             <div class="flex items-center gap-1 p-0.5 bg-slate-200/70 rounded-xl w-full">
               <button type="button" id="notifTabAll" onclick="switchNotifTab('all', event)"
                       class="flex-1 py-1 px-3 text-[11px] font-bold rounded-lg text-center transition-all cursor-pointer bg-white text-slate-800 shadow-xs">
-                All <span id="notifTabAllCount" class="ml-1 px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full text-[9px]">8</span>
+                All <span id="notifTabAllCount" class="ml-1 px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full text-[9px]"><?php echo $initialTotalCount; ?></span>
               </button>
               <button type="button" id="notifTabUnread" onclick="switchNotifTab('unread', event)"
                       class="flex-1 py-1 px-3 text-[11px] font-bold rounded-lg text-center transition-all cursor-pointer text-slate-500 hover:text-slate-800">
-                Unread <span id="notifTabUnreadCount" class="ml-1 px-1.5 py-0.2 bg-rose-100 text-rose-700 rounded-full text-[9px]">4</span>
+                Unread <span id="notifTabUnreadCount" class="ml-1 px-1.5 py-0.2 bg-rose-100 text-rose-700 rounded-full text-[9px]"><?php echo $initialTotalCount; ?></span>
               </button>
             </div>
           </div>
@@ -338,121 +344,32 @@ $minimalHeader = $minimalHeader ?? false;
               <p class="text-xs font-semibold">No notifications found in this view</p>
             </div>
 
-            <!-- Item 1 (Unread) -->
-            <a href="<?php echo site_url('modules/surveillence/alerts.php'); ?>" data-notif-status="unread" class="notif-item p-3 hover:bg-red-50/50 transition flex items-start gap-2.5 block relative group">
-              <span class="unread-dot w-2 h-2 rounded-full bg-rose-500 absolute top-3.5 right-3"></span>
-              <div class="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="fas fa-biohazard text-red-500 text-xs"></i>
+            <?php if (!empty($headerNotifications)): ?>
+              <?php foreach ($headerNotifications as $n): ?>
+                <a href="<?php echo htmlspecialchars($n['url']); ?>"
+                   data-notif-id="<?php echo htmlspecialchars($n['id']); ?>"
+                   data-notif-status="unread"
+                   class="notif-item p-3 hover:bg-slate-50/80 transition flex items-start gap-2.5 block relative group">
+                  <span class="unread-dot w-2 h-2 rounded-full bg-rose-500 absolute top-3.5 right-3"></span>
+                  <div class="w-7 h-7 rounded-full <?php echo htmlspecialchars($n['icon_bg']); ?> flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <i class="<?php echo htmlspecialchars($n['icon']); ?> <?php echo htmlspecialchars($n['icon_color']); ?> text-xs"></i>
+                  </div>
+                  <div class="flex-1 min-w-0 pr-3">
+                    <div class="flex items-center justify-between">
+                      <p class="text-xs font-bold <?php echo htmlspecialchars($n['title_color']); ?> truncate"><?php echo htmlspecialchars($n['title']); ?></p>
+                      <span class="text-[9px] text-slate-400 flex-shrink-0 ml-1"><?php echo htmlspecialchars($n['time']); ?></span>
+                    </div>
+                    <p class="text-[10px] text-slate-600 mt-0.5 line-clamp-2"><?php echo htmlspecialchars($n['message']); ?></p>
+                  </div>
+                </a>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <div class="p-6 text-center text-slate-400">
+                <i class="fas fa-bell-slash text-2xl text-slate-300 mb-2"></i>
+                <p class="text-xs font-semibold text-slate-600">No active notifications</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">You're all caught up! Real-time alerts will appear here.</p>
               </div>
-              <div class="flex-1 min-w-0 pr-3">
-                <div class="flex items-center justify-between">
-                  <p class="text-xs font-bold text-red-700 truncate">Dengue Outbreak Watch</p>
-                  <span class="text-[9px] text-slate-400 flex-shrink-0 ml-1">30m ago</span>
-                </div>
-                <p class="text-[10px] text-slate-600 mt-0.5 line-clamp-2">Cluster detected in Brgy. San Jose — 12 cases reported</p>
-              </div>
-            </a>
-
-            <!-- Item 2 (Unread) -->
-            <a href="<?php echo site_url('modules/sanitation/permit_applications.php'); ?>" data-notif-status="unread" class="notif-item p-3 hover:bg-rose-50/50 transition flex items-start gap-2.5 block relative group">
-              <span class="unread-dot w-2 h-2 rounded-full bg-rose-500 absolute top-3.5 right-3"></span>
-              <div class="w-7 h-7 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="fas fa-exclamation-triangle text-rose-500 text-xs"></i>
-              </div>
-              <div class="flex-1 min-w-0 pr-3">
-                <div class="flex items-center justify-between">
-                  <p class="text-xs font-bold text-rose-700 truncate">Permit Expiry Notice</p>
-                  <span class="text-[9px] text-slate-400 flex-shrink-0 ml-1">1h ago</span>
-                </div>
-                <p class="text-[10px] text-slate-600 mt-0.5 line-clamp-2">5 sanitation permits expire within 7 days</p>
-              </div>
-            </a>
-
-            <!-- Item 3 (Unread) -->
-            <a href="<?php echo site_url('modules/surveillence/lab_results.php'); ?>" data-notif-status="unread" class="notif-item p-3 hover:bg-amber-50/50 transition flex items-start gap-2.5 block relative group">
-              <span class="unread-dot w-2 h-2 rounded-full bg-rose-500 absolute top-3.5 right-3"></span>
-              <div class="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="fas fa-flask-vial text-amber-500 text-xs"></i>
-              </div>
-              <div class="flex-1 min-w-0 pr-3">
-                <div class="flex items-center justify-between">
-                  <p class="text-xs font-bold text-amber-700 truncate">Lab Confirmation Needed</p>
-                  <span class="text-[9px] text-slate-400 flex-shrink-0 ml-1">2h ago</span>
-                </div>
-                <p class="text-[10px] text-slate-600 mt-0.5 line-clamp-2">5 suspected Measles cases awaiting lab confirmation</p>
-              </div>
-            </a>
-
-            <!-- Item 4 (Unread) -->
-            <a href="<?php echo site_url('modules/services/service_requests.php'); ?>" data-notif-status="unread" class="notif-item p-3 hover:bg-purple-50/50 transition flex items-start gap-2.5 block relative group">
-              <span class="unread-dot w-2 h-2 rounded-full bg-rose-500 absolute top-3.5 right-3"></span>
-              <div class="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="fas fa-water text-purple-500 text-xs"></i>
-              </div>
-              <div class="flex-1 min-w-0 pr-3">
-                <div class="flex items-center justify-between">
-                  <p class="text-xs font-bold text-purple-700 truncate">Desludging Request Pending</p>
-                  <span class="text-[9px] text-slate-400 flex-shrink-0 ml-1">3h ago</span>
-                </div>
-                <p class="text-[10px] text-slate-600 mt-0.5 line-clamp-2">5 wastewater desludging requests awaiting assignment</p>
-              </div>
-            </a>
-
-            <!-- Item 5 (Read) -->
-            <a href="<?php echo site_url('modules/health_center/inventory.php'); ?>" data-notif-status="read" class="notif-item p-3 hover:bg-slate-50 transition flex items-start gap-2.5 block opacity-90">
-              <div class="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="fas fa-syringe text-orange-500 text-xs"></i>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                  <p class="text-xs font-bold text-slate-700 truncate">Vaccine Stock Low Alert</p>
-                  <span class="text-[9px] text-slate-400 flex-shrink-0 ml-1">4h ago</span>
-                </div>
-                <p class="text-[10px] text-slate-600 mt-0.5 line-clamp-2">Pentavalent vaccine supplies reached reorder threshold (15 doses left)</p>
-              </div>
-            </a>
-
-            <!-- Item 6 (Read) -->
-            <a href="<?php echo site_url('modules/sanitation/inspections.php'); ?>" data-notif-status="read" class="notif-item p-3 hover:bg-slate-50 transition flex items-start gap-2.5 block opacity-90">
-              <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="fas fa-clipboard-check text-blue-500 text-xs"></i>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                  <p class="text-xs font-bold text-blue-700 truncate">Sanitary Inspection Due</p>
-                  <span class="text-[9px] text-slate-400 flex-shrink-0 ml-1">5h ago</span>
-                </div>
-                <p class="text-[10px] text-slate-600 mt-0.5 line-clamp-2">12 routine establishment audits scheduled for tomorrow morning</p>
-              </div>
-            </a>
-
-            <!-- Item 7 (Previous Notification) -->
-            <a href="<?php echo site_url('modules/surveillence/reports.php'); ?>" data-notif-status="read" class="notif-item p-3 hover:bg-slate-50 transition flex items-start gap-2.5 block opacity-80">
-              <div class="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="fas fa-file-medical text-emerald-600 text-xs"></i>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                  <p class="text-xs font-bold text-emerald-800 truncate">Weekly Epidemiological Report</p>
-                  <span class="text-[9px] text-slate-400 flex-shrink-0 ml-1">Yesterday</span>
-                </div>
-                <p class="text-[10px] text-slate-600 mt-0.5 line-clamp-2">Epi-week summary report generated and ready for DOH submission</p>
-              </div>
-            </a>
-
-            <!-- Item 8 (Previous Notification) -->
-            <a href="<?php echo site_url('management/settings.php'); ?>" data-notif-status="read" class="notif-item p-3 hover:bg-slate-50 transition flex items-start gap-2.5 block opacity-80">
-              <div class="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="fas fa-server text-indigo-600 text-xs"></i>
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center justify-between">
-                  <p class="text-xs font-bold text-indigo-800 truncate">System Data Backup</p>
-                  <span class="text-[9px] text-slate-400 flex-shrink-0 ml-1">2 days ago</span>
-                </div>
-                <p class="text-[10px] text-slate-600 mt-0.5 line-clamp-2">Automatic database snapshot backup completed successfully</p>
-              </div>
-            </a>
+            <?php endif; ?>
 
           </div>
 
@@ -907,7 +824,18 @@ $minimalHeader = $minimalHeader ?? false;
 
     const emptyState = document.getElementById('notifEmptyState');
     if (emptyState) {
-      emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+      if (items.length > 0 && visibleCount === 0) {
+        emptyState.innerHTML = `
+          <i class="fas fa-check-circle text-2xl text-emerald-400 mb-2"></i>
+          <p class="text-xs font-semibold text-slate-600">No unread notifications</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">All notifications have been marked as read.</p>
+        `;
+        emptyState.style.display = 'block';
+      } else if (items.length === 0) {
+        emptyState.style.display = 'none';
+      } else {
+        emptyState.style.display = 'none';
+      }
     }
   }
 
@@ -936,35 +864,132 @@ $minimalHeader = $minimalHeader ?? false;
     }
   }
 
+  function getReadNotifIds() {
+    try {
+      return JSON.parse(localStorage.getItem('portal_read_notif_ids') || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function setReadNotifIds(ids) {
+    try {
+      localStorage.setItem('portal_read_notif_ids', JSON.stringify(ids));
+    } catch (e) {}
+  }
+
+  function syncNotifReadStateFromStorage() {
+    const readIds = new Set(getReadNotifIds());
+    const items = document.querySelectorAll('#notifItemsContainer .notif-item');
+    
+    items.forEach(item => {
+      const id = item.getAttribute('data-notif-id');
+      if (id && readIds.has(id)) {
+        item.setAttribute('data-notif-status', 'read');
+        const dot = item.querySelector('.unread-dot');
+        if (dot) dot.remove();
+      }
+    });
+
+    updateNotificationCounts();
+  }
+
+  function updateNotificationCounts() {
+    const unreadItems = document.querySelectorAll('#notifItemsContainer .notif-item[data-notif-status="unread"]');
+    const totalItems = document.querySelectorAll('#notifItemsContainer .notif-item');
+    const unreadCount = unreadItems.length;
+    const totalCount = totalItems.length;
+
+    const badgeCount = document.getElementById('notifBadgeCount');
+    const dot = document.getElementById('notifBadgeDot');
+    const badge = document.getElementById('dropdownNotifBadge');
+    const unreadTabCount = document.getElementById('notifTabUnreadCount');
+    const allTabCount = document.getElementById('notifTabAllCount');
+
+    if (badgeCount) {
+      if (unreadCount > 0) {
+        badgeCount.textContent = unreadCount > 99 ? '99+' : unreadCount;
+        badgeCount.classList.remove('hidden');
+        badgeCount.style.display = 'flex';
+      } else {
+        badgeCount.textContent = '0';
+        badgeCount.classList.add('hidden');
+        badgeCount.style.display = 'none';
+      }
+    }
+    if (dot) {
+      if (unreadCount > 0) {
+        dot.classList.remove('hidden');
+      } else {
+        dot.classList.add('hidden');
+      }
+    }
+    if (badge) {
+      if (unreadCount > 0) {
+        badge.textContent = `${unreadCount} New`;
+        badge.className = 'px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[9px] font-extrabold ml-1';
+      } else {
+        badge.textContent = '0 New';
+        badge.className = 'px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-extrabold ml-1';
+      }
+    }
+    if (unreadTabCount) {
+      unreadTabCount.textContent = unreadCount;
+    }
+    if (allTabCount) {
+      allTabCount.textContent = totalCount;
+    }
+  }
+
   function markAllNotificationsRead(e) {
     if (e) e.stopPropagation();
     if (typeof toast !== 'undefined') {
-      toast.success('Notifications marked as read');
-    }
-    const badge = document.getElementById('dropdownNotifBadge');
-    const dot = document.getElementById('notifBadgeDot');
-    const unreadTabCount = document.getElementById('notifTabUnreadCount');
-
-    if (badge) {
-      badge.textContent = '0 New';
-      badge.className = 'px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[9px] font-extrabold ml-1';
-    }
-    if (dot) {
-      dot.classList.add('hidden');
-    }
-    if (unreadTabCount) {
-      unreadTabCount.textContent = '0';
+      toast.success('All notifications marked as read');
     }
 
-    const unreadItems = document.querySelectorAll('[data-notif-status="unread"]');
-    unreadItems.forEach(item => {
+    const items = document.querySelectorAll('#notifItemsContainer .notif-item');
+    const readIds = getReadNotifIds();
+
+    items.forEach(item => {
+      const id = item.getAttribute('data-notif-id');
+      if (id && !readIds.includes(id)) {
+        readIds.push(id);
+      }
       item.setAttribute('data-notif-status', 'read');
       const unreadDot = item.querySelector('.unread-dot');
       if (unreadDot) unreadDot.remove();
     });
 
+    setReadNotifIds(readIds);
+    updateNotificationCounts();
     applyNotifFilter();
   }
+
+  // Handle individual notification clicks and initialize count
+  document.addEventListener('DOMContentLoaded', function() {
+    const notifContainer = document.getElementById('notifItemsContainer');
+    if (notifContainer) {
+      notifContainer.addEventListener('click', function(e) {
+        const item = e.target.closest('.notif-item');
+        if (item) {
+          const id = item.getAttribute('data-notif-id');
+          if (id) {
+            const readIds = getReadNotifIds();
+            if (!readIds.includes(id)) {
+              readIds.push(id);
+              setReadNotifIds(readIds);
+            }
+          }
+          item.setAttribute('data-notif-status', 'read');
+          const unreadDot = item.querySelector('.unread-dot');
+          if (unreadDot) unreadDot.remove();
+          updateNotificationCounts();
+        }
+      });
+    }
+
+    syncNotifReadStateFromStorage();
+  });
 
   // Close dropdowns on click outside or ESC key
   document.addEventListener('click', function(e) {
@@ -993,8 +1018,12 @@ $minimalHeader = $minimalHeader ?? false;
       const pDd = document.getElementById('profileDropdown');
       if (pDd) pDd.classList.add('hidden');
 
-      closeUserProfileModal();
-      closePersonalSettingsModal();
+      if (typeof closeUserProfileModal === 'function') {
+        closeUserProfileModal();
+      }
+      if (typeof closePersonalSettingsModal === 'function') {
+        closePersonalSettingsModal();
+      }
     }
   });
   </script>

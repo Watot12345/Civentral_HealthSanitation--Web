@@ -581,12 +581,25 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     </div>
 </div>
 
+<!-- REAL-TIME SURVEILLANCE & BARANGAY ACTIVE DISEASE NOTICE -->
+<div id="add_surveillance_barangay_alert" class="hidden p-3.5 rounded-xl border flex items-start gap-3 text-xs transition"></div>
+
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Patient <span class="text-rose-500">*</span></label><select id="add_patient_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Patient</option><?php foreach ($dbPatients as $p): ?><option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['first_name'] . ' ' . $p['last_name']); ?> (<?php echo htmlspecialchars($p['patient_id'] ?? "P-{$p['id']}"); ?>)</option><?php endforeach; ?></select></div>
+<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Patient <span class="text-rose-500">*</span></label><select id="add_patient_id" onchange="checkPatientSurveillanceSignals(this.value)" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Patient</option><?php foreach ($dbPatients as $p): ?><option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['first_name'] . ' ' . $p['last_name']); ?> (<?php echo htmlspecialchars($p['patient_id'] ?? "P-{$p['id']}"); ?>)</option><?php endforeach; ?></select></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Attending Doctor / Staff <span class="text-rose-500">*</span></label><select id="add_employee_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Doctor / Staff</option><?php foreach ($medicalStaff as $e): $displayName = $e['full_name'] ?? $e['name'] ?? "Employee #{$e['id']}"; $isSelected = ($loggedInDoctorId && (int)$e['id'] === (int)$loggedInDoctorId); ?><option value="<?php echo $e['id']; ?>" <?php echo $isSelected ? 'selected' : ''; ?>><?php echo htmlspecialchars($displayName); ?> (<?php echo htmlspecialchars($e['role_description'] ?? 'Doctor'); ?>)</option><?php endforeach; ?></select></div>
 </div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date <span class="text-rose-500">*</span></label><input type="date" id="add_date" value="<?php echo date('Y-m-d'); ?>" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Time <span class="text-rose-500">*</span></label><input type="time" id="add_time" value="<?php echo date('H:i'); ?>" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Chief Complaints / Symptoms</label><input type="text" id="add_symptoms" placeholder="e.g., Fever, persistent cough, headache" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Diagnosis <span class="text-rose-500">*</span></label><input type="text" id="add_diagnosis" required placeholder="Primary diagnosis" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Chief Complaints / Symptoms</label><input type="text" id="add_symptoms" oninput="checkDiagnosisSurveillanceKeyword(document.getElementById('add_diagnosis').value)" placeholder="e.g., Fever, persistent cough, headache" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
+    <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Diagnosis <span class="text-rose-500">*</span></label>
+        <input type="text" id="add_diagnosis" oninput="checkDiagnosisSurveillanceKeyword(this.value)" required placeholder="Primary diagnosis (e.g. Dengue, Influenza, Hypertension)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+        <div id="add_surveillance_diagnosis_badge" class="hidden mt-1.5 p-2 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 text-[11px] font-medium flex items-center gap-1.5">
+            <i class="fa-solid fa-shield-virus text-teal-600"></i>
+            <span id="add_surveillance_diagnosis_text"></span>
+        </div>
+    </div>
+</div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
     <div>
         <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ICD-10 Code</label>
@@ -1369,9 +1382,100 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                 const tri=document.getElementById('add_triage_id');if(tri&&tid)tri.value=tid;
                 ModalSystem.toast.info('Patient and assigned doctor auto-selected and locked for security',{title:'📋 Auto-filled',duration:3000});
             },500);
-            if(window.history&&window.history.replaceState){const pg=p.get('page')||'1';window.history.replaceState({},document.title,window.location.pathname+'?page='+pg);}
-        }
+        // Check surveillance status if patient pre-loaded
+        const initialPid = document.getElementById('add_patient_id')?.value;
+        if (initialPid) checkPatientSurveillanceSignals(initialPid);
     });
+
+    // ============================================================
+    // HEALTH SURVEILLANCE PRIMARY SOURCE BRIDGE
+    // ============================================================
+    function checkPatientSurveillanceSignals(patientId) {
+        const banner = document.getElementById('add_surveillance_barangay_alert');
+        if (!banner) return;
+        if (!patientId || !PATIENTS_MAP || !PATIENTS_MAP[patientId]) {
+            banner.classList.add('hidden');
+            return;
+        }
+
+        const p = PATIENTS_MAP[patientId];
+        const barangay = p.barangay || '';
+        if (!barangay || barangay === 'N/A') {
+            banner.classList.add('hidden');
+            return;
+        }
+
+        fetch('<?= site_url("modules/surveillence/api/clinical_bridge.php?action=check_barangay_status&barangay=") ?>' + encodeURIComponent(barangay))
+            .then(r => r.json())
+            .then(res => {
+                if (res.success && res.data && res.data.has_active) {
+                    const info = res.data;
+                    const diseasesSummary = Object.entries(info.disease_counts).map(([d, c]) => `<strong>${d}</strong>: ${c} case${c > 1 ? 's' : ''}`).join(', ');
+                    const isHigh = info.total_cases >= 5;
+                    
+                    banner.className = `p-3.5 rounded-xl border flex items-start gap-3 text-xs transition mb-4 ${isHigh ? 'bg-red-50 border-red-200 text-red-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`;
+                    banner.innerHTML = `
+                        <div class="mt-0.5 shrink-0 ${isHigh ? 'text-red-600' : 'text-amber-600'}">
+                            <i class="fa-solid fa-triangle-exclamation text-base"></i>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-bold flex items-center gap-2">
+                                <span>📍 ${p.barangay} — Active Disease Surveillance Notice</span>
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${isHigh ? 'bg-red-200 text-red-800' : 'bg-amber-200 text-amber-800'}">${info.risk_level}</span>
+                            </div>
+                            <p class="mt-0.5 text-[11px] leading-relaxed">
+                                There are currently <strong>${info.total_cases} active reported case(s)</strong> in this patient's barangay (${diseasesSummary}). Watch for common symptoms and early warning signs during physical examination.
+                            </p>
+                        </div>
+                    `;
+                    banner.classList.remove('hidden');
+                } else {
+                    banner.classList.add('hidden');
+                }
+            })
+            .catch(() => {
+                banner.classList.add('hidden');
+            });
+    }
+
+    const SURVEILLANCE_KW = {
+        'Dengue': ['dengue', 'denv', 'breakbone'],
+        'Influenza': ['influenza', 'flu', 'ari', 'ili', 'pneumonia', 'bronchitis'],
+        'Leptospirosis': ['leptospirosis', 'lepto', 'weil'],
+        'Tuberculosis': ['tuberculosis', 'ptb', 'tb'],
+        'Measles': ['measles', 'tigdas', 'rubeola', 'rubella'],
+        'Acute Gastroenteritis': ['gastroenteritis', 'age', 'diarrhea', 'cholera', 'typhoid'],
+        'COVID-19': ['covid', 'covid-19', 'sars-cov-2'],
+        'Hypertension': ['hypertension', 'htn', 'high blood pressure'],
+        'Diabetes': ['diabetes', 'dm', 't2dm', 'hyperglycemia']
+    };
+
+    function checkDiagnosisSurveillanceKeyword(diagText) {
+        const badge = document.getElementById('add_surveillance_diagnosis_badge');
+        const badgeText = document.getElementById('add_surveillance_diagnosis_text');
+        if (!badge || !badgeText) return;
+
+        const lower = (diagText || '').toLowerCase().trim();
+        if (!lower) {
+            badge.classList.add('hidden');
+            return;
+        }
+
+        let matched = null;
+        for (const [disease, kws] of Object.entries(SURVEILLANCE_KW)) {
+            if (kws.some(kw => lower.includes(kw))) {
+                matched = disease;
+                break;
+            }
+        }
+
+        if (matched) {
+            badgeText.innerHTML = `<strong>DOH Surveillance Trigger (${matched}):</strong> Saving will automatically bridge and report this case to District 1 Health Surveillance.`;
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
 
     // ============================================================
     // FORM VALIDATION

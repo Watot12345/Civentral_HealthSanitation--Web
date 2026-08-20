@@ -227,6 +227,20 @@ class PrescriptionController extends BaseController
             
             // Enrich the created prescription
             $result = $this->enrichPrescription($result);
+
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $rxCode = $result['prescription_id'] ?? ($result['id'] ?? 'RX');
+                    $pName = trim(($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? ''));
+                    $logger->log("Issued Prescription ({$rxCode}) for {$pName}", [
+                        'module'  => 'Health Center Services',
+                        'details' => "Medications: " . count($data['medications'] ?? []) . " item(s) prescribed",
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {}
+            }
             
             return [
                 'success' => true,

@@ -1,13 +1,7 @@
-// ===== DATA =====
-// UPDATED
-let templates = [
-  { id: 1, name: 'Food Establishment Inspection', type: 'inspection', status: 'active', description: 'Standard inspection for restaurants.', updated: '2026-07-15' },
-  { id: 2, name: 'Water Quality Audit', type: 'water', status: 'active', description: 'Comprehensive water testing.', updated: '2026-07-12' },
-  { id: 3, name: 'Waste Disposal Compliance', type: 'waste', status: 'draft', description: 'Waste management assessment.', updated: '2026-07-10' },
-  { id: 4, name: 'Healthcare Facility Sanitation', type: 'audit', status: 'inactive', description: 'Sanitation audit for hospitals.', updated: '2026-06-28' },
-  { id: 5, name: 'Public Restroom Inspection', type: 'inspection', status: 'active', description: 'Routine restroom checks.', updated: '2026-07-18' },
-];
-let nextId = 6;
+// ===== DYNAMIC REPORT TEMPLATES APP =====
+
+let templates = [];
+const API_URL = '../api/report_templates.php';
 
 // ===== DOM refs =====
 const $ = id => document.getElementById(id);
@@ -34,6 +28,23 @@ const activeTemplates = $('activeTemplates');
 const draftTemplates = $('draftTemplates');
 const toastContainer = $('toastContainer');
 
+// ===== Fetch from API =====
+async function fetchTemplates() {
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    if (data && data.success && Array.isArray(data.data)) {
+      templates = data.data;
+      render();
+    } else {
+      showToast(data.message || 'Failed to load templates', 'error');
+    }
+  } catch (err) {
+    console.error('Error fetching templates:', err);
+    showToast('Network error loading templates', 'error');
+  }
+}
+
 // ===== Render =====
 function render() {
   const search = searchInput.value.toLowerCase().trim();
@@ -41,7 +52,7 @@ function render() {
   const typeVal = typeFilter.value;
 
   let filtered = templates.filter(t =>
-    (t.name.toLowerCase().includes(search) || t.description.toLowerCase().includes(search)) &&
+    ((t.name || '').toLowerCase().includes(search) || (t.description || '').toLowerCase().includes(search)) &&
     (statusVal === 'all' || t.status === statusVal) &&
     (typeVal === 'all' || t.type === typeVal)
   );
@@ -59,25 +70,28 @@ function render() {
 
   const typeMap = { inspection: 'Inspection', audit: 'Audit', water: 'Water Quality', waste: 'Waste Management' };
   tbody.innerHTML = filtered.map(t => `
-            <tr>
-                <td class="px-5 py-3 font-medium text-gray-800">${t.name}</td>
-                <td class="px-5 py-3 text-gray-600">${typeMap[t.type]}</td>
-                <td class="px-5 py-3">
-                    <span class="status-badge ${t.status}">
-                        <span class="dot"></span> ${t.status.charAt(0).toUpperCase() + t.status.slice(1)}
-                    </span>
-                </td>
-                <td class="px-5 py-3 text-right">
-                    <button onclick="editTemplate(${t.id})" class="text-gray-400 hover:text-[#176B87] px-1"><i class="fas fa-edit"></i></button>
-                    <button onclick="deleteTemplate(${t.id})" class="text-gray-400 hover:text-red-500 px-1"><i class="fas fa-trash"></i></button>
-                </td>
-            </tr>
-        `).join('');
+    <tr>
+        <td class="px-5 py-3 font-medium text-gray-800">
+            <div>${t.name}</div>
+            ${t.description ? `<div class="text-xs text-gray-400 mt-0.5">${t.description}</div>` : ''}
+        </td>
+        <td class="px-5 py-3 text-gray-600">${typeMap[t.type] || t.type}</td>
+        <td class="px-5 py-3">
+            <span class="status-badge ${t.status}">
+                <span class="dot"></span> ${(t.status || 'active').charAt(0).toUpperCase() + (t.status || 'active').slice(1)}
+            </span>
+        </td>
+        <td class="px-5 py-3 text-right">
+            <button onclick="editTemplate(${t.id})" class="text-gray-400 hover:text-[#176B87] px-1 transition"><i class="fas fa-edit"></i></button>
+            <button onclick="deleteTemplate(${t.id})" class="text-gray-400 hover:text-red-500 px-1 transition"><i class="fas fa-trash"></i></button>
+        </td>
+    </tr>
+  `).join('');
 }
 
-// ===== CRUD =====
+// ===== CRUD Operations via API =====
 function editTemplate(id) {
-  const t = templates.find(t => t.id === id);
+  const t = templates.find(t => String(t.id) === String(id));
   if (!t) return;
   modalTitle.textContent = 'Edit Template';
   saveBtnText.textContent = 'Update';
@@ -89,37 +103,60 @@ function editTemplate(id) {
   modalOverlay.classList.remove('hidden');
 }
 
-function deleteTemplate(id) {
-  if (!confirm('Delete this template?')) return;
-  templates = templates.filter(t => t.id !== id);
-  render();
-  showToast('Template deleted', 'success');
+async function deleteTemplate(id) {
+  if (!confirm('Are you sure you want to delete this template?')) return;
+  try {
+    const res = await fetch(`${API_URL}?id=${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    if (data.success) {
+      templates = templates.filter(t => String(t.id) !== String(id));
+      render();
+      showToast('Template deleted successfully', 'success');
+    } else {
+      showToast(data.message || 'Failed to delete template', 'error');
+    }
+  } catch (err) {
+    showToast('Failed to delete template', 'error');
+  }
 }
 
-function saveTemplate(e) {
+async function saveTemplate(e) {
   e.preventDefault();
   const name = templateName.value.trim();
-  if (!name) return showToast('Name is required', 'error');
+  if (!name) return showToast('Template name is required', 'error');
 
-  const data = {
+  const payload = {
     name,
     type: templateType.value,
     status: templateStatus.value,
-    description: templateDesc.value.trim(),
-    updated: new Date().toISOString().slice(0, 10)
+    description: templateDesc.value.trim()
   };
 
   const id = editId.value;
-  if (id) {
-    const idx = templates.findIndex(t => t.id === Number(id));
-    if (idx !== -1) { templates[idx] = { ...templates[idx], ...data }; }
-    showToast('Template updated', 'success');
-  } else {
-    templates.push({ id: nextId++, ...data });
-    showToast('Template created', 'success');
+  const method = id ? 'PUT' : 'POST';
+  if (id) payload.id = id;
+
+  try {
+    const res = await fetch(API_URL, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      showToast(data.message || (id ? 'Template updated' : 'Template created'), 'success');
+      closeModal();
+      await fetchTemplates();
+    } else {
+      showToast(data.message || 'Error saving template', 'error');
+    }
+  } catch (err) {
+    showToast('Network error saving template', 'error');
   }
-  closeModal();
-  render();
 }
 
 function closeModal() {
@@ -161,4 +198,4 @@ clearFiltersBtn.addEventListener('click', () => {
 });
 
 // ===== Init =====
-render();
+fetchTemplates();

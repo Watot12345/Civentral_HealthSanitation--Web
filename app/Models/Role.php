@@ -156,8 +156,10 @@ class Role
 
             $defaultSlugs = [];
             if (!$hasDbCustom && !empty($roleName)) {
+                $normName = class_exists('\App\Services\PermissionService') ? \App\Services\PermissionService::normalizeRoleTitle($roleName) : $roleName;
                 foreach ($defaultMatrix as $mName => $mSlugs) {
-                    if (strcasecmp(trim($mName), $roleName) === 0) {
+                    $mNorm = class_exists('\App\Services\PermissionService') ? \App\Services\PermissionService::normalizeRoleTitle($mName) : $mName;
+                    if (strcasecmp(trim($mName), $roleName) === 0 || strcasecmp(trim($mNorm), $normName) === 0) {
                         $defaultSlugs = $mSlugs;
                         break;
                     }
@@ -226,6 +228,11 @@ class Role
             ['id' => 20, 'module' => 'Immunization & Nutrition', 'slug' => 'immunization.view',   'label' => 'View Records'],
             ['id' => 21, 'module' => 'Immunization & Nutrition', 'slug' => 'immunization.create', 'label' => 'Create Records'],
             ['id' => 22, 'module' => 'Immunization & Nutrition', 'slug' => 'immunization.edit',   'label' => 'Edit Records'],
+
+            ['id' => 34, 'module' => 'Wastewater Services', 'slug' => 'wastewater.view',   'label' => 'View Wastewater & Septic Records'],
+            ['id' => 35, 'module' => 'Wastewater Services', 'slug' => 'wastewater.create', 'label' => 'Create Service Request / Tank'],
+            ['id' => 36, 'module' => 'Wastewater Services', 'slug' => 'wastewater.edit',   'label' => 'Edit Maintenance & Status'],
+            ['id' => 37, 'module' => 'Wastewater Services', 'slug' => 'wastewater.manage', 'label' => 'Manage Desludging & Haulers'],
 
             ['id' => 30, 'module' => 'Health Surveillance', 'slug' => 'surveillance.view',   'label' => 'View Disease Surveillance'],
             ['id' => 31, 'module' => 'Health Surveillance', 'slug' => 'surveillance.create', 'label' => 'Create Case & Outbreak Alert'],
@@ -317,17 +324,55 @@ class Role
         });
 
         // Get granted permission IDs for this role
+        $hasDbCustom = false;
         try {
             $granted = $this->db->select('role_permissions', ['role_id' => 'eq.' . $roleId], ['select' => 'permission_id']);
-            $grantedIds = array_map('intval', array_column($granted, 'permission_id'));
+            if (is_array($granted)) {
+                $grantedIds = array_map('intval', array_column($granted, 'permission_id'));
+                $hasDbCustom = !empty($grantedIds);
+            } else {
+                $grantedIds = [];
+            }
         } catch (Throwable $e) {
             $grantedIds = [];
         }
 
+        // Get role name for matrix fallback
+        $roleName = '';
+        try {
+            $roleRecord = $this->db->select($this->table, ['id' => 'eq.' . $roleId], ['select' => 'name']);
+            if (!empty($roleRecord)) {
+                $roleName = trim($roleRecord[0]['name'] ?? '');
+            }
+        } catch (Throwable $e) {}
+
+        $defaultMatrix = class_exists('\App\Services\PermissionService') 
+            ? \App\Services\PermissionService::defaultRolePermissionMatrix() 
+            : [];
+
+        $defaultSlugs = [];
+        if (!$hasDbCustom && !empty($roleName)) {
+            foreach ($defaultMatrix as $mName => $mSlugs) {
+                if (strcasecmp(trim($mName), $roleName) === 0) {
+                    $defaultSlugs = $mSlugs;
+                    break;
+                }
+            }
+        }
+
+        $isSystemAdminRole = ($roleId === 1 || strcasecmp($roleName, 'System Administrator') === 0 || strcasecmp($roleName, 'System Admin') === 0);
+
         // Merge granted flag
         foreach ($allPermissions as &$perm) {
             $permId = (int) ($perm['id'] ?? 0);
-            $perm['granted'] = in_array($permId, $grantedIds, true) || ($roleId === 1 || $roleId === 100);
+            $slug = $perm['slug'] ?? '';
+            if ($isSystemAdminRole) {
+                $perm['granted'] = true;
+            } elseif ($hasDbCustom) {
+                $perm['granted'] = in_array($permId, $grantedIds, true);
+            } else {
+                $perm['granted'] = in_array($slug, $defaultSlugs, true);
+            }
         }
 
         return $allPermissions;

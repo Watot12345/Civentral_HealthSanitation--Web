@@ -36,6 +36,15 @@ class RateLimiterService
         }
 
         $ip = $clientIp ?: ($this->getClientIp());
+        if ($ip === '127.0.0.1' || $ip === '::1' || $ip === 'localhost') {
+            return [
+                'allowed'   => true,
+                'limit'     => 99999,
+                'remaining' => 99999,
+                'reset'     => 0
+            ];
+        }
+
         $file = $this->limitDir . '/' . md5($ip) . '.json';
         $now = time();
 

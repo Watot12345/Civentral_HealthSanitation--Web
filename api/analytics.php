@@ -78,7 +78,7 @@ try {
     $range   = $_GET['range'] ?? '6m';
     $filter  = $_GET['filter'] ?? 'disease';
     $yoy     = isset($_GET['yoy']) && ($_GET['yoy'] === 'true' || $_GET['yoy'] === '1');
-    $refresh = true; // Live calculation
+    $refresh = isset($_GET['refresh']) && ($_GET['refresh'] === '1' || $_GET['refresh'] === 'true');
 
     $analyticsService = new AiAnalyticsService();
     $data = $analyticsService->getAnalyticsData($range, $filter, $yoy, $refresh, $scope);

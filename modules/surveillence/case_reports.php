@@ -29,59 +29,172 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
     $response = ['success' => false, 'message' => 'Invalid action'];
 
-    if (!isset($_SESSION['cases_data'])) {
-        $_SESSION['cases_data'] = [];
-    }
+    require_once __DIR__ . '/../../app/Models/SurveillanceCase.php';
+    $caseModel = new SurveillanceCase();
 
     try {
         switch ($action) {
             case 'create':
             case 'report_case':
-                $newId = count($_SESSION['cases_data']) + 100;
+                $caseYear = date('Y');
+                $existingCount = count($caseModel->all());
+                $newCaseCode = 'CS-' . $caseYear . '-' . str_pad((string)($existingCount + 1), 3, '0', STR_PAD_LEFT);
                 $newCase = [
-                    'id' => $newId,
-                    'case_code' => 'CS-' . sprintf('%03d', $newId),
-                    'disease' => trim($_POST['disease'] ?? 'Unknown'),
-                    'patient_name' => trim($_POST['patient_name'] ?? 'Anonymous'),
-                    'age' => (int)($_POST['age'] ?? 0),
-                    'gender' => trim($_POST['gender'] ?? 'Unknown'),
-                    'address' => trim($_POST['address'] ?? ''),
-                    'barangay' => trim($_POST['barangay'] ?? ''),
-                    'contact_number' => trim($_POST['contact_number'] ?? ''),
-                    'symptoms' => trim($_POST['symptoms'] ?? 'Fever, Headache'),
-                    'onset_date' => trim($_POST['onset_date'] ?? date('Y-m-d')),
-                    'reporting_facility' => trim($_POST['reporting_facility'] ?? 'Health Center'),
-                    'status' => 'reported',
-                    'severity' => strtolower(trim($_POST['severity'] ?? 'moderate')),
-                    'reported_by' => $_SESSION['full_name'] ?? 'Surveillance Staff',
-                    'created_at' => date('Y-m-d H:i:s')
+                    'case_code'         => $newCaseCode,
+                    'disease'           => trim($_POST['disease'] ?? ''),
+                    'patient_name'      => trim($_POST['patient_name'] ?? ''),
+                    'age'               => (int)($_POST['age'] ?? 0),
+                    'gender'            => trim($_POST['gender'] ?? ''),
+                    'address'           => trim($_POST['address'] ?? ''),
+                    'barangay'          => trim($_POST['barangay'] ?? ''),
+                    'contact_number'    => trim($_POST['contact_number'] ?? ''),
+                    'symptoms'          => trim($_POST['symptoms'] ?? ''),
+                    'onset_date'        => trim($_POST['onset_date'] ?? date('Y-m-d')),
+                    'reporting_facility'=> trim($_POST['reporting_facility'] ?? ''),
+                    'status'            => 'reported',
+                    'severity'          => strtolower(trim($_POST['severity'] ?? 'moderate')),
+                    'reported_by'       => $_SESSION['full_name'] ?? '',
+                    'created_at'        => date('Y-m-d H:i:s')
                 ];
-                $_SESSION['cases_data'][] = $newCase;
-                $response = ['success' => true, 'message' => 'Case report submitted successfully!', 'data' => $newCase];
+                $created = $caseModel->create($newCase);
+                $response = ['success' => true, 'message' => 'Case report submitted successfully!', 'data' => $created];
+                break;
+
+            case 'import_cases':
+                $importedRows = [];
+                if (!empty($_POST['rows_json'])) {
+                    $importedRows = json_decode($_POST['rows_json'], true) ?: [];
+                } elseif (!empty($_POST['csv_text'])) {
+                    $lines = preg_split('/\r\n|\r|\n/', trim($_POST['csv_text']));
+                    $headers = [];
+                    foreach ($lines as $idx => $line) {
+                        $cols = str_getcsv($line);
+                        if ($idx === 0) {
+                            $headers = array_map('strtolower', array_map('trim', $cols));
+                            continue;
+                        }
+                        if (count($cols) < 2) continue;
+                        $row = [];
+                        foreach ($headers as $hIdx => $hKey) {
+                            $row[$hKey] = trim($cols[$hIdx] ?? '');
+                        }
+                        $importedRows[] = $row;
+                    }
+                }
+
+                if (empty($importedRows)) {
+                    $response = ['success' => false, 'message' => 'No valid rows found to import.'];
+                    break;
+                }
+
+                require_once __DIR__ . '/../../app/services/AlertService.php';
+                $caseYear = date('Y');
+                $existingCount = count($caseModel->all());
+                $insertedCount = 0;
+
+                foreach ($importedRows as $r) {
+                    $patient = trim($r['patient_name'] ?? $r['patient'] ?? $r['name'] ?? '');
+                    $disease = trim($r['disease'] ?? $r['illness'] ?? '');
+                    if (empty($patient) || empty($disease)) continue;
+
+                    $rawAge = trim((string)($r['age'] ?? '0'));
+                    preg_match('/\d+/', $rawAge, $ageMatch);
+                    $age = !empty($ageMatch) ? (int)$ageMatch[0] : 0;
+
+                    $gender = trim($r['gender'] ?? $r['sex'] ?? 'Unknown');
+                    if (stripos($gender, 'f') === 0) $gender = 'Female';
+                    elseif (stripos($gender, 'm') === 0) $gender = 'Male';
+
+                    $rawBrgy = trim((string)($r['barangay'] ?? $r['brgy'] ?? ''));
+                    preg_match('/\d+/', $rawBrgy, $bMatch);
+                    $barangay = !empty($bMatch) ? $bMatch[0] : $rawBrgy;
+
+                    $rawDate = trim($r['onset_date'] ?? $r['report_date'] ?? $r['reported'] ?? $r['date'] ?? date('Y-m-d'));
+                    $time = strtotime($rawDate);
+                    $onsetDate = $time ? date('Y-m-d', $time) : date('Y-m-d');
+
+                    $existingCount++;
+                    $caseCode = 'CS-' . $caseYear . '-' . str_pad((string)$existingCount, 4, '0', STR_PAD_LEFT);
+
+                    $caseData = [
+                        'case_code'          => $caseCode,
+                        'patient_name'       => $patient,
+                        'disease'            => $disease,
+                        'age'                => $age,
+                        'gender'             => $gender,
+                        'barangay'           => $barangay,
+                        'address'            => trim($r['address'] ?? ("Barangay " . $barangay . ", Caloocan City")),
+                        'contact_number'     => trim($r['contact_number'] ?? $r['contact'] ?? ''),
+                        'symptoms'           => trim($r['symptoms'] ?? 'Reported via batch import'),
+                        'onset_date'         => $onsetDate,
+                        'reporting_facility' => trim($r['reporting_facility'] ?? 'District 1 Health Center'),
+                        'status'             => 'reported',
+                        'severity'           => 'moderate',
+                        'reported_by'        => $_SESSION['full_name'] ?? 'System Import',
+                        'created_at'         => date('Y-m-d H:i:s')
+                    ];
+
+                    $caseModel->create($caseData);
+                    $insertedCount++;
+                }
+
+                // Trigger AlertService recalculation
+                try {
+                    \App\Services\AlertService::getInstance()->syncThresholdBreaches();
+                } catch (\Throwable $e) {}
+
+                $response = [
+                    'success' => true,
+                    'count'   => $insertedCount,
+                    'message' => "Successfully imported {$insertedCount} case reports into the surveillance database!"
+                ];
                 break;
 
             case 'update':
             case 'update_case':
                 $id = (int)($_POST['id'] ?? 0);
+                $updateData = array_filter([
+                    'disease'           => trim($_POST['disease'] ?? ''),
+                    'patient_name'      => trim($_POST['patient_name'] ?? ''),
+                    'age'               => (int)($_POST['age'] ?? 0),
+                    'gender'            => trim($_POST['gender'] ?? ''),
+                    'address'           => trim($_POST['address'] ?? ''),
+                    'barangay'          => trim($_POST['barangay'] ?? ''),
+                    'contact_number'    => trim($_POST['contact_number'] ?? ''),
+                    'symptoms'          => trim($_POST['symptoms'] ?? ''),
+                    'onset_date'        => trim($_POST['onset_date'] ?? ''),
+                    'reporting_facility'=> trim($_POST['reporting_facility'] ?? ''),
+                    'severity'          => strtolower(trim($_POST['severity'] ?? '')),
+                ], fn($v) => $v !== '' && $v !== 0);
+                $caseModel->updateById($id, $updateData);
                 $response = ['success' => true, 'message' => 'Case #' . $id . ' updated successfully!'];
                 break;
 
             case 'update_status':
             case 'confirm_case':
             case 'resolve_case':
-                $id = (int)($_POST['id'] ?? 0);
-                $status = trim($_POST['status'] ?? 'Confirmed');
+                $id     = (int)($_POST['id'] ?? 0);
+                $status = trim($_POST['status'] ?? 'confirmed');
+                $caseModel->updateById($id, ['status' => strtolower($status), 'updated_at' => date('Y-m-d H:i:s')]);
                 $response = ['success' => true, 'message' => "Case #{$id} status updated to {$status}!"];
                 break;
 
             case 'investigate':
             case 'investigate_case':
                 $id = (int)($_POST['id'] ?? 0);
+                $investigationData = array_filter([
+                    'status'               => 'investigating',
+                    'investigator_id'      => trim($_POST['investigator_id'] ?? ''),
+                    'investigation_notes'  => trim($_POST['investigation_notes'] ?? ''),
+                    'updated_at'           => date('Y-m-d H:i:s'),
+                ], fn($v) => $v !== '');
+                $caseModel->updateById($id, $investigationData);
                 $response = ['success' => true, 'message' => "Investigation for case #{$id} submitted successfully!"];
                 break;
 
             case 'delete':
                 $id = (int)($_POST['id'] ?? 0);
+                $caseModel->updateById($id, ['status' => 'archived', 'updated_at' => date('Y-m-d H:i:s')]);
                 $response = ['success' => true, 'message' => "Case #{$id} archived successfully!"];
                 break;
 
@@ -105,17 +218,22 @@ require_once '../../includes/sidebar.php';
 requireDepartmentAccess('health surveillance');
 
 require_once __DIR__ . '/../../app/Models/SurveillanceCase.php';
+require_once __DIR__ . '/../../app/services/ClinicalSurveillanceService.php';
 
 try {
+    // Fast query: only full-scan if explicitly requested via ?sync=1
+    if (isset($_GET['sync'])) {
+        $clinicalSvc = new ClinicalSurveillanceService();
+        $clinicalSvc->scanAllClinicalSources();
+    }
+
     $caseModel = new SurveillanceCase();
     $rawDbCases = $caseModel->all();
 
     $cases = array_map(function($c) {
         $symptomsRaw = $c['symptoms'] ?? '';
         $symptomsArr = is_array($symptomsRaw) ? $symptomsRaw : array_map('trim', explode(',', (string)$symptomsRaw));
-        if (empty($symptomsArr) || (count($symptomsArr) === 1 && $symptomsArr[0] === '')) {
-            $symptomsArr = ['Fever', 'Headache'];
-        }
+        $symptomsArr = array_filter($symptomsArr, fn($s) => $s !== '');
         return [
             'id' => (int) ($c['id'] ?? 0),
             'case_id' => $c['case_code'] ?? ('CS-' . ($c['id'] ?? '000')),
@@ -155,6 +273,13 @@ $resolvedCount = count(array_filter($cases, fn($c) => $c['status'] === 'resolved
 $criticalCount = count(array_filter($cases, fn($c) => $c['severity'] === 'critical'));
 $highCount = count(array_filter($cases, fn($c) => $c['severity'] === 'high'));
 
+// District 1 South Caloocan barangays (Brgy 1-4, 77-85, 132-164)
+$d1Numbers = array_merge(range(1, 4), range(77, 85), range(132, 164));
+$d1BarangayOptions = [];
+foreach ($d1Numbers as $num) {
+    $d1BarangayOptions[] = "Barangay {$num}";
+}
+
 $title = 'Case Reports';
 ?>
 
@@ -170,7 +295,11 @@ $title = 'Case Reports';
             <h2 class="text-2xl font-black text-slate-900 tracking-tight">Case Reports</h2>
             <p class="text-sm text-slate-500 mt-0.5">Report, manage, track and investigate disease cases</p>
         </div>
-        <div class="flex gap-3">
+        <div class="flex items-center gap-3">
+            <button onclick="openModal('importCasesModal')"
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
+                <i class="fa-solid fa-file-import text-brand-dark"></i> Import Reports
+            </button>
             <button onclick="openModal('reportCaseModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-plus text-xs"></i> Report Case
@@ -309,12 +438,10 @@ $title = 'Case Reports';
                     <option value="critical">Critical</option>
                 </select>
                 <select id="filterBarangay" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                    <option value="">All Barangays</option>
-                    <option value="Barangay San Jose">San Jose</option>
-                    <option value="Barangay Poblacion">Poblacion</option>
-                    <option value="Barangay Riverside">Riverside</option>
-                    <option value="Barangay San Roque">San Roque</option>
-                    <option value="Barangay Sta. Cruz">Sta. Cruz</option>
+                    <option value="">All Barangays (District 1)</option>
+                    <?php foreach ($d1BarangayOptions as $bName): ?>
+                    <option value="<?php echo htmlspecialchars($bName); ?>"><?php echo htmlspecialchars($bName); ?></option>
+                    <?php endforeach; ?>
                 </select>
                       <input type="date" id="filterDateFrom" aria-label="Reported date from"
                           class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
@@ -497,12 +624,10 @@ $title = 'Case Reports';
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label>
                 <select id="case_barangay" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">Select Barangay</option>
-                    <option value="Barangay San Jose">Barangay San Jose</option>
-                    <option value="Barangay Poblacion">Barangay Poblacion</option>
-                    <option value="Barangay Riverside">Barangay Riverside</option>
-                    <option value="Barangay San Roque">Barangay San Roque</option>
-                    <option value="Barangay Sta. Cruz">Barangay Sta. Cruz</option>
+                    <option value="">Select Barangay (District 1)</option>
+                    <?php foreach ($d1BarangayOptions as $bName): ?>
+                    <option value="<?php echo htmlspecialchars($bName); ?>"><?php echo htmlspecialchars($bName); ?></option>
+                    <?php endforeach; ?>
                 </select>
             </div>
             <div>
@@ -598,11 +723,9 @@ $title = 'Case Reports';
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label>
                 <select id="edit_barangay" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="Barangay San Jose">Barangay San Jose</option>
-                    <option value="Barangay Poblacion">Barangay Poblacion</option>
-                    <option value="Barangay Riverside">Barangay Riverside</option>
-                    <option value="Barangay San Roque">Barangay San Roque</option>
-                    <option value="Barangay Sta. Cruz">Barangay Sta. Cruz</option>
+                    <?php foreach ($d1BarangayOptions as $bName): ?>
+                    <option value="<?php echo htmlspecialchars($bName); ?>"><?php echo htmlspecialchars($bName); ?></option>
+                    <?php endforeach; ?>
                 </select>
             </div>
             <div>
@@ -734,6 +857,104 @@ $title = 'Case Reports';
     </div>
 </div>
 
+<!-- SHEETJS FOR EXCEL IMPORT/EXPORT -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- ============================================================ -->
+<!-- BULK IMPORT CASE REPORTS MODAL (EXCEL & CSV)                -->
+<!-- ============================================================ -->
+<div id="importCasesModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                Bulk Import Case Reports (Excel & CSV)
+            </h3>
+            <button onclick="closeModal('importCasesModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        
+        <div class="p-6 space-y-5">
+            <!-- Instructions Banner & Template Download -->
+            <div class="p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="space-y-1">
+                    <p class="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                        <i class="fa-solid fa-table"></i> Required Columns in Spreadsheet:
+                    </p>
+                    <p class="text-[11px] text-slate-700 font-mono font-semibold">
+                        Patient, Age, Gender, Disease, Barangay, Reported
+                    </p>
+                    <p class="text-[10px] text-slate-500">
+                        *Case IDs, 2-SD anomaly calculations, and district zones are auto-generated.
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="downloadSampleExcel()" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition shadow-2xs whitespace-nowrap flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-excel text-[11px]"></i> Template (.xlsx)
+                    </button>
+                    <button type="button" onclick="downloadSampleCsv()" class="px-2.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50 transition shadow-2xs whitespace-nowrap flex items-center gap-1">
+                        .csv
+                    </button>
+                </div>
+            </div>
+
+            <!-- Upload File (.xlsx, .xls, .csv) -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1.5">Choose Excel (.xlsx / .xls) or CSV File</label>
+                <input type="file" id="spreadsheetFileInput" accept=".xlsx, .xls, .csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel, text/csv" onchange="handleSpreadsheetFileUpload(event)" class="w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-100 file:text-emerald-800 hover:file:bg-emerald-200 cursor-pointer border border-slate-200 rounded-xl p-1 bg-slate-50/50">
+            </div>
+
+            <div class="relative flex py-1 items-center">
+                <div class="flex-grow border-t border-slate-200"></div>
+                <span class="flex-shrink mx-3 text-slate-400 text-[10px] font-bold uppercase">OR PASTE DIRECTLY FROM EXCEL / TEXT</span>
+                <div class="flex-grow border-t border-slate-200"></div>
+            </div>
+
+            <div>
+                <textarea id="rawSpreadsheetText" rows="4" oninput="handleRawSpreadsheetInput(this.value)" placeholder="Patient	Age	Gender	Disease	Barangay	Reported&#10;Nestor Guinto	32	Female	Dengue	80	2026-08-02&#10;Maria Santos	28	Female	Influenza	77	2026-08-03" class="w-full p-3 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 outline-none bg-slate-50/50"></textarea>
+            </div>
+
+            <!-- Real-time Preview Table -->
+            <div id="importPreviewContainer" class="hidden space-y-2">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-check-circle text-emerald-600"></i>
+                        Parsed Rows Preview (<span id="parsedRowCount">0</span> cases ready)
+                    </h4>
+                    <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">Validated & Ready</span>
+                </div>
+                <div class="border border-slate-200 rounded-xl max-h-52 overflow-y-auto">
+                    <table class="min-w-full text-[11px] text-left">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold sticky top-0">
+                            <tr>
+                                <th class="py-2 px-3">Patient</th>
+                                <th class="py-2 px-3">Age / Gender</th>
+                                <th class="py-2 px-3">Disease</th>
+                                <th class="py-2 px-3">Barangay</th>
+                                <th class="py-2 px-3">Reported Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="importPreviewBody" class="divide-y divide-slate-100 font-medium text-slate-700">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onclick="closeModal('importCasesModal')"
+                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                    Cancel
+                </button>
+                <button type="button" id="btnSubmitImport" onclick="submitImportedCases()" disabled
+                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Confirm & Import to Database
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Toast notification -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
     <i class="fa-solid fa-circle-check"></i>
@@ -745,6 +966,232 @@ $title = 'Case Reports';
 <!-- ============================================================ -->
 <script>
     const CASES = <?php echo json_encode(array_column($cases, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+    let PARSED_IMPORT_ROWS = [];
+
+    // ============================================================
+    // EXCEL & CSV TEMPLATE DOWNLOAD & FILE PARSING
+    // ============================================================
+    function downloadSampleExcel() {
+        const sampleData = [
+            { "Patient": "Nestor Guinto", "Age": 32, "Gender": "Female", "Disease": "Dengue", "Barangay": "80", "Reported": "2026-08-02" },
+            { "Patient": "Maria Santos", "Age": 28, "Gender": "Female", "Disease": "Influenza", "Barangay": "77", "Reported": "2026-08-03" },
+            { "Patient": "Juan Dela Cruz", "Age": 45, "Gender": "Male", "Disease": "Leptospirosis", "Barangay": "82", "Reported": "2026-08-04" },
+            { "Patient": "Elena Reyes", "Age": 19, "Gender": "Female", "Disease": "Measles", "Barangay": "132", "Reported": "2026-08-05" },
+            { "Patient": "Carlos Mendoza", "Age": 54, "Gender": "Male", "Disease": "Gastroenteritis", "Barangay": "141", "Reported": "2026-08-06" }
+        ];
+
+        const worksheet = XLSX.utils.json_to_sheet(sampleData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Surveillance Cases");
+
+        XLSX.writeFile(workbook, "surveillance_cases_template.xlsx");
+    }
+
+    function downloadSampleCsv() {
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + "Patient,Age,Gender,Disease,Barangay,Reported\n"
+            + "Nestor Guinto,32,Female,Dengue,80,2026-08-02\n"
+            + "Maria Santos,28,Female,Influenza,77,2026-08-03\n"
+            + "Juan Dela Cruz,45,Male,Leptospirosis,82,2026-08-04\n"
+            + "Elena Reyes,19,Female,Measles,132,2026-08-05\n"
+            + "Carlos Mendoza,54,Male,Gastroenteritis,141,2026-08-06";
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "surveillance_cases_template.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function handleSpreadsheetFileUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+
+        if (isExcel && typeof XLSX !== 'undefined') {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                processJsonRows(jsonData);
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const text = evt.target.result;
+                document.getElementById('rawSpreadsheetText').value = text;
+                parseRawDelimitedText(text);
+            };
+            reader.readAsText(file);
+        }
+    }
+
+    function handleRawSpreadsheetInput(val) {
+        parseRawDelimitedText(val);
+    }
+
+    function processJsonRows(jsonData) {
+        if (!jsonData || jsonData.length === 0) {
+            document.getElementById('importPreviewContainer').classList.add('hidden');
+            document.getElementById('btnSubmitImport').disabled = true;
+            PARSED_IMPORT_ROWS = [];
+            return;
+        }
+
+        const rows = [];
+        jsonData.forEach(item => {
+            const keys = Object.keys(item);
+            let patient = '', age = 0, gender = 'Unknown', disease = '', barangay = '', reported = '';
+
+            keys.forEach(k => {
+                const lower = k.toLowerCase().trim();
+                const val = String(item[k] || '').trim();
+                if (lower.includes('patient') || lower.includes('name')) patient = val;
+                else if (lower === 'age') age = parseInt(val.replace(/\D/g, '')) || 0;
+                else if (lower.includes('gender') || lower.includes('sex')) gender = val;
+                else if (lower.includes('disease') || lower.includes('illness') || lower.includes('diagnosis')) disease = val;
+                else if (lower.includes('barangay') || lower.includes('brgy')) barangay = val.replace(/\D/g, '') || val;
+                else if (lower.includes('report') || lower.includes('date') || lower.includes('onset')) reported = val;
+            });
+
+            if (patient && disease) {
+                rows.push({
+                    patient_name: patient,
+                    age: age,
+                    gender: gender || 'Unknown',
+                    disease: disease,
+                    barangay: barangay || '77',
+                    onset_date: reported || new Date().toISOString().slice(0, 10)
+                });
+            }
+        });
+
+        renderPreviewTable(rows);
+    }
+
+    function parseRawDelimitedText(text) {
+        if (!text || !text.trim()) {
+            document.getElementById('importPreviewContainer').classList.add('hidden');
+            document.getElementById('btnSubmitImport').disabled = true;
+            PARSED_IMPORT_ROWS = [];
+            return;
+        }
+
+        const lines = text.trim().split(/\r\n|\r|\n/);
+        if (lines.length < 2) {
+            document.getElementById('importPreviewContainer').classList.add('hidden');
+            document.getElementById('btnSubmitImport').disabled = true;
+            PARSED_IMPORT_ROWS = [];
+            return;
+        }
+
+        // Auto-detect tab vs comma
+        const isTab = lines[0].includes('\t');
+        const delimiter = isTab ? '\t' : ',';
+
+        const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase().replace(/['"]/g, ''));
+        const rows = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            const cols = line.split(delimiter).map(c => c.trim().replace(/['"]/g, ''));
+            if (cols.length < 2) continue;
+
+            const row = {};
+            headers.forEach((h, idx) => {
+                row[h] = cols[idx] || '';
+            });
+
+            const patient = row.patient || row.patient_name || row.name || cols[0] || '';
+            const age = (row.age || cols[1] || '').replace(/\D/g, '') || '0';
+            const gender = row.gender || row.sex || cols[2] || 'Unknown';
+            const disease = row.disease || row.illness || cols[3] || '';
+            const barangay = (row.barangay || row.brgy || cols[4] || '').replace(/\D/g, '') || cols[4] || '';
+            const reported = row.reported || row.report_date || row.onset_date || row.date || cols[5] || new Date().toISOString().slice(0, 10);
+
+            if (patient && disease) {
+                rows.push({
+                    patient_name: patient,
+                    age: parseInt(age) || 0,
+                    gender: gender,
+                    disease: disease,
+                    barangay: barangay,
+                    onset_date: reported
+                });
+            }
+        }
+
+        renderPreviewTable(rows);
+    }
+
+    function renderPreviewTable(rows) {
+        PARSED_IMPORT_ROWS = rows;
+        const countSpan = document.getElementById('parsedRowCount');
+        const previewContainer = document.getElementById('importPreviewContainer');
+        const previewBody = document.getElementById('importPreviewBody');
+        const submitBtn = document.getElementById('btnSubmitImport');
+
+        if (rows.length > 0) {
+            countSpan.textContent = rows.length;
+            previewBody.innerHTML = rows.map(r => `
+                <tr class="hover:bg-slate-50">
+                    <td class="py-1.5 px-3 font-bold text-slate-900">${escapeHtml(r.patient_name)}</td>
+                    <td class="py-1.5 px-3">${r.age} yrs &bull; ${escapeHtml(r.gender)}</td>
+                    <td class="py-1.5 px-3 font-semibold text-emerald-700">${escapeHtml(r.disease)}</td>
+                    <td class="py-1.5 px-3">Brgy ${escapeHtml(r.barangay)}</td>
+                    <td class="py-1.5 px-3 text-slate-500">${escapeHtml(r.onset_date)}</td>
+                </tr>
+            `).join('');
+
+            previewContainer.classList.remove('hidden');
+            submitBtn.disabled = false;
+        } else {
+            previewContainer.classList.add('hidden');
+            submitBtn.disabled = true;
+        }
+    }
+
+    function submitImportedCases() {
+        if (!PARSED_IMPORT_ROWS || PARSED_IMPORT_ROWS.length === 0) {
+            showToast('No valid case rows to import', 'warning');
+            return;
+        }
+
+        const submitBtn = document.getElementById('btnSubmitImport');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Importing to Database...';
+
+        postCaseApi('import_cases', {
+            rows_json: JSON.stringify(PARSED_IMPORT_ROWS)
+        }).then(res => {
+            if (res.success) {
+                closeModal('importCasesModal');
+                showToast(res.message || 'Cases successfully imported to database!', 'success');
+                setTimeout(() => location.reload(), 1200);
+            } else {
+                showToast(res.message || 'Failed to import cases', 'danger');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Confirm & Import to Database';
+            }
+        }).catch(err => {
+            showToast('Error: ' + err.message, 'danger');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Confirm & Import to Database';
+        });
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 
     // ============================================================
     // MODAL FUNCTIONS
@@ -1239,20 +1686,31 @@ $title = 'Case Reports';
         const controlsEl = document.getElementById('paginationControls');
         if (controlsEl) {
             let buttonsHtml = '';
+            
+            // Previous button
             buttonsHtml += `
-                <button onclick="changePage(${currentPage - 1})" class="px-3 py-1.5 rounded-lg text-sm ${currentPage === 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}" ${currentPage === 1 ? 'disabled' : ''}>
+                <button onclick="changePage(${currentPage - 1})" class="px-3 py-1.5 rounded-lg text-sm transition ${currentPage === 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-brand-dark'}" ${currentPage === 1 ? 'disabled' : ''}>
                     <i class="fa-solid fa-chevron-left text-xs"></i>
                 </button>
             `;
-            for (let p = 1; p <= totalPages; p++) {
+            
+            // Window of at most 3 page numbers (e.g. 1-3, then 4-6, then 7-9)
+            const maxVisible = 3;
+            const blockIndex = Math.floor((currentPage - 1) / maxVisible);
+            const startPage = blockIndex * maxVisible + 1;
+            const endPage = Math.min(startPage + maxVisible - 1, totalPages);
+
+            for (let p = startPage; p <= endPage; p++) {
                 if (p === currentPage) {
-                    buttonsHtml += `<button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-brand-dark text-white">${p}</button>`;
+                    buttonsHtml += `<button class="px-3 py-1.5 rounded-lg text-sm font-bold bg-brand-dark text-white shadow-sm">${p}</button>`;
                 } else {
-                    buttonsHtml += `<button onclick="changePage(${p})" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">${p}</button>`;
+                    buttonsHtml += `<button onclick="changePage(${p})" class="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-brand-dark transition">${p}</button>`;
                 }
             }
+
+            // Next button
             buttonsHtml += `
-                <button onclick="changePage(${currentPage + 1})" class="px-3 py-1.5 rounded-lg text-sm ${currentPage === totalPages || totalMatching === 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}" ${currentPage === totalPages || totalMatching === 0 ? 'disabled' : ''}>
+                <button onclick="changePage(${currentPage + 1})" class="px-3 py-1.5 rounded-lg text-sm transition ${currentPage === totalPages || totalMatching === 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-brand-dark'}" ${currentPage === totalPages || totalMatching === 0 ? 'disabled' : ''}>
                     <i class="fa-solid fa-chevron-right text-xs"></i>
                 </button>
             `;

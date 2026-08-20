@@ -148,6 +148,100 @@ class Database
         return $this->query($table, 'GET', null, $filters, $options);
     }
 
+    /**
+     * Fetch multiple tables concurrently in a single parallel HTTP round-trip (ultra-fast)
+     * Supports both indexed arrays of table names: ['patients', 'consultations']
+     * and associative configs: ['patients' => ['select' => 'id,created_at', 'limit' => 1000]]
+     */
+    public function multiSelect(array $tables): array
+    {
+        if (empty($tables)) return [];
+        $mh = curl_multi_init();
+        $handles = [];
+        $key = $this->anonKey;
+        $headers = [
+            'apikey: ' . $key,
+            'Authorization: Bearer ' . $key,
+            'Content-Type: application/json',
+        ];
+
+        foreach ($tables as $keyOrTable => $config) {
+            $tableName = is_array($config) ? ($config['table'] ?? (string)$keyOrTable) : (string)$config;
+            $resultKey = is_string($keyOrTable) && !is_numeric($keyOrTable) ? $keyOrTable : $tableName;
+
+            $endpoint = "{$this->url}/rest/v1/{$tableName}";
+            $queryParams = [];
+
+            if (is_array($config)) {
+                // Filters
+                if (!empty($config['filters']) && is_array($config['filters'])) {
+                    foreach ($config['filters'] as $fKey => $fVal) {
+                        if (is_array($fVal)) {
+                            if (array_keys($fVal) !== range(0, count($fVal) - 1)) {
+                                foreach ($fVal as $op => $opVal) {
+                                    $queryParams[] = $fKey . '=' . $op . '.' . rawurlencode((string)$opVal);
+                                }
+                            } elseif (!empty($fVal)) {
+                                $enc = array_map(static fn($i): string => rawurlencode((string)$i), $fVal);
+                                $queryParams[] = $fKey . '=in.(' . implode(',', $enc) . ')';
+                            }
+                        } elseif (is_string($fVal) && preg_match('/^(eq|gt|gte|lt|lte|neq|like|ilike|in|is)\..*/', $fVal)) {
+                            $queryParams[] = $fKey . '=' . rawurlencode($fVal);
+                        } else {
+                            $queryParams[] = $fKey . '=eq.' . rawurlencode((string)$fVal);
+                        }
+                    }
+                }
+
+                $select = $config['select'] ?? '*';
+                $queryParams[] = 'select=' . rawurlencode($select);
+
+                if (!empty($config['order'])) {
+                    $queryParams[] = 'order=' . rawurlencode($config['order']);
+                }
+                if (isset($config['limit']) && $config['limit'] !== null) {
+                    $queryParams[] = 'limit=' . (int)$config['limit'];
+                }
+                if (isset($config['offset']) && $config['offset'] !== null) {
+                    $queryParams[] = 'offset=' . (int)$config['offset'];
+                }
+            } else {
+                $queryParams[] = 'select=*';
+            }
+
+            if (!empty($queryParams)) {
+                $endpoint .= '?' . implode('&', $queryParams);
+            }
+
+            $ch = curl_init($endpoint);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_multi_add_handle($mh, $ch);
+            $handles[$resultKey] = $ch;
+        }
+
+        $running = null;
+        do {
+            $status = curl_multi_exec($mh, $running);
+            if ($running > 0) {
+                curl_multi_select($mh, 0.1);
+            }
+        } while ($running > 0 && $status === CURLM_OK);
+
+        $results = [];
+        foreach ($handles as $resultKey => $ch) {
+            $content = curl_multi_getcontent($ch);
+            $decoded = json_decode($content, true);
+            $results[$resultKey] = is_array($decoded) ? $decoded : [];
+            curl_multi_remove_handle($mh, $ch);
+            curl_close($ch);
+        }
+        curl_multi_close($mh);
+
+        return $results;
+    }
+
     public function insert(string $table, array $data, bool $useServiceKey = false): array
     {
         return $this->query($table, 'POST', $data, [], [], $useServiceKey);

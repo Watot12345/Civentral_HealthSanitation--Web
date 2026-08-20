@@ -393,7 +393,17 @@ try {
         case 'get_all_data':
             $allUsers = $employeeModel->all(['order' => 'created_at.desc']);
             $allRoles = $roleModel->all();
-            $logs = $logModel->all(['limit' => 20, 'order' => 'created_at.desc']);
+            $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['role'] ?? '');
+            $userRole     = trim($_SESSION['role'] ?? '');
+            $isDeptHead   = (bool) preg_match('/director|coordinator|lead|health center director|sanitation director|immunization coordinator|surveillance coordinator|wastewater lead/i', $userRoleDesc . ' ' . $userRole);
+
+            if ($isSystemAdmin) {
+                $logs = $logModel->all(['limit' => 20, 'order' => 'created_at.desc']);
+            } elseif ($isDeptHead && !empty($userDept)) {
+                $logs = $logModel->all(['limit' => 20, 'order' => 'created_at.desc', 'department' => $userDept]);
+            } else {
+                $logs = [];
+            }
 
             if (!$isSystemAdmin && !empty($userDept)) {
                 $users = getDepartmentResolver()->filterUsersForDepartment($allUsers, $userDept);

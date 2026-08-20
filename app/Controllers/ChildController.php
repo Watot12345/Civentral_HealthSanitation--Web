@@ -118,6 +118,20 @@ class ChildController
                 Response::error('Failed to register child', 500);
             }
 
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $cName = trim(($preparedData['first_name'] ?? '') . ' ' . ($preparedData['last_name'] ?? ''));
+                    $cCode = $preparedData['child_id'] ?? ($insertedRecord['child_id'] ?? 'Child');
+                    $logger->log("Registered Child Health Record: {$cName} ({$cCode})", [
+                        'module'  => 'Immunization & Nutrition',
+                        'details' => "Barangay: " . ($preparedData['barangay'] ?? 'N/A') . " | Health Center: " . ($preparedData['health_center'] ?? 'N/A'),
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+
             Response::success('Child registered successfully', $result, 201);
         } catch (\Throwable $e) {
             error_log('Child store error: ' . $e->getMessage());

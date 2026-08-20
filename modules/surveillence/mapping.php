@@ -1,99 +1,183 @@
 <?php
 // ============================================================
-// COLOR PALETTE USED ON THIS PAGE
-// ============================================================
-//   'brand-dark':   '#0B4F4A',
-//   'brand-medium': '#14807A',
-//   'brand-light':  '#E6F5F3',
-//   'brand-border': '#B8E0DC',
+// modules/surveillence/mapping.php
+// Production-Ready Unified Disease Surveillance & Geospatial Mapping
+// Standard-Compliant (ISO/IEC 25010) & Enhanced UX
+// Sources: surveillance_cases, consultations (Health Center), immunizations
 // ============================================================
 
-// ============================================================
-// 1. PHP BACKEND - Fetch Data
-// ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('health surveillance');
 
-require_once __DIR__ . '/../../app/Models/SurveillanceCase.php';
+require_once __DIR__ . '/../../app/services/SurveillanceService.php';
+require_once __DIR__ . '/../../app/Models/Barangay.php';
 
-// STRICTLY CALOOCAN CITY BARANGAYS
-$barangayCases = [
-    ['name' => 'San Jose', 'lat' => 14.5794, 'lng' => 121.0359, 'dengue' => 12, 'influenza' => 8, 'leptospirosis' => 0, 'total' => 22, 'risk' => 'High', 'population' => 8500],
-    ['name' => 'Poblacion', 'lat' => 14.5810, 'lng' => 121.0400, 'dengue' => 5, 'influenza' => 15, 'leptospirosis' => 0, 'total' => 20, 'risk' => 'High', 'population' => 12000],
-    ['name' => 'Riverside', 'lat' => 14.5750, 'lng' => 121.0420, 'dengue' => 3, 'influenza' => 5, 'leptospirosis' => 5, 'total' => 13, 'risk' => 'Moderate', 'population' => 6200],
-    ['name' => 'San Antonio', 'lat' => 14.5830, 'lng' => 121.0380, 'dengue' => 8, 'influenza' => 3, 'leptospirosis' => 0, 'total' => 11, 'risk' => 'Moderate', 'population' => 5400],
-    ['name' => 'Bagong Silang', 'lat' => 14.5770, 'lng' => 121.0450, 'dengue' => 2, 'influenza' => 4, 'leptospirosis' => 0, 'total' => 6, 'risk' => 'Low', 'population' => 3800],
-    ['name' => 'Mabini', 'lat' => 14.5850, 'lng' => 121.0360, 'dengue' => 1, 'influenza' => 2, 'leptospirosis' => 0, 'total' => 3, 'risk' => 'Low', 'population' => 2900],
-    ['name' => 'Kaybiga', 'lat' => 14.5765, 'lng' => 121.0435, 'dengue' => 4, 'influenza' => 6, 'leptospirosis' => 1, 'total' => 11, 'risk' => 'Moderate', 'population' => 4900],
-    ['name' => 'Bagumbong', 'lat' => 14.5840, 'lng' => 121.0410, 'dengue' => 2, 'influenza' => 3, 'leptospirosis' => 0, 'total' => 5, 'risk' => 'Low', 'population' => 3500],
-    ['name' => 'Camarin', 'lat' => 14.5785, 'lng' => 121.0470, 'dengue' => 7, 'influenza' => 4, 'leptospirosis' => 0, 'total' => 11, 'risk' => 'Moderate', 'population' => 7200],
+$service = new SurveillanceService();
+$barangayModel = new Barangay();
+
+// ── 1. Filter Parameters ─────────────────────────────────────
+$dateFrom = $_GET['date_from'] ?? date('Y-m-d', strtotime('-180 days'));
+$dateTo   = $_GET['date_to']   ?? date('Y-m-d');
+$barangayFilter = $_GET['barangay'] ?? null;
+if ($barangayFilter === '') $barangayFilter = null;
+
+// ── 2. Unified Epidemiological Data ──────────────────────────
+$cases        = $service->getUnifiedCases($dateFrom, $dateTo, $barangayFilter);
+$clusters     = $service->detectClusters($cases);
+$summary      = $service->getSummary($cases);
+$timelineData = $service->getTimelineData($cases);
+
+// ── 3. Centroids & Barangay Dictionary (District 1 46 Barangays) ──
+$allBarangays = $barangayModel->allForSurveillance();
+$barangayCentroids = [];
+$barangayCaseCounts = [];
+
+foreach ($allBarangays as $b) {
+    $num = (int)$b['barangay_no'];
+    $barangayCentroids[$num] = [
+        'lat'        => (float)$b['lat'],
+        'lng'        => (float)$b['lng'],
+        'name'       => $b['name'],
+        'zone'       => $b['zone'],
+        'landmark'   => $b['landmark'] ?? '',
+        'population' => (int)($b['population'] ?? 10000)
+    ];
+    $barangayCaseCounts[$num] = 0;
+}
+
+// ── 4. Deterministic Geo-Jittering Engine ─────────────────────
+function jitteredPoint(float $lat, float $lng, string $seed): array
+{
+    $hash = crc32($seed);
+    mt_srand($hash);
+    $offsetLat = (mt_rand(-50, 50) / 100000.0);
+    $offsetLng = (mt_rand(-50, 50) / 100000.0);
+    mt_srand(); // Restore randomness
+    return [$lat + $offsetLat, $lng + $offsetLng];
+}
+
+// ── 5. Build Map Points, Heatmap Data & Unmapped Triages ──────
+$mapPoints   = [];
+$heatmapData = [];
+$unmapped    = [];
+
+$diseaseColors = [
+    'dengue'                => '#ef4444',
+    'influenza'             => '#3b82f6',
+    'leptospirosis'         => '#f97316',
+    'measles'               => '#a855f7',
+    'acute gastroenteritis' => '#10b981',
+    'tuberculosis'          => '#06b6d4',
+    'covid-19'              => '#e11d48',
+    'hypertension'          => '#64748b',
+    'diabetes'              => '#8b5cf6',
+    'vpd risk'              => '#f59e0b'
 ];
 
-try {
-    $caseModel = new SurveillanceCase();
-    $dbCases = $caseModel->all();
-    if (!empty($dbCases)) {
-        $countsByBarangay = [];
-        foreach ($dbCases as $c) {
-            $bName = trim(str_ireplace('Barangay', '', $c['barangay'] ?? ''));
-            if (!isset($countsByBarangay[$bName])) $countsByBarangay[$bName] = 0;
-            $countsByBarangay[$bName]++;
-        }
-        foreach ($barangayCases as &$b) {
-            if (isset($countsByBarangay[$b['name']])) {
-                $b['total'] = $countsByBarangay[$b['name']];
-            }
-        }
-        unset($b);
+foreach ($cases as $case) {
+    $bNum = is_numeric($case['barangay']) ? (int)$case['barangay'] : null;
+    $centroid = ($bNum !== null && isset($barangayCentroids[$bNum])) ? $barangayCentroids[$bNum] : null;
+
+    if (!$centroid) {
+        $unmapped[] = $case;
+        continue;
     }
-} catch (Throwable $e) {
-    error_log("Mapping cases query error: " . $e->getMessage());
+
+    $barangayCaseCounts[$bNum]++;
+    [$pLat, $pLng] = jitteredPoint($centroid['lat'], $centroid['lng'], (string)$case['id']);
+
+    $mapPoints[] = [
+        'id'           => $case['id'],
+        'case_code'    => $case['case_code'] ?? 'CS-N/A',
+        'lat'          => $pLat,
+        'lng'          => $pLng,
+        'disease'      => $case['disease'],
+        'patient_name' => $case['patient_name'],
+        'age'          => $case['age'] ?? 0,
+        'gender'       => $case['gender'] ?? 'Unknown',
+        'barangay'     => $case['barangay'],
+        'barangay_name'=> $centroid['name'],
+        'landmark'     => $centroid['landmark'],
+        'date'         => $case['case_date'],
+        'month'        => date('M Y', strtotime($case['case_date'])),
+        'source'       => $case['source'],
+        'source_type'  => $case['source_type'],
+        'status'       => $case['status'],
+        'severity'     => $case['severity'],
+        'symptoms'     => $case['symptoms']
+    ];
+
+    $heatmapData[] = [$pLat, $pLng, 1];
 }
 
-// Calculate case rates
-foreach ($barangayCases as &$b) {
-    $b['case_rate'] = $b['population'] > 0 ? round(($b['total'] / $b['population']) * 1000, 1) : 0;
+// ── 6. Build Barangay Risk Buffers (Choropleth Centroids) ─────
+$barangayBuffers = [];
+foreach ($barangayCentroids as $bNum => $c) {
+    $total = $barangayCaseCounts[$bNum] ?? 0;
+    if ($total > 0) {
+        $attackRate = $c['population'] > 0 ? round(($total / $c['population']) * 1000, 2) : 0;
+        $risk = $total >= 20 ? 'High' : ($total >= 10 ? 'Moderate' : 'Low');
+        $color = $risk === 'High' ? '#ef4444' : ($risk === 'Moderate' ? '#f59e0b' : '#3b82f6');
+        $barangayBuffers[] = [
+            'barangay_no' => $bNum,
+            'name'        => $c['name'],
+            'lat'         => $c['lat'],
+            'lng'         => $c['lng'],
+            'total'       => $total,
+            'attack_rate' => $attackRate,
+            'population'  => $c['population'],
+            'risk'        => $risk,
+            'color'       => $color,
+            'landmark'    => $c['landmark']
+        ];
+    }
 }
-unset($b);
 
-// Summary stats
-$totalCases = array_sum(array_column($barangayCases, 'total'));
-$highRisk = count(array_filter($barangayCases, function($b) { return $b['risk'] == 'High'; }));
-$totalBarangays = count($barangayCases);
-$avgRate = $totalBarangays > 0 ? round(array_sum(array_column($barangayCases, 'case_rate')) / $totalBarangays, 1) : 0;
+// ── 7. Prepare Cluster Overlay Coordinates ────────────────────
+$clusterOverlays = [];
+foreach ($clusters as $c) {
+    $bNum = is_numeric($c['barangay']) ? (int)$c['barangay'] : null;
+    if ($bNum && isset($barangayCentroids[$bNum])) {
+        $cent = $barangayCentroids[$bNum];
+        $clusterOverlays[] = [
+            'lat'          => $cent['lat'],
+            'lng'          => $cent['lng'],
+            'barangay'     => $cent['name'],
+            'disease'      => $c['disease'],
+            'case_count'   => $c['case_count'],
+            'window_start' => $c['window_start'],
+            'window_end'   => $c['window_end'],
+            'risk_level'   => $c['risk_level']
+        ];
+    }
+}
 
-$title = 'Mapping & Clustering';
+$title = 'Geospatial Disease Surveillance & Outbreak Clustering';
 ?>
 
+<div class="flex-1 px-6 pt-[26px] pb-20 mb-10 flex flex-col min-h-0 overflow-y-auto">
 
-<!-- ============================================================ -->
-<!-- 2. HTML + PHP EMBEDDED + Tailwind CSS                       -->
-<!-- ============================================================ -->
-
-<div class="flex-1 px-6 pt-[26px] pb-20 mb-10 flex flex-col min-h-0 overflow-hidden">
-
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <!-- Page Header & Action Controls -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
             <div class="flex items-center gap-3 mb-1">
-                <h2 class="text-2xl font-black text-slate-900 tracking-tight">Mapping & Clustering</h2>
-                <span class="px-3 py-1 bg-brand-light text-brand-dark rounded-full text-xs font-bold flex items-center gap-1">
-                    <i class="fa-solid fa-location-dot"></i> Caloocan City
+                <h2 class="text-2xl font-black text-slate-900 tracking-tight">Geospatial Disease Surveillance</h2>
+                <span class="px-3 py-1 bg-brand-light text-brand-dark rounded-full text-xs font-bold flex items-center gap-1.5 shadow-xs">
+                    <i class="fa-solid fa-location-dot"></i> South Caloocan District 1
                 </span>
             </div>
-            <p class="text-sm text-slate-500 mt-0.5">Disease mapping and cluster analysis for Caloocan City</p>
+            <p class="text-sm text-slate-500">Real-time epidemiological point density, multi-source ingestion & 14-day rolling outbreak clustering</p>
         </div>
-        <div class="flex gap-3 flex-wrap">
-            <button onclick="toggleHeatmap()" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition text-sm font-semibold flex items-center gap-2">
-                <i class="fa-solid fa-fire text-xs"></i> Heatmap
-            </button>
-            <button onclick="toggleClusters()" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition text-sm font-semibold flex items-center gap-2">
-                <i class="fa-solid fa-circle-nodes text-xs"></i> Clusters
-            </button>
-            <button onclick="refreshMap()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-2 shadow-sm">
-                <i class="fa-solid fa-rotate text-xs"></i> Refresh
-            </button>
+
+        <!-- Quick Navigation Actions -->
+        <div class="flex items-center gap-2.5">
+            <a href="outbreak_command.php" class="px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-semibold transition shadow-2xs flex items-center gap-1.5">
+                <i class="fa-solid fa-chart-line text-brand-dark"></i> Outbreak Intelligence
+            </a>
+            <a href="case_reports.php" class="px-3.5 py-2 bg-brand-dark text-white rounded-xl text-xs font-semibold hover:bg-brand-medium transition shadow-2xs flex items-center gap-1.5">
+                <i class="fa-solid fa-file-medical"></i> Case Intake
+            </a>
         </div>
     </div>
 
@@ -102,539 +186,904 @@ $title = 'Mapping & Clustering';
     <!-- ============================================================ -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <!-- Card 1: Total Cases -->
-        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-            <div class="absolute -top-12 -right-12 w-24 h-24 bg-rose-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-            <div class="relative">
-                <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-rose-200">
-                        <i class="fa-solid fa-notes-medical text-lg"></i>
-                    </div>
-                    <div>
-                        <p class="text-2xl font-black text-slate-900"><?php echo $totalCases; ?></p>
-                        <p class="text-xs font-medium text-slate-500">Total Cases</p>
-                    </div>
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-xs border border-slate-200 p-5 hover:shadow-md transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-teal-100 rounded-full opacity-40 group-hover:scale-110 transition"></div>
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 bg-gradient-to-br from-teal-500 to-teal-700 rounded-xl flex items-center justify-center text-white shadow-md shadow-teal-200">
+                    <i class="fa-solid fa-notes-medical text-lg"></i>
                 </div>
-                <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">↑ 12%</span>
-                    <span class="text-[10px] text-slate-400">vs last month</span>
+                <div>
+                    <p class="text-2xl font-black text-slate-900"><?= $summary['total_cases']; ?></p>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Active Cases</p>
                 </div>
+            </div>
+            <div class="mt-3 flex items-center gap-2">
+                <span class="px-2 py-0.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-full text-[10px] font-bold">
+                    <?= count($mapPoints); ?> Mapped on GIS
+                </span>
             </div>
         </div>
 
-        <!-- Card 2: High Risk Areas -->
-        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-            <div class="absolute -top-12 -right-12 w-24 h-24 bg-red-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-            <div class="relative">
-                <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-red-200">
-                        <i class="fa-solid fa-triangle-exclamation text-lg"></i>
-                    </div>
-                    <div>
-                        <p class="text-2xl font-black text-red-600"><?php echo $highRisk; ?></p>
-                        <p class="text-xs font-medium text-slate-500">High Risk Areas</p>
-                    </div>
+        <!-- Card 2: Top Disease -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-xs border border-slate-200 p-5 hover:shadow-md transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-rose-100 rounded-full opacity-40 group-hover:scale-110 transition"></div>
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 bg-gradient-to-br from-rose-500 to-rose-700 rounded-xl flex items-center justify-center text-white shadow-md shadow-rose-200">
+                    <i class="fa-solid fa-virus text-lg"></i>
                 </div>
-                <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-bold">⚠️ Alert</span>
-                    <span class="text-[10px] text-slate-400">Needs attention</span>
+                <div>
+                    <p class="text-xl font-black text-slate-900 truncate max-w-[140px]"><?= htmlspecialchars((string)$summary['top_disease']); ?></p>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Top Disease</p>
                 </div>
+            </div>
+            <div class="mt-3 flex items-center gap-2">
+                <span class="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-[10px] font-bold">
+                    <?= $summary['by_disease'][$summary['top_disease']] ?? 0; ?> Cases Recorded
+                </span>
             </div>
         </div>
 
-        <!-- Card 3: Avg Case Rate -->
-        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-            <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
-            <div class="relative">
-                <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-200">
-                        <i class="fa-solid fa-chart-line text-lg"></i>
-                    </div>
-                    <div>
-                        <p class="text-2xl font-black text-slate-900"><?php echo $avgRate; ?><span class="text-sm text-slate-400 font-medium">/1k</span></p>
-                        <p class="text-xs font-medium text-slate-500">Avg Case Rate</p>
-                    </div>
+        <!-- Card 3: Top Hotspot Area -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-xs border border-slate-200 p-5 hover:shadow-md transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-40 group-hover:scale-110 transition"></div>
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-700 rounded-xl flex items-center justify-center text-white shadow-md shadow-amber-200">
+                    <i class="fa-solid fa-map-location-dot text-lg"></i>
                 </div>
-                <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 <?php echo $avgRate > 2 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'; ?> rounded-full text-[10px] font-bold">
-                        <?php echo $avgRate > 2 ? '⬆ Above' : '⬇ Below'; ?> baseline
-                    </span>
-                    <span class="text-[10px] text-slate-400">Baseline: 2.0</span>
+                <div>
+                    <p class="text-xl font-black text-slate-900">Brgy <?= htmlspecialchars((string)$summary['top_barangay']); ?></p>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Top Hotspot Area</p>
                 </div>
+            </div>
+            <div class="mt-3 flex items-center gap-2">
+                <span class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">
+                    <?= $summary['by_barangay'][$summary['top_barangay']] ?? 0; ?> Reported Incidents
+                </span>
             </div>
         </div>
 
-        <!-- Card 4: Barangays -->
-        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-            <div class="absolute -top-12 -right-12 w-24 h-24 bg-brand-light rounded-full opacity-50 group-hover:scale-110 transition"></div>
-            <div class="relative">
-                <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 bg-gradient-to-br from-brand-dark to-brand-medium rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-light">
-                        <i class="fa-solid fa-location-dot text-lg"></i>
-                    </div>
-                    <div>
-                        <p class="text-2xl font-black text-brand-dark"><?php echo $totalBarangays; ?></p>
-                        <p class="text-xs font-medium text-slate-500">Barangays</p>
-                    </div>
+        <!-- Card 4: Active Clusters -->
+        <div class="relative overflow-hidden bg-white rounded-2xl shadow-xs border border-slate-200 p-5 hover:shadow-md transition group">
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-red-100 rounded-full opacity-40 group-hover:scale-110 transition"></div>
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 bg-gradient-to-br from-red-600 to-red-800 rounded-xl flex items-center justify-center text-white shadow-md shadow-red-200">
+                    <i class="fa-solid fa-circle-nodes text-lg"></i>
                 </div>
-                <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-brand-light text-brand-dark rounded-full text-[10px] font-bold">📍 Caloocan</span>
-                    <span class="text-[10px] text-slate-400">All monitored</span>
+                <div>
+                    <p class="text-2xl font-black <?= count($clusters) > 0 ? 'text-red-600' : 'text-slate-900'; ?>"><?= count($clusters); ?></p>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">14-Day Clusters</p>
                 </div>
+            </div>
+            <div class="mt-3 flex items-center gap-2">
+                <span class="px-2 py-0.5 <?= count($clusters) > 0 ? 'bg-red-100 text-red-800' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'; ?> rounded-full text-[10px] font-bold">
+                    <?= count($clusters) > 0 ? '🚨 Active Outbreak Threshold' : '✅ Baseline Clear'; ?>
+                </span>
             </div>
         </div>
     </div>
 
+    <!-- Unmapped Cases Warning Drawer -->
+    <?php if (!empty($unmapped)): ?>
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 text-xs text-amber-800">
+        <div class="flex items-center justify-between cursor-pointer" onclick="document.getElementById('unmappedList').classList.toggle('hidden')">
+            <div class="flex items-center gap-2 font-bold">
+                <i class="fa-solid fa-circle-info text-amber-600"></i>
+                <span><?= count($unmapped); ?> Out-of-District / Unmapped Record(s) Triaged</span>
+            </div>
+            <button type="button" class="text-amber-700 hover:underline font-bold text-[11px]">View Triaged Cases <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i></button>
+        </div>
+        <div id="unmappedList" class="hidden mt-3 pt-3 border-t border-amber-200 max-h-40 overflow-y-auto space-y-1">
+            <?php foreach ($unmapped as $um): ?>
+            <div class="flex items-center justify-between py-1 border-b border-amber-100 last:border-0">
+                <span><strong><?= htmlspecialchars($um['disease']); ?></strong> — <?= htmlspecialchars($um['patient_name']); ?> (Location: "<?= htmlspecialchars((string)$um['raw_barangay']); ?>")</span>
+                <span class="text-amber-600 font-mono text-[10px]"><?= $um['case_date']; ?></span>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- ============================================================ -->
-    <!-- MAP SECTION - Full Width                                    -->
+    <!-- INTERACTIVE MAP CONTAINER & CONTROLS                         -->
     <!-- ============================================================ -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-            <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+    <div class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden mb-6">
+        <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
+            <div class="flex items-center gap-2">
                 <i class="fa-solid fa-map text-brand-medium"></i>
-                Caloocan City Disease Map
-                <span class="text-xs font-normal text-slate-400">(<?php echo $totalBarangays; ?> barangays)</span>
-            </h3>
-            <div class="flex items-center gap-4 text-xs flex-wrap">
-                <label class="flex items-center gap-1.5 text-slate-600 cursor-pointer">
-                    <input type="checkbox" id="showHeatmap" onchange="toggleHeatmap()" class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium">
+                <h3 class="font-bold text-slate-800 text-sm">District 1 Spatial Epidemiology Map</h3>
+                <span class="text-xs text-slate-400 font-normal">(46 Monitored Barangays)</span>
+            </div>
+
+            <!-- Layer & Timeline Controls -->
+            <div class="flex items-center gap-3 flex-wrap text-xs">
+                <!-- Street / Satellite Switch -->
+                <div class="flex items-center bg-slate-200/70 p-0.5 rounded-lg border border-slate-200">
+                    <button type="button" id="btnStreet" onclick="switchBaseLayer('street')" class="px-2.5 py-1 font-bold rounded-md bg-white text-brand-dark shadow-2xs transition text-[11px]">
+                        <i class="fa-solid fa-map"></i> Street
+                    </button>
+                    <button type="button" id="btnSatellite" onclick="switchBaseLayer('satellite')" class="px-2.5 py-1 font-bold rounded-md text-slate-500 hover:text-slate-800 transition text-[11px]">
+                        <i class="fa-solid fa-satellite"></i> Satellite
+                    </button>
+                </div>
+
+                <label class="flex items-center gap-1.5 text-slate-600 font-semibold cursor-pointer select-none">
+                    <input type="checkbox" id="togglePoints" checked onchange="toggleLayer('points')" class="rounded text-brand-dark focus:ring-brand-medium">
+                    Case Points
+                </label>
+
+                <label class="flex items-center gap-1.5 text-slate-600 font-semibold cursor-pointer select-none">
+                    <input type="checkbox" id="toggleBuffers" checked onchange="toggleLayer('buffers')" class="rounded text-brand-dark focus:ring-brand-medium">
+                    Barangay Attack Rate
+                </label>
+
+                <label class="flex items-center gap-1.5 text-slate-600 font-semibold cursor-pointer select-none">
+                    <input type="checkbox" id="toggleHeatmap" onchange="toggleLayer('heatmap')" class="rounded text-brand-dark focus:ring-brand-medium">
                     Heatmap
                 </label>
-                <label class="flex items-center gap-1.5 text-slate-600 cursor-pointer">
-                    <input type="checkbox" id="showClusters" onchange="toggleClusters()" class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium">
+
+                <label class="flex items-center gap-1.5 text-slate-600 font-semibold cursor-pointer select-none">
+                    <input type="checkbox" id="toggleClusters" checked onchange="toggleLayer('clusters')" class="rounded text-brand-dark focus:ring-brand-medium">
                     Clusters
                 </label>
-                <div class="flex items-center gap-2">
-                    <i class="fa-regular fa-calendar text-slate-400"></i>
-                    <input type="range" id="timeSlider" min="0" max="5" value="5" step="1" class="w-20 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer">
-                    <span id="timeLabel" class="text-xs font-semibold text-brand-dark min-w-[50px]">Current</span>
-                    <button onclick="playAnimation()" class="px-2.5 py-1 bg-brand-dark text-white rounded text-xs hover:bg-brand-medium transition">
+
+                <!-- Interactive Time Slider & Animated Playback -->
+                <div class="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
+                    <i class="fa-regular fa-clock text-slate-400"></i>
+                    <input type="range" id="timeSlider" min="0" max="5" value="5" step="1" oninput="handleTimeSlider(this.value)" class="w-20 h-1.5 bg-slate-300 rounded-lg appearance-none cursor-pointer">
+                    <span id="timeLabel" class="font-bold text-brand-dark text-[11px] min-w-[55px]">All Months</span>
+                    <button type="button" id="btnPlayTimeline" onclick="toggleTimelineAnimation()" class="px-2 py-0.5 bg-brand-dark text-white rounded text-[10px] hover:bg-brand-medium transition">
                         <i class="fa-solid fa-play"></i>
                     </button>
                 </div>
+
+                <button onclick="resetMapView()" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg transition text-[11px] flex items-center gap-1.5 shadow-2xs">
+                    <i class="fa-solid fa-arrows-rotate text-[10px]"></i> Reset
+                </button>
             </div>
         </div>
+
         <div class="p-4 relative">
-            <!-- Map Container -->
-            <div id="cluster-map" style="height: 500px; border-radius: 12px; position: relative;"></div>
-            
-            <!-- Tooltip that appears INSIDE the map -->
-            <div id="map-tooltip" style="display: none; position: absolute; z-index: 1000; pointer-events: none; background: rgba(255,255,255,0.97); border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); min-width: 180px; backdrop-filter: blur(4px); font-family: system-ui, sans-serif;">
-                <div id="tooltip-name" style="font-weight: 700; font-size: 14px; color: #1E293B;"></div>
-                <div><span id="tooltip-cases" style="font-size: 20px; font-weight: 800; color: #0B4F4A;"></span> <span style="font-size: 11px; color: #64748B;">cases</span></div>
-                <div style="border-top: 1px solid #E2E8F0; margin: 5px 0;"></div>
-                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #475569; padding: 1px 0;">
-                    <span>🦟 Dengue</span>
-                    <span><strong id="tooltip-dengue"></strong></span>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #475569; padding: 1px 0;">
-                    <span>🤧 Influenza</span>
-                    <span><strong id="tooltip-influenza"></strong></span>
-                </div>
-                <div id="tooltip-lepto-row" style="display: none; justify-content: space-between; font-size: 11px; color: #475569; padding: 1px 0;">
-                    <span>🧫 Lepto</span>
-                    <span><strong id="tooltip-lepto"></strong></span>
-                </div>
-                <div style="border-top: 1px solid #E2E8F0; margin: 5px 0;"></div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
-                    <span style="font-size: 11px; color: #64748B;">Risk</span>
-                    <span id="tooltip-risk" style="padding: 1px 8px; border-radius: 10px; font-size: 10px; font-weight: 600;"></span>
-                </div>
-            </div>
+            <div id="surveillance-map" style="height: 540px; border-radius: 12px; z-index: 1;"></div>
         </div>
     </div>
 
     <!-- ============================================================ -->
-    <!-- CHARTS SECTION                                              -->
+    <!-- ANALYTICS CHARTS SECTION (APEXCHARTS)                        -->
     <!-- ============================================================ -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-200">
-                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Spread Tracking Timeline Chart -->
+        <div class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 bg-slate-50/50">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
                     <i class="fa-solid fa-chart-line text-brand-medium"></i>
-                    Spread Tracking Over Time
+                    6-Month Infection Spread Trend
                 </h3>
             </div>
             <div class="p-4">
                 <div id="spread-chart" style="min-height: 280px;"></div>
             </div>
         </div>
-        
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-200">
-                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+
+        <!-- Disease Distribution Donut Chart -->
+        <div class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 bg-slate-50/50">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
                     <i class="fa-solid fa-chart-pie text-brand-medium"></i>
-                    Disease Distribution
+                    Disease Distribution Breakdown
                 </h3>
             </div>
             <div class="p-4">
-                <div id="disease-distribution" style="min-height: 280px;"></div>
+                <div id="disease-distribution-chart" style="min-height: 280px;"></div>
             </div>
         </div>
     </div>
+
+    <!-- ============================================================ -->
+    <!-- UNIFIED PRIMARY CASES DATA TABLE                             -->
+    <!-- ============================================================ -->
+    <?php
+        $tableDiseases = array_unique(array_filter(array_column($cases, 'disease')));
+        sort($tableDiseases);
+        $tableSources = array_unique(array_filter(array_column($cases, 'source')));
+        sort($tableSources);
+        $tableZones = ['Zone 1', 'Zone 7', 'Zone 8', 'Zone 12', 'Zone 13', 'Zone 14', 'Zone 15'];
+    ?>
+    <div class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/50">
+            <div>
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-brand-medium"></i>
+                    Unified Primary Surveillance Feed
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Aggregated cases from Epidemiological Reports, Consultations & Immunizations</p>
+            </div>
+            
+            <!-- Quick Filters & Search Bar -->
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Zone Filter -->
+                <select id="tableFilterZone" onchange="handleZoneChange()" class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-1 focus:ring-brand-dark outline-none cursor-pointer">
+                    <option value="">All 7 Zones</option>
+                    <?php foreach ($tableZones as $tz): ?>
+                        <option value="<?= htmlspecialchars($tz); ?>"><?= htmlspecialchars($tz); ?></option>
+                    <?php endforeach; ?>
+                </select>
+
+                <!-- Barangay Filter (Cascading based on Zone) -->
+                <select id="tableFilterBarangay" onchange="changeTableFilter()" class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-1 focus:ring-brand-dark outline-none cursor-pointer">
+                    <option value="">All 46 Barangays</option>
+                    <?php foreach ($allBarangays as $b): ?>
+                        <option value="<?= $b['barangay_no']; ?>" data-zone="<?= htmlspecialchars($b['zone']); ?>">Brgy <?= $b['barangay_no']; ?> (<?= $b['zone']; ?>)</option>
+                    <?php endforeach; ?>
+                </select>
+
+                <!-- Disease Filter -->
+                <select id="tableFilterDisease" onchange="changeTableFilter()" class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-1 focus:ring-brand-dark outline-none cursor-pointer">
+                    <option value="">All Diseases</option>
+                    <?php foreach ($tableDiseases as $td): ?>
+                        <option value="<?= htmlspecialchars(strtolower($td)); ?>"><?= htmlspecialchars($td); ?></option>
+                    <?php endforeach; ?>
+                </select>
+
+                <!-- Source Filter -->
+                <select id="tableFilterSource" onchange="changeTableFilter()" class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-1 focus:ring-brand-dark outline-none cursor-pointer">
+                    <option value="">All Channels</option>
+                    <?php foreach ($tableSources as $ts): ?>
+                        <option value="<?= htmlspecialchars(strtolower($ts)); ?>"><?= htmlspecialchars($ts); ?></option>
+                    <?php endforeach; ?>
+                </select>
+
+                <!-- Search Input -->
+                <div class="relative w-48">
+                    <input type="text" id="tableSearch" onkeyup="changeTableFilter()" placeholder="Search patient, code..." class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-brand-dark outline-none">
+                    <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-400 text-[11px]"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-xs text-slate-700" id="casesTable">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px] tracking-wider">
+                    <tr>
+                        <th class="py-3 px-4 text-left">Case / Date</th>
+                        <th class="py-3 px-4 text-left">Disease</th>
+                        <th class="py-3 px-4 text-left">Patient & Address</th>
+                        <th class="py-3 px-4 text-left">Zone & Barangay</th>
+                        <th class="py-3 px-4 text-left">Source Channel</th>
+                        <th class="py-3 px-4 text-left">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    <?php if (empty($cases)): ?>
+                    <tr id="tableEmptyRow">
+                        <td colspan="6" class="py-8 text-center text-slate-400 font-bold">No surveillance incidents found in the selected date range.</td>
+                    </tr>
+                    <?php else: ?>
+                    <?php foreach ($cases as $c): ?>
+                    <?php
+                        $dKey = strtolower($c['disease']);
+                        $dotColor = '#64748b';
+                        foreach ($diseaseColors as $k => $hex) {
+                            if (str_contains($dKey, $k)) {
+                                $dotColor = $hex;
+                                break;
+                            }
+                        }
+                        $bNum = is_numeric($c['barangay']) ? (int)$c['barangay'] : 0;
+                        $cZone = isset($barangayCentroids[$bNum]) ? $barangayCentroids[$bNum]['zone'] : 'Zone 1';
+                    ?>
+                    <tr class="hover:bg-slate-50/80 transition" 
+                        data-zone="<?= htmlspecialchars($cZone); ?>"
+                        data-disease="<?= strtolower(htmlspecialchars($c['disease'])); ?>" 
+                        data-barangay="<?= htmlspecialchars((string)$c['barangay']); ?>" 
+                        data-source="<?= strtolower(htmlspecialchars($c['source'])); ?>"
+                        data-month="<?= date('M Y', strtotime($c['case_date'])); ?>">
+                        <td class="py-3 px-4">
+                            <span class="font-bold text-slate-900"><?= htmlspecialchars($c['case_code'] ?? 'CS-N/A'); ?></span>
+                            <div class="text-[10px] text-slate-400"><?= $c['case_date']; ?></div>
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold" style="background-color: <?= $dotColor; ?>15; color: <?= $dotColor; ?>;">
+                                <span class="w-1.5 h-1.5 rounded-full" style="background-color: <?= $dotColor; ?>;"></span>
+                                <?= htmlspecialchars($c['disease']); ?>
+                            </span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="font-bold text-slate-900"><?= htmlspecialchars($c['patient_name']); ?></div>
+                            <div class="text-[10px] text-slate-400 truncate max-w-xs"><?= htmlspecialchars($c['address'] ?? 'South Caloocan'); ?></div>
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="font-bold text-slate-800">Brgy <?= htmlspecialchars((string)$c['barangay']); ?></span>
+                            <span class="text-[10px] text-slate-400 block font-semibold"><?= htmlspecialchars($cZone); ?></span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[10px] font-semibold border border-slate-200">
+                                <?= htmlspecialchars($c['source']); ?>
+                            </span>
+                        </td>
+                        <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 bg-teal-50 text-teal-800 border border-teal-200 rounded-md text-[10px] font-bold">
+                                <?= htmlspecialchars($c['status']); ?>
+                            </span>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- TABLE FOOTER & CLIENT-SIDE PAGINATION -->
+        <div class="px-5 py-3.5 border-t border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+            <div id="tablePaginationInfo">
+                Showing <span class="font-bold text-slate-800" id="pageShowingFrom">0</span> to <span class="font-bold text-slate-800" id="pageShowingTo">0</span> of <span class="font-bold text-slate-800" id="pageTotalCount">0</span> cases
+            </div>
+            <div id="tablePaginationControls" class="flex items-center gap-1">
+                <!-- Injected via JavaScript -->
+            </div>
+        </div>
+    </div>
+
 </div>
 
-<!-- Toast -->
-<div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
-    <i class="fa-solid fa-circle-check"></i>
-    <span id="toastMessage"></span>
-</div>
-
-<!-- ============================================================ -->
-<!-- Local libraries                                              -->
-<!-- ============================================================ -->
-<link rel="stylesheet" href="../../assets/css/leaflet.css" />
-<script src="../../assets/js/leaflet.js"></script>
+<!-- MAPLIBRE GL JS & APEXCHARTS -->
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="../../assets/js/apexcharts.min.js"></script>
-<script src="../../assets/js/leaflet-heat.js"></script>
 
 <style>
-    input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        background: #14807A;
-        cursor: pointer;
+    .maplibregl-popup-content {
+        padding: 0;
+        border-radius: 0.875rem;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        overflow: hidden;
     }
-    input[type="range"]::-moz-range-thumb {
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        background: #14807A;
-        cursor: pointer;
-        border: none;
+    .maplibregl-popup-close-button {
+        padding: 4px 8px;
+        color: #64748b;
+        font-size: 14px;
     }
-    
-    @keyframes pulse {
-        0%, 100% { opacity: 0.6; }
-        50% { opacity: 1; }
-    }
-    .cluster-pulse { animation: pulse 2s infinite; }
-    
-    .leaflet-popup { display: none !important; }
 </style>
 
 <script>
-    const BARANGAY_CASES = <?php echo json_encode($barangayCases, JSON_PRETTY_PRINT); ?>;
-    const HEATMAP_DATA = <?php echo json_encode(array_map(function($b) { return [$b['lat'], $b['lng'], $b['total']]; }, $barangayCases), JSON_PRETTY_PRINT); ?>;
+    const MAP_POINTS       = <?= json_encode($mapPoints, JSON_PRETTY_PRINT); ?>;
+    const CLUSTER_DATA     = <?= json_encode($clusterOverlays, JSON_PRETTY_PRINT); ?>;
+    const BARANGAY_BUFFERS = <?= json_encode($barangayBuffers, JSON_PRETTY_PRINT); ?>;
+    const TIMELINE_MONTHS  = <?= json_encode($timelineData['months'], JSON_PRETTY_PRINT); ?>;
+    const TOTAL_TREND      = <?= json_encode($timelineData['total_trend'], JSON_PRETTY_PRINT); ?>;
+    const DISEASE_SUMMARY  = <?= json_encode($summary['by_disease'], JSON_PRETTY_PRINT); ?>;
+    const DISEASE_COLORS   = <?= json_encode($diseaseColors, JSON_PRETTY_PRINT); ?>;
 
-    let map = null, chart = null, diseaseChart = null;
-    let heatmapLayer = null, clusterLayers = [];
-    let isHeatmapVisible = false, isClustersVisible = false;
+    let map = null;
+    let spreadChart = null, diseasePieChart = null;
     let animationInterval = null;
-    let circleRefs = [];
+    let currentBaseStyle = 'street';
 
-    // ============================================================
-    // TOOLTIP - INSIDE MAP
-    // ============================================================
-    function showTooltip(e, b) {
-        const tooltip = document.getElementById('map-tooltip');
-        const riskColors = {
-            'High': { bg: '#FEE2E2', color: '#DC2626' },
-            'Moderate': { bg: '#FEF3C7', color: '#D97706' },
-            'Low': { bg: '#D1FAE5', color: '#059669' }
-        };
-        
-        // Get map container position
-        const mapContainer = document.getElementById('cluster-map');
-        const mapRect = mapContainer.getBoundingClientRect();
-        
-        // Calculate position relative to map container
-        let x = e.clientX - mapRect.left + 15;
-        let y = e.clientY - mapRect.top - 10;
-        
-        // Fill tooltip data
-        document.getElementById('tooltip-name').textContent = '📍 ' + b.name;
-        document.getElementById('tooltip-cases').textContent = b.total;
-        document.getElementById('tooltip-dengue').textContent = b.dengue;
-        document.getElementById('tooltip-influenza').textContent = b.influenza;
-        
-        if (b.leptospirosis && b.leptospirosis > 0) {
-            document.getElementById('tooltip-lepto-row').style.display = 'flex';
-            document.getElementById('tooltip-lepto').textContent = b.leptospirosis;
-        } else {
-            document.getElementById('tooltip-lepto-row').style.display = 'none';
+    function colorForDisease(disease) {
+        const d = (disease || '').toLowerCase();
+        for (const k in DISEASE_COLORS) {
+            if (d.includes(k)) return DISEASE_COLORS[k];
         }
-        
-        const risk = riskColors[b.risk] || { bg: '#E2E8F0', color: '#64748B' };
-        document.getElementById('tooltip-risk').textContent = b.risk;
-        document.getElementById('tooltip-risk').style.background = risk.bg;
-        document.getElementById('tooltip-risk').style.color = risk.color;
-        
-        // Position tooltip inside map
-        const tooltipWidth = 200;
-        const tooltipHeight = 180;
-        
-        // Keep tooltip inside map bounds
-        if (x + tooltipWidth > mapRect.width) {
-            x = e.clientX - mapRect.left - tooltipWidth - 15;
-        }
-        if (y + tooltipHeight > mapRect.height) {
-            y = mapRect.height - tooltipHeight - 10;
-        }
-        if (y < 10) y = 10;
-        if (x < 10) x = 10;
-        
-        tooltip.style.left = x + 'px';
-        tooltip.style.top = y + 'px';
-        tooltip.style.display = 'block';
+        return '#64748b';
     }
 
-    function hideTooltip() {
-        document.getElementById('map-tooltip').style.display = 'none';
-    }
+    const COMBINED_STYLE = {
+        version: 8,
+        sources: {
+            'osm-tiles': {
+                type: 'raster',
+                tiles: [
+                    'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                    'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'
+                ],
+                tileSize: 256,
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            },
+            'esri-satellite': {
+                type: 'raster',
+                tiles: [
+                    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                ],
+                tileSize: 256,
+                attribution: 'Tiles &copy; Esri'
+            }
+        },
+        layers: [
+            { id: 'satellite-layer', type: 'raster', source: 'esri-satellite', layout: { visibility: 'none' }, minzoom: 0, maxzoom: 19 },
+            { id: 'osm-layer', type: 'raster', source: 'osm-tiles', layout: { visibility: 'visible' }, minzoom: 0, maxzoom: 19 }
+        ]
+    };
 
-    // ============================================================
-    // MAP - STRICTLY CALOOCAN
-    // ============================================================
+    // South Caloocan District 1 Geographical Boundary (Zones 1, 7, 8, 12, 13, 14, 15)
+    const DISTRICT1_BOUNDS = [
+        [120.9600, 14.6470], // Southwest Coordinates (Dagat-Dagatan / Sangandaan edge)
+        [121.0120, 14.6860]  // Northeast Coordinates (Santa Quiteria / Tullahan River edge)
+    ];
+
+    const DISTRICT1_POLYGON = {
+        type: 'Feature',
+        geometry: {
+            type: 'Polygon',
+            coordinates: [[
+                [120.9680, 14.6540], // Zone 1 West
+                [120.9710, 14.6610],
+                [120.9740, 14.6655], // Zone 8 North
+                [120.9850, 14.6670], // EDSA Corridor
+                [120.9920, 14.6710], // Zone 14 Baesa
+                [120.9960, 14.6775], // Zone 15 Santa Quiteria North
+                [121.0040, 14.6740], // Zone 15 East
+                [121.0005, 14.6670], // Zone 13 East
+                [120.9960, 14.6620], // Zone 12 East
+                [120.9890, 14.6590], // Balintawak / Cloverleaf edge
+                [120.9790, 14.6550], // Zone 7 South
+                [120.9720, 14.6535], // Zone 1 South
+                [120.9680, 14.6540]  // Loop back
+            ]]
+        },
+        properties: { name: 'South Caloocan District 1' }
+    };
+
     function initMap() {
-        const el = document.getElementById('cluster-map');
-        if (!el) return;
+        const centerCoords = [120.9845, 14.6625]; // Exact South Caloocan District 1 centroid
 
-        const bounds = L.latLngBounds([14.5740, 121.0340], [14.5870, 121.0470]);
-        const center = bounds.getCenter();
-
-        map = L.map('cluster-map', {
-            center: center, zoom: 14, zoomControl: true,
-            maxBounds: bounds, minZoom: 13, maxZoom: 17,
-            fadeAnimation: true, zoomAnimation: true
-        });
-        map.fitBounds(bounds);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap | Caloocan City Health Office'
-        }).addTo(map);
-
-        L.rectangle(bounds, {
-            color: '#14807A', weight: 2, opacity: 0.3,
-            fillColor: '#E6F5F3', fillOpacity: 0.05, interactive: false
-        }).addTo(map);
-
-        const riskColors = { High: '#ef4444', Moderate: '#eab308', Low: '#22c55e' };
-        circleRefs = [];
-
-        BARANGAY_CASES.forEach((b, i) => {
-            const color = riskColors[b.risk] || '#6B7280';
-            const radius = Math.max(b.total * 25, 15);
-
-            const circle = L.circle([b.lat, b.lng], {
-                color, fillColor: color, fillOpacity: 0.5,
-                radius, weight: 3, opacity: 0.8, interactive: true
-            }).addTo(map);
-
-            circleRefs.push({ circle, data: b, radius, color });
-
-            circle.on('mouseover', function(e) {
-                this.setStyle({ fillOpacity: 0.8, weight: 4, radius: radius * 1.15 });
-                showTooltip(e.originalEvent, b);
-                el.style.cursor = 'pointer';
-            });
-            
-            circle.on('mousemove', function(e) {
-                showTooltip(e.originalEvent, b);
-            });
-            
-            circle.on('mouseout', function() {
-                this.setStyle({ fillOpacity: 0.5, weight: 3, radius });
-                hideTooltip();
-                el.style.cursor = 'default';
-            });
-
-            L.marker([b.lat + 0.0018, b.lng], {
-                icon: L.divIcon({
-                    html: `<div style="font-size:9px;font-weight:600;color:#1E293B;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px;border:1px solid #E2E8F0;box-shadow:0 1px 3px rgba(0,0,0,0.05);">${b.name}</div>`,
-                    iconSize: [0, 0], iconAnchor: [0, 0]
-                })
-            }).addTo(map);
+        map = new maplibregl.Map({
+            container: 'surveillance-map',
+            style: COMBINED_STYLE,
+            center: centerCoords,
+            zoom: 13.8,
+            minZoom: 13.0, // Strictly locked to District 1
+            maxZoom: 18.5,
+            maxBounds: DISTRICT1_BOUNDS, // Prevents camera from panning outside District 1
+            pitch: 28,
+            bearing: -6,
+            antialias: true
         });
 
-        // Legend
-        const legend = L.control({ position: 'bottomright' });
-        legend.onAdd = function() {
-            const div = L.DomUtil.create('div', 'bg-white p-3 rounded-lg shadow-md border border-slate-200');
-            div.innerHTML = `
-                <div style="font-size:11px;font-weight:700;color:#1E293B;margin-bottom:4px;">📍 Caloocan City</div>
-                <div style="font-size:11px;font-weight:600;color:#1E293B;margin-bottom:3px;">Risk</div>
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:1px;"><span style="width:12px;height:12px;border-radius:50%;background:#ef4444;"></span><span style="font-size:11px;color:#475569;">High</span></div>
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:1px;"><span style="width:12px;height:12px;border-radius:50%;background:#eab308;"></span><span style="font-size:11px;color:#475569;">Moderate</span></div>
-                <div style="display:flex;align-items:center;gap:6px;"><span style="width:12px;height:12px;border-radius:50%;background:#22c55e;"></span><span style="font-size:11px;color:#475569;">Low</span></div>
-                <div style="border-top:1px solid #E2E8F0;margin-top:5px;padding-top:4px;"><span style="font-size:10px;color:#94A3B8;">${BARANGAY_CASES.length} barangays</span></div>
-            `;
-            return div;
-        };
-        legend.addTo(map);
+        map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+        map.addControl(new maplibregl.FullscreenControl(), 'top-right');
 
-        initHeatmap();
-        initClusters();
-        setupTimeSlider();
-    }
-
-    // ============================================================
-    // HEATMAP
-    // ============================================================
-    function initHeatmap() {
-        heatmapLayer = L.heatLayer(HEATMAP_DATA, {
-            radius: 30, blur: 20, maxZoom: 17,
-            gradient: { 0.2: '#22c55e', 0.4: '#84cc16', 0.6: '#eab308', 0.8: '#f97316', 1.0: '#ef4444' },
-            minOpacity: 0.3
+        map.on('load', () => {
+            setupMapSourcesAndLayers();
         });
     }
-    function toggleHeatmap() {
-        isHeatmapVisible = !isHeatmapVisible;
-        document.getElementById('showHeatmap').checked = isHeatmapVisible;
-        isHeatmapVisible ? (heatmapLayer.addTo(map), showToast('🔥 Heatmap on', 'info')) : (map.removeLayer(heatmapLayer), showToast('Heatmap off', 'info'));
-    }
 
-    // ============================================================
-    // CLUSTERS
-    // ============================================================
-    function initClusters() {
-        clusterLayers.forEach(l => map.hasLayer(l) && map.removeLayer(l));
-        clusterLayers = [];
-        const used = new Set(), groups = [];
-        BARANGAY_CASES.forEach((b, i) => {
-            if (used.has(i)) return;
-            const g = [i]; used.add(i);
-            BARANGAY_CASES.forEach((c, j) => {
-                if (i === j || used.has(j)) return;
-                if (Math.sqrt(Math.pow(b.lat - c.lat, 2) + Math.pow(b.lng - c.lng, 2)) < 0.008) {
-                    g.push(j); used.add(j);
-                }
-            });
-            if (g.length > 1) groups.push(g);
+    function setupMapSourcesAndLayers() {
+        // District 1 Boundary Source & Visual Enclosure
+        map.addSource('district1-boundary-src', {
+            type: 'geojson',
+            data: DISTRICT1_POLYGON
         });
 
-        const colors = { High: '#ef4444', Moderate: '#eab308', Low: '#22c55e' };
-        groups.forEach((g, idx) => {
-            const total = g.reduce((s, i) => s + BARANGAY_CASES[i].total, 0);
-            const lat = g.reduce((s, i) => s + BARANGAY_CASES[i].lat, 0) / g.length;
-            const lng = g.reduce((s, i) => s + BARANGAY_CASES[i].lng, 0) / g.length;
-            const risk = total > 30 ? 'High' : total > 15 ? 'Moderate' : 'Low';
-            const color = colors[risk];
-            const c = L.circle([lat, lng], { color, fillColor: color, fillOpacity: 0.15, radius: 200 + total * 8, weight: 3, opacity: 0.8, dashArray: '8,6', className: 'cluster-pulse' });
-            c.bindTooltip(`<strong>Cluster ${idx+1}</strong><br>📊 ${total} cases<br>📍 ${g.length} barangays<br>⚠️ ${risk} risk`, { className: 'bg-white p-2 rounded shadow-lg text-xs' });
-            c.addTo(map); clusterLayers.push(c);
-            g.forEach(i => {
-                const b = BARANGAY_CASES[i];
-                const m = L.circleMarker([b.lat, b.lng], { color, fillColor: color, fillOpacity: 0.3, radius: 4, weight: 1.5 });
-                m.addTo(map); clusterLayers.push(m);
-            });
+        map.addLayer({
+            id: 'district1-boundary-fill',
+            type: 'fill',
+            source: 'district1-boundary-src',
+            paint: {
+                'fill-color': '#0B4F4A',
+                'fill-opacity': 0.04
+            }
         });
-        clusterLayers.forEach(l => map.hasLayer(l) && map.removeLayer(l));
-        isClustersVisible = false;
-    }
-    function toggleClusters() {
-        isClustersVisible = !isClustersVisible;
-        document.getElementById('showClusters').checked = isClustersVisible;
-        clusterLayers.forEach(l => isClustersVisible ? l.addTo(map) : map.removeLayer(l));
-        showToast(isClustersVisible ? '🔵 Clusters on' : 'Clusters off', 'info');
+
+        map.addLayer({
+            id: 'district1-boundary-line',
+            type: 'line',
+            source: 'district1-boundary-src',
+            paint: {
+                'line-color': '#0B4F4A',
+                'line-width': 2.5,
+                'line-dasharray': [3, 2],
+                'line-opacity': 0.75
+            }
+        });
+
+        // 1. Case Points GeoJSON
+        const caseFeatures = MAP_POINTS.map(p => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+            properties: {
+                ...p,
+                color: colorForDisease(p.disease)
+            }
+        }));
+
+        map.addSource('case-points-src', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: caseFeatures }
+        });
+
+        // 2. Barangay Buffers GeoJSON
+        const bufferFeatures = BARANGAY_BUFFERS.map(b => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [b.lng, b.lat] },
+            properties: {
+                ...b,
+                pixelRadius: Math.min(60, Math.max(16, Math.sqrt(b.total) * 9))
+            }
+        }));
+
+        map.addSource('barangay-buffers-src', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: bufferFeatures }
+        });
+
+        // 3. Cluster Overlays GeoJSON
+        const clusterFeatures = CLUSTER_DATA.map(c => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [c.lng, c.lat] },
+            properties: { ...c }
+        }));
+
+        map.addSource('clusters-src', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: clusterFeatures }
+        });
+
+        // --- ADD LAYERS ---
+
+        // Layer: Barangay Risk Buffers
+        map.addLayer({
+            id: 'layer-buffers',
+            type: 'circle',
+            source: 'barangay-buffers-src',
+            paint: {
+                'circle-radius': ['get', 'pixelRadius'],
+                'circle-color': ['get', 'color'],
+                'circle-opacity': 0.18,
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': ['get', 'color'],
+                'circle-stroke-opacity': 0.6
+            }
+        });
+
+        // Layer: GPU Heatmap Layer
+        map.addLayer({
+            id: 'layer-heatmap',
+            type: 'heatmap',
+            source: 'case-points-src',
+            layout: { visibility: 'none' },
+            paint: {
+                'heatmap-weight': 1,
+                'heatmap-intensity': 1.2,
+                'heatmap-color': [
+                    'interpolate',
+                    ['linear'],
+                    ['heatmap-density'],
+                    0, 'rgba(34, 197, 94, 0)',
+                    0.2, 'rgba(34, 197, 94, 0.5)',
+                    0.5, 'rgba(234, 179, 8, 0.7)',
+                    0.8, 'rgba(239, 68, 68, 0.85)',
+                    1, 'rgba(220, 38, 38, 1)'
+                ],
+                'heatmap-radius': 30,
+                'heatmap-opacity': 0.8
+            }
+        });
+
+        // Layer: Cluster Halo
+        map.addLayer({
+            id: 'layer-clusters-halo',
+            type: 'circle',
+            source: 'clusters-src',
+            paint: {
+                'circle-radius': 34,
+                'circle-color': '#ef4444',
+                'circle-opacity': 0.15,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ef4444',
+                'circle-stroke-opacity': 0.8
+            }
+        });
+
+        // Layer: Individual Case Points
+        map.addLayer({
+            id: 'layer-points',
+            type: 'circle',
+            source: 'case-points-src',
+            paint: {
+                'circle-radius': 6.5,
+                'circle-color': ['get', 'color'],
+                'circle-opacity': 0.92,
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#ffffff'
+            }
+        });
+
+        // Setup Interactive Tooltips
+        const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '280px' });
+
+        map.on('mouseenter', 'layer-points', (e) => {
+            map.getCanvas().style.cursor = 'pointer';
+            const p = e.features[0].properties;
+            popup.setLngLat(e.features[0].geometry.coordinates).setHTML(`
+                <div class="p-3 bg-white space-y-1.5">
+                    <div class="font-black text-slate-900 text-xs flex items-center justify-between">
+                        <span>${escapeHtml(p.disease)}</span>
+                        <span class="text-[10px] text-slate-400 font-mono">${escapeHtml(p.case_code || '')}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-600 font-medium">
+                        ${escapeHtml(p.barangay_name)} ${p.landmark ? '&bull; ' + escapeHtml(p.landmark) : ''}
+                    </div>
+                    <div class="border-t border-slate-100 pt-1.5 text-[10px] space-y-0.5 text-slate-500">
+                        <div><strong>Patient:</strong> ${escapeHtml(p.patient_name)}</div>
+                        <div><strong>Onset:</strong> ${escapeHtml(p.date)}</div>
+                        <div><strong>Source:</strong> <span class="px-1.5 py-0.5 bg-slate-100 font-bold text-slate-700 rounded">${escapeHtml(p.source)}</span></div>
+                    </div>
+                </div>
+            `).addTo(map);
+        });
+
+        map.on('mouseleave', 'layer-points', () => {
+            map.getCanvas().style.cursor = '';
+        });
+
+        map.on('click', 'layer-points', (e) => {
+            map.flyTo({ center: e.features[0].geometry.coordinates, zoom: 15.5, pitch: 40, speed: 1.2 });
+        });
     }
 
-    // ============================================================
-    // TIME SLIDER
-    // ============================================================
-    function setupTimeSlider() {
-        const s = document.getElementById('timeSlider'), l = document.getElementById('timeLabel');
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-        s.addEventListener('input', function() { l.textContent = months[parseInt(this.value)]; });
+    function switchBaseLayer(type) {
+        currentBaseStyle = type;
+        if (!map || !map.isStyleLoaded()) return;
+
+        if (type === 'satellite') {
+            map.setLayoutProperty('satellite-layer', 'visibility', 'visible');
+            map.setLayoutProperty('osm-layer', 'visibility', 'none');
+            document.getElementById('btnSatellite').className = 'px-2.5 py-1 font-bold rounded-md bg-white text-brand-dark shadow-2xs transition text-[11px]';
+            document.getElementById('btnStreet').className = 'px-2.5 py-1 font-bold rounded-md text-slate-500 hover:text-slate-800 transition text-[11px]';
+        } else {
+            map.setLayoutProperty('osm-layer', 'visibility', 'visible');
+            map.setLayoutProperty('satellite-layer', 'visibility', 'none');
+            document.getElementById('btnStreet').className = 'px-2.5 py-1 font-bold rounded-md bg-white text-brand-dark shadow-2xs transition text-[11px]';
+            document.getElementById('btnSatellite').className = 'px-2.5 py-1 font-bold rounded-md text-slate-500 hover:text-slate-800 transition text-[11px]';
+        }
     }
-    function playAnimation() {
+
+    function toggleLayer(layerName) {
+        if (!map || !map.isStyleLoaded()) return;
+
+        if (layerName === 'points') {
+            const vis = document.getElementById('togglePoints').checked ? 'visible' : 'none';
+            if (map.getLayer('layer-points')) map.setLayoutProperty('layer-points', 'visibility', vis);
+        } else if (layerName === 'buffers') {
+            const vis = document.getElementById('toggleBuffers').checked ? 'visible' : 'none';
+            if (map.getLayer('layer-buffers')) map.setLayoutProperty('layer-buffers', 'visibility', vis);
+        } else if (layerName === 'heatmap') {
+            const vis = document.getElementById('toggleHeatmap').checked ? 'visible' : 'none';
+            if (map.getLayer('layer-heatmap')) map.setLayoutProperty('layer-heatmap', 'visibility', vis);
+        } else if (layerName === 'clusters') {
+            const vis = document.getElementById('toggleClusters').checked ? 'visible' : 'none';
+            if (map.getLayer('layer-clusters-halo')) map.setLayoutProperty('layer-clusters-halo', 'visibility', vis);
+        }
+    }
+
+    function handleTimeSlider(val) {
+        val = parseInt(val);
+        const label = document.getElementById('timeLabel');
+        if (val === 5) {
+            label.textContent = 'All Months';
+            if (map && map.getLayer('layer-points')) {
+                map.setFilter('layer-points', null);
+            }
+        } else {
+            const m = TIMELINE_MONTHS[val] || 'Current';
+            label.textContent = m;
+            if (map && map.getLayer('layer-points')) {
+                map.setFilter('layer-points', ['==', ['get', 'month'], m]);
+            }
+        }
+    }
+
+    function toggleTimelineAnimation() {
+        const btn = document.getElementById('btnPlayTimeline');
         if (animationInterval) {
-            clearInterval(animationInterval); animationInterval = null;
-            document.querySelector('#timeSlider + button i').className = 'fa-solid fa-play';
+            clearInterval(animationInterval);
+            animationInterval = null;
+            btn.innerHTML = '<i class="fa-solid fa-play"></i>';
             return;
         }
-        document.querySelector('#timeSlider + button i').className = 'fa-solid fa-pause';
-        let m = parseInt(document.getElementById('timeSlider').value);
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+
+        btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+        let idx = 0;
+        document.getElementById('timeSlider').value = idx;
+        handleTimeSlider(idx);
+
         animationInterval = setInterval(() => {
-            m = (m + 1) % 6;
-            document.getElementById('timeSlider').value = m;
-            document.getElementById('timeLabel').textContent = months[m];
-            if (m === 5) { 
-                clearInterval(animationInterval); 
+            idx++;
+            if (idx > 5) {
+                clearInterval(animationInterval);
                 animationInterval = null;
-                document.querySelector('#timeSlider + button i').className = 'fa-solid fa-play';
-                showToast('🔄 Complete', 'success'); 
+                btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+                document.getElementById('timeSlider').value = 5;
+                handleTimeSlider(5);
+                return;
             }
-        }, 1500);
+            document.getElementById('timeSlider').value = idx;
+            handleTimeSlider(idx);
+        }, 1300);
     }
 
-    // ============================================================
-    // CHARTS
-    // ============================================================
-    function initChart() {
-        const el = document.getElementById('spread-chart');
-        if (!el) return;
-        const months = ['Jan','Feb','Mar','Apr','May','Jun'];
-        chart = new ApexCharts(el, {
-            series: BARANGAY_CASES.map(b => ({
-                name: b.name,
-                data: months.map((_,i) => Math.max(0, Math.floor(b.total/6) + (i*0.5) + Math.floor(Math.random() * Math.floor(b.total/6) * 0.3)))
-            })),
-            chart: { type: 'line', height: 280, toolbar: { show: false }, zoom: { enabled: true }, animations: { enabled: true, easing: 'easeinout', speed: 600 } },
-            stroke: { curve: 'smooth', width: 2.5 },
-            markers: { size: 3, hover: { size: 5 } },
-            xaxis: { categories: months, title: { text: 'Month' } },
-            yaxis: { title: { text: 'Cases' }, min: 0 },
-            colors: BARANGAY_CASES.map(b => ({ High: '#ef4444', Moderate: '#eab308', Low: '#22c55e' }[b.risk] || '#6B7280')),
-            legend: { position: 'top', fontSize: '10px', horizontalAlign: 'left' },
-            tooltip: { y: { formatter: v => Math.round(v) + ' cases' } },
-            grid: { borderColor: '#E2E8F0', strokeDashArray: 4 }
+    function initCharts() {
+        const spreadEl = document.getElementById('spread-chart');
+        if (spreadEl) {
+            spreadChart = new ApexCharts(spreadEl, {
+                chart: { type: 'area', height: 280, toolbar: { show: false } },
+                series: [{ name: 'Surveillance Cases', data: TOTAL_TREND }],
+                xaxis: { categories: TIMELINE_MONTHS },
+                colors: ['#0B4F4A'],
+                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.45, opacityTo: 0.05, stops: [20, 100] } },
+                dataLabels: { enabled: false },
+                stroke: { curve: 'smooth', width: 3 }
+            });
+            spreadChart.render();
+        }
+
+        const pieEl = document.getElementById('disease-distribution-chart');
+        if (pieEl && Object.keys(DISEASE_SUMMARY).length > 0) {
+            const labels = Object.keys(DISEASE_SUMMARY);
+            const series = Object.values(DISEASE_SUMMARY);
+            const colors = labels.map(l => colorForDisease(l));
+
+            diseasePieChart = new ApexCharts(pieEl, {
+                chart: { type: 'donut', height: 280 },
+                series: series,
+                labels: labels,
+                colors: colors,
+                legend: { position: 'bottom' },
+                dataLabels: { enabled: true, formatter: (val) => Math.round(val) + '%' }
+            });
+            diseasePieChart.render();
+        }
+    }
+
+    function resetMapView() {
+        if (map) {
+            map.flyTo({ center: [120.9850, 14.6610], zoom: 13.6, pitch: 28, bearing: -6, speed: 1.2 });
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    const ALL_BARANGAYS_DATA = <?= json_encode($allBarangays, JSON_PRETTY_PRINT); ?>;
+    let tableCurrentPage = 1;
+    const tableItemsPerPage = 10;
+
+    function handleZoneChange() {
+        const selectedZone = document.getElementById('tableFilterZone')?.value || '';
+        const brgySelect = document.getElementById('tableFilterBarangay');
+        if (brgySelect) {
+            brgySelect.innerHTML = '<option value="">All Barangays</option>';
+            ALL_BARANGAYS_DATA.forEach(b => {
+                if (!selectedZone || b.zone === selectedZone) {
+                    const opt = document.createElement('option');
+                    opt.value = b.barangay_no;
+                    opt.textContent = `Brgy ${b.barangay_no} (${b.zone})`;
+                    brgySelect.appendChild(opt);
+                }
+            });
+        }
+        tableCurrentPage = 1;
+        filterTable();
+    }
+
+    function changeTableFilter() {
+        tableCurrentPage = 1;
+        filterTable();
+    }
+
+    function filterTable() {
+        const searchInput = (document.getElementById('tableSearch')?.value || '').toLowerCase().trim();
+        const zoneFilter = (document.getElementById('tableFilterZone')?.value || '').toLowerCase().trim();
+        const diseaseFilter = (document.getElementById('tableFilterDisease')?.value || '').toLowerCase().trim();
+        const brgyFilter = (document.getElementById('tableFilterBarangay')?.value || '').trim();
+        const sourceFilter = (document.getElementById('tableFilterSource')?.value || '').toLowerCase().trim();
+
+        const allRows = Array.from(document.querySelectorAll('#casesTable tbody tr:not(#tableEmptyRow)'));
+        const matchingRows = [];
+
+        allRows.forEach(r => {
+            const text = r.textContent.toLowerCase();
+            const z = (r.getAttribute('data-zone') || '').toLowerCase();
+            const d = (r.getAttribute('data-disease') || '').toLowerCase();
+            const b = r.getAttribute('data-barangay') || '';
+            const s = (r.getAttribute('data-source') || '').toLowerCase();
+
+            const matchSearch = !searchInput || text.includes(searchInput);
+            const matchZone = !zoneFilter || z.includes(zoneFilter);
+            const matchDisease = !diseaseFilter || d.includes(diseaseFilter);
+            const matchBrgy = !brgyFilter || b === brgyFilter;
+            const matchSource = !sourceFilter || s.includes(sourceFilter);
+
+            if (matchSearch && matchZone && matchDisease && matchBrgy && matchSource) {
+                matchingRows.push(r);
+            } else {
+                r.style.display = 'none';
+            }
         });
-        chart.render();
+
+        renderTablePagination(matchingRows);
     }
 
-    function initDiseaseChart() {
-        const el = document.getElementById('disease-distribution');
-        if (!el) return;
-        let d=0, i=0, l=0;
-        BARANGAY_CASES.forEach(b => { d += b.dengue; i += b.influenza; l += b.leptospirosis || 0; });
-        diseaseChart = new ApexCharts(el, {
-            series: [d, i, l],
-            chart: { type: 'donut', height: 280, animations: { enabled: true, easing: 'easeinout', speed: 600 } },
-            labels: ['Dengue', 'Influenza', 'Leptospirosis'],
-            colors: ['#ef4444', '#3b82f6', '#8b5cf6'],
-            legend: { position: 'bottom', fontSize: '11px' },
-            tooltip: { y: { formatter: v => v + ' cases' } },
-            plotOptions: { pie: { donut: { size: '65%', labels: { show: true, total: { show: true, label: 'Total', formatter: () => BARANGAY_CASES.reduce((s,b) => s + b.total, 0) } } } } }
+    function renderTablePagination(matchingRows) {
+        const totalMatching = matchingRows.length;
+        const totalPages = Math.ceil(totalMatching / tableItemsPerPage) || 1;
+        if (tableCurrentPage > totalPages) tableCurrentPage = totalPages;
+        if (tableCurrentPage < 1) tableCurrentPage = 1;
+
+        const startIdx = (tableCurrentPage - 1) * tableItemsPerPage;
+        const endIdx = startIdx + tableItemsPerPage;
+
+        matchingRows.forEach((row, index) => {
+            if (index >= startIdx && index < endIdx) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
         });
-        diseaseChart.render();
+
+        const emptyRow = document.getElementById('tableEmptyRow');
+        if (emptyRow) {
+            emptyRow.style.display = totalMatching === 0 ? '' : 'none';
+        }
+
+        const showingFromEl = document.getElementById('pageShowingFrom');
+        const showingToEl = document.getElementById('pageShowingTo');
+        const totalCountEl = document.getElementById('pageTotalCount');
+
+        if (showingFromEl) showingFromEl.textContent = totalMatching === 0 ? 0 : startIdx + 1;
+        if (showingToEl) showingToEl.textContent = Math.min(endIdx, totalMatching);
+        if (totalCountEl) totalCountEl.textContent = totalMatching;
+
+        const controlsEl = document.getElementById('tablePaginationControls');
+        if (controlsEl) {
+            let buttonsHtml = '';
+
+            // Previous button
+            buttonsHtml += `
+                <button onclick="changeTablePage(${tableCurrentPage - 1})" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition ${tableCurrentPage === 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-brand-dark'}" ${tableCurrentPage === 1 ? 'disabled' : ''}>
+                    <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                </button>
+            `;
+
+            // Up to 3 visible page numbers window
+            const maxVisible = 3;
+            const blockIndex = Math.floor((tableCurrentPage - 1) / maxVisible);
+            const startPage = blockIndex * maxVisible + 1;
+            const endPage = Math.min(startPage + maxVisible - 1, totalPages);
+
+            for (let p = startPage; p <= endPage; p++) {
+                if (p === tableCurrentPage) {
+                    buttonsHtml += `<button class="px-3 py-1 rounded-lg text-xs font-bold bg-brand-dark text-white shadow-2xs">${p}</button>`;
+                } else {
+                    buttonsHtml += `<button onclick="changeTablePage(${p})" class="px-3 py-1 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-brand-dark transition">${p}</button>`;
+                }
+            }
+
+            // Next button
+            buttonsHtml += `
+                <button onclick="changeTablePage(${tableCurrentPage + 1})" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition ${tableCurrentPage === totalPages || totalMatching === 0 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-brand-dark'}" ${tableCurrentPage === totalPages || totalMatching === 0 ? 'disabled' : ''}>
+                    <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                </button>
+            `;
+
+            controlsEl.innerHTML = buttonsHtml;
+        }
     }
 
-    // ============================================================
-    // HELPERS
-    // ============================================================
-    function refreshMap() {
-        if (map) map.setView([14.5800, 121.0400], 14);
-        if (chart) chart.updateOptions({ animations: { enabled: true } });
-        if (diseaseChart) diseaseChart.updateOptions({ animations: { enabled: true } });
-        showToast('🗺️ Refreshed!', 'success');
+    function changeTablePage(page) {
+        tableCurrentPage = page;
+        filterTable();
     }
 
-    let toastTimer = null;
-    function showToast(msg, type = 'success') {
-        const t = document.getElementById('toast');
-        const colors = { success: 'bg-brand-dark', danger: 'bg-rose-600', info: 'bg-blue-600', warning: 'bg-amber-600' };
-        t.className = `fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2 ${colors[type] || colors.success}`;
-        t.querySelector('i').className = 'fa-solid fa-circle-check';
-        document.getElementById('toastMessage').textContent = msg;
-        t.classList.remove('hidden');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => t.classList.add('hidden'), 3000);
-    }
-
-    // ============================================================
-    // INITIALIZE
-    // ============================================================
-    document.addEventListener('DOMContentLoaded', function() {
-        setTimeout(() => { 
-            initMap(); 
-            initChart(); 
-            initDiseaseChart(); 
-        }, 500);
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            initMap();
+            initCharts();
+            filterTable();
+        }, 150);
     });
 </script>
 
-<?php include_once '../../includes/footer.php'; ?>
+<?php require_once '../../includes/footer.php'; ?>

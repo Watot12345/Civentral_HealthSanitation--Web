@@ -3,6 +3,8 @@
 
 namespace App\Services;
 
+require_once __DIR__ . '/../Constants/Permissions.php';
+
 use App\Constants\Permissions;
 
 class DepartmentResolver
@@ -61,6 +63,10 @@ class DepartmentResolver
 
         if ($permService->hasAnyPermission([Permissions::IMMUNIZATION_VIEW, Permissions::IMMUNIZATION_CREATE])) {
             return 'Immunization & Nutrition';
+        }
+
+        if ($permService->hasAnyPermission([Permissions::WASTEWATER_VIEW, Permissions::WASTEWATER_CREATE, Permissions::WASTEWATER_EDIT, Permissions::WASTEWATER_MANAGE])) {
+            return 'Wastewater Services';
         }
 
         return 'General Department';

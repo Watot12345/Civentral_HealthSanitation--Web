@@ -125,6 +125,15 @@ class ConsultationController extends BaseController
                 }
             }
 
+            // Primary Source Health Surveillance Bridge (Auto-detect & sync to surveillance_cases)
+            try {
+                require_once __DIR__ . '/../services/ClinicalSurveillanceService.php';
+                $survService = new ClinicalSurveillanceService();
+                $survService->syncConsultation($dbData);
+            } catch (Throwable $e) {
+                error_log('Consultation Health Surveillance Bridge error: ' . $e->getMessage());
+            }
+
             return ['success' => true, 'message' => 'Consultation created successfully', 'data' => $result, 'code' => 201];
         });
     }
@@ -158,6 +167,16 @@ class ConsultationController extends BaseController
             $dbData = $this->prepareDbData($data, true);
             $result = $this->consultationModel->updateById($id, $dbData);
 
+            // Primary Source Health Surveillance Bridge (Auto-update or remove surveillance case on diagnosis change)
+            try {
+                require_once __DIR__ . '/../services/ClinicalSurveillanceService.php';
+                $survService = new ClinicalSurveillanceService();
+                $mergedData = array_merge($consultation, $dbData);
+                $survService->syncConsultation($mergedData);
+            } catch (Throwable $e) {
+                error_log('Consultation Health Surveillance update bridge error: ' . $e->getMessage());
+            }
+
             return [
                 'success' => true,
                 'message' => 'Consultation updated successfully',
@@ -176,6 +195,15 @@ class ConsultationController extends BaseController
                     'message' => 'Consultation not found',
                     'code' => 404
                 ];
+            }
+
+            // Remove associated surveillance case
+            try {
+                require_once __DIR__ . '/../services/ClinicalSurveillanceService.php';
+                $survService = new ClinicalSurveillanceService();
+                $survService->removeConsultationCase($consultation);
+            } catch (Throwable $e) {
+                error_log('Consultation Health Surveillance delete bridge error: ' . $e->getMessage());
             }
 
             $success = $this->consultationModel->deleteById($id);

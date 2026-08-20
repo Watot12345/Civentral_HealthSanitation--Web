@@ -107,6 +107,20 @@ class TriageController extends BaseController
 
             $result = $this->triageModel->create($dbData);
 
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $tCode = $dbData['triage_id'] ?? ($result['triage_id'] ?? 'TRG');
+                    $prio = ucfirst($dbData['priority'] ?? 'Standard');
+                    $logger->log("Recorded Patient Triage Assessment ({$tCode})", [
+                        'module'  => 'Health Center Services',
+                        'details' => "Priority: {$prio} | Chief Complaint: " . ($dbData['chief_complaint'] ?? 'General Triage'),
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {}
+            }
+
             return [
                 'success' => true,
                 'message' => 'Triage record created successfully',

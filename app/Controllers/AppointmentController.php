@@ -90,6 +90,20 @@ class AppointmentController extends BaseController
 
             $result = $this->appointmentModel->create($dbData);
 
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $aptCode = $dbData['appointment_id'] ?? ($result['appointment_id'] ?? 'APT');
+                    $st = $dbData['service_type'] ?? 'Consultation';
+                    $logger->log("Scheduled Clinic Appointment ({$aptCode})", [
+                        'module'  => 'Health Center Services',
+                        'details' => "Service: {$st} | Date: " . ($dbData['appointment_date'] ?? date('Y-m-d')),
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {}
+            }
+
             return [
                 'success' => true,
                 'message' => 'Appointment created successfully',

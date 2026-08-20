@@ -42,6 +42,12 @@ class Permissions
     public const IMMUNIZATION_CREATE = 'immunization.create';
     public const IMMUNIZATION_EDIT   = 'immunization.edit';
 
+    // Wastewater Services (4)
+    public const WASTEWATER_VIEW   = 'wastewater.view';
+    public const WASTEWATER_CREATE = 'wastewater.create';
+    public const WASTEWATER_EDIT   = 'wastewater.edit';
+    public const WASTEWATER_MANAGE = 'wastewater.manage';
+
     // Health Surveillance (4)
     public const SURVEILLANCE_VIEW   = 'surveillance.view';
     public const SURVEILLANCE_CREATE = 'surveillance.create';
@@ -85,6 +91,10 @@ class Permissions
             self::IMMUNIZATION_VIEW,
             self::IMMUNIZATION_CREATE,
             self::IMMUNIZATION_EDIT,
+            self::WASTEWATER_VIEW,
+            self::WASTEWATER_CREATE,
+            self::WASTEWATER_EDIT,
+            self::WASTEWATER_MANAGE,
             self::SURVEILLANCE_VIEW,
             self::SURVEILLANCE_CREATE,
             self::SURVEILLANCE_EDIT,

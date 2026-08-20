@@ -59,16 +59,27 @@ class ActivityLog
                 $allUsers = $employeeModel->all();
                 $deptUsers = getDepartmentResolver()->filterUsersForDepartment($allUsers, $targetDept);
 
+                // Exclude department heads and admins from allowed subordinate users
                 $allowedUserIds = [];
                 $allowedUserNames = [];
                 foreach ($deptUsers as $u) {
-                    if (!empty($u['id'])) $allowedUserIds[(int)$u['id']] = true;
-                    if (!empty($u['employee_id'])) $allowedUserNames[strtolower(trim($u['employee_id']))] = true;
-                    if (!empty($u['full_name'])) $allowedUserNames[strtolower(trim($u['full_name']))] = true;
-                    if (!empty($u['username'])) $allowedUserNames[strtolower(trim($u['username']))] = true;
+                    $uRole = trim($u['role_description'] ?? $u['role'] ?? '');
+                    if (!self::isDepartmentHeadRole($uRole) && !self::isAdminRole($uRole)) {
+                        if (!empty($u['id'])) $allowedUserIds[(int)$u['id']] = true;
+                        if (!empty($u['employee_id'])) $allowedUserNames[strtolower(trim($u['employee_id']))] = true;
+                        if (!empty($u['full_name'])) $allowedUserNames[strtolower(trim($u['full_name']))] = true;
+                        if (!empty($u['username'])) $allowedUserNames[strtolower(trim($u['username']))] = true;
+                    }
                 }
 
                 $logs = array_values(array_filter($logs, function($log) use ($targetDept, $allowedUserIds, $allowedUserNames) {
+                    $logRole = trim($log['role'] ?? '');
+
+                    // Department Heads cannot view activities of other Heads or System Administrators
+                    if (self::isDepartmentHeadRole($logRole) || self::isAdminRole($logRole)) {
+                        return false;
+                    }
+
                     $userId = (int)($log['user_id'] ?? 0);
                     if ($userId > 0 && isset($allowedUserIds[$userId])) {
                         return true;
@@ -77,8 +88,7 @@ class ActivityLog
                     if (!empty($userName) && isset($allowedUserNames[$userName])) {
                         return true;
                     }
-                    $role = trim($log['role'] ?? '');
-                    if (!empty($role) && getDepartmentResolver()->isRoleInDepartment($role, $targetDept)) {
+                    if (!empty($logRole) && getDepartmentResolver()->isRoleInDepartment($logRole, $targetDept)) {
                         return true;
                     }
                     return false;
@@ -90,6 +100,22 @@ class ActivityLog
             error_log('ActivityLog::all() database error: ' . $e->getMessage());
             return [];
         }
+    }
+
+    /**
+     * Check if a role name is one of the 5 Module Heads (Director, Coordinator, Lead)
+     */
+    public static function isDepartmentHeadRole(string $role): bool
+    {
+        return (bool) preg_match('/health center director|sanitation director|immunization lead|immunization coordinator|waste\s*water lead|surveil{1,2}ance lead|surveillance coordinator|director|coordinator|lead/i', trim($role));
+    }
+
+    /**
+     * Check if a role name represents a System Administrator
+     */
+    public static function isAdminRole(string $role): bool
+    {
+        return (bool) preg_match('/admin|administrator|superadmin|system administrator|system admin/i', trim($role));
     }
 
 

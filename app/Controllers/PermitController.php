@@ -158,6 +158,20 @@ class PermitController extends BaseController
 
             $result = $this->permitModel->create($dbData);
 
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $pCode = $dbData['permit_id'] ?? ($result['permit_id'] ?? 'Permit');
+                    $biz = $dbData['applicant'] ?? ($dbData['business_name'] ?? 'Establishment');
+                    $logger->log("Submitted Sanitary Permit Application ({$pCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Business: {$biz} | Type: " . ($dbData['business_type'] ?? 'General'),
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {}
+            }
+
             return [
                 'success' => true,
                 'message' => 'Permit application submitted successfully',
@@ -256,6 +270,21 @@ class PermitController extends BaseController
             }
 
             $result = $this->permitModel->updateById($id, $updateData);
+
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $pCode = $permit['permit_id'] ?? 'Permit';
+                    $statusLabel = ucwords(str_replace('_', ' ', $status));
+                    $applicant = $permit['applicant'] ?? 'Establishment';
+                    $logger->log("Updated Sanitary Permit Status: {$statusLabel} ({$pCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Establishment: {$applicant} | New Status: {$statusLabel}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {}
+            }
 
             return [
                 'success' => true,

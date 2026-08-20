@@ -193,3 +193,12 @@ Patient queue announcements speak clearly and repeat 2 times for waiting room au
 Rule 11: Queue Status Toggling
 
 Staff can call, re-announce, mark as "Skipped / No Answer", or re-queue patients flexibly.
+
+
+
+
+
+
+
+
+rsixdigit3350@gmail.com

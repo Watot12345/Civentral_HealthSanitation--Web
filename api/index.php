@@ -43,13 +43,13 @@ declare(strict_types=1);
  *   POST   /settings/restore
  */
 
-require_once __DIR__ . '/../core/bootstrap.php';
+require_once __DIR__ . '/../Core/bootstrap.php';
 require_once __DIR__ . '/../app/Controllers/ActivityLogController.php';
 require_once __DIR__ . '/../app/Controllers/EmployeeController.php';
 require_once __DIR__ . '/../app/Controllers/RoleController.php';
-require_once __DIR__ . '/../app/controllers/SettingsController.php';
-require_once __DIR__ . '/../app/controllers/NotificationController.php';
-require_once __DIR__ . '/../app/controllers/BackupController.php';
+require_once __DIR__ . '/../app/Controllers/SettingsController.php';
+require_once __DIR__ . '/../app/Controllers/NotificationController.php';
+require_once __DIR__ . '/../app/Controllers/BackupController.php';
 
 use Core\Request;
 use Core\Router;

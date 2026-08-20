@@ -166,10 +166,50 @@ $title = 'Patient Management';
         elseif ($a <= 65) $ageGroups['51-65']++;
         else $ageGroups['66+']++;
     }
+    $caloocanZones = [
+        'Zone 1'  => [1, 2, 3, 4],
+        'Zone 7'  => [77, 78, 79, 80, 81],
+        'Zone 8'  => [82, 83, 84, 85],
+        'Zone 12' => [132, 133, 134, 135, 136, 137, 138, 139, 140],
+        'Zone 13' => [141, 142, 143, 144, 145, 146, 147, 148, 149, 150],
+        'Zone 14' => [151, 152, 153, 154, 155, 156, 157, 158, 159, 160],
+        'Zone 15' => [161, 162, 163, 164]
+    ];
+
+    $zoneCounts = [
+        'Zone 1'  => 0,
+        'Zone 7'  => 0,
+        'Zone 8'  => 0,
+        'Zone 12' => 0,
+        'Zone 13' => 0,
+        'Zone 14' => 0,
+        'Zone 15' => 0,
+        'Other'   => 0
+    ];
+
     $barangayCounts = [];
     foreach ($patients as $p) {
-        $barangayCounts[$p['barangay']] = ($barangayCounts[$p['barangay']] ?? 0) + 1;
+        $brgy = $p['barangay'] ?? '';
+        $barangayCounts[$brgy] = ($barangayCounts[$brgy] ?? 0) + 1;
+
+        // Match number from Barangay string
+        preg_match('/\b(\d{1,3})\b/', $brgy, $matches);
+        $brgyNum = isset($matches[1]) ? (int)$matches[1] : null;
+        $assignedZone = 'Other';
+
+        if ($brgyNum !== null) {
+            foreach ($caloocanZones as $zName => $zBrgys) {
+                if (in_array($brgyNum, $zBrgys, true)) {
+                    $assignedZone = $zName;
+                    break;
+                }
+            }
+        }
+        $zoneCounts[$assignedZone] = ($zoneCounts[$assignedZone] ?? 0) + 1;
     }
+    // Remove 0-count zones and sort descending
+    $zoneCounts = array_filter($zoneCounts, fn($c) => $c > 0);
+    arsort($zoneCounts);
     arsort($barangayCounts);
     ?>
 
@@ -196,16 +236,41 @@ $title = 'Patient Management';
     <!-- Distribution Panels -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <div class="bg-white rounded-xl shadow-xs p-5 border border-slate-200"><div class="flex justify-between items-center mb-4"><h3 class="text-sm font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-chart-line text-brand-medium"></i> Age Group Distribution</h3></div><div class="h-52"><canvas id="ageLineChart"></canvas></div></div>
-        <div class="bg-white rounded-xl shadow-xs p-5 border border-slate-200"><div class="flex justify-between items-center mb-4"><h3 class="text-sm font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-brand-medium"></i> Barangay Distribution</h3></div><div class="h-52"><canvas id="barangayPieChart"></canvas></div></div>
+        <div class="bg-white rounded-xl shadow-xs p-5 border border-slate-200">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-map-location-dot text-brand-medium"></i> Geographic Distribution (By Zone)
+                </h3>
+                <span class="text-[11px] font-bold text-brand-dark bg-brand-light border border-brand-border/60 px-2.5 py-0.5 rounded-full">
+                    <?php echo count($zoneCounts); ?> Active Zones
+                </span>
+            </div>
+            <div class="h-52">
+                <canvas id="zonePieChart"></canvas>
+            </div>
+        </div>
     </div>
 
     <!-- Search & Filter -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
         <div class="flex flex-col sm:flex-row gap-3">
             <div class="flex-1 relative"><i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i><input type="text" id="searchPatient" placeholder="Search by name, ID, or barangay..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition"></div>
-            <div class="flex gap-2 flex-wrap">
-                <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
-                <select id="filterDateType" onchange="onDateFilterTypeChange()" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"><option value="">Last Visit: Any time</option><option value="today">Today</option><option value="day">Specific day</option><option value="month">Specific month</option><option value="year">Specific year</option></select>
+            <div class="flex gap-2 flex-wrap items-center">
+                <select id="filterZone" onchange="onFilterZoneChange()" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white font-medium text-slate-700">
+                    <option value="">All Zones</option>
+                    <option value="Zone 1">Zone 1 (Brgy 1–4)</option>
+                    <option value="Zone 7">Zone 7 (Brgy 77–81)</option>
+                    <option value="Zone 8">Zone 8 (Brgy 82–85)</option>
+                    <option value="Zone 12">Zone 12 (Brgy 132–140)</option>
+                    <option value="Zone 13">Zone 13 (Brgy 141–150)</option>
+                    <option value="Zone 14">Zone 14 (Brgy 151–160)</option>
+                    <option value="Zone 15">Zone 15 (Brgy 161–164)</option>
+                </select>
+                <select id="filterBarangay" onchange="filterPatients()" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white font-medium text-slate-700">
+                    <option value="">All Barangays</option>
+                </select>
+                <select id="filterStatus" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+                <select id="filterDateType" onchange="onDateFilterTypeChange()" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"><option value="">Last Visit: Any time</option><option value="today">Today</option><option value="day">Specific day</option><option value="month">Specific month</option><option value="year">Specific year</option></select>
                 <input type="date" id="filterDateValue" class="hidden px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                 <button onclick="resetFilters()" title="Reset filters" class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm"><i class="fa-solid fa-rotate-right"></i></button>
             </div>
@@ -306,7 +371,7 @@ $title = 'Patient Management';
 <!-- VIEW PATIENT MODAL -->
 <div id="viewPatientModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl"><h3 class="font-bold text-slate-900">Patient Details</h3><button onclick="ModalSystem.close('viewPatientModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div><div id="patientDetailsContent" class="p-6"><div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading patient record...</div></div></div></div>
 
-<!-- EDIT PATIENT MODAL - FIXED: Removed maskable input-maskable from inputs -->
+<!-- EDIT PATIENT MODAL -->
 <div id="editPatientModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl"><h3 class="font-bold text-slate-900">Edit Patient</h3><button onclick="ModalSystem.close('editPatientModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div>
 <form id="editPatientForm" class="p-6 space-y-5"><input type="hidden" id="edit_id">
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -318,7 +383,30 @@ $title = 'Patient Management';
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Age</label><input type="number" id="edit_age" min="0" max="120" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Blood Type</label><select id="edit_blood_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><?php foreach(['O+','O-','A+','A-','B+','B-','AB+','AB-'] as $bt): ?><option value="<?php echo $bt; ?>"><?php echo $bt; ?></option><?php endforeach; ?></select></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
-<div class="sm:col-span-2"><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label><select id="edit_barangay" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="Barangay San Jose">Barangay San Jose</option><option value="Barangay Poblacion">Barangay Poblacion</option><option value="Barangay Riverside">Barangay Riverside</option><option value="Barangay San Roque">Barangay San Roque</option><option value="Barangay Sta. Cruz">Barangay Sta. Cruz</option></select></div>
+
+<!-- HIERARCHICAL ZONE & BARANGAY SELECTION -->
+<div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Zone</label>
+        <select id="edit_zone" onchange="onZoneChange('edit_zone', 'edit_barangay')" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            <option value="">All Zones (Select Zone)</option>
+            <option value="Zone 1">Zone 1 (Brgy 1 to 4)</option>
+            <option value="Zone 7">Zone 7 (Brgy 77 to 81)</option>
+            <option value="Zone 8">Zone 8 (Brgy 82 to 85)</option>
+            <option value="Zone 12">Zone 12 (Brgy 132 to 140)</option>
+            <option value="Zone 13">Zone 13 (Brgy 141 to 150)</option>
+            <option value="Zone 14">Zone 14 (Brgy 151 to 160)</option>
+            <option value="Zone 15">Zone 15 (Brgy 161 to 164)</option>
+        </select>
+    </div>
+    <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay <span class="text-rose-500">*</span></label>
+        <select id="edit_barangay" onchange="onBarangayChange('edit_barangay', 'edit_zone')" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            <!-- Populated dynamically in ascending order -->
+        </select>
+    </div>
+</div>
+
 <div class="sm:col-span-2"><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Address</label><input type="text" id="edit_address" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Allergies</label><input type="text" id="edit_allergies" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Conditions</label><input type="text" id="edit_conditions" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
@@ -341,7 +429,30 @@ $title = 'Patient Management';
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Age</label><input type="number" id="add_age" min="0" max="120" required class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Blood Type</label><select id="add_blood_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><?php foreach(['O+','O-','A+','A-','B+','B-','AB+','AB-'] as $bt): ?><option value="<?php echo $bt; ?>"><?php echo $bt; ?></option><?php endforeach; ?></select></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="add_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
-<div class="sm:col-span-2"><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label><select id="add_barangay" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="Barangay San Jose">Barangay San Jose</option><option value="Barangay Poblacion">Barangay Poblacion</option><option value="Barangay Riverside">Barangay Riverside</option><option value="Barangay San Roque">Barangay San Roque</option><option value="Barangay Sta. Cruz">Barangay Sta. Cruz</option></select></div>
+
+<!-- HIERARCHICAL ZONE & BARANGAY SELECTION -->
+<div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Zone</label>
+        <select id="add_zone" onchange="onZoneChange('add_zone', 'add_barangay')" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            <option value="">All Zones (Select Zone)</option>
+            <option value="Zone 1">Zone 1 (Brgy 1 to 4)</option>
+            <option value="Zone 7">Zone 7 (Brgy 77 to 81)</option>
+            <option value="Zone 8">Zone 8 (Brgy 82 to 85)</option>
+            <option value="Zone 12">Zone 12 (Brgy 132 to 140)</option>
+            <option value="Zone 13">Zone 13 (Brgy 141 to 150)</option>
+            <option value="Zone 14">Zone 14 (Brgy 151 to 160)</option>
+            <option value="Zone 15">Zone 15 (Brgy 161 to 164)</option>
+        </select>
+    </div>
+    <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay <span class="text-rose-500">*</span></label>
+        <select id="add_barangay" onchange="onBarangayChange('add_barangay', 'add_zone')" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            <!-- Populated dynamically in ascending order -->
+        </select>
+    </div>
+</div>
+
 <div class="sm:col-span-2"><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Address</label><input type="text" id="add_address" required class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div class="sm:col-span-2"><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Emergency Contact</label><input type="text" id="add_emergency_contact" placeholder="Name - Phone Number" class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Allergies</label><input type="text" id="add_allergies" placeholder="None" class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
@@ -460,20 +571,113 @@ td .text-slate-600.maskable.masked::after {
     (function () {
     'use strict';
     const BRAND = { dark: '#0B4F4A', medium: '#14807A', light: '#E6F5F3', border: '#B8E0DC' };
-    const PALETTE = ['#0B4F4A','#14807A','#2EB8A0','#5CCFBB','#8FE3D6','#B8E0DC','#D4A853','#E07B54'];
+    const PALETTE = ['#0B4F4A', '#14807A', '#2EB8A0', '#5CCFBB', '#8FE3D6', '#D4A853', '#E07B54', '#6366F1', '#EC4899'];
     const ageLabels = <?php echo json_encode(array_keys($ageGroups)); ?>;
     const ageValues = <?php echo json_encode(array_values($ageGroups)); ?>;
-    const barangayRaw = <?php echo json_encode($barangayCounts); ?>;
-    const bLabels = Object.keys(barangayRaw).map(b => b.replace('Barangay ', ''));
-    const bValues = Object.values(barangayRaw);
+    const zoneRaw   = <?php echo json_encode($zoneCounts); ?>;
+    const zLabels   = Object.keys(zoneRaw);
+    const zValues   = Object.values(zoneRaw);
+
     Chart.defaults.font.family = "'Inter', 'Segoe UI', system-ui, sans-serif";
     Chart.defaults.font.size = 11;
     Chart.defaults.color = '#64748B';
     const TOOLTIP_STYLE = { backgroundColor:'#1E293B', titleFont:{weight:'600',size:12}, bodyFont:{size:11}, padding:10, cornerRadius:8, displayColors:true, boxPadding:4 };
+    
+    // 1. Age Group Line Chart
     const ageLineCtx = document.getElementById('ageLineChart').getContext('2d');
-    new Chart(ageLineCtx, { type:'line', data:{ labels:ageLabels, datasets:[{ label:'Patients', data:ageValues, borderColor:BRAND.medium, backgroundColor:BRAND.medium+'20', borderWidth:3, pointBackgroundColor:BRAND.dark, pointBorderColor:'#FFFFFF', pointBorderWidth:2, pointRadius:5, pointHoverRadius:7, fill:true, tension:0.4 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{...TOOLTIP_STYLE} }, scales:{ x:{ grid:{display:false}, border:{display:false} }, y:{ beginAtZero:true, grid:{color:'#F1F5F9'}, border:{display:false} } } } });
-    const bPieCtx = document.getElementById('barangayPieChart').getContext('2d');
-    new Chart(bPieCtx, { type:'doughnut', data:{ labels:bLabels, datasets:[{ data:bValues, backgroundColor:PALETTE.slice(0,bLabels.length), borderWidth:2, borderColor:'#FFFFFF', hoverOffset:8 }] }, options:{ responsive:true, maintainAspectRatio:false, cutout:'52%', plugins:{ legend:{ position:'right', labels:{ usePointStyle:true, padding:14, font:{size:11} } }, tooltip:{...TOOLTIP_STYLE} } } });
+    new Chart(ageLineCtx, {
+        type: 'line',
+        data: {
+            labels: ageLabels,
+            datasets: [{
+                label: 'Patients',
+                data: ageValues,
+                borderColor: BRAND.medium,
+                backgroundColor: BRAND.medium + '20',
+                borderWidth: 3,
+                pointBackgroundColor: BRAND.dark,
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { ...TOOLTIP_STYLE }
+            },
+            scales: {
+                x: { grid: { display: false }, border: { display: false } },
+                y: { beginAtZero: true, grid: { color: '#F1F5F9' }, border: { display: false } }
+            }
+        }
+    });
+
+    // 2. Geographic Zone Doughnut Chart
+    const zPieCtx = document.getElementById('zonePieChart').getContext('2d');
+    const totalZonePatients = zValues.reduce((a, b) => a + b, 0);
+
+    new Chart(zPieCtx, {
+        type: 'doughnut',
+        data: {
+            labels: zLabels,
+            datasets: [{
+                data: zValues,
+                backgroundColor: PALETTE.slice(0, zLabels.length),
+                borderWidth: 2,
+                borderColor: '#FFFFFF',
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '55%',
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 12,
+                        font: { size: 11, weight: '500' },
+                        generateLabels: function(chart) {
+                            const data = chart.data;
+                            if (data.labels.length && data.datasets.length) {
+                                return data.labels.map((label, i) => {
+                                    const val = data.datasets[0].data[i];
+                                    const pct = totalZonePatients > 0 ? Math.round((val / totalZonePatients) * 100) : 0;
+                                    return {
+                                        text: `${label} (${val} • ${pct}%)`,
+                                        fillStyle: data.datasets[0].backgroundColor[i],
+                                        strokeStyle: '#ffffff',
+                                        lineWidth: 1,
+                                        hidden: isNaN(val) || (chart.getDatasetMeta(0).data[i] && chart.getDatasetMeta(0).data[i].hidden),
+                                        index: i
+                                    };
+                                });
+                            }
+                            return [];
+                        }
+                    }
+                },
+                tooltip: {
+                    ...TOOLTIP_STYLE,
+                    callbacks: {
+                        label: function(ctx) {
+                            const val = ctx.parsed;
+                            const pct = totalZonePatients > 0 ? ((val / totalZonePatients) * 100).toFixed(1) : 0;
+                            return ` ${ctx.label}: ${val} patients (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
     })();
 
     // ============================================================
@@ -649,8 +853,11 @@ td .text-slate-600.maskable.masked::after {
         const statusSelect = document.getElementById('edit_status');
         if (statusSelect) statusSelect.value = p.status || 'active';
         
-        const barangaySelect = document.getElementById('edit_barangay');
-        if (barangaySelect) barangaySelect.value = p.barangay || '';
+        const barangayVal = p.barangay || '';
+        const zoneVal = getZoneForBarangay(barangayVal);
+        const editZoneSelect = document.getElementById('edit_zone');
+        if (editZoneSelect) editZoneSelect.value = zoneVal;
+        populateBarangayDropdown('edit_barangay', zoneVal, barangayVal);
 
         ModalSystem.open('editPatientModal', { applyMasking: false });
     }
@@ -1020,9 +1227,95 @@ function matchesDateFilter(lastVisit, filterType, filterValue) {
     return true;
 }
 
+// ============================================================
+// CALOOCAN DISTRICT 1 ZONES & BARANGAYS CONFIGURATION
+// ============================================================
+const CALOOCAN_ZONES = {
+    'Zone 1': [1, 2, 3, 4],
+    'Zone 7': [77, 78, 79, 80, 81],
+    'Zone 8': [82, 83, 84, 85],
+    'Zone 12': [132, 133, 134, 135, 136, 137, 138, 139, 140],
+    'Zone 13': [141, 142, 143, 144, 145, 146, 147, 148, 149, 150],
+    'Zone 14': [151, 152, 153, 154, 155, 156, 157, 158, 159, 160],
+    'Zone 15': [161, 162, 163, 164]
+};
+
+function getZoneForBarangay(barangayName) {
+    if (!barangayName) return '';
+    const match = String(barangayName).match(/\b(\d{1,3})\b/);
+    if (!match) return '';
+    const num = parseInt(match[1]);
+    for (const [zone, brgys] of Object.entries(CALOOCAN_ZONES)) {
+        if (brgys.includes(num)) return zone;
+    }
+    return '';
+}
+
+function populateBarangayDropdown(selectId, targetZone = '', selectedValue = '') {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">' + (selectId.startsWith('filter') ? 'All Barangays' : 'Select Barangay') + '</option>';
+    
+    if (targetZone && CALOOCAN_ZONES[targetZone]) {
+        const brgys = CALOOCAN_ZONES[targetZone];
+        brgys.forEach(num => {
+            const val = `Barangay ${num}`;
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = `Barangay ${num}`;
+            if (val === selectedValue) opt.selected = true;
+            select.appendChild(opt);
+        });
+    } else {
+        // Show all grouped by zone in ascending numerical order
+        for (const [zone, brgys] of Object.entries(CALOOCAN_ZONES)) {
+            const group = document.createElement('optgroup');
+            group.label = `${zone} (Brgy ${brgys[0]}–${brgys[brgys.length-1]})`;
+            brgys.forEach(num => {
+                const val = `Barangay ${num}`;
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = `Barangay ${num}`;
+                if (val === selectedValue) opt.selected = true;
+                group.appendChild(opt);
+            });
+            select.appendChild(group);
+        }
+    }
+    if (selectedValue) {
+        select.value = selectedValue;
+    }
+}
+
+function onZoneChange(zoneSelectId, barangaySelectId) {
+    const zoneSelect = document.getElementById(zoneSelectId);
+    const zone = zoneSelect ? zoneSelect.value : '';
+    populateBarangayDropdown(barangaySelectId, zone, '');
+}
+
+function onBarangayChange(barangaySelectId, zoneSelectId) {
+    const barangaySelect = document.getElementById(barangaySelectId);
+    const zoneSelect = document.getElementById(zoneSelectId);
+    if (!barangaySelect || !zoneSelect) return;
+    
+    const zone = getZoneForBarangay(barangaySelect.value);
+    if (zone && zoneSelect.value !== zone) {
+        zoneSelect.value = zone;
+    }
+}
+
+function onFilterZoneChange() {
+    const filterZone = document.getElementById('filterZone').value;
+    populateBarangayDropdown('filterBarangay', filterZone, '');
+    filterPatients();
+}
+
 function filterPatients() {
     const search = document.getElementById('searchPatient').value.toLowerCase().trim();
     const status = document.getElementById('filterStatus').value;
+    const filterZone = document.getElementById('filterZone')?.value || '';
+    const filterBrgy = document.getElementById('filterBarangay')?.value || '';
     const dt = document.getElementById('filterDateType').value;
     const dv = document.getElementById('filterDateValue').value;
     let visibleCount = 0;
@@ -1031,7 +1324,7 @@ function filterPatients() {
         // Get all searchable data from dataset
         const name = (row.dataset.name || '').toLowerCase();
         const patientId = (row.dataset.id || '').toLowerCase();
-        const barangay = (row.dataset.barangay || '').toLowerCase();
+        const barangay = row.dataset.barangay || '';
         const rowStatus = row.dataset.status || '';
         const lastVisit = row.dataset.lastVisit || '';
         
@@ -1053,7 +1346,7 @@ function filterPatients() {
                 name.includes(search) ||
                 fullName.includes(search) ||
                 patientId.includes(search) ||
-                barangay.includes(search) ||
+                barangay.toLowerCase().includes(search) ||
                 email.includes(search) ||
                 allText.includes(search);
         }
@@ -1063,12 +1356,25 @@ function filterPatients() {
         if (status) {
             matchesStatus = rowStatus === status;
         }
+
+        // Check Zone filter
+        let matchesZone = true;
+        if (filterZone) {
+            const rowZone = getZoneForBarangay(barangay);
+            matchesZone = rowZone === filterZone;
+        }
+
+        // Check Barangay filter
+        let matchesBarangay = true;
+        if (filterBrgy) {
+            matchesBarangay = barangay.trim().toLowerCase() === filterBrgy.trim().toLowerCase();
+        }
         
         // Check date filter
         let matchesDate = matchesDateFilter(lastVisit, dt, dv);
         
         // Check if row should be visible
-        const isVisible = matchesSearch && matchesStatus && matchesDate;
+        const isVisible = matchesSearch && matchesStatus && matchesZone && matchesBarangay && matchesDate;
         
         row.style.display = isVisible ? '' : 'none';
         if (isVisible) visibleCount++;
@@ -1084,6 +1390,8 @@ function filterPatients() {
 function resetFilters() {
     document.getElementById('searchPatient').value = '';
     document.getElementById('filterStatus').value = '';
+    if (document.getElementById('filterZone')) document.getElementById('filterZone').value = '';
+    populateBarangayDropdown('filterBarangay', '', '');
     document.getElementById('filterDateType').value = '';
     document.getElementById('filterDateValue').value = '';
     document.getElementById('filterDateValue').classList.add('hidden');
@@ -1100,10 +1408,21 @@ function prepAddPatientModal() {
         input.dataset.masked = '';
         input.value = '';
     });
+    const addZoneSelect = document.getElementById('add_zone');
+    if (addZoneSelect) addZoneSelect.value = '';
+    populateBarangayDropdown('add_barangay', '', '');
+
     const ids = Object.values(PATIENTS).map(p => p.id);
     const n = ids.length ? Math.max(...ids) + 1 : 1;
     document.getElementById('nextPatientIdPreview').textContent = 'P-' + String(1000 + n);
 }
+
+// Initial populate of dropdowns on page load
+document.addEventListener('DOMContentLoaded', function() {
+    populateBarangayDropdown('add_barangay', '', '');
+    populateBarangayDropdown('edit_barangay', '', '');
+    populateBarangayDropdown('filterBarangay', '', '');
+});
 
     // ============================================================
     // FORM VALIDATION

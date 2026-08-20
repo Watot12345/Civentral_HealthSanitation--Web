@@ -1,8 +1,42 @@
-<?php include '../includes/header.php'; ?>
-<?php include '../includes/sidebar.php'; ?>
+<?php 
+require_once __DIR__ . '/../app/Models/ActivityLog.php';
+require_once __DIR__ . '/../app/Models/SurveillanceCase.php';
+require_once __DIR__ . '/../app/Models/Inspection.php';
+require_once __DIR__ . '/../app/Models/Permit.php';
 
-<!-- ADD FONT AWESOME CDN (If not already in header.php) -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+$activityLogModel = new ActivityLog();
+$caseModel        = new SurveillanceCase();
+$inspModel        = new Inspection();
+$permitModel      = new Permit();
+
+$rawLogs   = $activityLogModel->all(['limit' => 15, 'order' => 'created_at.desc']);
+$rawCases  = $caseModel->all();
+$rawInsps  = $inspModel->all();
+$rawPerms  = $permitModel->all();
+
+// Compute dynamic totals
+$totalCases = count($rawCases) + count($rawInsps) + count($rawPerms);
+$resolvedCases = count(array_filter($rawCases, fn($c) => strtolower($c['status'] ?? '') === 'resolved'))
+               + count(array_filter($rawInsps, fn($i) => in_array(strtolower($i['status'] ?? ''), ['completed', 'conducted'])))
+               + count(array_filter($rawPerms, fn($p) => strtolower($p['status'] ?? '') === 'approved'));
+
+$inProgressCases = count(array_filter($rawCases, fn($c) => in_array(strtolower($c['status'] ?? ''), ['investigating', 'active', 'in_progress'])))
+                 + count(array_filter($rawInsps, fn($i) => strtolower($i['status'] ?? '') === 'in_progress'))
+                 + count(array_filter($rawPerms, fn($p) => strtolower($p['status'] ?? '') === 'under_review'));
+
+$flaggedCases = count(array_filter($rawCases, fn($c) => strtolower($c['status'] ?? '') === 'suspected'))
+              + count(array_filter($rawInsps, fn($i) => in_array(strtolower($i['overall_status'] ?? ''), ['non_compliant', 'partially_compliant'])));
+
+$awaitingInspection = count(array_filter($rawInsps, fn($i) => in_array(strtolower($i['status'] ?? ''), ['scheduled', 'pending'])));
+
+$totalCountSafe = max(1, $totalCases);
+$resolvedPct = (int)round(($resolvedCases / $totalCountSafe) * 100);
+$inProgressPct = (int)round(($inProgressCases / $totalCountSafe) * 100);
+$flaggedPct = (int)round(($flaggedCases / $totalCountSafe) * 100);
+
+include '../includes/header.php'; 
+include '../includes/sidebar.php'; 
+?>
 
 <style>
     /* ===== CSS VARIABLES (From System Overview) ===== */
@@ -203,9 +237,7 @@
       <button id="advanceBtn" type="button" class="text-xs font-semibold px-4 py-2 rounded-lg bg-gradient-to-r from-[#176B87] to-[#0F4B5F] text-white hover:from-[#0F4B5F] hover:to-[#176B87] hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 shadow-md">Advance</button>
       <button id="resetBtn" type="button" class="text-xs font-semibold px-4 py-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-300">Reset</button>
     </div>
-  </div>
-
-  <!-- ===== ADMIN SUMMARY CARDS (Restyled to match System Overview KPIs) ===== -->
+  </div>  <!-- ===== ADMIN SUMMARY CARDS (Restyled to match System Overview KPIs) ===== -->
   <div class="kpi-grid grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     
     <!-- KPI 1: Total Cases -->
@@ -218,8 +250,8 @@
         <div class="flex items-start justify-between gap-2">
           <div>
             <p class="text-[8px] font-bold uppercase tracking-wider text-blue-600">Total Cases</p>
-            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none">312</p>
-            <p class="text-[8px] font-medium text-slate-400 mt-0.5">All time</p>
+            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none"><?= number_format($totalCases) ?></p>
+            <p class="text-[8px] font-medium text-slate-400 mt-0.5">All time logged</p>
           </div>
           <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0">
             <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e2e8f0" stroke-width="3"/>
@@ -232,9 +264,6 @@
             <i class="fas fa-layer-group text-[5px] mr-0.5"></i> Active
           </span>
           <span class="text-[7px] text-slate-400">Pipeline view</span>
-          <svg viewBox="0 0 60 20" class="w-8 h-3 opacity-70">
-            <polyline points="0,16 10,14 20,15 30,10 40,11 50,4 60,3" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
         </div>
       </div>
     </a>
@@ -249,23 +278,20 @@
         <div class="flex items-start justify-between gap-2">
           <div>
             <p class="text-[8px] font-bold uppercase tracking-wider text-emerald-600">Resolved</p>
-            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none">198</p>
+            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none"><?= number_format($resolvedCases) ?></p>
             <p class="text-[8px] font-medium text-slate-400 mt-0.5">Closed & verified</p>
           </div>
           <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0">
             <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e2e8f0" stroke-width="3"/>
-            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:37" transform="rotate(-90 18 18)"/>
-            <text x="18" y="20.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#10b981">63%</text>
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:<?= 100 - $resolvedPct ?>" transform="rotate(-90 18 18)"/>
+            <text x="18" y="20.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#10b981"><?= $resolvedPct ?>%</text>
           </svg>
         </div>
         <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
           <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[7px] font-bold">
-            <i class="fas fa-arrow-up text-[5px] mr-0.5"></i> High
+            <i class="fas fa-arrow-up text-[5px] mr-0.5"></i> <?= $resolvedPct ?>%
           </span>
           <span class="text-[7px] text-slate-400">Resolution rate</span>
-          <svg viewBox="0 0 60 20" class="w-8 h-3 opacity-70">
-            <polyline points="0,12 10,11 20,9 30,8 40,5 50,4 60,2" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
         </div>
       </div>
     </a>
@@ -280,13 +306,13 @@
         <div class="flex items-start justify-between gap-2">
           <div>
             <p class="text-[8px] font-bold uppercase tracking-wider text-purple-600">In Progress</p>
-            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none">67</p>
+            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none"><?= number_format($inProgressCases) ?></p>
             <p class="text-[8px] font-medium text-slate-400 mt-0.5">Currently active</p>
           </div>
           <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0">
             <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e2e8f0" stroke-width="3"/>
-            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#9333ea" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:79" transform="rotate(-90 18 18)"/>
-            <text x="18" y="20.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#9333ea">21%</text>
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#9333ea" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:<?= 100 - $inProgressPct ?>" transform="rotate(-90 18 18)"/>
+            <text x="18" y="20.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#9333ea"><?= $inProgressPct ?>%</text>
           </svg>
         </div>
         <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
@@ -294,9 +320,6 @@
             <i class="fas fa-bolt text-[5px] mr-0.5"></i> Working
           </span>
           <span class="text-[7px] text-slate-400">In pipeline</span>
-          <svg viewBox="0 0 60 20" class="w-8 h-3 opacity-70">
-            <polyline points="0,14 10,13 20,15 30,10 40,12 50,8 60,9" fill="none" stroke="#9333ea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
         </div>
       </div>
     </a>
@@ -311,13 +334,13 @@
         <div class="flex items-start justify-between gap-2">
           <div>
             <p class="text-[8px] font-bold uppercase tracking-wider text-amber-600">Flagged</p>
-            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none">23</p>
+            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none"><?= number_format($flaggedCases) ?></p>
             <p class="text-[8px] font-medium text-slate-400 mt-0.5">Needs review</p>
           </div>
           <svg viewBox="0 0 36 36" class="kpi-ring w-10 h-10 flex-shrink-0">
             <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e2e8f0" stroke-width="3"/>
-            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:93" transform="rotate(-90 18 18)"/>
-            <text x="18" y="20.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#f59e0b">7%</text>
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" pathLength="100" class="kpi-ring-progress" style="--offset:<?= 100 - $flaggedPct ?>" transform="rotate(-90 18 18)"/>
+            <text x="18" y="20.5" text-anchor="middle" font-size="8.5" font-weight="700" fill="#f59e0b"><?= $flaggedPct ?>%</text>
           </svg>
         </div>
         <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
@@ -325,9 +348,6 @@
             <i class="fas fa-exclamation text-[5px] mr-0.5"></i> Review
           </span>
           <span class="text-[7px] text-slate-400">Pending check</span>
-          <svg viewBox="0 0 60 20" class="w-8 h-3 opacity-70">
-            <polyline points="0,6 10,9 20,7 30,12 40,10 50,15 60,17" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
         </div>
       </div>
     </a>
@@ -349,80 +369,39 @@
     <div id="activityChart"></div>
   </div>
 
-  <!-- ===== ENHANCED MODULE ACTIVITY SUMMARY ===== -->
-  <div class="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5 mb-6">
-    <!-- Module list -->
+  <!-- ===== TWO-COLUMN MODULE BREAKDOWN ===== -->
+  <div class="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6 mb-6">
+
+    <!-- ===== DEPARTMENT MODULES LIST ===== -->
     <div class="report-card rounded-2xl p-6">
-      <div class="flex items-center justify-between mb-1">
-        <h2 class="font-semibold text-slate-800">Module Activity Summary</h2>
-        <span class="text-[11px] font-semibold text-slate-400 tracking-wider">7-DAY VOLUME</span>
-      </div>
-      <p class="text-xs text-slate-400 mb-4">Click a module to see its status breakdown and recent actions.</p>
-
-      <div class="divide-y divide-slate-100">
-        <!-- Water Quality Monitoring -->
-        <div class="module-item">
-          <button type="button" aria-expanded="false" class="module-toggle w-full grid grid-cols-[1.6fr_1fr_70px_20px] items-center gap-4 py-3.5 px-2 rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-[#EEF5FF] hover:to-white hover:shadow-md hover:-translate-y-0.5 text-left focus:outline-none focus:ring-2 focus:ring-[#86B6F6] focus:ring-offset-1">
-            <div>
-              <p class="text-sm font-semibold text-slate-800">Water Quality Monitoring</p>
-              <p class="text-[11px] text-slate-400">142 samples logged</p>
-            </div>
-            <div class="h-1.5 bg-[#EEF5FF] rounded-full overflow-hidden border border-slate-100">
-              <div class="h-full rounded-full bg-gradient-to-r from-[#86B6F6] to-[#176B87]" style="width:88%"></div>
-            </div>
-            <p class="text-right text-sm font-semibold text-slate-700">142</p>
-            <svg class="chevron w-4 h-4 text-slate-400 transition-transform duration-300 justify-self-end" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="module-panel grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-in-out">
-            <div class="overflow-hidden">
-              <div class="px-3 pb-4 pt-1 text-xs text-slate-600 leading-relaxed bg-gradient-to-br from-[#F8FAFC] to-white rounded-lg mt-1 border border-slate-50 shadow-inner">
-                <p class="mb-1.5"><span class="font-semibold text-[#176B87]">Purpose:</span> To ensure the safety of public and environmental water sources.</p>
-                <p class="mb-3"><span class="font-semibold text-[#176B87]">Function:</span> Logs and tracks chemical, biological, and physical water sample tests from municipal supplies, recreational areas, and local water bodies to prevent contamination-related health outbreaks.</p>
-                <div class="grid grid-cols-3 gap-2 mb-3">
-                  <span class="bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">Resolved 88</span>
-                  <span class="bg-gradient-to-r from-[#EEF5FF] to-[#D6E9FF] text-[#176B87] px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">In prog. 32</span>
-                  <span class="bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">Flagged 22</span>
-                </div>
-                <p class="font-semibold text-[#176B87] mb-1">Recent actions</p>
-                <ul class="space-y-1 text-slate-500">
-                  <li class="hover:translate-x-1 transition-transform">• 09:22 – Flagged elevated turbidity at Well Station 4</li>
-                  <li class="hover:translate-x-1 transition-transform">• 08:10 – Routine sample taken at Barangay Central</li>
-                  <li class="hover:translate-x-1 transition-transform">• 07:45 – Chlorine level adjusted at Treatment Plant B</li>
-                </ul>
-              </div>
-            </div>
-          </div>
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="font-semibold text-slate-800">Department modules</h2>
+          <p class="text-xs text-slate-400">Expand a module to review its purpose, active cases, and recent actions.</p>
         </div>
+        <span class="text-[11px] font-semibold text-slate-400 tracking-wider">5 MODULES</span>
+      </div>
 
+      <div id="moduleList" class="flex flex-col divide-y divide-slate-100">
+        
         <!-- Waste Collection Tracking -->
         <div class="module-item">
           <button type="button" aria-expanded="false" class="module-toggle w-full grid grid-cols-[1.6fr_1fr_70px_20px] items-center gap-4 py-3.5 px-2 rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-[#EEF5FF] hover:to-white hover:shadow-md hover:-translate-y-0.5 text-left focus:outline-none focus:ring-2 focus:ring-[#86B6F6] focus:ring-offset-1">
             <div>
-              <p class="text-sm font-semibold text-slate-800">Waste Collection Tracking</p>
-              <p class="text-[11px] text-slate-400">98 routes completed</p>
+              <p class="text-sm font-semibold text-slate-800">Wastewater & Sanitation Permits</p>
+              <p class="text-[11px] text-slate-400"><?= count($rawPerms) ?> permits recorded</p>
             </div>
             <div class="h-1.5 bg-[#EEF5FF] rounded-full overflow-hidden border border-slate-100">
-              <div class="h-full rounded-full bg-gradient-to-r from-[#86B6F6] to-[#176B87]" style="width:61%"></div>
+              <div class="h-full rounded-full bg-gradient-to-r from-[#86B6F6] to-[#176B87]" style="width:75%"></div>
             </div>
-            <p class="text-right text-sm font-semibold text-slate-700">98</p>
+            <p class="text-right text-sm font-semibold text-slate-700"><?= count($rawPerms) ?></p>
             <svg class="chevron w-4 h-4 text-slate-400 transition-transform duration-300 justify-self-end" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="module-panel grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-in-out">
             <div class="overflow-hidden">
               <div class="px-3 pb-4 pt-1 text-xs text-slate-600 leading-relaxed bg-gradient-to-br from-[#F8FAFC] to-white rounded-lg mt-1 border border-slate-50 shadow-inner">
-                <p class="mb-1.5"><span class="font-semibold text-[#176B87]">Purpose:</span> To maintain community sanitation and prevent environmental hazards.</p>
-                <p class="mb-3"><span class="font-semibold text-[#176B87]">Function:</span> Monitors the scheduling, progress, and completion of municipal garbage and solid waste collection routes to ensure timely trash disposal and identify missed service areas.</p>
-                <div class="grid grid-cols-3 gap-2 mb-3">
-                  <span class="bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">Resolved 61</span>
-                  <span class="bg-gradient-to-r from-[#EEF5FF] to-[#D6E9FF] text-[#176B87] px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">In prog. 25</span>
-                  <span class="bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">Flagged 12</span>
-                </div>
-                <p class="font-semibold text-[#176B87] mb-1">Recent actions</p>
-                <ul class="space-y-1 text-slate-500">
-                  <li class="hover:translate-x-1 transition-transform">• 08:57 – Route R-12 marked complete, 8 stops</li>
-                  <li class="hover:translate-x-1 transition-transform">• 07:30 – Route R-05 delayed due to road closure</li>
-                  <li class="hover:translate-x-1 transition-transform">• 06:45 – Missed pickup reported at Sitio San Juan</li>
-                </ul>
+                <p class="mb-1.5"><span class="font-semibold text-[#176B87]">Purpose:</span> To maintain community sanitation, issue permits, and manage wastewater.</p>
+                <p class="mb-3"><span class="font-semibold text-[#176B87]">Function:</span> Manages sanitary clearance inspections, renewals, and compliance tracking.</p>
               </div>
             </div>
           </div>
@@ -432,103 +411,48 @@
         <div class="module-item">
           <button type="button" aria-expanded="false" class="module-toggle w-full grid grid-cols-[1.6fr_1fr_70px_20px] items-center gap-4 py-3.5 px-2 rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-[#EEF5FF] hover:to-white hover:shadow-md hover:-translate-y-0.5 text-left focus:outline-none focus:ring-2 focus:ring-[#86B6F6] focus:ring-offset-1">
             <div>
-              <p class="text-sm font-semibold text-slate-800">Facility Inspections</p>
-              <p class="text-[11px] text-slate-400">76 sites reviewed</p>
+              <p class="text-sm font-semibold text-slate-800">Health Facility Inspections</p>
+              <p class="text-[11px] text-slate-400"><?= count($rawInsps) ?> sites inspected</p>
             </div>
             <div class="h-1.5 bg-[#EEF5FF] rounded-full overflow-hidden border border-slate-100">
-              <div class="h-full rounded-full bg-gradient-to-r from-[#86B6F6] to-[#176B87]" style="width:47%"></div>
+              <div class="h-full rounded-full bg-gradient-to-r from-[#86B6F6] to-[#176B87]" style="width:60%"></div>
             </div>
-            <p class="text-right text-sm font-semibold text-slate-700">76</p>
+            <p class="text-right text-sm font-semibold text-slate-700"><?= count($rawInsps) ?></p>
             <svg class="chevron w-4 h-4 text-slate-400 transition-transform duration-300 justify-self-end" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="module-panel grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-in-out">
             <div class="overflow-hidden">
               <div class="px-3 pb-4 pt-1 text-xs text-slate-600 leading-relaxed bg-gradient-to-br from-[#F8FAFC] to-white rounded-lg mt-1 border border-slate-50 shadow-inner">
                 <p class="mb-1.5"><span class="font-semibold text-[#176B87]">Purpose:</span> To enforce sanitation standards in commercial and public spaces.</p>
-                <p class="mb-3"><span class="font-semibold text-[#176B87]">Function:</span> Schedules, records, and tracks physical health inspections for food establishments, public facilities, and businesses to ensure they comply with local sanitary codes and regulations.</p>
-                <div class="grid grid-cols-3 gap-2 mb-3">
-                  <span class="bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">Resolved 41</span>
-                  <span class="bg-gradient-to-r from-[#EEF5FF] to-[#D6E9FF] text-[#176B87] px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">In prog. 24</span>
-                  <span class="bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">Flagged 11</span>
-                </div>
-                <p class="font-semibold text-[#176B87] mb-1">Recent actions</p>
-                <ul class="space-y-1 text-slate-500">
-                  <li class="hover:translate-x-1 transition-transform">• 10:15 – Inspection completed at Riverside Eatery</li>
-                  <li class="hover:translate-x-1 transition-transform">• 09:00 – Re-inspection ordered for Downtown Diner</li>
-                  <li class="hover:translate-x-1 transition-transform">• 08:20 – Report submitted for Barangay Health Center</li>
-                </ul>
+                <p class="mb-3"><span class="font-semibold text-[#176B87]">Function:</span> Records and tracks health inspections to ensure compliance with local sanitary codes.</p>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Vector & Pest Control -->
+        <!-- Disease Surveillance -->
         <div class="module-item">
           <button type="button" aria-expanded="false" class="module-toggle w-full grid grid-cols-[1.6fr_1fr_70px_20px] items-center gap-4 py-3.5 px-2 rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-[#EEF5FF] hover:to-white hover:shadow-md hover:-translate-y-0.5 text-left focus:outline-none focus:ring-2 focus:ring-[#86B6F6] focus:ring-offset-1">
             <div>
-              <p class="text-sm font-semibold text-slate-800">Vector & Pest Control</p>
-              <p class="text-[11px] text-slate-400">54 treatments issued</p>
+              <p class="text-sm font-semibold text-slate-800">Disease Surveillance & Outbreaks</p>
+              <p class="text-[11px] text-slate-400"><?= count($rawCases) ?> cases tracked</p>
             </div>
             <div class="h-1.5 bg-[#EEF5FF] rounded-full overflow-hidden border border-slate-100">
-              <div class="h-full rounded-full bg-gradient-to-r from-[#86B6F6] to-[#176B87]" style="width:34%"></div>
+              <div class="h-full rounded-full bg-gradient-to-r from-[#86B6F6] to-[#176B87]" style="width:85%"></div>
             </div>
-            <p class="text-right text-sm font-semibold text-slate-700">54</p>
+            <p class="text-right text-sm font-semibold text-slate-700"><?= count($rawCases) ?></p>
             <svg class="chevron w-4 h-4 text-slate-400 transition-transform duration-300 justify-self-end" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="module-panel grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-in-out">
             <div class="overflow-hidden">
               <div class="px-3 pb-4 pt-1 text-xs text-slate-600 leading-relaxed bg-gradient-to-br from-[#F8FAFC] to-white rounded-lg mt-1 border border-slate-50 shadow-inner">
-                <p class="mb-1.5"><span class="font-semibold text-[#176B87]">Purpose:</span> To mitigate the spread of vector-borne illnesses (e.g., dengue, malaria, rodent-borne diseases).</p>
-                <p class="mb-3"><span class="font-semibold text-[#176B87]">Function:</span> Tracks the dispatch, application, and effectiveness of chemical or biological pest treatments (like spraying or baiting) in high-risk municipal zones.</p>
-                <div class="grid grid-cols-3 gap-2 mb-3">
-                  <span class="bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">Resolved 28</span>
-                  <span class="bg-gradient-to-r from-[#EEF5FF] to-[#D6E9FF] text-[#176B87] px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">In prog. 16</span>
-                  <span class="bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">Flagged 10</span>
-                </div>
-                <p class="font-semibold text-[#176B87] mb-1">Recent actions</p>
-                <ul class="space-y-1 text-slate-500">
-                  <li class="hover:translate-x-1 transition-transform">• 08:30 – Treatment order for Sitio Ilaya drainage canal</li>
-                  <li class="hover:translate-x-1 transition-transform">• 07:15 – Spraying completed at Barangay San Jose</li>
-                  <li class="hover:translate-x-1 transition-transform">• 06:50 – Bait stations replenished in Market Area</li>
-                </ul>
+                <p class="mb-1.5"><span class="font-semibold text-[#176B87]">Purpose:</span> Early detection and containment of infectious illnesses.</p>
+                <p class="mb-3"><span class="font-semibold text-[#176B87]">Function:</span> Real-time syndromic case reporting, contact tracing, and outbreak containment.</p>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Community Health Advisories -->
-        <div class="module-item">
-          <button type="button" aria-expanded="false" class="module-toggle w-full grid grid-cols-[1.6fr_1fr_70px_20px] items-center gap-4 py-3.5 px-2 rounded-xl transition-all duration-300 hover:bg-gradient-to-r hover:from-[#EEF5FF] hover:to-white hover:shadow-md hover:-translate-y-0.5 text-left focus:outline-none focus:ring-2 focus:ring-[#86B6F6] focus:ring-offset-1">
-            <div>
-              <p class="text-sm font-semibold text-slate-800">Community Health Advisories</p>
-              <p class="text-[11px] text-slate-400">31 notices sent</p>
-            </div>
-            <div class="h-1.5 bg-[#EEF5FF] rounded-full overflow-hidden border border-slate-100">
-              <div class="h-full rounded-full bg-gradient-to-r from-[#86B6F6] to-[#176B87]" style="width:19%"></div>
-            </div>
-            <p class="text-right text-sm font-semibold text-slate-700">31</p>
-            <svg class="chevron w-4 h-4 text-slate-400 transition-transform duration-300 justify-self-end" viewBox="0 0 20 20" fill="none"><path d="M6 8l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="module-panel grid grid-rows-[0fr] transition-[grid-template-rows] duration-300 ease-in-out">
-            <div class="overflow-hidden">
-              <div class="px-3 pb-4 pt-1 text-xs text-slate-600 leading-relaxed bg-gradient-to-br from-[#F8FAFC] to-white rounded-lg mt-1 border border-slate-50 shadow-inner">
-                <p class="mb-1.5"><span class="font-semibold text-[#176B87]">Purpose:</span> To keep the public informed of immediate health risks and prevention practices.</p>
-                <p class="mb-3"><span class="font-semibold text-[#176B87]">Function:</span> Manages the distribution of urgent sanitation alerts, boil-water notices, and educational campaigns to citizens, businesses, and local health networks.</p>
-                <div class="grid grid-cols-3 gap-2 mb-3">
-                  <span class="bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-700 px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">Resolved 18</span>
-                  <span class="bg-gradient-to-r from-[#EEF5FF] to-[#D6E9FF] text-[#176B87] px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">In prog. 8</span>
-                  <span class="bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 px-2 py-1 rounded-lg text-center font-medium shadow-sm hover:shadow-md transition-all">Flagged 5</span>
-                </div>
-                <p class="font-semibold text-[#176B87] mb-1">Recent actions</p>
-                <ul class="space-y-1 text-slate-500">
-                  <li class="hover:translate-x-1 transition-transform">• 08:04 – Boil-water notice sent to 340 households</li>
-                  <li class="hover:translate-x-1 transition-transform">• 07:20 – Dengue prevention flyer distributed in schools</li>
-                  <li class="hover:translate-x-1 transition-transform">• 06:30 – Emergency alert issued for flooding in low-lying areas</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -536,26 +460,26 @@
     <div class="report-card rounded-2xl p-6">
       <div class="flex items-center justify-between mb-1">
         <h2 class="font-semibold text-slate-800">Case status</h2>
-        <span class="text-[11px] font-semibold text-slate-400 tracking-wider">CURRENT</span>
+        <span class="text-[11px] font-semibold text-slate-400 tracking-wider">LIVE DATA</span>
       </div>
-      <p class="text-xs text-slate-400 mb-4">Purpose: Gives supervisors a high-level view of departmental workload and bottlenecks, segregated by priority queue so staff can be redistributed toward blocked or complicated cases.</p>
+      <p class="text-xs text-slate-400 mb-4">High-level view of departmental workload and active case statuses.</p>
 
       <div class="flex flex-col gap-3">
         <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-gradient-to-r from-[#EEF5FF] to-white hover:from-white hover:to-[#EEF5FF] border border-transparent hover:border-[#86B6F6] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-default">
           <span class="flex items-center gap-2.5 text-sm font-medium text-slate-700"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>Resolved</span>
-          <span class="text-sm font-bold text-[#176B87]">198</span>
+          <span class="text-sm font-bold text-[#176B87]"><?= number_format($resolvedCases) ?></span>
         </div>
         <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-gradient-to-r from-[#EEF5FF] to-white hover:from-white hover:to-[#EEF5FF] border border-transparent hover:border-[#86B6F6] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-default">
           <span class="flex items-center gap-2.5 text-sm font-medium text-slate-700"><span class="w-2.5 h-2.5 rounded-full bg-[#176B87]"></span>In progress</span>
-          <span class="text-sm font-bold text-[#176B87]">67</span>
+          <span class="text-sm font-bold text-[#176B87]"><?= number_format($inProgressCases) ?></span>
         </div>
         <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-gradient-to-r from-[#EEF5FF] to-white hover:from-white hover:to-[#EEF5FF] border border-transparent hover:border-[#86B6F6] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-default">
           <span class="flex items-center gap-2.5 text-sm font-medium text-slate-700"><span class="w-2.5 h-2.5 rounded-full bg-amber-600"></span>Flagged for review</span>
-          <span class="text-sm font-bold text-[#176B87]">23</span>
+          <span class="text-sm font-bold text-[#176B87]"><?= number_format($flaggedCases) ?></span>
         </div>
         <div class="flex items-center justify-between px-4 py-3 rounded-xl bg-gradient-to-r from-[#EEF5FF] to-white hover:from-white hover:to-[#EEF5FF] border border-transparent hover:border-[#86B6F6] hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-default">
           <span class="flex items-center gap-2.5 text-sm font-medium text-slate-700"><span class="w-2.5 h-2.5 rounded-full bg-[#86B6F6]"></span>Awaiting inspection</span>
-          <span class="text-sm font-bold text-[#176B87]">24</span>
+          <span class="text-sm font-bold text-[#176B87]"><?= number_format($awaitingInspection) ?></span>
         </div>
       </div>
     </div>
@@ -567,38 +491,29 @@
       <h2 class="font-semibold text-slate-800">Recent activity</h2>
       <div class="flex items-center gap-2">
         <span class="relative flex h-2 w-2">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
         </span>
-        <span class="text-[11px] font-semibold text-slate-400 tracking-wider">LIVE LOG</span>
+        <span class="text-[11px] font-semibold text-slate-400 tracking-wider">LIVE DATABASE LOGS</span>
       </div>
     </div>
     <div id="liveLogContainer" class="divide-y divide-dashed divide-slate-200">
-      <div class="log-item grid grid-cols-[80px_1fr_110px] gap-4 items-baseline py-3 px-2 rounded-lg hover:bg-gradient-to-r hover:from-[#EEF5FF] hover:to-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
-        <span class="text-xs text-slate-400">09:41 AM</span>
-        <span class="text-sm text-slate-700"><span class="font-semibold">Inspector J. Reyes</span> completed site visit at Barangay Malanday Market</span>
-        <span class="justify-self-end text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full bg-gradient-to-r from-[#B4D4FF] to-[#86B6F6] text-[#176B87] shadow-sm">Inspected</span>
-      </div>
-      <div class="log-item grid grid-cols-[80px_1fr_110px] gap-4 items-baseline py-3 px-2 rounded-lg hover:bg-gradient-to-r hover:from-[#EEF5FF] hover:to-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
-        <span class="text-xs text-slate-400">09:22 AM</span>
-        <span class="text-sm text-slate-700"><span class="font-semibold">Water Quality Monitoring</span> flagged elevated turbidity at Well Station 4</span>
-        <span class="justify-self-end text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full bg-gradient-to-r from-orange-100 to-orange-200 text-orange-700 shadow-sm">Flagged</span>
-      </div>
-      <div class="log-item grid grid-cols-[80px_1fr_110px] gap-4 items-baseline py-3 px-2 rounded-lg hover:bg-gradient-to-r hover:from-[#EEF5FF] hover:to-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
-        <span class="text-xs text-slate-400">08:57 AM</span>
-        <span class="text-sm text-slate-700"><span class="font-semibold">Waste Collection</span> route R-12 marked complete, 8 stops, no exceptions</span>
-        <span class="justify-self-end text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-200 text-emerald-700 shadow-sm">Cleared</span>
-      </div>
-      <div class="log-item grid grid-cols-[80px_1fr_110px] gap-4 items-baseline py-3 px-2 rounded-lg hover:bg-gradient-to-r hover:from-[#EEF5FF] hover:to-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
-        <span class="text-xs text-slate-400">08:30 AM</span>
-        <span class="text-sm text-slate-700"><span class="font-semibold">Vector Control</span> issued treatment order for Sitio Ilaya drainage canal</span>
-        <span class="justify-self-end text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full bg-gradient-to-r from-[#B4D4FF] to-[#86B6F6] text-[#176B87] shadow-sm">Actioned</span>
-      </div>
-      <div class="log-item grid grid-cols-[80px_1fr_110px] gap-4 items-baseline py-3 px-2 rounded-lg hover:bg-gradient-to-r hover:from-[#EEF5FF] hover:to-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
-        <span class="text-xs text-slate-400">08:04 AM</span>
-        <span class="text-sm text-slate-700"><span class="font-semibold">Community Advisory</span> boil-water notice sent to 340 households</span>
-        <span class="justify-self-end text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-200 text-emerald-700 shadow-sm">Sent</span>
-      </div>
+      <?php if (!empty($rawLogs)): ?>
+        <?php foreach ($rawLogs as $log): 
+          $timeStr = !empty($log['created_at']) ? date('h:i A', strtotime($log['created_at'])) : 'Just now';
+          $userName = $log['user_name'] ?? 'System User';
+          $actionText = $log['action'] ?? 'Logged system action';
+          $moduleName = $log['module'] ?? 'Activity';
+        ?>
+          <div class="log-item grid grid-cols-[80px_1fr_120px] gap-4 items-baseline py-3 px-2 rounded-lg hover:bg-gradient-to-r hover:from-[#EEF5FF] hover:to-white hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
+            <span class="text-xs text-slate-400"><?= htmlspecialchars($timeStr) ?></span>
+            <span class="text-sm text-slate-700"><span class="font-semibold text-slate-900"><?= htmlspecialchars($userName) ?></span> – <?= htmlspecialchars($actionText) ?></span>
+            <span class="justify-self-end text-[10px] font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full bg-gradient-to-r from-[#B4D4FF] to-[#86B6F6] text-[#176B87] shadow-sm"><?= htmlspecialchars($moduleName) ?></span>
+          </div>
+        <?php endforeach; ?>
+      <?php else: ?>
+        <div class="py-6 text-center text-xs text-slate-400">No activity logs recorded yet.</div>
+      <?php endif; ?>
     </div>
   </div>
 

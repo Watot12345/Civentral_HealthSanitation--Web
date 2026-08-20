@@ -94,72 +94,105 @@ function generateAuditReport($from, $to) {
 }
 
 /* ============================================================
-   DUMMY DATA (simulates database records)
+   DYNAMIC SUPABASE DATA LOADING
    ============================================================ */
- $stats = [
-    'compliance_score' => 94,
-    'open_violations'  => 3,
-    'overdue_actions'  => 1,
-    'pending_inspections' => 2
-];
+require_once __DIR__ . '/../app/Models/Inspection.php';
+require_once __DIR__ . '/../app/Models/Permit.php';
+require_once __DIR__ . '/../app/Models/Employee.php';
 
- $violations = [
-    [
-        'id'          => 1,
-        'location'    => 'Kitchen Area A',
-        'description' => 'Fridge temp above 40°F for > 15 min',
-        'severity'    => 'critical',
-        'status'      => 'open',
-        'timestamp'   => '2026-07-18 09:30 AM'
-    ],
-    [
-        'id'          => 2,
-        'location'    => 'Pool Deck',
-        'description' => 'Chlorine level below 1.0 ppm',
-        'severity'    => 'critical',
-        'status'      => 'in_progress',
-        'timestamp'   => '2026-07-17 04:15 PM'
-    ],
-    [
-        'id'          => 3,
-        'location'    => 'Dishwashing Station',
-        'description' => 'Sanitizer concentration too low (50 ppm)',
-        'severity'    => 'non-critical',
-        'status'      => 'open',
-        'timestamp'   => '2026-07-18 08:00 AM'
-    ],
-    [
-        'id'          => 4,
-        'location'    => 'Dry Storage',
-        'description' => 'Pest droppings found near flour bins',
-        'severity'    => 'critical',
-        'status'      => 'resolved',
-        'timestamp'   => '2026-07-16 11:20 AM'
-    ],
-];
+$inspModel   = new Inspection();
+$permitModel = new Permit();
+$empModel    = new Employee();
 
- $actions = [
-    [
-        'id'           => 101,
-        'violation_id' => 1,
-        'assigned_to'  => 'John Doe (Maintenance)',
-        'due_date'     => '2026-07-18 04:00 PM',
-        'status'       => 'in_progress'
-    ],
-    [
-        'id'           => 102,
-        'violation_id' => 2,
-        'assigned_to'  => 'Sarah Lee (Pool Ops)',
-        'due_date'     => '2026-07-17 06:00 PM',
-        'status'       => 'overdue'
-    ],
-    [
-        'id'           => 103,
-        'violation_id' => 3,
-        'assigned_to'  => 'Mike Chen (Kitchen)',
-        'due_date'     => '2026-07-18 12:00 PM',
-        'status'       => 'open'
-    ],
+$rawInspections = $inspModel->all(['order' => 'conducted_date.desc,created_at.desc']);
+$rawPermits     = $permitModel->all(['order' => 'created_at.desc']);
+$rawEmployees   = $empModel->all();
+
+// Build inspector lookup map
+$empMap = [];
+foreach ($rawEmployees as $emp) {
+    $empMap[$emp['id']] = trim(($emp['first_name'] ?? '') . ' ' . ($emp['last_name'] ?? ''));
+}
+
+// Build permits map
+$permitMap = [];
+foreach ($rawPermits as $p) {
+    $permitMap[$p['id']] = $p['business_name'] ?? $p['permit_type'] ?? ('Permit #' . ($p['permit_id'] ?? $p['id']));
+}
+
+$violations = [];
+$actions    = [];
+$compliantCount = 0;
+$pendingInspectionsCount = 0;
+$actionIdCounter = 101;
+
+foreach ($rawInspections as $idx => $insp) {
+    $status = strtolower($insp['overall_status'] ?? $insp['status'] ?? 'pending');
+    $isCompleted = in_array(strtolower($insp['status'] ?? ''), ['completed', 'conducted']);
+    
+    if (!$isCompleted) {
+        $pendingInspectionsCount++;
+    }
+
+    if ($status === 'compliant') {
+        $compliantCount++;
+    } else {
+        // Build violation from non-compliant/partially-compliant inspection
+        $location = $permitMap[$insp['permit_id'] ?? ''] ?? ('Inspection Site ' . ($insp['inspection_id'] ?? '#' . $insp['id']));
+        $findingsArr = [];
+        if (!empty($insp['findings'])) {
+            $parsed = is_string($insp['findings']) ? json_decode($insp['findings'], true) : $insp['findings'];
+            if (is_array($parsed)) {
+                foreach ($parsed as $f) {
+                    $findingsArr[] = ($f['category'] ?? 'Sanitation') . ': ' . ($f['notes'] ?? $f['status'] ?? '');
+                }
+            }
+        }
+        $desc = !empty($findingsArr) ? implode('; ', $findingsArr) : ($insp['notes'] ?? 'Sanitation standard violation flagged during inspection');
+        $violStatus = ($status === 'partially_compliant') ? 'in_progress' : ($isCompleted ? 'open' : 'open');
+        $violSeverity = ($status === 'non_compliant') ? 'critical' : 'non-critical';
+        $timestamp = !empty($insp['conducted_date']) ? date('Y-m-d h:i A', strtotime($insp['conducted_date'])) : date('Y-m-d h:i A', strtotime($insp['created_at'] ?? 'now'));
+
+        $violId = $insp['id'] ?? ($idx + 1);
+        $violations[] = [
+            'id'          => $violId,
+            'location'    => $location,
+            'description' => $desc,
+            'severity'    => $violSeverity,
+            'status'      => $violStatus,
+            'timestamp'   => $timestamp
+        ];
+
+        // Create corrective action if recommendations or follow-up date exist
+        if (!empty($insp['recommendations']) || !empty($insp['follow_up_date'])) {
+            $assignedTo = $empMap[$insp['inspector_id'] ?? ''] ?? 'Assigned Sanitation Officer';
+            $dueDate = !empty($insp['follow_up_date']) 
+                ? date('Y-m-d h:i A', strtotime($insp['follow_up_date'])) 
+                : date('Y-m-d h:i A', strtotime('+7 days', strtotime($insp['conducted_date'] ?? 'now')));
+            $isOverdue = (strtotime($dueDate) < time() && $violStatus !== 'resolved');
+
+            $actions[] = [
+                'id'           => $actionIdCounter++,
+                'violation_id' => $violId,
+                'assigned_to'  => $assignedTo,
+                'due_date'     => $dueDate,
+                'status'       => $isOverdue ? 'overdue' : ($violStatus === 'resolved' ? 'resolved' : 'in_progress')
+            ];
+        }
+    }
+}
+
+// Compute dynamic stats
+$totalInspectionsCount = count($rawInspections);
+$complianceScore = $totalInspectionsCount > 0 ? (int)round(($compliantCount / $totalInspectionsCount) * 100) : 100;
+$openViolationsCount = count(array_filter($violations, fn($v) => in_array($v['status'], ['open', 'in_progress'])));
+$overdueActionsCount = count(array_filter($actions, fn($a) => $a['status'] === 'overdue'));
+
+$stats = [
+    'compliance_score'    => $complianceScore,
+    'open_violations'     => $openViolationsCount,
+    'overdue_actions'     => $overdueActionsCount,
+    'pending_inspections' => $pendingInspectionsCount
 ];
 
 /* Build lookup for violation dates (used for action filtering) */
@@ -168,11 +201,26 @@ foreach ($violations as $v) {
     $violationTimestamps[$v['id']] = $v['timestamp'];
 }
 
- $permits = [
-    ['name' => 'Food Service License', 'expiry' => '2026-12-31', 'status' => 'active'],
-    ['name' => 'Pool Sanitation Permit', 'expiry' => '2026-08-15', 'status' => 'expiring_soon'],
-    ['name' => 'Waste Disposal Certificate', 'expiry' => '2025-11-01', 'status' => 'expired'],
-];
+// Map real permits from database
+$permits = [];
+foreach ($rawPermits as $p) {
+    $expiry = !empty($p['expiry_date']) ? date('Y-m-d', strtotime($p['expiry_date'])) : date('Y-m-d', strtotime('+1 year', strtotime($p['created_at'] ?? 'now')));
+    $pStatus = strtolower($p['status'] ?? 'active');
+    
+    if (strtotime($expiry) < time()) {
+        $pStatus = 'expired';
+    } elseif (strtotime($expiry) < strtotime('+30 days')) {
+        $pStatus = 'expiring_soon';
+    } else {
+        $pStatus = ($pStatus === 'approved' || $pStatus === 'active') ? 'active' : $pStatus;
+    }
+
+    $permits[] = [
+        'name'   => $p['business_name'] ?? $p['permit_type'] ?? ('Sanitary Permit #' . ($p['permit_id'] ?? $p['id'])),
+        'expiry' => $expiry,
+        'status' => $pStatus
+    ];
+}
 
 /* Helper to get action status badge color (Semantic Colors) */
 function getActionBadge($status) {

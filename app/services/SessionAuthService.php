@@ -46,12 +46,20 @@ class SessionAuthService
         }
 
         // Send email via MailService (PHPMailer / SMTP)
-        $sent = $this->mailService->sendOtpEmail($email, $name, $otpCode, 5);
+        // If developer testing option is ON (SHOW_VERIFICATION_CODE=true), skip slow external SMTP email
+        $showDevCode = filter_var(Env::get('SHOW_VERIFICATION_CODE', Env::get('DEV_SHOW_OTP', false)), FILTER_VALIDATE_BOOLEAN);
+        $skipEmail   = filter_var(Env::get('SKIP_EMAIL_IN_DEV', $showDevCode ? 'true' : 'false'), FILTER_VALIDATE_BOOLEAN);
+
+        $sent = false;
+        if (!$skipEmail && !empty($email)) {
+            $sent = $this->mailService->sendOtpEmail($email, $name, $otpCode, 5);
+        }
 
         return [
             'success'       => true,
             'sent'          => $sent,
             'session_token' => $sessionToken,
+            'otp_code'      => $otpCode,
             'email'         => $email,
             'expires_at'    => $otpExpiresAt
         ];
@@ -109,12 +117,10 @@ class SessionAuthService
             $_SESSION['session_expires']  = $session['expires_at'];
             $_SESSION['logged_in']        = true;
 
-            // Set browser cookie if Remember Me
-            if (!empty($session['remember_me'])) {
-                setcookie('civentral_session', $sessionToken, time() + (7 * 86400), '/', '', false, true);
-            } else {
-                setcookie('civentral_session', $sessionToken, time() + (12 * 3600), '/', '', false, true);
-            }
+            // Set browser cookie (both global active session & account-specific device trust token)
+            $cookieDuration = !empty($session['remember_me']) ? (7 * 86400) : (12 * 3600);
+            setcookie('civentral_session', $sessionToken, time() + $cookieDuration, '/', '', false, true);
+            setcookie('civentral_session_' . $employee['id'], $sessionToken, time() + $cookieDuration, '/', '', false, true);
 
             return [
                 'success'  => true,

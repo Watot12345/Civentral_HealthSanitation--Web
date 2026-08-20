@@ -21,17 +21,14 @@ require_once __DIR__ . '/../app/Models/ActivityLog.php';
 $activityLogModel = new ActivityLog();
 
 $isSystemAdmin = hasPermission(App\Constants\Permissions::ROLES_MANAGE) || getPermissionService()->isAdminRole($_SESSION['role'] ?? '') || getPermissionService()->isAdminRole($_SESSION['role_description'] ?? '');
-$userDept      = getDepartmentResolver()->resolveDepartmentName();
 
-if (!hasPermission(App\Constants\Permissions::LOGS_VIEW) && !$isSystemAdmin) {
+if (!$isSystemAdmin) {
+    $_SESSION['flash_error'] = 'Access Denied: System Logs are strictly reserved for System Administrators.';
     header('Location: ' . site_url('pages/dashboard.php'));
     exit;
 }
 
 $logOptions = ['limit' => 250, 'order' => 'created_at.desc'];
-if (!$isSystemAdmin && !empty($userDept)) {
-    $logOptions['department'] = $userDept;
-}
 $allLogs = $activityLogModel->all($logOptions);
 
 
@@ -216,9 +213,11 @@ $title = 'System Logs';
                     <button onclick="clearSearch()" class="px-3 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition text-sm font-semibold">
                         <i class="fa-solid fa-times"></i> Clear
                     </button>
+                    <?php if ($isSystemAdmin): ?>
                     <button onclick="openClearLogsModal()" class="px-3 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition text-sm font-semibold flex items-center gap-1.5">
                         <i class="fa-solid fa-trash-can text-xs"></i> Clear Logs
                     </button>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
