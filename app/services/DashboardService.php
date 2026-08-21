@@ -51,7 +51,7 @@ class DashboardService
             error_log("DashboardService Supabase connection error: " . $e->getMessage());
         }
 
-        $fetchTable = function(string $table, array $filters = [], array $options = ['limit' => 1000]) use ($db): array {
+        $fetchTable = function(string $table, array $filters = [], array $options = ['limit' => 100]) use ($db): array {
             if (!$db) return [];
             try {
                 $res = $db->select($table, $filters, $options);
@@ -62,21 +62,21 @@ class DashboardService
             }
         };
 
-        $patients      = $fetchTable('patients');
-        $consultations = $fetchTable('consultations');
-        $prescriptions = $fetchTable('prescriptions');
-        $permits       = $fetchTable('permits');
-        $inspections   = $fetchTable('inspections');
-        $triage        = $fetchTable('appointments');
-        $childRecords  = $fetchTable('children');
+        $patients      = $fetchTable('patients', [], ['select' => 'id,patient_id,first_name,last_name,status,created_at', 'limit' => 100]);
+        $consultations = $fetchTable('consultations', [], ['select' => 'id,status,created_at,diagnosis,icd_code,date', 'limit' => 100]);
+        $prescriptions = $fetchTable('prescriptions', [], ['select' => 'id,status,created_at,dispensed_at', 'limit' => 100]);
+        $permits       = $fetchTable('permits', [], ['select' => 'id,status,created_at,paid,fee,expiry_date', 'limit' => 100]);
+        $inspections   = $fetchTable('inspections', [], ['select' => 'id,status,overall_status,created_at,scheduled_date', 'limit' => 100]);
+        $triage        = $fetchTable('appointments', [], ['select' => 'id,status,created_at,priority,appointment_date', 'limit' => 100]);
+        $childRecords  = $fetchTable('children', [], ['select' => 'id,status,created_at,nutrition_status,vaccine_compliance', 'limit' => 100]);
         if (empty($childRecords)) {
-            $childRecords = $fetchTable('immunization_assessments');
+            $childRecords = $fetchTable('immunization_assessments', [], ['select' => 'id,created_at', 'limit' => 100]);
         }
-        $wastewater    = $fetchTable('septic_tanks');
+        $wastewater    = $fetchTable('septic_tanks', [], ['select' => 'id,created_at', 'limit' => 100]);
         if (empty($wastewater)) {
-            $wastewater = $fetchTable('permits');
+            $wastewater = $fetchTable('permits', [], ['select' => 'id,created_at', 'limit' => 100]);
         }
-        $survCases     = $fetchTable('surveillance_cases');
+        $survCases     = $fetchTable('surveillance_cases', [], ['select' => 'id,disease,barangay,status,created_at', 'limit' => 100]);
 
         $calcGrowth = function(array $records): string {
             if (empty($records)) return '0.0%';

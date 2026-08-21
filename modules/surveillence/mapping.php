@@ -434,7 +434,7 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
 
                 <!-- Search Input -->
                 <div class="relative w-48">
-                    <input type="text" id="tableSearch" onkeyup="changeTableFilter()" placeholder="Search patient, code..." class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-brand-dark outline-none">
+                    <input type="text" id="tableSearch" oninput="changeTableFilter()" placeholder="Search patient, code..." class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-brand-dark outline-none">
                     <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-400 text-[11px]"></i>
                 </div>
             </div>
@@ -972,6 +972,10 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
         tableCurrentPage = 1;
         filterTable();
     }
+
+    const debouncedChangeTableFilter = (typeof debounce === 'function') 
+        ? debounce(changeTableFilter, 180) 
+        : changeTableFilter;
 
     function filterTable() {
         const searchInput = (document.getElementById('tableSearch')?.value || '').toLowerCase().trim();

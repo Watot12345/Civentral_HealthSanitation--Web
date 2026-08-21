@@ -227,6 +227,22 @@ class PermitDocumentController
         ]);
     }
     
+    public function verifyByQr(string $qrCode): void
+    {
+        try {
+            $db = Database::getInstance();
+            $documents = $db->select('permit_documents', ['qr_code' => 'eq.' . $qrCode]);
+            if (empty($documents)) {
+                Response::error('Sanitation permit QR code not found or invalid', 404);
+            }
+            
+            $formatted = $this->formatDocuments($documents);
+            Response::success('Sanitation permit verified successfully', $formatted[0] ?? $documents[0]);
+        } catch (\Throwable $e) {
+            Response::error('Verification failed: ' . $e->getMessage(), 500);
+        }
+    }
+
     private function formatDocuments(array $documents): array
     {
         if (empty($documents)) {

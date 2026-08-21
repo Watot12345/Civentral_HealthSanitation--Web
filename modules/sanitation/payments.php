@@ -303,46 +303,38 @@ $limit = 5;
                 <input type="number" id="payment_amount" required min="0.01" max="1000000" step="0.01" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none maskable">
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Method</label>
-                <div class="grid grid-cols-2 gap-2 mt-1" id="paymentMethods">
-                    <label class="flex items-center gap-2 p-2 border border-emerald-200 rounded-lg cursor-pointer transition hover:bg-emerald-50 has-[:checked]:ring-2 has-[:checked]:ring-brand-medium has-[:checked]:border-brand-medium">
-                        <input type="radio" name="payment_method_radio" value="cash" class="w-4 h-4 text-brand-dark focus:ring-brand-medium" checked>
-                        <i class="fa-solid fa-money-bill-wave text-emerald-600"></i>
-                        <span class="text-sm font-medium text-slate-700">Cash</span>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Payment Method</label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="paymentMethods">
+                    <!-- GCash -->
+                    <label class="flex items-center justify-center p-2 h-12 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-slate-400 has-[:checked]:border-brand-dark has-[:checked]:ring-2 has-[:checked]:ring-brand-dark/20 transition">
+                        <input type="radio" name="payment_method_radio" value="gcash" class="sr-only">
+                        <img src="<?php echo site_url('assets/images/payments/gcash.png'); ?>" alt="GCash" class="h-6 w-auto object-contain">
                     </label>
-                    <label class="flex items-center gap-2 p-2 border border-blue-200 rounded-lg cursor-pointer transition hover:bg-blue-50 has-[:checked]:ring-2 has-[:checked]:ring-brand-medium has-[:checked]:border-brand-medium">
-                        <input type="radio" name="payment_method_radio" value="gcash" class="w-4 h-4 text-brand-dark focus:ring-brand-medium">
-                        <i class="fa-solid fa-mobile-screen text-blue-600"></i>
-                        <span class="text-sm font-medium text-slate-700">GCash</span>
+
+                    <!-- Maya -->
+                    <label class="flex items-center justify-center p-2 h-12 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-slate-400 has-[:checked]:border-brand-dark has-[:checked]:ring-2 has-[:checked]:ring-brand-dark/20 transition">
+                        <input type="radio" name="payment_method_radio" value="paymaya" class="sr-only">
+                        <img src="<?php echo site_url('assets/images/payments/maya.png'); ?>" alt="Maya" class="h-6 w-auto object-contain">
                     </label>
-                    <label class="flex items-center gap-2 p-2 border border-green-200 rounded-lg cursor-pointer transition hover:bg-green-50 has-[:checked]:ring-2 has-[:checked]:ring-brand-medium has-[:checked]:border-brand-medium">
-                        <input type="radio" name="payment_method_radio" value="paymaya" class="w-4 h-4 text-brand-dark focus:ring-brand-medium">
-                        <i class="fa-solid fa-mobile-screen text-green-600"></i>
-                        <span class="text-sm font-medium text-slate-700">PayMaya</span>
+
+                    <!-- Landbank -->
+                    <label class="flex items-center justify-center p-2 h-12 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-slate-400 has-[:checked]:border-brand-dark has-[:checked]:ring-2 has-[:checked]:ring-brand-dark/20 transition">
+                        <input type="radio" name="payment_method_radio" value="bank_transfer" class="sr-only">
+                        <img src="<?php echo site_url('assets/images/payments/landbank.png'); ?>" alt="Landbank" class="h-7 w-auto object-contain">
                     </label>
-                    <label class="flex items-center gap-2 p-2 border border-amber-200 rounded-lg cursor-pointer transition hover:bg-amber-50 has-[:checked]:ring-2 has-[:checked]:ring-brand-medium has-[:checked]:border-brand-medium">
-                        <input type="radio" name="payment_method_radio" value="bank_transfer" class="w-4 h-4 text-brand-dark focus:ring-brand-medium">
-                        <i class="fa-solid fa-building-columns text-amber-600"></i>
-                        <span class="text-sm font-medium text-slate-700">Bank Transfer</span>
-                    </label>
-                    <label class="flex items-center gap-2 p-2 border border-slate-200 rounded-lg cursor-pointer transition hover:bg-slate-50 has-[:checked]:ring-2 has-[:checked]:ring-brand-medium has-[:checked]:border-brand-medium">
-                        <input type="radio" name="payment_method_radio" value="over_the_counter" class="w-4 h-4 text-brand-dark focus:ring-brand-medium">
-                        <i class="fa-solid fa-store text-slate-600"></i>
-                        <span class="text-sm font-medium text-slate-700">OTC</span>
+
+                    <!-- Municipal OTC -->
+                    <label class="flex items-center justify-center gap-1.5 p-2 h-12 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-slate-400 has-[:checked]:border-brand-dark has-[:checked]:ring-2 has-[:checked]:ring-brand-dark/20 transition">
+                        <input type="radio" name="payment_method_radio" value="over_the_counter" class="sr-only" checked>
+                        <i class="fa-solid fa-landmark text-slate-700 text-sm"></i>
+                        <span class="text-xs font-semibold text-slate-800">Over-the-Counter</span>
                     </label>
                 </div>
-                <input type="hidden" id="payment_method" value="cash">
+                <input type="hidden" id="payment_method" value="over_the_counter">
             </div>
-            <div id="referenceSection" class="hidden p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <h5 class="text-xs font-bold text-blue-700 uppercase tracking-wide mb-2">📱 Payment Details</h5>
-                <div>
-                    <label class="block text-xs font-medium text-slate-600">Reference Number <span class="text-rose-500">*</span></label>
-                    <input type="text" id="payment_reference" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none maskable" placeholder="Enter the reference number from the receipt/app">
-                    <p class="text-[11px] text-slate-500 mt-1">Required for digital payments.</p>
-                </div>
-            </div>
-            <div id="autoReferenceNote" class="hidden p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <p class="text-xs text-slate-500"><i class="fa-solid fa-circle-info mr-1"></i> A reference number will be generated automatically for this payment method.</p>
+            <div id="referenceSection" class="hidden">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Transaction / Reference Number <span class="text-rose-500">*</span></label>
+                <input type="text" id="payment_reference" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium" placeholder="Enter reference number from payment app/receipt">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
@@ -850,24 +842,19 @@ $limit = 5;
         radio.addEventListener('change', function() {
             document.getElementById('payment_method').value = this.value;
             const refSection = document.getElementById('referenceSection');
-            const autoNote = document.getElementById('autoReferenceNote');
             const refInput = document.getElementById('payment_reference');
             const isOffline = this.value === 'cash' || this.value === 'over_the_counter';
 
             if (isOffline) {
                 refSection.classList.add('hidden');
-                autoNote.classList.remove('hidden');
                 refInput.required = false;
                 refInput.value = '';
             } else {
                 refSection.classList.remove('hidden');
-                autoNote.classList.add('hidden');
                 refInput.required = true;
             }
         });
     });
-    // Initialize on load (default method is 'cash')
-    document.getElementById('autoReferenceNote').classList.remove('hidden');
 
     // ============================================================
     // AUTO-FILL AMOUNT

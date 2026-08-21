@@ -431,6 +431,10 @@ $trendsJson = json_encode($trendData);
         });
     }
 
+    const debouncedFilterAlerts = (typeof debounce === 'function') 
+        ? debounce(filterAlertsTable, 180) 
+        : filterAlertsTable;
+
     // 15-Second Background Polling Heartbeat
     setInterval(() => {
         fetch('<?= site_url("modules/surveillence/api/alerts.php?action=heartbeat") ?>')

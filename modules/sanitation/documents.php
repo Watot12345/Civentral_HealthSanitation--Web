@@ -471,12 +471,12 @@ $title = 'Documents';
                                         class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
                                         <i class="fa-solid fa-eye text-sm"></i>
                                     </button>
-                                    <button onclick="downloadDocument('<?php echo htmlspecialchars($document['file_name'], ENT_QUOTES); ?>')"
-                                        class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Download">
-                                        <i class="fa-solid fa-download text-sm"></i>
+                                    <button onclick="downloadDocument('<?php echo htmlspecialchars($document['file_name'], ENT_QUOTES); ?>', <?php echo (int)$document['id']; ?>, <?php echo (int)($document['permit_id'] ?? 0); ?>)"
+                                        class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Print / Download Permit">
+                                        <i class="fa-solid fa-file-arrow-down text-sm"></i>
                                     </button>
                                     <?php if ($document['qr_code']): ?>
-                                        <button onclick="viewQR('<?php echo htmlspecialchars($document['qr_code'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($document['applicant'], ENT_QUOTES); ?>')"
+                                        <button onclick="viewQR('<?php echo htmlspecialchars($document['qr_code'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($document['applicant'], ENT_QUOTES); ?>', <?php echo (int)($document['permit_id'] ?? 0); ?>, <?php echo (int)$document['id']; ?>)"
                                             class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="QR Code">
                                             <i class="fa-solid fa-qrcode text-sm"></i>
                                         </button>
@@ -690,8 +690,8 @@ $title = 'Documents';
                     <td class="px-4 py-3 text-center">
                         <div class="flex items-center justify-center gap-1">
                             <button onclick="viewDocument(${doc.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View"><i class="fa-solid fa-eye text-sm"></i></button>
-                            <button onclick="downloadDocument('${doc.file_name}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Download"><i class="fa-solid fa-download text-sm"></i></button>
-                            ${doc.qr_code ? `<button onclick="viewQR('${doc.qr_code}', '${doc.applicant}')" class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="QR Code"><i class="fa-solid fa-qrcode text-sm"></i></button>` : ''}
+                            <button onclick="downloadDocument('${doc.file_name}', ${doc.id}, ${doc.permit_id || 0})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Print / Download Permit"><i class="fa-solid fa-file-arrow-down text-sm"></i></button>
+                            ${doc.qr_code ? `<button onclick="viewQR('${doc.qr_code}', '${doc.applicant}', ${doc.permit_id || 0}, ${doc.id})" class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="QR Code"><i class="fa-solid fa-qrcode text-sm"></i></button>` : ''}
                             ${doc.status === 'pending' ? `<button onclick="verifyDocument(${doc.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Verify"><i class="fa-solid fa-check text-sm"></i></button>` : ''}
                         </div>
                     </td>`;
@@ -883,10 +883,10 @@ $title = 'Documents';
                         <div><p class="text-xs text-slate-400 font-semibold">Expiry Date</p><p class="text-sm text-slate-800">${d.expiry_date ? new Date(d.expiry_date).toLocaleDateString() : '—'}</p></div>
                     </div>
                     ${d.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${d.notes}</p></div>` : ''}
-                    ${d.qr_code ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border text-center"><i class="fa-solid fa-qrcode text-2xl text-brand-dark block mb-2"></i><p class="text-sm font-semibold text-slate-700">QR Code: ${d.qr_code}</p><button onclick="closeModal('viewDocumentModal'); viewQR('${d.qr_code}', '${d.applicant}')" class="mt-2 px-4 py-1.5 bg-brand-dark text-white rounded-lg text-xs hover:bg-brand-medium transition"><i class="fa-solid fa-qrcode mr-1"></i> View QR</button></div>` : ''}
+                    ${d.qr_code ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border text-center"><i class="fa-solid fa-qrcode text-2xl text-brand-dark block mb-2"></i><p class="text-sm font-semibold text-slate-700">QR Code: ${d.qr_code}</p><button onclick="closeModal('viewDocumentModal'); viewQR('${d.qr_code}', '${d.applicant}', ${d.permit_id || 0}, ${d.id || 0})" class="mt-2 px-4 py-1.5 bg-brand-dark text-white rounded-lg text-xs hover:bg-brand-medium transition"><i class="fa-solid fa-qrcode mr-1"></i> View QR</button></div>` : ''}
                     <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                         <button onclick="closeModal('viewDocumentModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                        <button onclick="downloadDocument('${d.file_name}')" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-download mr-1.5"></i> Download</button>
+                        <a href="permit_certificate.php?id=${d.id}&permit_id=${d.permit_id}" target="_blank" class="px-4 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition text-sm font-semibold flex items-center gap-1.5"><i class="fa-solid fa-certificate"></i> Print / Download Permit</a>
                     </div>
                 </div>
             `;
@@ -896,11 +896,12 @@ $title = 'Documents';
     // ============================================================
     // DOWNLOAD DOCUMENT
     // ============================================================
-    function downloadDocument(fileName) {
-        toast.info('Downloading: ' + fileName, {
-            title: 'Download',
-            duration: 3000
-        });
+    function downloadDocument(fileName, docId, permitId) {
+        let url = 'permit_certificate.php?';
+        if (docId) url += 'id=' + encodeURIComponent(docId) + '&';
+        if (permitId) url += 'permit_id=' + encodeURIComponent(permitId) + '&';
+        if (!docId && !permitId && fileName) url += 'file=' + encodeURIComponent(fileName);
+        window.open(url, '_blank');
     }
 
     // ============================================================
@@ -950,19 +951,64 @@ $title = 'Documents';
     }
 
     // ============================================================
-    // QR CODE VIEWER
+    // QR CODE VIEWER & DOWNLOADER
     // ============================================================
-    function viewQR(qrCode, applicant) {
+    let activeQrCode = '';
+    let activeQrPermitId = 0;
+
+    function viewQR(qrCode, applicant, permitId = 0, docId = 0) {
+        activeQrCode = qrCode;
+        activeQrPermitId = permitId;
         document.getElementById('qrCodeId').textContent = qrCode;
         document.getElementById('qrApplicant').textContent = applicant;
+        
+        const host = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? '192.168.0.105' : window.location.host;
+        const verifyEndpoint = window.location.protocol + '//' + host + '/capstone/modules/sanitation/verify_permit.php?qr=' + encodeURIComponent(qrCode);
+        const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(verifyEndpoint);
+        
+        const qrImg = document.getElementById('qrImagePreview');
+        if (qrImg) {
+            qrImg.src = qrUrl;
+        }
+
+        const certBtn = document.getElementById('btnViewPermitCert');
+        if (certBtn) {
+            certBtn.onclick = function() {
+                let certUrl = 'permit_certificate.php?qr=' + encodeURIComponent(qrCode);
+                if (permitId) certUrl += '&permit_id=' + permitId;
+                if (docId) certUrl += '&id=' + docId;
+                window.open(certUrl, '_blank');
+            };
+        }
+
         openModal('qrViewerModal');
     }
 
-    function downloadQR() {
-        toast.success('QR Code downloaded successfully!', {
-            title: 'Downloaded',
-            duration: 3000
-        });
+    async function downloadQR() {
+        const qrImg = document.getElementById('qrImagePreview');
+        if (!qrImg || !qrImg.src) {
+            toast.warning('No QR code image available');
+            return;
+        }
+
+        try {
+            const res = await fetch(qrImg.src);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = (activeQrCode || 'Sanitary_Permit') + '_QR.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast.success('QR Code image downloaded successfully!', {
+                title: 'Downloaded',
+                duration: 3000
+            });
+        } catch (e) {
+            window.open(qrImg.src, '_blank');
+        }
     }
 
 
@@ -1199,22 +1245,27 @@ $title = 'Documents';
 <div id="qrViewerModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-            <h3 class="font-bold text-slate-900">QR Code</h3>
+            <h3 class="font-bold text-slate-900">Sanitation Permit QR Code</h3>
             <button onclick="closeModal('qrViewerModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
         <div class="p-6 text-center">
-            <div class="w-48 h-48 bg-brand-light/40 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <i class="fa-solid fa-qrcode text-8xl text-brand-dark"></i>
+            <div class="w-52 h-52 bg-slate-50 border-2 border-brand-border/60 rounded-2xl flex items-center justify-center mx-auto mb-4 p-2 shadow-xs">
+                <img id="qrImagePreview" src="" alt="Sanitary Permit QR Code" class="w-48 h-48 object-contain rounded-xl">
             </div>
-            <p class="text-sm font-semibold text-slate-700 mb-1">QR Code ID</p>
-            <p id="qrCodeId" class="text-lg font-mono text-brand-dark font-bold mb-4"></p>
-            <p class="text-sm font-semibold text-slate-700 mb-1">Applicant</p>
-            <p id="qrApplicant" class="text-base text-slate-600 mb-6"></p>
-            <button onclick="downloadQR()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                <i class="fa-solid fa-download mr-2"></i>Download QR Code
-            </button>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">QR Code ID</p>
+            <p id="qrCodeId" class="text-base font-mono text-brand-dark font-black mb-3"></p>
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">Establishment / Applicant</p>
+            <p id="qrApplicant" class="text-sm font-semibold text-slate-800 mb-6"></p>
+            <div class="flex items-center justify-center gap-2">
+                <button onclick="downloadQR()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition text-xs font-bold flex items-center gap-1.5">
+                    <i class="fa-solid fa-download"></i> Save QR Image
+                </button>
+                <button id="btnViewPermitCert" class="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl transition text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-certificate"></i> View Certificate
+                </button>
+            </div>
         </div>
     </div>
 </div>

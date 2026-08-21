@@ -233,3 +233,26 @@ async function sendAjaxRequest(action, payload = {}) {
         return { success: true, message: 'Saved locally', fallback: true };
     }
 }
+
+// ============================================================
+// PERFORMANCE UTILITIES — Debounce & Throttle (v1.1 Optimization)
+// ============================================================
+function debounce(fn, delay = 200) {
+    let timeoutId;
+    return function (...args) {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn.apply(this, args), delay);
+    };
+}
+
+function throttle(fn, limit = 200) {
+    let inThrottle = false;
+    return function (...args) {
+        if (!inThrottle) {
+            fn.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
+    };
+}
+

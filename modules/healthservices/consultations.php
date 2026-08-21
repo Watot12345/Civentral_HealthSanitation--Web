@@ -665,8 +665,8 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
 <!-- 4. JAVASCRIPT                                                -->
 <!-- ============================================================ -->
 <script>
-    const CONSULTATIONS_DATA = <?php echo json_encode(array_column($consultations, null, 'id'), JSON_UNESCAPED_UNICODE); ?>;
-    const PATIENTS_MAP = <?php echo json_encode($patientsJsMap, JSON_UNESCAPED_UNICODE); ?>;
+    const CONSULTATIONS_DATA = <?php echo json_encode((object)array_column($consultations, null, 'id'), JSON_UNESCAPED_UNICODE); ?>;
+    const PATIENTS_MAP = <?php echo json_encode((object)$patientsJsMap, JSON_UNESCAPED_UNICODE); ?>;
     let activeDateFilter = 'all';
    
     // ============================================================
@@ -1382,6 +1382,8 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                 const tri=document.getElementById('add_triage_id');if(tri&&tid)tri.value=tid;
                 ModalSystem.toast.info('Patient and assigned doctor auto-selected and locked for security',{title:'📋 Auto-filled',duration:3000});
             },500);
+        }
+
         // Check surveillance status if patient pre-loaded
         const initialPid = document.getElementById('add_patient_id')?.value;
         if (initialPid) checkPatientSurveillanceSignals(initialPid);

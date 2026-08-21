@@ -41,7 +41,16 @@ try {
     
     switch ($method) {
         case 'GET':
-            if (isset($_GET['stats'])) {
+            if (isset($_GET['qr']) || isset($_GET['code'])) {
+                $qr = trim($_GET['qr'] ?? $_GET['code']);
+                // If scanned via browser/camera without explicit JSON request, redirect to mobile verification UI
+                $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+                if (strpos($accept, 'text/html') !== false && !isset($_GET['json'])) {
+                    header('Location: ../modules/sanitation/verify_permit.php?qr=' . urlencode($qr));
+                    exit;
+                }
+                $controller->verifyByQr($qr);
+            } elseif (isset($_GET['stats'])) {
                 $controller->stats();
             } elseif (isset($_GET['by_permit']) && is_numeric($_GET['by_permit'])) {
                 $controller->getByPermit((int)$_GET['by_permit']);

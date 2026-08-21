@@ -25,12 +25,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $password   = $_POST['password'] ?? '';
             $rememberMe = !empty($_POST['remember_me']) && ($_POST['remember_me'] === 'true' || $_POST['remember_me'] === '1' || $_POST['remember_me'] === 'on');
 
+            // --- RATE LIMITING & BRUTE-FORCE PROTECTION ---
+            $clientIp = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+            $rateKey = 'login_rate_' . md5($clientIp . '_' . $employeeId);
+            $attemptData = $_SESSION[$rateKey] ?? ['count' => 0, 'first_attempt' => time()];
+            
+            if (time() - $attemptData['first_attempt'] > 900) {
+                // Reset after 15 minutes window
+                $attemptData = ['count' => 0, 'first_attempt' => time()];
+            }
+
+            if ($attemptData['count'] >= 5) {
+                $lockoutRemaining = 900 - (time() - $attemptData['first_attempt']);
+                $mins = max(1, ceil($lockoutRemaining / 60));
+                echo json_encode([
+                    'success' => false, 
+                    'message' => "Too many failed attempts. Security lockout active for {$mins} more minute(s)."
+                ]);
+                exit;
+            }
+
             try {
                 $db = Database::getInstance();
                 $result = $db->select('employees', ['employee_id' => $employeeId]);
                 $logModel = new ActivityLog();
 
                 if (empty($result) || !is_array($result)) {
+                    $attemptData['count']++;
+                    $_SESSION[$rateKey] = $attemptData;
+                    
                     $logModel->log("Failed login attempt", [
                         'user_name' => $employeeId ?: 'Unknown',
                         'role'      => 'Unknown',
@@ -45,6 +68,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user = $result[0];
 
                 if (!password_verify($password, $user['password'])) {
+                    $attemptData['count']++;
+                    $_SESSION[$rateKey] = $attemptData;
+
                     $logModel->log("Failed login attempt", [
                         'user_name' => $user['full_name'] ?? $employeeId,
                         'role'      => $user['role_description'] ?? $user['role'] ?? 'Unknown',
@@ -55,6 +81,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     echo json_encode(['success' => false, 'message' => 'Invalid employee ID or password.']);
                     exit;
                 }
+
+                // Successful authentication: Reset failed attempt counter
+                unset($_SESSION[$rateKey]);
 
                 $authService = new SessionAuthService();
                 $userCookieToken = $_COOKIE['civentral_session_' . $user['id']] ?? $_COOKIE['civentral_session'] ?? '';

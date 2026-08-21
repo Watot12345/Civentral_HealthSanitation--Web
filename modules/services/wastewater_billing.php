@@ -505,17 +505,38 @@ $title = 'Wastewater Billing';
                 <input type="number" id="pay_amount" readonly class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-600 outline-none cursor-not-allowed">
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Method</label>
-                <select id="pay_method" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="GCash">GCash</option>
-                    <option value="Bank Transfer">Bank Transfer</option>
-                    <option value="Cash">Cash</option>
-                    <option value="Over-the-Counter">Over-the-Counter</option>
-                </select>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Payment Method</label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2.5" id="wastewaterPaymentMethods">
+                    <!-- GCash -->
+                    <label class="flex items-center justify-center p-2 h-12 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-slate-400 has-[:checked]:border-brand-dark has-[:checked]:ring-2 has-[:checked]:ring-brand-dark/20 transition">
+                        <input type="radio" name="ww_pay_method_radio" value="GCash" class="sr-only" checked onchange="document.getElementById('pay_method').value = this.value; document.getElementById('pay_reference').placeholder = 'Enter GCash 13-digit Reference No.';">
+                        <img src="<?php echo site_url('assets/images/payments/gcash.png'); ?>" alt="GCash" class="h-6 w-auto object-contain">
+                    </label>
+
+                    <!-- Maya -->
+                    <label class="flex items-center justify-center p-2 h-12 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-slate-400 has-[:checked]:border-brand-dark has-[:checked]:ring-2 has-[:checked]:ring-brand-dark/20 transition">
+                        <input type="radio" name="ww_pay_method_radio" value="Maya" class="sr-only" onchange="document.getElementById('pay_method').value = this.value; document.getElementById('pay_reference').placeholder = 'Enter Maya Reference ID';">
+                        <img src="<?php echo site_url('assets/images/payments/maya.png'); ?>" alt="Maya" class="h-6 w-auto object-contain">
+                    </label>
+
+                    <!-- Bank Transfer -->
+                    <label class="flex items-center justify-center p-2 h-12 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-slate-400 has-[:checked]:border-brand-dark has-[:checked]:ring-2 has-[:checked]:ring-brand-dark/20 transition">
+                        <input type="radio" name="ww_pay_method_radio" value="Bank Transfer" class="sr-only" onchange="document.getElementById('pay_method').value = this.value; document.getElementById('pay_reference').placeholder = 'Enter Bank / InstaPay Transaction No.';">
+                        <img src="<?php echo site_url('assets/images/payments/landbank.png'); ?>" alt="Landbank" class="h-7 w-auto object-contain">
+                    </label>
+
+                    <!-- Municipal Hall OTC -->
+                    <label class="flex items-center justify-center gap-1.5 p-2 h-12 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-slate-400 has-[:checked]:border-brand-dark has-[:checked]:ring-2 has-[:checked]:ring-brand-dark/20 transition">
+                        <input type="radio" name="ww_pay_method_radio" value="Over-the-Counter" class="sr-only" onchange="document.getElementById('pay_method').value = this.value; document.getElementById('pay_reference').placeholder = 'Enter Reference / OR # (Optional for OTC)';">
+                        <i class="fa-solid fa-landmark text-slate-700 text-sm"></i>
+                        <span class="text-xs font-semibold text-slate-800">Over-the-Counter</span>
+                    </label>
+                </div>
+                <input type="hidden" id="pay_method" value="GCash" required>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reference Number</label>
-                <input type="text" id="pay_reference" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Optional reference number">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Transaction / Reference Number</label>
+                <input type="text" id="pay_reference" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none font-mono" placeholder="Enter GCash 13-digit Reference No.">
             </div>
 
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">

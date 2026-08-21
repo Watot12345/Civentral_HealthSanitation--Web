@@ -66,7 +66,30 @@ class PermitDocument
     public function create(array $data): array
     {
         try {
+            // Normalize document_type to match Postgres CHECK constraint
+            if (!empty($data['document_type'])) {
+                $docTypeMap = [
+                    'sanitary permit' => 'sanitary_permit',
+                    'business permit' => 'business_permit',
+                    'fire safety' => 'fire_safety',
+                    'zoning clearance' => 'zoning_clearance',
+                    'environmental compliance' => 'environmental_compliance',
+                    'building permit' => 'building_permit',
+                    'tax clearance' => 'tax_clearance'
+                ];
+                $normalized = strtolower(trim(str_replace('_', ' ', $data['document_type'])));
+                $data['document_type'] = $docTypeMap[$normalized] ?? (in_array($data['document_type'], ['sanitary_permit','business_permit','fire_safety','zoning_clearance','environmental_compliance','building_permit','tax_clearance','other']) ? $data['document_type'] : 'other');
+            } else {
+                $data['document_type'] = 'sanitary_permit';
+            }
+
             // Set defaults and timestamps
+            $defaultUploader = $_SESSION['employee_id'] ?? $_SESSION['user_id'] ?? 1;
+            $data['uploaded_by'] = !empty($data['uploaded_by']) ? (int)$data['uploaded_by'] : (int)$defaultUploader;
+            if (!empty($data['verified']) && empty($data['verified_by'])) {
+                $data['verified_by'] = (int)$defaultUploader;
+                $data['verified_at'] = date('Y-m-d H:i:sP');
+            }
             $data['document_id'] = $data['document_id'] ?? $this->generateDocumentId();
             $data['status'] = $data['status'] ?? 'pending';
             $data['verified'] = $data['verified'] ?? false;

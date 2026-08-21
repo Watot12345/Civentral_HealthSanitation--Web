@@ -804,6 +804,7 @@ $limit = 5;
                 ${p.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">📝 Notes</h5><p class="text-sm text-slate-800">${p.notes}</p></div>` : ''}
                 <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                     <button onclick="closeModal('viewPermitRecordModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
+                    <a href="permit_certificate.php?permit_id=${p.id}" target="_blank" class="px-4 py-2 bg-brand-dark hover:bg-brand-medium text-white rounded-lg transition text-sm font-semibold flex items-center gap-1.5"><i class="fa-solid fa-certificate"></i> Print / Download Permit</a>
                     ${p.status === 'expired' ? `<button onclick="closeModal('viewPermitRecordModal'); renewPermit(${p.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-rotate mr-1.5"></i> Renew</button>` : ''}
                 </div>
             </div>
