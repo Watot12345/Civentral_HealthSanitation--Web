@@ -27,62 +27,92 @@ This document contains the account login credentials, Employee IDs (`emp_id`), p
 
 ---
 
-## 🏢 2. Module Head & Leadership Roles
+## 🏢 2. Module Head Roles & Access Permissions
 
-### 🏥 Module 1: Health Center Services
-
-| # | Role Title | Employee ID (`emp_id`) | Username | Full Name | Email | Password | Role Type |
-| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | **Health Center Director** | `HCD-0001` | `HCD-0001` | Maria Santos | `maria@health.gov.ph` | `password123` | **Module Head / Executive** |
-| 2 | **Doctor** | `HMP-0001` | `HMP-0001` | Juan Dela Cruz | `doctor@health.gov.ph` | `password123` | **Lead Medical Practitioner** |
-| 3 | **Nurse** | `HMP-0002` | `HMP-0002` | Ana Reyes | `nurse@health.gov.ph` | `password123` | **Lead Clinical Nurse** |
-
----
-
-### 📋 Module 2: Sanitation Permits
-
-| # | Role Title | Employee ID (`emp_id`) | Username | Full Name | Email | Password | Role Type |
-| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | **Sanitation Director** | `SD-0001` | `SD-0001` | Pedro Garcia | `sdirector@health.gov.ph` | `password123` | **Module Head / Executive** |
-| 2 | **Inspector** | `SO-0001` | `SO-0001` | Liza Cruz | `inspector@health.gov.ph` | `password123` | **Lead Field Inspector** |
-| 3 | **Permit Clerk** | `SO-0002` | `SO-0002` | Kevin Reyes | `permit@health.gov.ph` | `password123` | **Lead Processing Clerk** |
+### 🏥 Module 1: Health Center Services — Health Center Director
+* **Employee ID (`emp_id`)**: `HCD-0001`
+* **Username**: `HCD-0001`
+* **Full Name**: Maria Santos
+* **Email**: `maria@health.gov.ph`
+* **Password**: `password123`
+* **Role**: Health Center Director (Module Head)
+* **Access Count**: 16 / 29 Permissions
+* **Module & System Access Scope**:
+  * **Main Controls**: `dashboard.view`, `analytics.view`, `reports.view`, `compliance.view` (System Overview, Analytics, Reports & Exports, Compliance & Violations)
+  * **Clinical & Patient Management**: `patients.view`, `patients.create`, `patients.edit`, `patients.delete` (Full patient profile control & record archiving)
+  * **Medical Operations**: `consultations.view`, `consultations.create`, `triage.view`, `triage.create`, `prescriptions.view`, `prescriptions.create` (Consultations, Vital Signs Triage, and Prescriptions)
+  * **Administrative Oversight**: `users.view`, `logs.view` (View Employee Directory and System Activity Audit Logs)
 
 ---
 
-### 💉 Module 3: Immunization & Nutrition
-
-| # | Role Title | Employee ID (`emp_id`) | Username | Full Name | Email | Password | Role Type |
-| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | **Immunization Coordinator** | `IL-0001` | `IL-0001` | Grace Mendoza | `immunization@health.gov.ph` | `password123` | **Immunization Head / Lead** |
-| 2 | **Nutritionist** | `NS-0001` | `NS-0001` | Carla Ramos | `nutritionist@health.gov.ph` | `password123` | **Nutrition Head / Lead** |
-| 3 | **Midwife** | `IL-0002` | `IL-0002` | Sarah Cruz | `midwife@health.gov.ph` | `password123` | **Maternal Care Lead** |
-
----
-
-### 🏭 Module 4: Wastewater Services
-
-| # | Role Title | Employee ID (`emp_id`) | Username | Full Name | Email | Password | Role Type |
-| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | **Wastewater Officer** | `WL-0001` | `WL-0001` | Ramon Flores | `wastewater@health.gov.ph` | `password123` | **Module Head / Officer Lead** |
+### 📋 Module 2: Sanitation Permits — Sanitation Director
+* **Employee ID (`emp_id`)**: `SD-0001`
+* **Username**: `SD-0001`
+* **Full Name**: Pedro Garcia
+* **Email**: `sdirector@health.gov.ph`
+* **Password**: `password123`
+* **Role**: Sanitation Director (Module Head)
+* **Access Count**: 11 / 29 Permissions
+* **Module & System Access Scope**:
+  * **Main Controls**: `dashboard.view`, `analytics.view`, `reports.view`, `compliance.view` (Overview, Analytics, Reports, Compliance Monitoring)
+  * **Permit Authority**: `permits.view`, `permits.create`, `permits.approve` (Permit application processing, official approval & rejection authority)
+  * **Inspections**: `inspections.view`, `inspections.conduct` (Field sanitation inspection reviews and conducting inspections)
+  * **Administrative Oversight**: `users.view`, `logs.view` (View Employee List and Activity Logs)
 
 ---
 
-### 🦟 Module 5: Health Surveillance
+### 💉 Module 3: Immunization & Nutrition — Immunization Coordinator
+* **Employee ID (`emp_id`)**: `IL-0001`
+* **Username**: `IL-0001`
+* **Full Name**: Grace Mendoza
+* **Email**: `immunization@health.gov.ph`
+* **Password**: `password123`
+* **Role**: Immunization Coordinator (Module Head / Lead)
+* **Access Count**: 7 / 29 Permissions
+* **Module & System Access Scope**:
+  * **Main Controls**: `dashboard.view`, `analytics.view`, `reports.view` (Overview, Analytics Dashboards, Program Reports)
+  * **Immunization & Growth Tracking**: `immunization.view`, `immunization.create`, `immunization.edit` (Vaccination records, infant schedules, child growth logs & BMI tracking)
+  * **Patient Registry**: `patients.view` (Look up patient demographics and medical histories)
 
-| # | Role Title | Employee ID (`emp_id`) | Username | Full Name | Email | Password | Role Type |
-| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | **Surveillance Officer** | `SL-0001` | `SL-0001` | Sofia Lim | `surveillance@health.gov.ph` | `password123` | **Surveillance Lead** |
-| 2 | **Surveillance Coordinator** | `SL-0002` | `SL-0002` | James Rivera | `coordinator@health.gov.ph` | `password123` | **Investigation & Data Lead** |
+---
+
+### 🏭 Module 4: Wastewater Services — Wastewater Officer
+* **Employee ID (`emp_id`)**: `WL-0001`
+* **Username**: `WL-0001`
+* **Full Name**: Ramon Flores
+* **Email**: `wastewater@health.gov.ph`
+* **Password**: `password123`
+* **Role**: Wastewater Officer (Module Lead)
+* **Access Count**: 6 / 29 Permissions
+* **Module & System Access Scope**:
+  * **Main Controls**: `dashboard.view`, `analytics.view`, `reports.view` (System Overview, Wastewater Analytics, Service Reports)
+  * **Environmental Inspections**: `inspections.view`, `inspections.conduct` (Inspect septic tanks, desludging compliance, and environmental safety)
+  * **Sanitation Coordination**: `permits.view` (View business sanitation permits related to wastewater compliance)
+
+---
+
+### 🦟 Module 5: Health Surveillance — Surveillance Coordinator / Officer
+* **Employee ID (`emp_id`)**: `SL-0002` (James Rivera - *Surveillance Coordinator*) / `SL-0001` (Sofia Lim - *Surveillance Officer*)
+* **Username**: `SL-0002` / `SL-0001`
+* **Full Name**: James Rivera / Sofia Lim
+* **Email**: `coordinator@health.gov.ph` / `surveillance@health.gov.ph`
+* **Password**: `password123`
+* **Role**: Surveillance Coordinator / Officer (Module Lead)
+* **Access Count**: 8 / 29 Permissions
+* **Module & System Access Scope**:
+  * **Main Controls**: `dashboard.view`, `analytics.view`, `reports.view`, `compliance.view` (Outbreak Heatmaps, Epidemiologic Analytics, Disease Reports, Compliance)
+  * **Cross-Module Case Monitoring**: `patients.view`, `consultations.view`, `inspections.view` (Monitor clinical diagnoses, communicable disease reports, and field inspection risks for contact tracing)
+  * **System Auditing**: `logs.view` (Audit trail inspection)
 
 ---
 
 ## 📑 Complete Quick Reference Table
 
-| Employee ID (`emp_id`) | Full Name | Module / Department | Role | Email | Password |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `HSA-ADMIN-01` | Joshua Sierra | Administration | **System Administrator** | `admin@health.gov.ph` | `password123` |
-| `HCD-0001` | Maria Santos | Health Center Services | **Health Center Director** | `maria@health.gov.ph` | `password123` |
-| `SD-0001` | Pedro Garcia | Sanitation Permits | **Sanitation Director** | `sdirector@health.gov.ph` | `password123` |
-| `IL-0001` | Grace Mendoza | Immunization & Nutrition | **Immunization Coordinator** | `immunization@health.gov.ph` | `password123` |
-| `WL-0001` | Ramon Flores | Wastewater Services | **Wastewater Officer** | `wastewater@health.gov.ph` | `password123` |
-| `SL-0002` | James Rivera | Health Surveillance | **Surveillance Coordinator** | `coordinator@health.gov.ph` | `password123` |
+| Employee ID (`emp_id`) | Full Name | Module / Department | Role | Email | Password | Granted Access Summary |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `HSA-ADMIN-01` | Joshua Sierra | Administration | **System Administrator** | `admin@health.gov.ph` | `password123` | **Full System Access** (29/29 permissions) |
+| `HCD-0001` | Maria Santos | Health Center Services | **Health Center Director** | `maria@health.gov.ph` | `password123` | Main Controls, Full Health Center (Patients, Consultations, Triage, RX), Users & Logs |
+| `SD-0001` | Pedro Garcia | Sanitation Permits | **Sanitation Director** | `sdirector@health.gov.ph` | `password123` | Main Controls, Full Sanitation (Create/Approve Permits, Inspections), Users & Logs |
+| `IL-0001` | Grace Mendoza | Immunization & Nutrition | **Immunization Coordinator** | `immunization@health.gov.ph` | `password123` | Analytics/Reports, Immunization & Nutrition (View/Create/Edit), Patient Lookup |
+| `WL-0001` | Ramon Flores | Wastewater Services | **Wastewater Officer** | `wastewater@health.gov.ph` | `password123` | Analytics/Reports, Wastewater & Environmental Inspections, View Permits |
+| `SL-0002` | James Rivera | Health Surveillance | **Surveillance Coordinator** | `coordinator@health.gov.ph` | `password123` | Main Controls & Heatmaps, Cross-Module Visibility (Consultations, Patients, Inspections), Logs |
