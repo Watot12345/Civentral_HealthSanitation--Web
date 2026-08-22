@@ -322,68 +322,228 @@ try {
 </div>
 
 <!-- ============================================================ -->
-<!-- CONDUCT INSPECTION MODAL – with follow-up date               -->
+<!-- ============================================================ -->
+<!-- CONDUCT INSPECTION MODAL – Standard Sanitation Criteria & Review -->
 <!-- ============================================================ -->
 <div id="conductInspectionModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
-            <h3 class="font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-clipboard-check text-brand-medium"></i>
-                Conduct Inspection
-            </h3>
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark">
+                    <i class="fa-solid fa-clipboard-check text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 leading-tight">Sanitation Inspection &amp; Criteria Review</h3>
+                    <p class="text-xs text-slate-500">Evaluate sanitation standards before approval or rejection</p>
+                </div>
+            </div>
             <button onclick="closeModal('conductInspectionModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <form id="conductInspectionForm" class="p-6 space-y-4" onsubmit="saveConductedInspection(event)">
-            <input type="hidden" id="conduct_inspection_id">
-            <div class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
+
+        <!-- Establishment Banner -->
+        <div class="px-6 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs">
+                    <i class="fa-solid fa-building"></i>
+                </div>
                 <div>
-                    <p id="conductApplicant" class="font-semibold text-slate-800 text-sm maskable">—</p>
-                    <p id="conductPermit" class="text-xs text-slate-400">—</p>
-                    <p id="conductAddress" class="text-xs text-slate-400 maskable">—</p>
+                    <p id="conductApplicant" class="font-bold text-slate-800 text-sm maskable">—</p>
+                    <p class="text-slate-500"><span id="conductPermit" class="font-mono text-brand-dark font-semibold">—</span> • <span id="conductAddress" class="maskable">—</span></p>
+                </div>
+            </div>
+            <!-- Live Score Pill -->
+            <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs">
+                <span class="text-[11px] font-semibold text-slate-500">Compliance Score:</span>
+                <span id="conductScoreBadge" class="px-2 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-700">100% (8/8)</span>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="px-6 pt-3 border-b border-slate-200 flex gap-4 bg-white">
+            <button type="button" onclick="switchConductTab('criteria')" id="tabBtnCriteria" class="pb-2.5 text-xs font-bold border-b-2 border-brand-dark text-brand-dark flex items-center gap-2 transition">
+                <i class="fa-solid fa-list-check"></i> 1. Sanitation Criteria Checklist
+            </button>
+            <button type="button" onclick="switchConductTab('review')" id="tabBtnReview" class="pb-2.5 text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-600 flex items-center gap-2 transition">
+                <i class="fa-solid fa-clipboard-user"></i> 2. Review &amp; Verdict Sign-Off
+            </button>
+        </div>
+
+        <!-- Form Body (Scrollable) -->
+        <form id="conductInspectionForm" class="flex-1 overflow-y-auto p-6 space-y-5" onsubmit="saveConductedInspection(event)">
+            <input type="hidden" id="conduct_inspection_id">
+
+            <!-- TAB 1: CRITERIA CHECKLIST -->
+            <div id="conductTabCriteria" class="space-y-4">
+                <!-- Checklist Actions & Status Summary -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 bg-brand-light/30 rounded-xl border border-brand-border">
+                    <div>
+                        <p class="text-xs font-bold text-slate-800">Standard Municipal Sanitation Criteria</p>
+                        <p class="text-[11px] text-slate-500">Assess each criterion against local health and sanitation regulations.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="markAllCriteria('compliant')" class="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                            <i class="fa-solid fa-check-double text-[10px]"></i> Mark All Passed
+                        </button>
+                        <button type="button" onclick="addCustomCriterionPrompt()" class="px-2.5 py-1.5 bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                            <i class="fa-solid fa-plus text-[10px]"></i> Add Custom Criterion
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Criteria Container -->
+                <div id="criteriaListContainer" class="space-y-3">
+                    <!-- Criteria cards inserted dynamically -->
+                </div>
+
+                <div class="flex justify-end pt-3 border-t border-slate-100">
+                    <button type="button" onclick="switchConductTab('review')" class="px-5 py-2.5 bg-brand-dark text-white rounded-xl hover:bg-brand-medium transition text-xs font-bold flex items-center gap-2 shadow-sm">
+                        Proceed to Review &amp; Verdict <i class="fa-solid fa-arrow-right text-xs"></i>
+                    </button>
                 </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Findings</label>
-                <div class="space-y-3" id="findingsContainer"></div>
-                <button type="button" onclick="addFinding()" class="mt-2 text-xs font-semibold text-brand-medium hover:text-brand-dark transition">
-                    <i class="fa-solid fa-plus mr-1"></i> Add Finding
-                </button>
-            </div>
+            <!-- TAB 2: REVIEW & VERDICT -->
+            <div id="conductTabReview" class="hidden space-y-5">
+                <!-- Scorecard Summary Preview -->
+                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-900">Criteria Review Summary</h4>
+                            <p class="text-xs text-slate-500">Live evaluation score based on checklist criteria</p>
+                        </div>
+                        <div class="text-right">
+                            <span id="reviewScorePercentage" class="text-lg font-black text-emerald-700">100%</span>
+                            <p id="reviewScoreCounts" class="text-[10px] text-slate-500">8 Passed • 0 Conditional • 0 Failed</p>
+                        </div>
+                    </div>
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Overall Status</label>
-                <select id="conduct_overall" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="compliant">Compliant</option>
-                    <option value="partially_compliant">Partially Compliant</option>
-                    <option value="non_compliant">Non-Compliant</option>
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Recommendations</label>
-                <textarea id="conduct_recommendations" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></textarea>
-            </div>
-            <div id="followUpContainer" class="hidden">
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Follow-up Date (if needed)</label>
-                <input type="date" id="conduct_follow_up" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                <p class="text-[11px] text-slate-400 mt-1">Required if overall status is not compliant.</p>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
-                <textarea id="conduct_notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></textarea>
-            </div>
+                    <!-- Mini Criteria Breakdown Table -->
+                    <div class="overflow-x-auto max-h-44 overflow-y-auto rounded-lg border border-slate-200 bg-white">
+                        <table class="w-full text-xs">
+                            <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 sticky top-0">
+                                <tr>
+                                    <th class="px-3 py-2 text-left">Criterion</th>
+                                    <th class="px-3 py-2 text-center w-32">Assessment</th>
+                                    <th class="px-3 py-2 text-left">Inspector Observation</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reviewCriteriaTableBody" class="divide-y divide-slate-100">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button type="button" onclick="closeModal('conductInspectionModal')"
-                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
-                    Cancel
-                </button>
-                <button type="submit" id="conductSubmitBtn"
-                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                    <i class="fa-solid fa-check mr-1.5"></i> Submit Report
-                </button>
+                <!-- Final Verdict Selection -->
+                <div class="space-y-4 bg-white p-4 rounded-2xl border border-slate-200">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
+                            Overall Inspection Verdict <span class="text-rose-500">*</span>
+                        </label>
+                        <select id="conduct_overall" required onchange="handleVerdictChange()" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <option value="compliant">Compliant (Passed — Recommend for Sanitary Clearance)</option>
+                            <option value="partially_compliant">Partially Compliant (Conditional — Requires Follow-up Re-Inspection)</option>
+                            <option value="non_compliant">Non-Compliant (Failed — Immediate Remediation / Rejection)</option>
+                        </select>
+                    </div>
+
+                    <!-- APPROVED BANNER (Shown when compliant) -->
+                    <div id="verdictApprovedBanner" class="p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-start gap-3">
+                        <div class="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 text-xs mt-0.5">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-emerald-900">Recommended for Sanitary Permit Approval</p>
+                            <p class="text-[11px] text-emerald-700 mt-0.5">The establishment meets municipal sanitation code standards. The sanitary permit certificate can be issued upon supervisor endorsement.</p>
+                        </div>
+                    </div>
+
+                    <!-- CONDITIONAL / FOLLOW-UP SECTION (Shown when partially_compliant) -->
+                    <div id="verdictConditionalSection" class="hidden p-4 bg-amber-50/70 rounded-xl border border-amber-200 space-y-3">
+                        <div class="flex items-start gap-3">
+                            <div class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center flex-shrink-0 text-xs mt-0.5">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold text-amber-900">Conditional Approval — Follow-up Re-Inspection Required</p>
+                                <p class="text-[11px] text-amber-700 mt-0.5">Minor deficiencies identified. Schedule a grace period re-inspection date to verify corrective actions.</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-amber-900 mb-1">Follow-up Inspection Date <span class="text-rose-500">*</span></label>
+                                <input type="date" id="conduct_follow_up" class="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-amber-500/40 outline-none">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- REJECTION CRITERIA SECTION (Shown when non_compliant) -->
+                    <div id="verdictRejectionSection" class="hidden p-4 bg-rose-50/80 rounded-xl border border-rose-200 space-y-3">
+                        <div class="flex items-start gap-3">
+                            <div class="w-7 h-7 rounded-lg bg-rose-500 text-white flex items-center justify-center flex-shrink-0 text-xs mt-0.5">
+                                <i class="fa-solid fa-ban"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold text-rose-900">Inspection Failure / Rejection of Sanitary Permit</p>
+                                <p class="text-[11px] text-rose-700 mt-0.5">Critical sanitation hazards detected. Specify the primary rejection criteria and mandatory corrective orders.</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3 pt-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-rose-900 mb-1">Primary Rejection Criteria / Violation Category <span class="text-rose-500">*</span></label>
+                                <select id="conduct_rejection_criteria" onchange="toggleConductCustomRejection()" class="w-full px-3 py-2 border border-rose-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-rose-500/40 outline-none font-medium text-slate-800">
+                                    <option value="">Select primary rejection reason...</option>
+                                    <option value="Critical Vector &amp; Pest Infestation">Critical Vector &amp; Pest Infestation (Rodent/Insect contamination)</option>
+                                    <option value="Contaminated or Unsafe Water Supply">Contaminated or Unsafe Water Supply / Failed Potability Test</option>
+                                    <option value="Hazardous Sewage &amp; Wastewater Discharge Failure">Hazardous Sewage &amp; Wastewater Discharge Failure / Non-functional Grease Trap</option>
+                                    <option value="Severe Food Temperature &amp; Cross-Contamination Hazards">Severe Food Temperature &amp; Cross-Contamination Hazards</option>
+                                    <option value="Absence of Mandatory Sanitary Health Certificates">Absence of Mandatory Sanitary / Health Certificates for Handlers</option>
+                                    <option value="Major Structural &amp; Environmental Hazard">Major Structural &amp; Environmental Sanitation Hazard</option>
+                                    <option value="Failure to Meet Minimum Municipal Standards (&lt;50% Compliance)">Failure to Meet Minimum Municipal Standards (&lt;50% Compliance)</option>
+                                    <option value="Other">Other Specific Sanitation Code Violation</option>
+                                </select>
+                            </div>
+                            <div id="conductCustomRejectionContainer" class="hidden">
+                                <label class="block text-xs font-semibold text-rose-900 mb-1">Custom Rejection Reason Details <span class="text-rose-500">*</span></label>
+                                <textarea id="conduct_custom_rejection" rows="2" class="w-full px-3 py-2 border border-rose-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500/40 outline-none bg-white" placeholder="Describe the specific violation causing inspection failure..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recommendations / Corrective Orders -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
+                            Recommendations &amp; Corrective Actions Order
+                        </label>
+                        <textarea id="conduct_recommendations" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Specify instructions, corrective actions, or remediation requirements..."></textarea>
+                    </div>
+
+                    <!-- Inspector Official Sign-Off Notes -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
+                            Inspector Sign-Off Notes &amp; General Remarks
+                        </label>
+                        <textarea id="conduct_notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Additional observations, establishment representative present, etc."></textarea>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+                    <button type="button" onclick="switchConductTab('criteria')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition text-xs font-semibold flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-left text-xs"></i> Back to Criteria
+                    </button>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="closeModal('conductInspectionModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition text-xs font-semibold">
+                            Cancel
+                        </button>
+                        <button type="submit" id="conductSubmitBtn" class="px-5 py-2.5 bg-brand-dark text-white rounded-xl hover:bg-brand-medium transition text-xs font-bold flex items-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-check-circle text-sm"></i> Submit Inspection Report
+                        </button>
+                    </div>
+                </div>
             </div>
         </form>
     </div>
@@ -393,9 +553,12 @@ try {
 <!-- VIEW INSPECTION MODAL                                        -->
 <!-- ============================================================ -->
 <div id="viewInspectionModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
-            <h3 class="font-bold text-slate-900">Inspection Details</h3>
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-file-shield text-brand-medium"></i>
+                Inspection Report &amp; Criteria Review
+            </h3>
             <button onclick="closeModal('viewInspectionModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
                 <i class="fa-solid fa-xmark"></i>
             </button>
@@ -699,55 +862,381 @@ function resetFilters() {
     loadInspections(1);
 }
 
-function findingRowHtml(category = '', status = 'compliant', notes = '') {
-    return `
-        <div class="finding-item p-3 bg-slate-50 rounded-lg border border-slate-200">
-            <div class="grid grid-cols-3 gap-2">
-                <div>
-                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Category</label>
-                    <input type="text" class="finding-category w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="e.g. Sanitation" value="${escapeHtml(category)}">
+// ============================================================
+// SANITATION INSPECTION CRITERIA DEFINITIONS & SYSTEM
+// ============================================================
+const STANDARD_CRITERIA = [
+    {
+        id: 'water_supply',
+        category: 'Water Supply & Potability',
+        icon: 'fa-droplet',
+        color: 'text-sky-600 bg-sky-50',
+        description: 'Potable water source, storage cleanliness, backflow prevention, & potability compliance.',
+        status: 'compliant',
+        notes: ''
+    },
+    {
+        id: 'food_safety',
+        category: 'Food Safety & Handling',
+        icon: 'fa-utensils',
+        color: 'text-emerald-600 bg-emerald-50',
+        description: 'Temperature control, raw/cooked separation, sanitary food preparation & safe storage.',
+        status: 'compliant',
+        notes: ''
+    },
+    {
+        id: 'wastewater',
+        category: 'Wastewater & Drainage System',
+        icon: 'fa-faucet-drip',
+        color: 'text-teal-600 bg-teal-50',
+        description: 'Functional grease traps, unobstructed drainage flow, proper sewer/septic line discharge.',
+        status: 'compliant',
+        notes: ''
+    },
+    {
+        id: 'solid_waste',
+        category: 'Solid Waste Segregation & Disposal',
+        icon: 'fa-trash-arrow-up',
+        color: 'text-indigo-600 bg-indigo-50',
+        description: 'Covered color-coded bins, segregation (bio/non-bio), regular garbage disposal & hygiene.',
+        status: 'compliant',
+        notes: ''
+    },
+    {
+        id: 'pest_control',
+        category: 'Vector & Vermin Control',
+        icon: 'fa-shield-halved',
+        color: 'text-amber-600 bg-amber-50',
+        description: 'Vermin-proofing, absence of rodent/insect infestation, active certified pest control plan.',
+        status: 'compliant',
+        notes: ''
+    },
+    {
+        id: 'sanitary_facilities',
+        category: 'Sanitary Facilities & Handwashing',
+        icon: 'fa-sink',
+        color: 'text-cyan-600 bg-cyan-50',
+        description: 'Clean restrooms, running water, soap, paper towels/sanitizers, & handwashing signage.',
+        status: 'compliant',
+        notes: ''
+    },
+    {
+        id: 'personnel_health',
+        category: 'Personnel Hygiene & Health Cards',
+        icon: 'fa-id-card-clip',
+        color: 'text-violet-600 bg-violet-50',
+        description: 'Valid Sanitation/Health Cards for food handlers/staff, clean uniforms, hairnets, & gloves.',
+        status: 'compliant',
+        notes: ''
+    },
+    {
+        id: 'premises_ventilation',
+        category: 'Premises Cleanliness & Ventilation',
+        icon: 'fa-wind',
+        color: 'text-blue-600 bg-blue-50',
+        description: 'Clean floors, walls, and ceilings; adequate illumination & functional exhaust airflow.',
+        status: 'compliant',
+        notes: ''
+    }
+];
+
+let currentCriteria = [];
+let conductInspectionData = null;
+
+function initCriteriaState(existingFindings = null) {
+    if (existingFindings && Array.isArray(existingFindings) && existingFindings.length > 0) {
+        currentCriteria = existingFindings.map((f, idx) => {
+            const std = STANDARD_CRITERIA.find(s => s.category.toLowerCase() === (f.category || '').toLowerCase()) || {};
+            return {
+                id: f.id || std.id || `custom_${idx}_${Date.now()}`,
+                category: f.category || 'General Sanitation',
+                icon: f.icon || std.icon || 'fa-clipboard-check',
+                color: f.color || std.color || 'text-slate-600 bg-slate-100',
+                description: f.description || std.description || 'Custom inspection observation',
+                status: f.status || 'compliant',
+                notes: f.notes || '',
+                isCustom: !!f.isCustom
+            };
+        });
+    } else {
+        currentCriteria = JSON.parse(JSON.stringify(STANDARD_CRITERIA));
+    }
+    renderCriteriaList();
+    updateCriteriaScore();
+}
+
+function renderCriteriaList() {
+    const container = document.getElementById('criteriaListContainer');
+    if (!container) return;
+
+    container.innerHTML = currentCriteria.map((c, index) => {
+        return `
+        <div class="p-3.5 bg-white rounded-xl border border-slate-200 hover:border-slate-300 transition space-y-2.5" id="criterionCard_${index}">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div class="flex items-start gap-2.5">
+                    <div class="w-8 h-8 rounded-lg ${c.color || 'text-slate-600 bg-slate-100'} flex items-center justify-center flex-shrink-0 text-xs mt-0.5">
+                        <i class="fa-solid ${c.icon || 'fa-check'}"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-slate-800">${escapeHtml(c.category)}</span>
+                            ${c.isCustom ? `<span class="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-semibold">Custom</span>` : ''}
+                        </div>
+                        <p class="text-[11px] text-slate-400 leading-tight mt-0.5">${escapeHtml(c.description || '')}</p>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Status</label>
-                    <select class="finding-status w-full px-2 py-1 border border-slate-200 rounded text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <option value="compliant" ${status === 'compliant' ? 'selected' : ''}>Compliant</option>
-                        <option value="partially_compliant" ${status === 'partially_compliant' ? 'selected' : ''}>Partially Compliant</option>
-                        <option value="non_compliant" ${status === 'non_compliant' ? 'selected' : ''}>Non-Compliant</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-[10px] font-semibold text-slate-500 mb-1">Notes</label>
-                    <input type="text" class="finding-notes w-full px-2 py-1 border border-slate-200 rounded text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Details..." value="${escapeHtml(notes)}">
+
+                <!-- 3-State Status Pills -->
+                <div class="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200 self-start sm:self-center flex-shrink-0">
+                    <label class="cursor-pointer text-[11px] font-semibold px-2.5 py-1 rounded-lg transition flex items-center gap-1 ${c.status === 'compliant' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200/60'}">
+                        <input type="radio" name="criterion_status_${index}" value="compliant" ${c.status === 'compliant' ? 'checked' : ''} onchange="setCriterionStatus(${index}, 'compliant')" class="hidden">
+                        <i class="fa-solid fa-check text-[10px]"></i> Pass
+                    </label>
+                    <label class="cursor-pointer text-[11px] font-semibold px-2.5 py-1 rounded-lg transition flex items-center gap-1 ${c.status === 'partially_compliant' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200/60'}">
+                        <input type="radio" name="criterion_status_${index}" value="partially_compliant" ${c.status === 'partially_compliant' ? 'checked' : ''} onchange="setCriterionStatus(${index}, 'partially_compliant')" class="hidden">
+                        <i class="fa-solid fa-circle-exclamation text-[10px]"></i> Conditional
+                    </label>
+                    <label class="cursor-pointer text-[11px] font-semibold px-2.5 py-1 rounded-lg transition flex items-center gap-1 ${c.status === 'non_compliant' ? 'bg-rose-600 text-white shadow-xs' : 'text-slate-600 hover:bg-slate-200/60'}">
+                        <input type="radio" name="criterion_status_${index}" value="non_compliant" ${c.status === 'non_compliant' ? 'checked' : ''} onchange="setCriterionStatus(${index}, 'non_compliant')" class="hidden">
+                        <i class="fa-solid fa-xmark text-[10px]"></i> Fail
+                    </label>
                 </div>
             </div>
-            <button type="button" onclick="this.parentElement.remove()" class="mt-1 text-xs text-rose-500 hover:text-rose-700 transition">
-                <i class="fa-solid fa-trash-can mr-1"></i> Remove
-            </button>
+
+            <!-- Notes & Remarks Field -->
+            <div class="flex items-center gap-2 pt-1 border-t border-slate-100">
+                <input type="text"
+                       id="criterion_note_${index}"
+                       placeholder="Inspector remarks / specific observations for this criterion..."
+                       value="${escapeHtml(c.notes || '')}"
+                       oninput="setCriterionNotes(${index}, this.value)"
+                       class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-brand-medium/30 focus:border-brand-medium outline-none">
+                ${c.isCustom ? `
+                    <button type="button" onclick="removeCriterion(${index})" class="text-rose-500 hover:text-rose-700 p-1 text-xs" title="Remove Custom Criterion">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                ` : ''}
+            </div>
         </div>`;
+    }).join('');
 }
 
-function addFinding() {
-    document.getElementById('findingsContainer').insertAdjacentHTML('beforeend', findingRowHtml());
-}
-
-document.getElementById('conduct_overall').addEventListener('change', function() {
-    const container = document.getElementById('followUpContainer');
-    if (this.value === 'compliant') {
-        container.classList.add('hidden');
-        document.getElementById('conduct_follow_up').required = false;
-    } else {
-        container.classList.remove('hidden');
-        document.getElementById('conduct_follow_up').required = true;
-        const date = new Date();
-        date.setDate(date.getDate() + 7);
-        document.getElementById('conduct_follow_up').value = date.toISOString().split('T')[0];
+function setCriterionStatus(index, status) {
+    if (currentCriteria[index]) {
+        currentCriteria[index].status = status;
+        renderCriteriaList();
+        updateCriteriaScore();
     }
-});
+}
+
+function setCriterionNotes(index, notes) {
+    if (currentCriteria[index]) {
+        currentCriteria[index].notes = notes;
+    }
+}
+
+function markAllCriteria(status) {
+    currentCriteria.forEach(c => c.status = status);
+    renderCriteriaList();
+    updateCriteriaScore();
+    showToast(`All criteria marked as ${status === 'compliant' ? 'Compliant' : status}`, 'info');
+}
+
+function addCriterion(category, description = '') {
+    if (!category.trim()) return;
+    currentCriteria.push({
+        id: 'custom_' + Date.now(),
+        category: category.trim(),
+        icon: 'fa-plus-circle',
+        color: 'text-indigo-600 bg-indigo-50',
+        description: description.trim() || 'Establishment-specific criteria',
+        status: 'compliant',
+        notes: '',
+        isCustom: true
+    });
+    renderCriteriaList();
+    updateCriteriaScore();
+}
+
+function addCustomCriterionPrompt() {
+    const name = prompt('Enter custom inspection criterion name (e.g. Swimming Pool Hygiene, Hazardous Chemical Storage):');
+    if (name && name.trim()) {
+        addCriterion(name);
+    }
+}
+
+function removeCriterion(index) {
+    if (currentCriteria[index] && currentCriteria[index].isCustom) {
+        currentCriteria.splice(index, 1);
+        renderCriteriaList();
+        updateCriteriaScore();
+    }
+}
+
+function updateCriteriaScore() {
+    const total = currentCriteria.length || 1;
+    let compliant = 0;
+    let partial = 0;
+    let nonCompliant = 0;
+
+    currentCriteria.forEach(c => {
+        if (c.status === 'compliant') compliant++;
+        else if (c.status === 'partially_compliant') partial++;
+        else if (c.status === 'non_compliant') nonCompliant++;
+    });
+
+    const scorePct = Math.round(((compliant + (partial * 0.5)) / total) * 100);
+
+    // Update Header Pill
+    const badge = document.getElementById('conductScoreBadge');
+    if (badge) {
+        badge.textContent = `${scorePct}% (${compliant}/${total})`;
+        if (nonCompliant > 0 || scorePct < 60) {
+            badge.className = 'px-2 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-700';
+        } else if (partial > 0 || scorePct < 85) {
+            badge.className = 'px-2 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-700';
+        } else {
+            badge.className = 'px-2 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-700';
+        }
+    }
+
+    // Update Review Tab Scorecard
+    const reviewPct = document.getElementById('reviewScorePercentage');
+    const reviewCounts = document.getElementById('reviewScoreCounts');
+    if (reviewPct) {
+        reviewPct.textContent = `${scorePct}%`;
+        if (nonCompliant > 0 || scorePct < 60) {
+            reviewPct.className = 'text-lg font-black text-rose-700';
+        } else if (partial > 0 || scorePct < 85) {
+            reviewPct.className = 'text-lg font-black text-amber-600';
+        } else {
+            reviewPct.className = 'text-lg font-black text-emerald-700';
+        }
+    }
+    if (reviewCounts) {
+        reviewCounts.textContent = `${compliant} Passed • ${partial} Conditional • ${nonCompliant} Failed`;
+    }
+
+    // Auto-suggest verdict
+    const overallSelect = document.getElementById('conduct_overall');
+    if (overallSelect) {
+        if (nonCompliant > 0) {
+            overallSelect.value = 'non_compliant';
+        } else if (partial > 0) {
+            overallSelect.value = 'partially_compliant';
+        } else {
+            overallSelect.value = 'compliant';
+        }
+        handleVerdictChange();
+    }
+}
+
+function handleVerdictChange() {
+    const verdict = document.getElementById('conduct_overall')?.value || 'compliant';
+    const approvedBanner = document.getElementById('verdictApprovedBanner');
+    const conditionalSection = document.getElementById('verdictConditionalSection');
+    const rejectionSection = document.getElementById('verdictRejectionSection');
+    const followUpInput = document.getElementById('conduct_follow_up');
+    const rejectionSelect = document.getElementById('conduct_rejection_criteria');
+
+    if (verdict === 'compliant') {
+        approvedBanner?.classList.remove('hidden');
+        conditionalSection?.classList.add('hidden');
+        rejectionSection?.classList.add('hidden');
+        if (followUpInput) followUpInput.required = false;
+        if (rejectionSelect) rejectionSelect.required = false;
+    } else if (verdict === 'partially_compliant') {
+        approvedBanner?.classList.add('hidden');
+        conditionalSection?.classList.remove('hidden');
+        rejectionSection?.classList.add('hidden');
+        if (followUpInput) {
+            followUpInput.required = true;
+            if (!followUpInput.value) {
+                const d = new Date();
+                d.setDate(d.getDate() + 7);
+                followUpInput.value = d.toISOString().split('T')[0];
+            }
+        }
+        if (rejectionSelect) rejectionSelect.required = false;
+    } else { // non_compliant
+        approvedBanner?.classList.add('hidden');
+        conditionalSection?.classList.add('hidden');
+        rejectionSection?.classList.remove('hidden');
+        if (followUpInput) followUpInput.required = false;
+        if (rejectionSelect) rejectionSelect.required = true;
+    }
+}
+
+function toggleConductCustomRejection() {
+    const select = document.getElementById('conduct_rejection_criteria');
+    const customContainer = document.getElementById('conductCustomRejectionContainer');
+    const customInput = document.getElementById('conduct_custom_rejection');
+    if (select && customContainer) {
+        if (select.value === 'Other') {
+            customContainer.classList.remove('hidden');
+            if (customInput) customInput.required = true;
+        } else {
+            customContainer.classList.add('hidden');
+            if (customInput) customInput.required = false;
+        }
+    }
+}
+
+function switchConductTab(tab) {
+    const tabCriteria = document.getElementById('conductTabCriteria');
+    const tabReview = document.getElementById('conductTabReview');
+    const tabBtnCriteria = document.getElementById('tabBtnCriteria');
+    const tabBtnReview = document.getElementById('tabBtnReview');
+
+    if (tab === 'review') {
+        tabCriteria?.classList.add('hidden');
+        tabReview?.classList.remove('hidden');
+
+        tabBtnCriteria?.classList.remove('border-brand-dark', 'text-brand-dark', 'font-bold');
+        tabBtnCriteria?.classList.add('border-transparent', 'text-slate-400', 'font-semibold');
+
+        tabBtnReview?.classList.remove('border-transparent', 'text-slate-400', 'font-semibold');
+        tabBtnReview?.classList.add('border-brand-dark', 'text-brand-dark', 'font-bold');
+
+        renderReviewCriteriaSummary();
+    } else {
+        tabCriteria?.classList.remove('hidden');
+        tabReview?.classList.add('hidden');
+
+        tabBtnCriteria?.classList.add('border-brand-dark', 'text-brand-dark', 'font-bold');
+        tabBtnCriteria?.classList.remove('border-transparent', 'text-slate-400', 'font-semibold');
+
+        tabBtnReview?.classList.add('border-transparent', 'text-slate-400', 'font-semibold');
+        tabBtnReview?.classList.remove('border-brand-dark', 'text-brand-dark', 'font-bold');
+    }
+}
+
+function renderReviewCriteriaSummary() {
+    const tbody = document.getElementById('reviewCriteriaTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = currentCriteria.map(c => {
+        const badgeMap = {
+            compliant: '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">Passed</span>',
+            partially_compliant: '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Conditional</span>',
+            non_compliant: '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">Failed</span>'
+        };
+        return `
+        <tr class="hover:bg-slate-50 transition">
+            <td class="px-3 py-2 font-medium text-slate-800 flex items-center gap-1.5">
+                <i class="fa-solid ${c.icon || 'fa-check'} text-[10px] text-slate-400"></i>
+                ${escapeHtml(c.category)}
+            </td>
+            <td class="px-3 py-2 text-center">${badgeMap[c.status] || badgeMap.compliant}</td>
+            <td class="px-3 py-2 text-slate-500 text-[11px]">${escapeHtml(c.notes || '—')}</td>
+        </tr>`;
+    }).join('');
+}
 
 async function viewInspection(id) {
     openModal('viewInspectionModal');
     const content = document.getElementById('inspectionDetailsContent');
-    content.innerHTML = `<div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...</div>`;
+    content.innerHTML = `<div class="flex items-center justify-center py-12 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading inspection details...</div>`;
 
     try {
         const res = await fetch(`${API_URL}?id=${id}`);
@@ -759,58 +1248,166 @@ async function viewInspection(id) {
         renderInspectionDetails(json.data);
         ModalSystem.refreshMasking('viewInspectionModal');
     } catch (e) {
-        content.innerHTML = `<p class="text-sm text-rose-500 text-center py-6">Failed to load inspection</p>`;
+        content.innerHTML = `<p class="text-sm text-rose-500 text-center py-6">Failed to load inspection details</p>`;
     }
 }
 
 function renderInspectionDetails(i) {
-    const findingsHtml = (i.findings && i.findings.length > 0) ? i.findings.map(f => `
-        <div class="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200">
-            <div>
-                <p class="font-semibold text-slate-800 text-sm">${escapeHtml(f.category)}</p>
-                <p class="text-xs text-slate-500">${escapeHtml(f.notes || 'No notes')}</p>
+    // Decode findings
+    const findings = Array.isArray(i.findings) ? i.findings : [];
+    const totalCriteria = findings.length || 0;
+    let compliantCount = 0;
+    let partialCount = 0;
+    let nonCompliantCount = 0;
+
+    findings.forEach(f => {
+        if (f.status === 'compliant') compliantCount++;
+        else if (f.status === 'partially_compliant') partialCount++;
+        else if (f.status === 'non_compliant') nonCompliantCount++;
+    });
+
+    const scorePct = totalCriteria > 0 ? Math.round(((compliantCount + (partialCount * 0.5)) / totalCriteria) * 100) : 100;
+
+    // Build findings rows
+    const findingsRowsHtml = findings.length > 0 ? findings.map(f => {
+        const badgeClass = resultColors[f.status] || resultColors.partially_compliant;
+        const iconClass = f.status === 'compliant' ? 'fa-check text-emerald-500' : (f.status === 'partially_compliant' ? 'fa-triangle-exclamation text-amber-500' : 'fa-xmark text-rose-500');
+        const statusLabel = f.status === 'compliant' ? 'PASSED' : (f.status === 'partially_compliant' ? 'CONDITIONAL' : 'FAILED');
+
+        return `
+        <div class="p-3 bg-white rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div class="flex items-start gap-2.5">
+                <div class="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center flex-shrink-0 text-xs mt-0.5">
+                    <i class="fa-solid ${iconClass}"></i>
+                </div>
+                <div>
+                    <p class="font-bold text-slate-800 text-xs">${escapeHtml(f.category)}</p>
+                    <p class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(f.notes || 'No remarks noted')}</p>
+                </div>
             </div>
-            <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${resultColors[f.status] || resultColors.partially_compliant}">
-                ${f.status.replace('_', ' ').toUpperCase()}
+            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold ${badgeClass} self-start sm:self-center flex-shrink-0">
+                ${statusLabel}
             </span>
-        </div>
-    `).join('') : '<p class="text-xs text-slate-400">No findings recorded</p>';
+        </div>`;
+    }).join('') : '<p class="text-xs text-slate-400 py-2">No individual criteria findings recorded</p>';
+
+    // Outcome Banner
+    let outcomeBannerHtml = '';
+    if (i.status === 'completed') {
+        if (i.overall_status === 'compliant') {
+            outcomeBannerHtml = `
+            <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-3">
+                <div class="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 text-sm">
+                    <i class="fa-solid fa-certificate"></i>
+                </div>
+                <div>
+                    <h5 class="text-xs font-bold text-emerald-950 uppercase tracking-wide">Inspection Result: Approved / Compliant</h5>
+                    <p class="text-xs text-emerald-800 mt-0.5">The establishment satisfied municipal sanitation standards with a compliance rating of <strong>${scorePct}%</strong>.</p>
+                </div>
+            </div>`;
+        } else if (i.overall_status === 'partially_compliant') {
+            outcomeBannerHtml = `
+            <div class="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3">
+                <div class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 text-sm">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div>
+                    <h5 class="text-xs font-bold text-amber-950 uppercase tracking-wide">Inspection Result: Conditionally Passed (Follow-Up Required)</h5>
+                    <p class="text-xs text-amber-800 mt-0.5">Minor deficiencies noted (${scorePct}% compliance score). Re-inspection scheduled for <strong>${formatDate(i.follow_up_date)}</strong>.</p>
+                </div>
+            </div>`;
+        } else {
+            outcomeBannerHtml = `
+            <div class="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3">
+                <div class="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center flex-shrink-0 text-sm">
+                    <i class="fa-solid fa-ban"></i>
+                </div>
+                <div>
+                    <h5 class="text-xs font-bold text-rose-950 uppercase tracking-wide">Inspection Result: Failed / Non-Compliant</h5>
+                    <p class="text-xs text-rose-800 mt-0.5">Critical sanitation hazards identified (${scorePct}% compliance score). Establishment must complete mandatory corrective remediation before re-application.</p>
+                </div>
+            </div>`;
+        }
+    }
 
     const needsFollowUp = i.status === 'completed' &&
         (i.overall_status === 'non_compliant' || i.overall_status === 'partially_compliant');
 
     document.getElementById('inspectionDetailsContent').innerHTML = `
-        <div class="space-y-4">
-            <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
-                <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">
-                    ${escapeHtml((i.applicant || '?').charAt(0))}
+        <div class="space-y-5">
+            <!-- Header Profile -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-12 h-12 rounded-2xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-black text-lg flex-shrink-0">
+                        ${escapeHtml((i.applicant || '?').charAt(0))}
+                    </div>
+                    <div>
+                        <h4 class="text-base font-bold text-slate-900 maskable">${escapeHtml(i.applicant)}</h4>
+                        <p class="text-xs text-slate-500 font-medium">${escapeHtml(i.inspection_id)} • <span class="font-mono text-brand-dark">${escapeHtml(i.permit_number)}</span> • ${escapeHtml(i.business_type)}</p>
+                        <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${statusColors[i.status] || statusColors.scheduled}">
+                                ${i.status.toUpperCase()}
+                            </span>
+                            ${i.overall_status ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${resultColors[i.overall_status] || resultColors.partially_compliant}">${i.overall_status.replace('_', ' ').toUpperCase()}</span>` : ''}
+                            ${i.status === 'completed' ? `<span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-slate-900 text-white">Score: ${scorePct}%</span>` : ''}
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <h4 class="text-lg font-bold text-slate-900 maskable">${escapeHtml(i.applicant)}</h4>
-                    <p class="text-sm text-slate-500">${escapeHtml(i.inspection_id)} • ${escapeHtml(i.permit_number)}</p>
-                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[i.status] || statusColors.scheduled}">
-                        ${i.status.toUpperCase()}
-                    </span>
-                    ${i.overall_status ? `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ml-1 ${resultColors[i.overall_status] || resultColors.partially_compliant}">${i.overall_status.replace('_', ' ').toUpperCase()}</span>` : ''}
+
+                ${i.status === 'completed' ? `
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-right">
+                    <p class="text-[10px] text-slate-400 font-semibold uppercase">Criteria Scorecard</p>
+                    <p class="text-sm font-black text-slate-800">${compliantCount} Pass / ${partialCount} Cond / ${nonCompliantCount} Fail</p>
+                </div>` : ''}
+            </div>
+
+            <!-- Outcome Status Alert Banner -->
+            ${outcomeBannerHtml}
+
+            <!-- Inspection Key Metadata -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                <div><p class="text-[10px] text-slate-400 font-semibold uppercase">Inspector</p><p class="font-bold text-slate-800 mt-0.5">${escapeHtml(i.inspector_name)}</p></div>
+                <div><p class="text-[10px] text-slate-400 font-semibold uppercase">Scheduled Date</p><p class="font-semibold text-slate-800 mt-0.5">${formatDate(i.scheduled_date)} ${escapeHtml(i.scheduled_time || '')}</p></div>
+                <div><p class="text-[10px] text-slate-400 font-semibold uppercase">Conducted Date</p><p class="font-semibold text-slate-800 mt-0.5">${formatDateTime(i.conducted_date)}</p></div>
+                <div><p class="text-[10px] text-slate-400 font-semibold uppercase">Follow-up Date</p><p class="font-semibold ${i.follow_up_date ? 'text-amber-700 font-bold' : 'text-slate-800'} mt-0.5">${formatDate(i.follow_up_date)}</p></div>
+            </div>
+
+            <!-- Criteria Assessment Checklist Breakdown -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-list-check text-brand-medium"></i> Sanitation Criteria Checklist (${totalCriteria} Evaluated)
+                    </h5>
+                </div>
+                <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    ${findingsRowsHtml}
                 </div>
             </div>
-            <div class="grid grid-cols-2 gap-4">
-                <div><p class="text-xs text-slate-400 font-semibold">Inspector</p><p class="text-sm text-slate-800">${escapeHtml(i.inspector_name)}</p></div>
-                <div><p class="text-xs text-slate-400 font-semibold">Business Type</p><p class="text-sm text-slate-800">${escapeHtml(i.business_type)}</p></div>
-                <div><p class="text-xs text-slate-400 font-semibold">Scheduled Date</p><p class="text-sm text-slate-800">${formatDate(i.scheduled_date)} at ${escapeHtml(i.scheduled_time || '')}</p></div>
-                ${i.conducted_date ? `<div><p class="text-xs text-slate-400 font-semibold">Conducted Date</p><p class="text-sm text-slate-800">${formatDateTime(i.conducted_date)}</p></div>` : ''}
-                ${i.follow_up_date ? `<div><p class="text-xs text-slate-400 font-semibold">Follow-up Date</p><p class="text-sm text-slate-800">${formatDate(i.follow_up_date)}</p></div>` : ''}
+
+            <!-- Recommendations & Notes -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                ${i.recommendations ? `
+                <div class="p-3.5 bg-brand-light/30 rounded-xl border border-brand-border space-y-1">
+                    <h5 class="text-xs font-bold text-brand-dark uppercase tracking-wide flex items-center gap-1.5">
+                        <i class="fa-solid fa-clipboard-list"></i> Corrective Orders &amp; Recommendations
+                    </h5>
+                    <p class="text-xs text-slate-800 whitespace-pre-line">${escapeHtml(i.recommendations)}</p>
+                </div>` : ''}
+
+                ${i.notes ? `
+                <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                    <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                        <i class="fa-solid fa-note-sticky"></i> Inspector Sign-Off Remarks
+                    </h5>
+                    <p class="text-xs text-slate-800 whitespace-pre-line">${escapeHtml(i.notes)}</p>
+                </div>` : ''}
             </div>
-            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h5 class="text-sm font-bold text-slate-700 mb-2">📋 Findings</h5>
-                <div class="space-y-2">${findingsHtml}</div>
-            </div>
-            ${i.recommendations ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">Recommendations</h5><p class="text-sm text-slate-800">${escapeHtml(i.recommendations)}</p></div>` : ''}
-            ${i.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${escapeHtml(i.notes)}</p></div>` : ''}
-            <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
-                <button onclick="closeModal('viewInspectionModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                ${i.status === 'scheduled' ? `<button onclick="closeModal('viewInspectionModal'); conductInspection(${i.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-clipboard-check mr-1.5"></i> Conduct</button>` : ''}
-                ${needsFollowUp ? `<button onclick="closeModal('viewInspectionModal'); scheduleFollowUp(${i.id})" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-semibold"><i class="fa-solid fa-arrow-rotate-right mr-1.5"></i> Follow-up</button>` : ''}
+
+            <!-- Modal Footer Actions -->
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
+                <button onclick="closeModal('viewInspectionModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition text-xs font-semibold">Close</button>
+                ${i.status === 'scheduled' ? `<button onclick="closeModal('viewInspectionModal'); conductInspection(${i.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition text-xs font-bold flex items-center gap-1.5 shadow-sm"><i class="fa-solid fa-clipboard-check"></i> Conduct Inspection</button>` : ''}
+                ${needsFollowUp ? `<button onclick="closeModal('viewInspectionModal'); scheduleFollowUp(${i.id}, ${i.permit_id || 0})" class="px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition text-xs font-bold flex items-center gap-1.5 shadow-sm"><i class="fa-solid fa-calendar-plus"></i> Schedule Follow-up</button>` : ''}
             </div>
         </div>
     `;
@@ -860,16 +1457,23 @@ async function saveScheduledInspection(event) {
 
 async function conductInspection(id) {
     conductInspectionId = id;
+    switchConductTab('criteria');
     openModal('conductInspectionModal');
 
     document.getElementById('conductApplicant').textContent = 'Loading…';
     document.getElementById('conductPermit').textContent = '';
     document.getElementById('conductAddress').textContent = '';
-    document.getElementById('findingsContainer').innerHTML = findingRowHtml('Sanitation');
-    document.getElementById('conduct_overall').value = 'partially_compliant';
+    document.getElementById('conduct_overall').value = 'compliant';
     document.getElementById('conduct_recommendations').value = '';
     document.getElementById('conduct_follow_up').value = '';
     document.getElementById('conduct_notes').value = '';
+    if (document.getElementById('conduct_rejection_criteria')) {
+        document.getElementById('conduct_rejection_criteria').value = '';
+    }
+    if (document.getElementById('conduct_custom_rejection')) {
+        document.getElementById('conduct_custom_rejection').value = '';
+    }
+    toggleConductCustomRejection();
 
     try {
         const res = await fetch(`${API_URL}?id=${id}`);
@@ -880,16 +1484,23 @@ async function conductInspection(id) {
             return;
         }
         const i = json.data;
+        conductInspectionData = i;
         document.getElementById('conduct_inspection_id').value = i.id;
-        document.getElementById('conductApplicant').textContent = i.applicant;
-        document.getElementById('conductPermit').textContent = i.permit_number;
-        document.getElementById('conductAddress').textContent = i.address || '';
+        document.getElementById('conductApplicant').textContent = i.applicant || 'Unknown Applicant';
+        document.getElementById('conductPermit').textContent = i.permit_number || '';
+        document.getElementById('conductAddress').textContent = (i.address || i.business_type || '');
+
         ['conductApplicant', 'conductAddress'].forEach(elId => {
             const el = document.getElementById(elId);
-            el.removeAttribute('data-real');
-            el.removeAttribute('data-masked');
+            if (el) {
+                el.removeAttribute('data-real');
+                el.removeAttribute('data-masked');
+            }
         });
         ModalSystem.refreshMasking('conductInspectionModal');
+
+        // Initialize criteria checklist state
+        initCriteriaState(i.findings);
     } catch (e) {
         showToast('Failed to load inspection details', 'danger');
     }
@@ -902,20 +1513,55 @@ async function saveConductedInspection(event) {
     const btn = document.getElementById('conductSubmitBtn');
     btn.disabled = true;
 
-    const findings = [];
-    document.querySelectorAll('.finding-item').forEach(item => {
-        const category = item.querySelector('.finding-category')?.value || '';
-        const status = item.querySelector('.finding-status')?.value || 'compliant';
-        const notes = item.querySelector('.finding-notes')?.value || '';
-        if (category) findings.push({ category, status, notes });
-    });
+    const overallStatus = document.getElementById('conduct_overall').value;
+    let recommendations = document.getElementById('conduct_recommendations').value.trim();
+    let followUpDate = document.getElementById('conduct_follow_up').value || null;
+
+    // If non-compliant, validate and attach rejection reason
+    if (overallStatus === 'non_compliant') {
+        const rejectionSelect = document.getElementById('conduct_rejection_criteria');
+        const customRejection = document.getElementById('conduct_custom_rejection')?.value.trim() || '';
+        let primaryReason = rejectionSelect ? rejectionSelect.value : '';
+
+        if (!primaryReason) {
+            showToast('Please select the primary rejection criteria.', 'warning');
+            btn.disabled = false;
+            switchConductTab('review');
+            rejectionSelect?.focus();
+            return;
+        }
+
+        if (primaryReason === 'Other') {
+            if (!customRejection) {
+                showToast('Please specify the custom rejection reason details.', 'warning');
+                btn.disabled = false;
+                switchConductTab('review');
+                document.getElementById('conduct_custom_rejection')?.focus();
+                return;
+            }
+            primaryReason = customRejection;
+        }
+
+        const rejectionNote = `[REJECTION CRITERIA: ${primaryReason}]`;
+        if (!recommendations.includes('[REJECTION CRITERIA:')) {
+            recommendations = recommendations ? `${rejectionNote} ${recommendations}` : rejectionNote;
+        }
+    }
+
+    if (overallStatus === 'partially_compliant' && !followUpDate) {
+        showToast('Please provide a follow-up re-inspection date.', 'warning');
+        btn.disabled = false;
+        switchConductTab('review');
+        document.getElementById('conduct_follow_up')?.focus();
+        return;
+    }
 
     const payload = {
-        findings,
-        overall_status: document.getElementById('conduct_overall').value,
-        recommendations: document.getElementById('conduct_recommendations').value,
-        follow_up_date: document.getElementById('conduct_follow_up').value || null,
-        notes: document.getElementById('conduct_notes').value
+        findings: currentCriteria,
+        overall_status: overallStatus,
+        recommendations: recommendations,
+        follow_up_date: followUpDate,
+        notes: document.getElementById('conduct_notes').value.trim()
     };
 
     try {
@@ -929,7 +1575,8 @@ async function saveConductedInspection(event) {
             showToast(json.message || 'Failed to submit inspection report', 'danger');
             return;
         }
-        showToast(json.message || 'Inspection completed successfully!', 'success');
+        const outcomeMsg = overallStatus === 'compliant' ? 'Inspection Passed & Approved!' : (overallStatus === 'partially_compliant' ? 'Conditional Inspection Report saved!' : 'Inspection Non-Compliance / Rejection Report submitted.');
+        showToast(outcomeMsg, 'success');
         closeModal('conductInspectionModal');
         loadStats();
         loadInspections(currentPage);
@@ -937,6 +1584,23 @@ async function saveConductedInspection(event) {
         showToast('Network error submitting report', 'danger');
     } finally {
         btn.disabled = false;
+    }
+}
+
+function scheduleFollowUp(inspectionId, permitId) {
+    openModal('scheduleInspectionModal');
+    if (permitId && document.getElementById('insp_permit')) {
+        document.getElementById('insp_permit').value = permitId;
+    }
+    const dateInput = document.getElementById('insp_date');
+    if (dateInput) {
+        const nextWeek = new Date();
+        nextWeek.setDate(nextWeek.getDate() + 7);
+        dateInput.value = nextWeek.toISOString().split('T')[0];
+    }
+    const notesInput = document.getElementById('insp_notes');
+    if (notesInput) {
+        notesInput.value = `Follow-up re-inspection for previous inspection #${inspectionId}`;
     }
 }
 

@@ -266,7 +266,61 @@ class InspectionController extends BaseController
                 $updateData['notes'] = trim($data['notes']);
             }
 
+            if (isset($data['follow_up_date'])) {
+                $updateData['follow_up_date'] = !empty($data['follow_up_date']) ? $data['follow_up_date'] : null;
+            }
+
             $result = $this->inspectionModel->updateById($id, $updateData);
+
+            // Sync associated permit status in real-time
+            $permitId = (int)($inspection['permit_id'] ?? 0);
+            if ($permitId > 0) {
+                try {
+                    $permitUpdate = [
+                        'updated_at' => date('Y-m-d H:i:sP'),
+                        'inspection_date' => date('Y-m-d')
+                    ];
+
+                    $overall = $updateData['overall_status'] ?? 'partially_compliant';
+                    if ($overall === 'compliant') {
+                        $permitUpdate['status'] = 'approved';
+                        $permitUpdate['approved_date'] = date('Y-m-d');
+                        $expiry = new DateTime('+1 year');
+                        $permitUpdate['expiry_date'] = $expiry->format('Y-m-d');
+                        $permitUpdate['rejection_reason'] = null;
+                    } elseif ($overall === 'non_compliant') {
+                        $permitUpdate['status'] = 'rejected';
+                        if (!empty($updateData['recommendations'])) {
+                            $permitUpdate['rejection_reason'] = $updateData['recommendations'];
+                        }
+                    } else { // partially_compliant
+                        $permitUpdate['status'] = 'under_review';
+                    }
+
+                    $this->permitModel->updateById($permitId, $permitUpdate);
+                } catch (\Throwable $pe) {
+                    error_log('Failed to sync permit status on inspection conduct: ' . $pe->getMessage());
+                }
+            }
+
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $inspCode = $inspection['inspection_id'] ?? 'INSP';
+                    $statusLabel = match($updateData['overall_status'] ?? '') {
+                        'compliant' => 'Compliant (Passed)',
+                        'non_compliant' => 'Non-Compliant (Failed)',
+                        'partially_compliant' => 'Partially Compliant (Conditional)',
+                        default => 'Completed'
+                    };
+                    $logger->log("Conducted Sanitation Inspection ({$inspCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Outcome: {$statusLabel}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {}
+            }
 
             return [
                 'success' => true,
@@ -520,6 +574,7 @@ class InspectionController extends BaseController
             'attachments' => !empty($i['attachments']) ? (is_string($i['attachments']) ? json_decode($i['attachments'], true) : $i['attachments']) : [],
             'status' => strtolower($i['status'] ?? 'scheduled'),
             'completed_at' => $i['completed_at'] ?? null,
+            'follow_up_date' => $i['follow_up_date'] ?? null,
             'notes' => $i['notes'] ?? '',
             'created_at' => $i['created_at'] ?? '',
             'updated_at' => $i['updated_at'] ?? ''

@@ -271,6 +271,15 @@ class PermitController extends BaseController
 
             $result = $this->permitModel->updateById($id, $updateData);
 
+            // Auto-schedule inspection in real time when status becomes under_review
+            if ($status === 'under_review') {
+                $this->ensureInspectionScheduled(
+                    $id,
+                    $updateData['inspector_id'] ?? ($permit['inspector_id'] ?? null),
+                    $updateData['notes'] ?? ''
+                );
+            }
+
             if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
                 require_once __DIR__ . '/../Models/ActivityLog.php';
                 try {
@@ -341,9 +350,18 @@ class PermitController extends BaseController
 
             $result = $this->permitModel->updateById($id, $updateData);
 
+            // Auto-schedule inspection in real time when status is under_review
+            if ($status === 'under_review') {
+                $this->ensureInspectionScheduled(
+                    $id,
+                    $updateData['inspector_id'] ?? ($permit['inspector_id'] ?? null),
+                    $updateData['notes'] ?? ''
+                );
+            }
+
             return [
                 'success' => true,
-                'message' => 'Permit #' . $permit['permit_id'] . ' reviewed successfully',
+                'message' => 'Permit #' . $permit['permit_id'] . ' reviewed successfully' . ($status === 'under_review' ? ' and inspection scheduled in Inspections module' : ''),
                 'data' => $result
             ];
         });
@@ -553,5 +571,75 @@ class PermitController extends BaseController
             'created_at' => $p['created_at'] ?? '',
             'updated_at' => $p['updated_at'] ?? ''
         ];
+    }
+
+    /**
+     * Auto-schedules an inspection in real-time when permit moves to Under Review
+     */
+    private function ensureInspectionScheduled(int|string $permitId, ?int $inspectorId = null, string $notes = ''): ?array
+    {
+        try {
+            require_once __DIR__ . '/../Models/Inspection.php';
+            require_once __DIR__ . '/../Models/Employee.php';
+
+            $inspectionModel = new Inspection();
+            $allInspections = $inspectionModel->all();
+
+            // Check if there is already an active/scheduled inspection for this permit
+            $existing = array_filter($allInspections, function($i) use ($permitId) {
+                return (int)($i['permit_id'] ?? 0) === (int)$permitId && ($i['status'] ?? '') === 'scheduled';
+            });
+
+            if (!empty($existing)) {
+                return reset($existing);
+            }
+
+            // Determine inspector ID if not provided
+            if (!$inspectorId) {
+                $employeeModel = new Employee();
+                $allEmps = $employeeModel->all();
+                $sanitationInspectors = array_filter($allEmps, function($e) {
+                    $role = strtolower($e['role'] ?? '');
+                    $roleDesc = strtolower($e['role_description'] ?? '');
+                    return str_contains($role, 'inspector') || str_contains($role, 'officer') || str_contains($roleDesc, 'inspector');
+                });
+                $inspectorId = !empty($sanitationInspectors) ? (int)(reset($sanitationInspectors)['id'] ?? 1) : 1;
+            }
+
+            $scheduledDate = date('Y-m-d');
+            if ((int)date('H') >= 17) {
+                $scheduledDate = date('Y-m-d', strtotime('+1 day'));
+            }
+
+            $inspData = [
+                'inspection_id' => $inspectionModel->generateInspectionId(),
+                'permit_id'     => (int)$permitId,
+                'inspector_id'  => (int)$inspectorId,
+                'scheduled_date'=> $scheduledDate,
+                'scheduled_time'=> '09:00:00',
+                'status'        => 'scheduled',
+                'notes'         => !empty($notes) ? $notes : 'Auto-scheduled inspection for application under review.'
+            ];
+
+            $created = $inspectionModel->create($inspData);
+
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $code = $inspData['inspection_id'];
+                    $logger->log("Auto-Scheduled Sanitation Inspection ({$code})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Permit ID: #{$permitId} | Inspector ID: #{$inspectorId}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+
+            return $created;
+        } catch (\Throwable $e) {
+            error_log('Failed to auto-schedule inspection: ' . $e->getMessage());
+            return null;
+        }
     }
 }
