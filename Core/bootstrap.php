@@ -1,5 +1,5 @@
 <?php
-// Core/bootstrap.php
+// Core/bootstrap.php new
 
 require_once __DIR__ . '/Env.php';
 require_once __DIR__ . '/Response.php';
