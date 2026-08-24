@@ -77,6 +77,12 @@ $initialTotalCount = count($headerNotifications);
   <link rel="icon" type="image/png" href="<?= site_url('assets/images/logo.png'); ?>" title="Civentral">
   <link rel="apple-touch-icon" href="<?= site_url('assets/images/logo.png'); ?>">
   
+  <!-- Global App Base URL Configuration -->
+  <script>
+    window.SITE_URL = "<?= rtrim(site_url(''), '/'); ?>";
+    window.API_BASE = "<?= site_url('api/'); ?>";
+  </script>
+
   <!-- Dark Mode Instant Theme Initialization -->
   <script>
     (function() {

@@ -1013,13 +1013,12 @@ function getAnnouncementsApiUrl(extra = '') {
     const range = rangeEl ? rangeEl.value : 'all';
     const category = categoryEl ? categoryEl.value : 'all';
 
-    // Resolve robust API endpoint path
-    let apiPath = '../api/announcements.php';
-    if (window.location.pathname.indexOf('/pages/') === -1 && window.location.pathname.indexOf('/modules/') === -1 && window.location.pathname.indexOf('/management/') === -1) {
-        apiPath = 'api/announcements.php';
-    }
+    // Canonical API resolution across both localhost and production deployment
+    const base = (typeof window.API_BASE !== 'undefined' && window.API_BASE)
+        ? window.API_BASE.replace(/\/+$/, '')
+        : (window.location.pathname.indexOf('/pages/') !== -1 || window.location.pathname.indexOf('/modules/') !== -1 || window.location.pathname.indexOf('/management/') !== -1 ? '../api' : 'api');
 
-    let url = `${apiPath}?range=${encodeURIComponent(range)}&category=${encodeURIComponent(category)}&_t=${Date.now()}`;
+    let url = `${base}/announcements.php?range=${encodeURIComponent(range)}&category=${encodeURIComponent(category)}&_t=${Date.now()}`;
     if (extra) {
         url += extra.startsWith('?') ? '&' + extra.substring(1) : '&' + extra;
     }
