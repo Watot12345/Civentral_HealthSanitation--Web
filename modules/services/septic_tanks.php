@@ -221,8 +221,8 @@ $title = 'Septic Tank Registry';
              data-row-id="<?php echo (int)$tank['id']; ?>"
              data-status="<?php echo htmlspecialchars($tank['status'], ENT_QUOTES, 'UTF-8'); ?>"
              data-type="<?php echo htmlspecialchars($tank['type'], ENT_QUOTES, 'UTF-8'); ?>"
-             data-barangay="<?php echo htmlspecialchars($tank['barangay'], ENT_QUOTES, 'UTF-8'); ?>"
-             data-maintenance-date="<?php echo htmlspecialchars($tank['last_maintenance'], ENT_QUOTES, 'UTF-8'); ?>"
+             data-barangay="<?php echo htmlspecialchars($tank['barangay'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+             data-maintenance-date="<?php echo htmlspecialchars($tank['last_maintenance'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
              id="tank-card-<?php echo (int)$tank['id']; ?>">
             
             <!-- Header -->
@@ -264,7 +264,7 @@ $title = 'Septic Tank Registry';
                 </div>
                 <div class="flex justify-between">
                     <span class="text-slate-500">Last Maintenance</span>
-                    <span class="text-slate-800 text-xs"><?php echo date('M d, Y', strtotime($tank['last_maintenance'])); ?></span>
+                    <span class="text-slate-800 text-xs"><?php echo !empty($tank['last_maintenance']) ? date('M d, Y', strtotime($tank['last_maintenance'])) : '<span class="text-slate-400 italic">None / Unscheduled</span>'; ?></span>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-slate-500">Barangay</span>
@@ -591,7 +591,7 @@ $title = 'Septic Tank Registry';
                         <div><p class="text-xs text-slate-400 font-semibold">Capacity</p><p class="text-sm text-slate-800 font-bold">${tCap}</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Type & Age</p><p class="text-sm text-slate-800">${tType} (${tankAge})</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Installed Year</p><p class="text-sm text-slate-800">${t.installation_year || 'N/A'}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Last Maintenance</p><p class="text-sm text-slate-800">${new Date(t.last_maintenance).toLocaleDateString()}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Last Maintenance</p><p class="text-sm text-slate-800">${t.last_maintenance ? new Date(t.last_maintenance).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '<span class="text-slate-400 italic">None / Unscheduled</span>'}</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Frequency</p><p class="text-sm text-slate-800">Every ${t.maintenance_frequency} months</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Location</p><p class="text-sm text-slate-800 font-mono text-xs">${t.latitude}, ${t.longitude}</p></div>
                     </div>

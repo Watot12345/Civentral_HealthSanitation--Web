@@ -541,6 +541,47 @@ let doctors           = <?php echo json_encode(array_values($employees)); ?>;
 let currentPage     = 1;
 const ITEMS_PER_PAGE = 10;
 
+// Enrich referral object with localized patient, avatar, and doctor data
+function enrichLocally(r) {
+    if (!r) return {};
+    
+    // Patient Name & Avatar Initials
+    if (!r.patient_name || r.patient_name === 'Unknown' || !r.patient_avatar) {
+        const pat = (Array.isArray(patients) ? patients : []).find(p => p.id == r.patient_id || p.patient_id == r.patient_id);
+        if (pat) {
+            const fullName = `${pat.first_name || ''} ${pat.last_name || ''}`.trim();
+            r.patient_name = r.patient_name || fullName || 'Unknown';
+            const f = (pat.first_name || '').charAt(0).toUpperCase();
+            const l = (pat.last_name || '').charAt(0).toUpperCase();
+            r.patient_avatar = r.patient_avatar || (f + l) || '??';
+            r.patient_code = r.patient_code || pat.patient_id || pat.id;
+        } else {
+            r.patient_name = r.patient_name || 'Unknown';
+            r.patient_avatar = r.patient_avatar || '??';
+        }
+    }
+
+    // Originating Doctor
+    if (!r.from_doctor || r.from_doctor === 'Unknown' || r.from_doctor === 'N/A') {
+        const doc = (Array.isArray(doctors) ? doctors : []).find(d => d.id == r.from_doctor_id);
+        if (doc) {
+            r.from_doctor = doc.full_name || `${doc.first_name || ''} ${doc.last_name || ''}`.trim() || 'N/A';
+        }
+    }
+
+    // Target Specialist
+    if (r.referral_type === 'specialist' || !r.referral_type) {
+        if (!r.to_specialist || r.to_specialist === 'Unknown' || r.to_specialist === 'N/A') {
+            const spec = (Array.isArray(doctors) ? doctors : []).find(d => d.id == r.to_doctor_id);
+            if (spec) {
+                r.to_specialist = spec.full_name || `${spec.first_name || ''} ${spec.last_name || ''}`.trim() || 'N/A';
+            }
+        }
+    }
+
+    return r;
+}
+
 // ============================================================
 // INIT
 // ============================================================
