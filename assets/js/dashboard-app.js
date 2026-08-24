@@ -1171,6 +1171,7 @@ async function handlePostAnnouncementSubmit(e) {
 
     const titleInput = document.getElementById('announcementTitle');
     const bodyInput = document.getElementById('announcementBody');
+    const submitBtn = e.target.querySelector('button[type="submit"]') || document.getElementById('submitAnnouncementBtn');
 
     const title = titleInput ? titleInput.value.trim() : '';
     const body = bodyInput ? bodyInput.value.trim() : '';
@@ -1193,22 +1194,45 @@ async function handlePostAnnouncementSubmit(e) {
     const categorySelect = document.getElementById('announcementCategory');
     const audienceSelect = document.getElementById('announcementAudience');
     const fileInput = document.getElementById('announcementFile');
+    const base64Input = document.getElementById('announcementFileBase64');
 
     formData.set('title', title);
     formData.set('body', body);
     formData.set('category', categorySelect ? categorySelect.value : 'General Notice');
     formData.set('audience', audienceSelect ? audienceSelect.value : 'All Staff');
 
-    if (fileInput && fileInput.files && fileInput.files[0]) {
+    if (base64Input && base64Input.value) {
+        formData.set('file_base64', base64Input.value);
+    } else if (fileInput && fileInput.files && fileInput.files[0]) {
         formData.set('announcementFile', fileInput.files[0]);
     }
 
+    // Direct endpoint URL
+    const postApiUrl = (typeof window.API_BASE !== 'undefined' && window.API_BASE)
+        ? `${window.API_BASE.replace(/\/+$/, '')}/announcements.php`
+        : getAnnouncementsApiUrl();
+
+    let origBtnHtml = '';
+    if (submitBtn) {
+        origBtnHtml = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Publishing...';
+    }
+
     try {
-        const response = await fetch(getAnnouncementsApiUrl(), {
+        const response = await fetch(postApiUrl, {
             method: 'POST',
             body: formData
         });
-        const result = await response.json();
+
+        const rawText = await response.text();
+        let result;
+        try {
+            result = JSON.parse(rawText);
+        } catch (parseErr) {
+            console.error('Non-JSON response while publishing announcement:', rawText);
+            throw new Error(`Server returned error: ${rawText.substring(0, 120)}`);
+        }
 
         if (result.success) {
             closePostAnnouncementModal();
@@ -1216,7 +1240,7 @@ async function handlePostAnnouncementSubmit(e) {
             removeAnnouncementFile();
 
             if (typeof showToast === 'function') {
-                showToast('Announcement published successfully!', 'success');
+                showToast('Announcement published successfully to Supabase!', 'success');
             }
             await loadAnnouncements();
         } else {
@@ -1224,7 +1248,12 @@ async function handlePostAnnouncementSubmit(e) {
         }
     } catch (err) {
         console.error('Submit Announcement Error:', err);
-        showPostAnnouncementError('Network error occurred while publishing announcement.');
+        showPostAnnouncementError(err.message || 'Network error occurred while publishing announcement.');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origBtnHtml;
+        }
     }
 }
 

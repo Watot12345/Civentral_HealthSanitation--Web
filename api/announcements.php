@@ -1,4 +1,3 @@
-
 <?php
 // api/announcements.php
 
@@ -91,6 +90,10 @@ try {
         }
 
         $announcements = array_values($announcements);
+
+        if (ob_get_level() > 0) {
+            @ob_clean();
+        }
 
         echo json_encode([
             'success' => true,
@@ -221,6 +224,10 @@ try {
             'author' => $authorName,
             'file_url' => $fileUrl
         ]);
+
+        if (ob_get_level() > 0) {
+            @ob_clean();
+        }
 
         echo json_encode([
             'success' => true,
