@@ -93,10 +93,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $twoFactorEnforced = class_exists('Settings') ? (bool)Settings::get('security.two_factor_auth', false) : false;
                 $hasVerifiedDevice = $authService->hasActiveVerifiedSession((int)$user['id'], $userCookieToken);
 
-                // Direct login bypass if:
-                // 1. 2FA is NOT enforced in Settings AND (dev bypass OR verified device OR standard credentials valid)
-                // 2. Dev bypass is explicitly enabled
-                if ($devBypassAuth || (!$twoFactorEnforced) || ($hasVerifiedDevice && !$twoFactorEnforced)) {
+                // If DEV_BYPASS_AUTH=false OR Two-Factor Auth is enabled in Settings, enforce OTP verification
+                $requireOtp = (!$devBypassAuth) || $twoFactorEnforced;
+
+                // Direct login bypass only if requireOtp is false OR (device is already verified AND dev bypass is enabled)
+                if (!$requireOtp) {
                     $functionalRole               = $user['role_description'] ?? $user['role'] ?? 'Employee';
                     $_SESSION['user_id']          = $user['id'];
                     $_SESSION['employee_id']      = $user['employee_id'];

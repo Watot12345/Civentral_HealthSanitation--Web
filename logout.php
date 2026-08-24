@@ -26,7 +26,7 @@ try {
     }
 } catch (Throwable $ignored) {}
 
-// Clear PHP $_SESSION variables for security, but keep 12h/7d device trust token
+// Clear PHP $_SESSION variables and cookies completely
 $_SESSION = [];
 if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
@@ -34,6 +34,16 @@ if (ini_get("session.use_cookies")) {
         $params["path"], $params["domain"],
         $params["secure"], $params["httponly"]
     );
+}
+
+// Clear device trust tokens
+setcookie('civentral_session', '', time() - 42000, '/');
+if (isset($_COOKIE)) {
+    foreach ($_COOKIE as $cName => $cVal) {
+        if (str_starts_with($cName, 'civentral_session')) {
+            setcookie($cName, '', time() - 42000, '/');
+        }
+    }
 }
 session_destroy();
 ?>
