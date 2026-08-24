@@ -51,7 +51,6 @@ class SettingsService
         'security.max_login_attempts' => 5,
         'security.password_expiry' => 90,
         'security.two_factor_auth' => false,
-        'security.allowed_ips' => '192.168.1.*, 10.0.0.*',
         'security.ssl_enforced' => true,
         'security.audit_logging' => true,
 

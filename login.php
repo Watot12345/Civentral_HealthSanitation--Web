@@ -47,31 +47,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            // Enforce IP Whitelist if configured in Settings
-            $allowedIpsConfig = class_exists('Settings') ? trim(Settings::get('security.allowed_ips', '')) : '';
-            if (!empty($allowedIpsConfig) && $allowedIpsConfig !== '*' && $allowedIpsConfig !== '*.*.*.*') {
-                $allowedList = array_map('trim', explode(',', $allowedIpsConfig));
-                $ipAllowed = false;
-                foreach ($allowedList as $pattern) {
-                    if (empty($pattern)) continue;
-                    $regexPattern = '/^' . str_replace(['.', '*'], ['\.', '.*'], $pattern) . '$/';
-                    if (preg_match($regexPattern, $clientIp)) {
-                        $ipAllowed = true;
-                        break;
-                    }
-                }
-                if ($clientIp === '127.0.0.1' || $clientIp === '::1' || $clientIp === 'localhost') {
-                    $ipAllowed = true;
-                }
-                if (!$ipAllowed) {
-                    echo json_encode([
-                        'success' => false,
-                        'message' => "Access denied: Client IP ({$clientIp}) is not within the authorized network whitelist."
-                    ]);
-                    exit;
-                }
-            }
-
             try {
                 $db = Database::getInstance();
                 $result = $db->select('employees', ['employee_id' => $employeeId]);

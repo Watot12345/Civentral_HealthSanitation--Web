@@ -36,7 +36,6 @@ $systemConfig = [
         'max_login_attempts' => (int)Settings::get('security.max_login_attempts', 5),
         'password_expiry' => (int)Settings::get('security.password_expiry', 90),
         'two_factor_auth' => (bool)Settings::get('security.two_factor_auth', false),
-        'allowed_ips' => Settings::get('security.allowed_ips', '192.168.1.*, 10.0.0.*'),
         'ssl_enforced' => (bool)Settings::get('security.ssl_enforced', true),
         'audit_logging' => (bool)Settings::get('security.audit_logging', true),
     ],
@@ -443,10 +442,6 @@ $title = 'Settings';
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Max Login Attempts</label>
                             <input type="number" data-setting-key="security.max_login_attempts" value="<?php echo htmlspecialchars($systemConfig['security']['max_login_attempts']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Allowed IPs</label>
-                            <input type="text" data-setting-key="security.allowed_ips" value="<?php echo htmlspecialchars($systemConfig['security']['allowed_ips']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Security Options</label>
