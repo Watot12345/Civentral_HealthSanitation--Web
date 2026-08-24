@@ -1013,7 +1013,13 @@ function getAnnouncementsApiUrl(extra = '') {
     const range = rangeEl ? rangeEl.value : 'all';
     const category = categoryEl ? categoryEl.value : 'all';
 
-    let url = `../api/announcements.php?range=${encodeURIComponent(range)}&category=${encodeURIComponent(category)}`;
+    // Resolve robust API endpoint path
+    let apiPath = '../api/announcements.php';
+    if (window.location.pathname.indexOf('/pages/') === -1 && window.location.pathname.indexOf('/modules/') === -1 && window.location.pathname.indexOf('/management/') === -1) {
+        apiPath = 'api/announcements.php';
+    }
+
+    let url = `${apiPath}?range=${encodeURIComponent(range)}&category=${encodeURIComponent(category)}&_t=${Date.now()}`;
     if (extra) {
         url += extra.startsWith('?') ? '&' + extra.substring(1) : '&' + extra;
     }
