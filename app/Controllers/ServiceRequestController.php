@@ -74,6 +74,16 @@ class ServiceRequestController extends BaseController
     public function store(): void
     {
         $this->handle(function () {
+            // Check if service requests are enabled
+            $srvReqEnabled = class_exists('Settings') ? (bool)Settings::get('modules.wastewater.enable_service_requests', true) : true;
+            if (!$srvReqEnabled) {
+                return [
+                    'success' => false,
+                    'message' => 'Online wastewater service intake is temporarily disabled by the administrator.',
+                    'code' => 403
+                ];
+            }
+
             $d = $this->input();
             if (empty($d['owner_name']))   return ['success' => false, 'message' => 'Owner name is required',   'code' => 422];
             if (empty($d['service_type'])) return ['success' => false, 'message' => 'Service type is required', 'code' => 422];
@@ -107,20 +117,24 @@ class ServiceRequestController extends BaseController
                     'notes'          => 'Auto-created from Service Request ' . ($req['request_id'] ?? '')
                 ]);
 
-                $iModel = new WastewaterInvoice();
-                $iModel->create([
-                    'invoice_id'         => 'INV-' . date('ymd') . '-' . rand(100, 999),
-                    'tank_id'            => $req['tank_id'] ?? ($d['tank_id'] ?? null),
-                    'client_name'        => $req['owner_name'] ?? $d['owner_name'],
-                    'service_type'       => ucfirst($req['service_type'] ?? ($d['service_type'] ?? 'desludging')) . ' Service',
-                    'amount'             => 1500.00,
-                    'tax'                => 180.00,
-                    'total_amount'       => 1680.00,
-                    'due_date'           => date('Y-m-d', strtotime('+14 days')),
-                    'status'             => 'pending',
-                    'provider_id'        => $req['provider_id'] ?? ($d['provider_id'] ?? null),
-                    'service_request_id' => $req['request_id'] ?? null
-                ]);
+                // Auto-generate invoice only if wastewater billing is enabled
+                $billingEnabled = class_exists('Settings') ? (bool)Settings::get('modules.wastewater.enable_billing', true) : true;
+                if ($billingEnabled) {
+                    $iModel = new WastewaterInvoice();
+                    $iModel->create([
+                        'invoice_id'         => 'INV-' . date('ymd') . '-' . rand(100, 999),
+                        'tank_id'            => $req['tank_id'] ?? ($d['tank_id'] ?? null),
+                        'client_name'        => $req['owner_name'] ?? $d['owner_name'],
+                        'service_type'       => ucfirst($req['service_type'] ?? ($d['service_type'] ?? 'desludging')) . ' Service',
+                        'amount'             => 1500.00,
+                        'tax'                => 180.00,
+                        'total_amount'       => 1680.00,
+                        'due_date'           => date('Y-m-d', strtotime('+14 days')),
+                        'status'             => 'pending',
+                        'provider_id'        => $req['provider_id'] ?? ($d['provider_id'] ?? null),
+                        'service_request_id' => $req['request_id'] ?? null
+                    ]);
+                }
             } catch (Throwable $e) {
                 error_log('Automated cascade error in ServiceRequestController: ' . $e->getMessage());
             }

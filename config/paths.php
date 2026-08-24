@@ -293,15 +293,69 @@ if (file_exists(__DIR__ . '/../app/helpers/Settings.php')) {
             $currentUri = $_SERVER['REQUEST_URI'] ?? '';
 
             if (!$isAdmin && !str_contains($currentUri, 'login.php') && !str_contains($currentUri, 'api/settings')) {
-                // If maintenance mode active and non-admin, render maintenance alert or exit
                 if (!str_contains($currentUri, 'maintenance')) {
                     http_response_code(503);
-                    // Standard non-blocking graceful notice
                 }
+            }
+        }
+
+        // 3. Enforce Session Inactivity Timeout
+        if (!empty($_SESSION['logged_in'])) {
+            $sessionTimeout = (int)Settings::get('security.session_timeout', 3600);
+            if ($sessionTimeout > 0 && isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $sessionTimeout)) {
+                $expiredUserId = $_SESSION['user_id'] ?? null;
+                $_SESSION = [];
+                if (session_status() === PHP_SESSION_ACTIVE) {
+                    @session_destroy();
+                }
+                setcookie('civentral_session', '', time() - 3600, '/');
+                if ($expiredUserId) {
+                    setcookie('civentral_session_' . $expiredUserId, '', time() - 3600, '/');
+                }
+                $currentUri = $_SERVER['REQUEST_URI'] ?? '';
+                if (!str_contains($currentUri, 'login.php')) {
+                    if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+                        header('Content-Type: application/json');
+                        http_response_code(401);
+                        echo json_encode(['success' => false, 'message' => 'Session expired due to inactivity. Please log in again.', 'session_expired' => true]);
+                        exit;
+                    }
+                    if (!headers_sent()) {
+                        header('Location: ' . site_url('login.php?session_expired=1'));
+                        exit;
+                    }
+                }
+            } else {
+                $_SESSION['last_activity'] = time();
             }
         }
     } catch (Throwable $e) {
         error_log('Settings bootstrap error: ' . $e->getMessage());
+    }
+}
+
+if (!function_exists('getSystemName')) {
+    function getSystemName(): string {
+        if (class_exists('Settings')) {
+            return (string)Settings::get('general.system_name', 'Civentral');
+        }
+        return 'Civentral';
+    }
+}
+
+if (!function_exists('formatSystemDate')) {
+    function formatSystemDate(?string $datetime, bool $includeTime = false): string {
+        if (empty($datetime)) {
+            return '—';
+        }
+        $timestamp = is_numeric($datetime) ? (int)$datetime : strtotime($datetime);
+        if (!$timestamp) {
+            return $datetime;
+        }
+        $dateFormat = class_exists('Settings') ? Settings::get('general.date_format', 'Y-m-d') : 'Y-m-d';
+        $timeFormat = class_exists('Settings') ? Settings::get('general.time_format', 'H:i:s') : 'H:i:s';
+        
+        return $includeTime ? date("{$dateFormat} {$timeFormat}", $timestamp) : date($dateFormat, $timestamp);
     }
 }
 ?>

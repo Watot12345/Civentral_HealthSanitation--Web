@@ -75,9 +75,13 @@ class ConsultationController extends BaseController
                 return ['success' => false, 'message' => 'Patient selection is required', 'code' => 400];
             }
 
-            $vitalError = $this->validateVitalSigns($data['vital_signs'] ?? null);
-            if ($vitalError) {
-                return ['success' => false, 'message' => $vitalError, 'code' => 422];
+            // Enforce vital signs requirement from Settings
+            $requireVitals = class_exists('Settings') ? (bool)Settings::get('modules.health_center.require_vital_signs', true) : true;
+            if ($requireVitals) {
+                $vitalError = $this->validateVitalSigns($data['vital_signs'] ?? null);
+                if ($vitalError) {
+                    return ['success' => false, 'message' => $vitalError, 'code' => 422];
+                }
             }
 
             $rawAppointmentId = $data['appointment_id'] ?? null;
@@ -92,6 +96,17 @@ class ConsultationController extends BaseController
 
             $dbData = $this->prepareDbData($data);
             
+            // Respect prescription and referral feature toggles
+            $enablePrescriptions = class_exists('Settings') ? (bool)Settings::get('modules.health_center.enable_prescriptions', true) : true;
+            if (!$enablePrescriptions && !empty($dbData['prescriptions'])) {
+                $dbData['prescriptions'] = null;
+            }
+
+            $enableReferrals = class_exists('Settings') ? (bool)Settings::get('modules.health_center.enable_referrals', true) : true;
+            if (!$enableReferrals && !empty($dbData['referral_to'])) {
+                $dbData['referral_to'] = null;
+            }
+
             error_log('STORE dbData: ' . json_encode($dbData));
 
             if (empty($dbData['consultation_id'])) {

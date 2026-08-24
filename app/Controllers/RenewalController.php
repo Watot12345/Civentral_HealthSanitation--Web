@@ -165,7 +165,8 @@ class RenewalController
             Response::error('Renewal not found', 404);
         }
 
-        $newExpiry = date('Y-m-d', strtotime('+1 year'));
+        $validityDays = class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365;
+        $newExpiry = date('Y-m-d', strtotime("+{$validityDays} days"));
 
         $updateData = [
             'status' => 'approved',

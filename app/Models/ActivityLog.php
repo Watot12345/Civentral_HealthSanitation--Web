@@ -132,6 +132,11 @@ class ActivityLog
      */
     public function log(string $action, array $extra = []): array
     {
+        // Respect security.audit_logging setting
+        if (class_exists('Settings') && !Settings::get('security.audit_logging', true)) {
+            return [];
+        }
+
         if (session_status() === PHP_SESSION_NONE) {
             @session_start();
         }
@@ -187,6 +192,25 @@ class ActivityLog
             $this->db->delete($this->table, ['id' => 'gt.0'], true);
         } catch (Throwable $e) {
             error_log('ActivityLog::clearAll() error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Prune logs older than the configured performance.log_retention_days
+     */
+    public function pruneOldLogs(): int
+    {
+        $retentionDays = class_exists('Settings') ? (int)Settings::get('performance.log_retention_days', 30) : 30;
+        if ($retentionDays <= 0) {
+            return 0;
+        }
+
+        $cutoffDate = date('Y-m-d H:i:s', strtotime("-{$retentionDays} days"));
+        try {
+            return (int)$this->db->delete($this->table, ['created_at' => 'lt.' . $cutoffDate], true);
+        } catch (Throwable $e) {
+            error_log('ActivityLog::pruneOldLogs() error: ' . $e->getMessage());
+            return 0;
         }
     }
 

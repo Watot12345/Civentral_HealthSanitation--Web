@@ -359,7 +359,7 @@ class PaymentController extends BaseController
                         'status'        => 'verified',
                         'verified'      => true,
                         'qr_code'       => $qrCode,
-                        'expiry_date'   => date('Y-m-d', strtotime('+1 year')),
+                        'expiry_date'   => date('Y-m-d', strtotime('+' . (class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365) . ' days')),
                         'notes'         => 'Official Sanitation Permit with QR Code generated upon verified payment (OR #' . ($receiptNumber ?? 'N/A') . ')'
                     ]);
                 }

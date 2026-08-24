@@ -20,16 +20,20 @@ class VaccineInventory
 
     /**
      * Compute stock status from quantity and minimum_stock.
+     * Uses modules.immunization.vaccine_inventory_alert as global threshold.
      * critical  = qty > 0 but <= half of min
      * low_stock = qty > half of min but <= min
      * in_stock  = qty > min
      * out_of_stock = qty <= 0
      */
-    public static function computeStatus(int $qty, int $min): string
+    public static function computeStatus(int $qty, ?int $min = null): string
     {
-        if ($qty <= 0)          return 'out_of_stock';
-        if ($qty <= ($min / 2)) return 'critical';
-        if ($qty <= $min)       return 'low_stock';
+        $globalMin = class_exists('Settings') ? (int)Settings::get('modules.immunization.vaccine_inventory_alert', 50) : 50;
+        $effectiveMin = ($min !== null && $min > 0) ? $min : $globalMin;
+
+        if ($qty <= 0)                   return 'out_of_stock';
+        if ($qty <= ($effectiveMin / 2)) return 'critical';
+        if ($qty <= $effectiveMin)       return 'low_stock';
         return 'in_stock';
     }
 

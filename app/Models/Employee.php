@@ -13,16 +13,33 @@ class Employee
         $this->db = $db ?? Database::getInstance();
     }
 
+    private static ?array $cachedEmployees = null;
+    private static ?int $cacheTime = null;
+
     public function all(array $options = []): array
     {
+        if (empty($options) && self::$cachedEmployees !== null && self::$cacheTime !== null && (time() - self::$cacheTime < 120)) {
+            return self::$cachedEmployees;
+        }
+
         try {
             $employees = $this->db->select($this->table, [], $options);
-            return $this->normalizeEmployees($employees);
+            $normalized = $this->normalizeEmployees($employees);
+            if (empty($options)) {
+                self::$cachedEmployees = $normalized;
+                self::$cacheTime = time();
+            }
+            return $normalized;
         } catch (Throwable $e) {
             // Fallback to users table if employees table is not directly accessible or missing
             try {
                 $users = $this->db->select('users', [], $options);
-                return $this->normalizeEmployees($users);
+                $normalized = $this->normalizeEmployees($users);
+                if (empty($options)) {
+                    self::$cachedEmployees = $normalized;
+                    self::$cacheTime = time();
+                }
+                return $normalized;
             } catch (Throwable $e2) {
                 return [];
             }

@@ -28,6 +28,18 @@ class NotificationService
      */
     public function getNotifications(int $limit = 12): array
     {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            @session_start();
+        }
+
+        // Fast In-Memory / Session Cache (45s TTL)
+        $userKey = 'notifs_' . ($_SESSION['user_id'] ?? 'anon') . '_' . md5(($_SESSION['role'] ?? '') . ($_SESSION['department'] ?? ''));
+        if (isset($_SESSION['cache_' . $userKey]) && isset($_SESSION['cache_time_' . $userKey])) {
+            if (time() - (int)$_SESSION['cache_time_' . $userKey] < 45) {
+                return (array)$_SESSION['cache_' . $userKey];
+            }
+        }
+
         $notifications = [];
 
         if (!$this->db) {
@@ -229,11 +241,11 @@ class NotificationService
             error_log("NotificationService Log error: " . $e->getMessage());
         }
 
-        if (empty($notifications)) {
-            return [];
-        }
+        $result = array_slice($notifications, 0, $limit);
+        $_SESSION['cache_' . $userKey] = $result;
+        $_SESSION['cache_time_' . $userKey] = time();
 
-        return array_slice($notifications, 0, $limit);
+        return $result;
     }
 
     /**
@@ -319,5 +331,43 @@ class NotificationService
         } else {
             return date('M d', $timestamp);
         }
+    }
+
+    /**
+     * Dispatch an email notification respecting the master notifications.email.enabled setting
+     */
+    public function dispatchEmailAlert(string $toEmail, string $recipientName, string $subject, string $message): bool
+    {
+        $emailEnabled = class_exists('Settings') ? (bool)\Settings::get('notifications.email.enabled', true) : true;
+        if (!$emailEnabled) {
+            error_log("NotificationService: Email alerts disabled in Settings. Skipped dispatch to {$toEmail}.");
+            return false;
+        }
+
+        require_once __DIR__ . '/MailService.php';
+        $mailer = new \MailService();
+        return $mailer->sendNotificationEmail($toEmail, $recipientName, $subject, $message);
+    }
+
+    /**
+     * Dispatch an SMS notification respecting the master notifications.sms.enabled setting
+     */
+    public function dispatchSmsAlert(string $phoneNumber, string $message): bool
+    {
+        $smsEnabled = class_exists('Settings') ? (bool)\Settings::get('notifications.sms.enabled', false) : false;
+        if (!$smsEnabled) {
+            error_log("NotificationService: SMS alerts disabled in Settings. Skipped dispatch to {$phoneNumber}.");
+            return false;
+        }
+
+        $provider = class_exists('Settings') ? \Settings::get('notifications.sms.api_provider', 'Twilio') : 'Twilio';
+        $logDir = __DIR__ . '/../../storage/cache';
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0755, true);
+        }
+        $logEntry = date('Y-m-d H:i:s') . " | SMS to {$phoneNumber} via {$provider}: {$message}\n";
+        @file_put_contents($logDir . '/sms_dispatch.log', $logEntry, FILE_APPEND);
+
+        return true;
     }
 }

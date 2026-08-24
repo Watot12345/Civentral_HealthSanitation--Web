@@ -77,12 +77,15 @@ class AlertService
                 $threshold = (int)($a['threshold'] ?? 3);
                 $severity = trim($a['severity'] ?? 'Warning');
 
-                // Plain-language classification (No 2-SD jargon in presentation)
+                // Plain-language classification with dynamic outbreak threshold setting
                 $plainStatus = '🟢 Normal';
                 $badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
                 $dotColor = 'bg-emerald-500';
 
-                if ($cases >= $threshold && $cases >= self::MINIMUM_CASE_FLOOR) {
+                $outbreakThreshold = class_exists('Settings') ? (int)\Settings::get('modules.surveillance.outbreak_threshold', 10) : 10;
+                $effectiveThreshold = $threshold > 0 ? min($threshold, $outbreakThreshold) : $outbreakThreshold;
+
+                if (($cases >= $effectiveThreshold || $cases >= $outbreakThreshold) && $cases >= self::MINIMUM_CASE_FLOOR) {
                     $plainStatus = '🔴 Outbreak Alert';
                     $badgeClass = 'bg-red-50 text-red-700 border-red-200';
                     $dotColor = 'bg-red-500 animate-pulse';

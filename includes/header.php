@@ -72,9 +72,10 @@ $initialTotalCount = count($headerNotifications);
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="csrf-token" content="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES); ?>">
-  <title>Civentral</title>
+  <title>Civentral<?php if (!empty($pageTitle)) echo ' · ' . htmlspecialchars($pageTitle); ?></title>
 
-  <link rel="icon" type="image/png" href="<?= site_url('assets/images/logo.png'); ?>">
+  <link rel="icon" type="image/png" href="<?= site_url('assets/images/logo.png'); ?>" title="Civentral">
+  <link rel="apple-touch-icon" href="<?= site_url('assets/images/logo.png'); ?>">
   
   <!-- Dark Mode Instant Theme Initialization -->
   <script>
@@ -88,9 +89,13 @@ $initialTotalCount = count($headerNotifications);
     })();
   </script>
 
+  <!-- Performance CDN Preconnects -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+
   <!-- Tailwind CSS & ApexCharts -->
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts" defer></script>
   
   <!-- Font Awesome 6 (Latest) - Loaded in head for priority -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />

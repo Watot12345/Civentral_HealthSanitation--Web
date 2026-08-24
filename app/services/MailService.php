@@ -2,6 +2,7 @@
 // app/services/MailService.php
 
 require_once __DIR__ . '/../../Core/Env.php';
+require_once __DIR__ . '/../helpers/Settings.php';
 require_once __DIR__ . '/../../vendor/phpmailer/src/Exception.php';
 require_once __DIR__ . '/../../vendor/phpmailer/src/PHPMailer.php';
 require_once __DIR__ . '/../../vendor/phpmailer/src/SMTP.php';
@@ -11,6 +12,7 @@ use PHPMailer\PHPMailer\Exception;
 
 class MailService
 {
+    private bool $enabled;
     private string $host;
     private int $port;
     private string $username;
@@ -23,18 +25,27 @@ class MailService
     {
         Env::load();
 
-        $this->host       = Env::get('SMTP_HOST') ?: 'smtp.gmail.com';
-        $this->port       = (int)(Env::get('SMTP_PORT') ?: 587);
-        $this->username   = Env::get('SMTP_USER') ?: '';
-        $this->password   = Env::get('SMTP_PASS') ?: '';
-        $this->fromEmail  = Env::get('SMTP_FROM') ?: 'no-reply@civentral.tech';
-        $this->fromName   = Env::get('SMTP_FROM_NAME') ?: 'Civentral LGU Employee Portal';
-        $this->encryption = Env::get('SMTP_ENCRYPTION') ?: PHPMailer::ENCRYPTION_STARTTLS;
+        $this->enabled    = class_exists('Settings') ? (bool)Settings::get('notifications.email.enabled', true) : true;
+        $this->host       = class_exists('Settings') ? Settings::get('notifications.email.smtp_host', Env::get('SMTP_HOST') ?: 'smtp.gmail.com') : (Env::get('SMTP_HOST') ?: 'smtp.gmail.com');
+        $this->port       = class_exists('Settings') ? (int)Settings::get('notifications.email.smtp_port', (int)(Env::get('SMTP_PORT') ?: 587)) : (int)(Env::get('SMTP_PORT') ?: 587);
+        $this->username   = class_exists('Settings') ? Settings::get('notifications.email.smtp_username', Env::get('SMTP_USER') ?: '') : (Env::get('SMTP_USER') ?: '');
+        $this->password   = class_exists('Settings') ? Settings::get('notifications.email.smtp_password', Env::get('SMTP_PASS') ?: '') : (Env::get('SMTP_PASS') ?: '');
+        $this->fromEmail  = class_exists('Settings') ? Settings::get('notifications.email.sender_email', Env::get('SMTP_FROM') ?: 'no-reply@caloocan.gov.ph') : (Env::get('SMTP_FROM') ?: 'no-reply@caloocan.gov.ph');
+        $this->fromName   = class_exists('Settings') ? Settings::get('notifications.email.sender_name', Env::get('SMTP_FROM_NAME') ?: 'Caloocan City Health Office') : (Env::get('SMTP_FROM_NAME') ?: 'Caloocan City Health Office');
+
+        $encSetting = class_exists('Settings') ? strtolower(trim(Settings::get('notifications.email.smtp_encryption', 'tls'))) : (Env::get('SMTP_ENCRYPTION') ?: 'tls');
+        if ($encSetting === 'ssl') {
+            $this->encryption = PHPMailer::ENCRYPTION_SMTPS;
+        } elseif ($encSetting === 'none') {
+            $this->encryption = '';
+        } else {
+            $this->encryption = PHPMailer::ENCRYPTION_STARTTLS;
+        }
     }
 
     /**
      * Sends a 6-digit OTP verification email to an employee.
-     * If SMTP is not configured, logs the code locally to storage/cache/last_otp.log for dev testing.
+     * If SMTP is not configured or disabled, logs the code locally to storage/cache/last_otp.log for dev testing.
      */
     public function sendOtpEmail(string $toEmail, string $recipientName, string $otpCode, int $expiresMinutes = 15): bool
     {
@@ -45,6 +56,11 @@ class MailService
         }
         $logContent = date('Y-m-d H:i:s') . " | OTP for {$toEmail} ({$recipientName}): {$otpCode}\n";
         @file_put_contents($logDir . '/last_otp.log', $logContent, FILE_APPEND);
+
+        if (!$this->enabled) {
+            error_log("MailService: Email dispatch disabled in Settings. OTP {$otpCode} recorded in log for {$toEmail}.");
+            return true;
+        }
 
         // If no SMTP password or username is provided, treat local dev log as success
         if (empty($this->username) || empty($this->password)) {
@@ -122,5 +138,56 @@ class MailService
         </body>
         </html>
         ";
+    }
+
+    /**
+     * Sends a generic system notification email using the configured SMTP settings.
+     */
+    public function sendNotificationEmail(string $toEmail, string $recipientName, string $subject, string $htmlBody, string $altBody = ''): bool
+    {
+        // Dev / Fallback log
+        $logDir = __DIR__ . '/../../storage/cache';
+        if (!is_dir($logDir)) {
+            @mkdir($logDir, 0755, true);
+        }
+        $logContent = date('Y-m-d H:i:s') . " | Notification to {$toEmail} ({$recipientName}) | Subject: {$subject}\n";
+        @file_put_contents($logDir . '/notifications.log', $logContent, FILE_APPEND);
+
+        if (!$this->enabled) {
+            error_log("MailService: Email notifications disabled in Settings. Skipped dispatching to {$toEmail}.");
+            return true;
+        }
+
+        if (empty($this->username) || empty($this->password)) {
+            error_log("MailService: SMTP credentials not set. Notification email to {$toEmail} logged to storage/cache/notifications.log.");
+            return true;
+        }
+
+        try {
+            $mail = new PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host       = $this->host;
+            $mail->SMTPAuth   = true;
+            $mail->Username   = $this->username;
+            $mail->Password   = $this->password;
+            if (!empty($this->encryption)) {
+                $mail->SMTPSecure = $this->encryption;
+            }
+            $mail->Port       = $this->port;
+            $mail->CharSet    = 'UTF-8';
+
+            $mail->setFrom($this->fromEmail, $this->fromName);
+            $mail->addAddress($toEmail, $recipientName);
+
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body    = $htmlBody;
+            $mail->AltBody = $altBody ?: strip_tags($htmlBody);
+
+            return $mail->send();
+        } catch (Exception $e) {
+            error_log("MailService Error sending notification to {$toEmail}: " . $e->getMessage());
+            return false;
+        }
     }
 }

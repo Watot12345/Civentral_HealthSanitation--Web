@@ -412,6 +412,14 @@ class PermitDocumentController
                 $errors[] = "Invalid expiry_date format";
             }
         }
+
+        if (isset($data['file_size'])) {
+            $maxUploadMb = class_exists('Settings') ? (int)Settings::get('performance.max_upload_size', 50) : 50;
+            $maxBytes = $maxUploadMb * 1024 * 1024;
+            if ((int)$data['file_size'] > $maxBytes) {
+                $errors[] = "File size exceeds the maximum allowed limit of {$maxUploadMb}MB";
+            }
+        }
         
         return $errors;
     }

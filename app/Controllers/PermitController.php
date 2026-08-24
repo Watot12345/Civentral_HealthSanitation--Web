@@ -128,6 +128,16 @@ class PermitController extends BaseController
         $data = $this->input();
 
         $this->handle(function() use ($data) {
+            // Check if online applications are enabled
+            $onlineAppsEnabled = class_exists('Settings') ? (bool)Settings::get('modules.sanitation.enable_online_applications', true) : true;
+            if (!$onlineAppsEnabled) {
+                return [
+                    'success' => false,
+                    'message' => 'Online permit applications are temporarily disabled by the administrator.',
+                    'code' => 403
+                ];
+            }
+
             // Validate required fields
             $required = ['applicant', 'business_type', 'address', 'owner_name', 'contact', 'fee'];
             $missing = [];
@@ -249,9 +259,8 @@ class PermitController extends BaseController
             }
             if ($status === 'approved') {
                 $updateData['approved_date'] = date('Y-m-d');
-                // Set expiry to 1 year from now
-                $expiry = new DateTime('+1 year');
-                $updateData['expiry_date'] = $expiry->format('Y-m-d');
+                $validityDays = class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365;
+                $updateData['expiry_date'] = date('Y-m-d', strtotime("+{$validityDays} days"));
             }
 
             // Set inspector if provided
@@ -344,8 +353,8 @@ class PermitController extends BaseController
 
             if ($status === 'approved') {
                 $updateData['approved_date'] = date('Y-m-d');
-                $expiry = new DateTime('+1 year');
-                $updateData['expiry_date'] = $expiry->format('Y-m-d');
+                $validityDays = class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365;
+                $updateData['expiry_date'] = date('Y-m-d', strtotime("+{$validityDays} days"));
             }
 
             $result = $this->permitModel->updateById($id, $updateData);

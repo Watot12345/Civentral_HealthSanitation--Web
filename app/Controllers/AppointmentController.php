@@ -66,6 +66,16 @@ class AppointmentController extends BaseController
         $data = $this->input();
 
         $this->handle(function() use ($data) {
+            // Check if appointment booking is enabled
+            $onlineAptsEnabled = class_exists('Settings') ? (bool)Settings::get('modules.health_center.enable_online_appointments', true) : true;
+            if (!$onlineAptsEnabled) {
+                return [
+                    'success' => false,
+                    'message' => 'Online appointment scheduling is temporarily disabled by the administrator.',
+                    'code' => 403
+                ];
+            }
+
             if (empty($data['patient_id'])) {
                 return [
                     'success' => false,
@@ -83,6 +93,20 @@ class AppointmentController extends BaseController
             }
 
             $dbData = $this->prepareDbData($data);
+
+            // Enforce max appointments per day quota
+            $targetDate = $dbData['appointment_date'] ?? date('Y-m-d');
+            $maxPerDay = class_exists('Settings') ? (int)Settings::get('modules.health_center.max_appointments_per_day', 50) : 50;
+            if ($maxPerDay > 0) {
+                $existingCount = count($this->appointmentModel->all(['appointment_date' => $targetDate]));
+                if ($existingCount >= $maxPerDay) {
+                    return [
+                        'success' => false,
+                        'message' => "Daily appointment quota ({$maxPerDay} appointments) has been reached for {$targetDate}. Please select another date.",
+                        'code' => 422
+                    ];
+                }
+            }
 
             if (empty($dbData['appointment_id'])) {
                 $dbData['appointment_id'] = $this->appointmentModel->generateAppointmentId();

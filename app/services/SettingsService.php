@@ -40,7 +40,7 @@ class SettingsService
 
     private array $defaultSeedValues = [
         'general.system_name' => 'Health & Sanitation Management System',
-        'general.system_version' => '2.1.0',
+        'general.system_version' => 'v1.0.0',
         'general.timezone' => 'Asia/Manila',
         'general.date_format' => 'Y-m-d',
         'general.time_format' => 'H:i:s',
@@ -433,7 +433,7 @@ class SettingsService
         }
         return json_encode([
             'exported_at' => date('Y-m-d H:i:s'),
-            'system_version' => $this->get('general.system_version', '2.1.0'),
+            'system_version' => $this->get('general.system_version', 'v1.0.0'),
             'settings' => $exportData,
         ], JSON_PRETTY_PRINT);
     }

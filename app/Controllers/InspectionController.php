@@ -285,8 +285,8 @@ class InspectionController extends BaseController
                     if ($overall === 'compliant') {
                         $permitUpdate['status'] = 'approved';
                         $permitUpdate['approved_date'] = date('Y-m-d');
-                        $expiry = new DateTime('+1 year');
-                        $permitUpdate['expiry_date'] = $expiry->format('Y-m-d');
+                        $validityDays = class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365;
+                        $permitUpdate['expiry_date'] = date('Y-m-d', strtotime("+{$validityDays} days"));
                         $permitUpdate['rejection_reason'] = null;
                     } elseif ($overall === 'non_compliant') {
                         $permitUpdate['status'] = 'rejected';

@@ -38,8 +38,15 @@ class Role
         ];
     }
 
+    private static ?array $cachedRoles = null;
+    private static ?int $cacheTime = null;
+
     public function all(array $options = [], ?array $existingUsers = null): array
     {
+        if (empty($options) && $existingUsers === null && self::$cachedRoles !== null && self::$cacheTime !== null && (time() - self::$cacheTime < 120)) {
+            return self::$cachedRoles;
+        }
+
         $rawRoles = $this->db->select($this->table, [], $options);
         $primaryNames = self::primaryRoleNames();
 
@@ -177,6 +184,11 @@ class Role
 
             $role['permissions'] = $perms;
             $role['user_count'] = $userCountByRole[$roleId] ?? 0;
+        }
+
+        if (empty($options) && $existingUsers === null) {
+            self::$cachedRoles = $roles;
+            self::$cacheTime = time();
         }
 
         return $roles;

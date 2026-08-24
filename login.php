@@ -35,7 +35,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $attemptData = ['count' => 0, 'first_attempt' => time()];
             }
 
-            if ($attemptData['count'] >= 5) {
+            // Enforce dynamic max login attempts from Settings
+            $maxLoginAttempts = class_exists('Settings') ? (int)Settings::get('security.max_login_attempts', 5) : 5;
+            if ($attemptData['count'] >= $maxLoginAttempts) {
                 $lockoutRemaining = 900 - (time() - $attemptData['first_attempt']);
                 $mins = max(1, ceil($lockoutRemaining / 60));
                 echo json_encode([
@@ -43,6 +45,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'message' => "Too many failed attempts. Security lockout active for {$mins} more minute(s)."
                 ]);
                 exit;
+            }
+
+            // Enforce IP Whitelist if configured in Settings
+            $allowedIpsConfig = class_exists('Settings') ? trim(Settings::get('security.allowed_ips', '')) : '';
+            if (!empty($allowedIpsConfig) && $allowedIpsConfig !== '*' && $allowedIpsConfig !== '*.*.*.*') {
+                $allowedList = array_map('trim', explode(',', $allowedIpsConfig));
+                $ipAllowed = false;
+                foreach ($allowedList as $pattern) {
+                    if (empty($pattern)) continue;
+                    $regexPattern = '/^' . str_replace(['.', '*'], ['\.', '.*'], $pattern) . '$/';
+                    if (preg_match($regexPattern, $clientIp)) {
+                        $ipAllowed = true;
+                        break;
+                    }
+                }
+                if ($clientIp === '127.0.0.1' || $clientIp === '::1' || $clientIp === 'localhost') {
+                    $ipAllowed = true;
+                }
+                if (!$ipAllowed) {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => "Access denied: Client IP ({$clientIp}) is not within the authorized network whitelist."
+                    ]);
+                    exit;
+                }
             }
 
             try {
@@ -88,9 +115,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $authService = new SessionAuthService();
                 $userCookieToken = $_COOKIE['civentral_session_' . $user['id']] ?? $_COOKIE['civentral_session'] ?? '';
                 $devBypassAuth = filter_var(Env::get('DEV_BYPASS_AUTH', Env::get('DEV_BYPASS_OTP', false)), FILTER_VALIDATE_BOOLEAN);
+                $twoFactorEnforced = class_exists('Settings') ? (bool)Settings::get('security.two_factor_auth', false) : false;
+                $hasVerifiedDevice = $authService->hasActiveVerifiedSession((int)$user['id'], $userCookieToken);
 
-                // Direct login bypass if DEV_BYPASS_AUTH is true OR if device has active 12h/7d verified session
-                if ($devBypassAuth || $authService->hasActiveVerifiedSession((int)$user['id'], $userCookieToken)) {
+                // Direct login bypass if:
+                // 1. 2FA is NOT enforced in Settings AND (dev bypass OR verified device OR standard credentials valid)
+                // 2. Dev bypass is explicitly enabled
+                if ($devBypassAuth || (!$twoFactorEnforced) || ($hasVerifiedDevice && !$twoFactorEnforced)) {
                     $functionalRole               = $user['role_description'] ?? $user['role'] ?? 'Employee';
                     $_SESSION['user_id']          = $user['id'];
                     $_SESSION['employee_id']      = $user['employee_id'];
@@ -102,6 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['role_description'] = $functionalRole;
                     $_SESSION['user_role']        = $functionalRole;
                     $_SESSION['logged_in']        = true;
+                    $_SESSION['last_activity']    = time();
 
                     // Refresh/set active session cookie (1 week if remember_me, 12h otherwise)
                     $cookieDuration = $rememberMe ? (7 * 86400) : (12 * 3600);
@@ -113,12 +145,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         \App\Services\RememberMeService::createToken($user);
                     }
 
-                    $logModel->log("User logged in" . ($devBypassAuth ? " (Dev Direct Login)" : " (Device Token active)"), [
+                    $logModel->log("User logged in" . ($devBypassAuth ? " (Dev Direct Login)" : " (Direct Login)"), [
                         'user_id'   => $user['id'],
                         'user_name' => $user['full_name'],
                         'role'      => $user['role_description'] ?? $user['role'] ?? 'Employee',
                         'module'    => 'Authentication',
-                        'details'   => $devBypassAuth ? "Direct login via DEV_BYPASS_AUTH: {$user['employee_id']}" : "Re-authenticated via active device token ({$cookieDuration}s): {$user['employee_id']}",
+                        'details'   => $devBypassAuth ? "Direct login via DEV_BYPASS_AUTH: {$user['employee_id']}" : "Authenticated successfully: {$user['employee_id']}",
                         'status'    => 'Success',
                     ]);
 
@@ -127,20 +159,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $db->update('employees', ['last_login' => date('Y-m-d H:i:sP')], ['id' => $user['id']], true);
                     } catch (\Throwable $ignored) {}
 
+                    // Check password expiry
+                    $passwordExpiryDays = class_exists('Settings') ? (int)Settings::get('security.password_expiry', 90) : 90;
+                    $passwordExpired = false;
+                    $lastPasswordUpdate = $user['password_updated_at'] ?? ($user['updated_at'] ?? null);
+                    if ($passwordExpiryDays > 0 && !empty($lastPasswordUpdate)) {
+                        $daysOld = (time() - strtotime($lastPasswordUpdate)) / 86400;
+                        if ($daysOld > $passwordExpiryDays) {
+                            $passwordExpired = true;
+                            $_SESSION['password_expired_notice'] = "Your password is more than {$passwordExpiryDays} days old. Please consider updating it in account settings.";
+                        }
+                    }
+
                     echo json_encode([
-                        'success'      => true,
-                        'requires_otp' => false,
-                        'redirect'     => site_url('pages/dashboard.php'),
-                        'user'         => [
+                        'success'          => true,
+                        'requires_otp'     => false,
+                        'password_expired' => $passwordExpired,
+                        'redirect'         => site_url('pages/dashboard.php'),
+                        'user'             => [
                             'name'        => $user['full_name'],
                             'employee_id' => $user['employee_id']
                         ],
-                        'message'      => $devBypassAuth ? 'Welcome back! Direct login successful.' : 'Welcome back! Device session active.'
+                        'message'          => $passwordExpired ? "Welcome back! Note: Your password has expired (> {$passwordExpiryDays} days old)." : 'Welcome back! Login successful.'
                     ]);
                     exit;
                 }
 
-                // Generate 6-digit OTP code & send email via SessionAuthService
+                // Generate 6-digit OTP code & send email via SessionAuthService (When 2FA is Enforced)
                 $otpResult   = $authService->generateAndSendOtp($user, $rememberMe);
 
                 // Mask recipient email for security
@@ -506,7 +551,7 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Civentral · Employee Portal</title>
+    <title>Civentral</title>
     <link rel="icon" type="image/png" href="assets/images/logo.png">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <style type="text/tailwindcss">
@@ -567,9 +612,9 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
             <div class="w-full max-w-md mx-auto space-y-6 my-auto relative">
                 <div class="w-full space-y-6">
                     <div class="flex flex-col items-center justify-center text-center pb-4 w-full">
-                        <img src="assets/images/logo.png" alt="Civentral Graphic" class="h-24 w-auto object-contain mb-3">
-                        <span class="text-4xl font-black text-brand-medium tracking-[0.25em] uppercase font-sans">
-                            Civentral
+                        <img src="assets/images/logo.png" alt="Portal Graphic" class="h-24 w-auto object-contain mb-3">
+                        <span class="text-4xl font-black text-brand-medium tracking-[0.2em] uppercase font-sans">
+                            CIVENTRAL
                         </span>
                     </div>
                     <div class="flex flex-col items-center md:items-start text-center md:text-left space-y-2">
@@ -578,6 +623,13 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
                         <p class="text-xs text-gray-500">Enter your LGU-issued credentials to continue.</p>
                     </div>
                 </div>
+
+                <?php if (isset($_GET['session_expired'])): ?>
+                    <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-semibold text-amber-800 flex items-center gap-2.5">
+                        <i class="fa-solid fa-clock-rotate-left text-amber-600 text-sm shrink-0"></i>
+                        <span>Your session has expired due to inactivity. Please sign in again.</span>
+                    </div>
+                <?php endif; ?>
 
                 <form id="loginForm" class="space-y-4 pt-2" autocomplete="on">
                     <!-- Inline Error Banner for Login Failed -->
@@ -1420,7 +1472,7 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
                     toast.success(data.message || 'Login successful! Redirecting...', { title: 'Access Granted' });
                     setTimeout(() => {
                         window.location.href = data.redirect || 'pages/dashboard.php';
-                    }, 500);
+                    }, 100);
                 }
             } else {
                 // Show inline error banner and shake input
@@ -1496,7 +1548,7 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
                 toast.success('Identity verified! Redirecting to Dashboard...', { title: 'Verification Success' });
                 setTimeout(() => {
                     window.location.href = data.redirect || 'pages/dashboard.php';
-                }, 600);
+                }, 100);
             } else {
                 const otpBanner = document.getElementById('otpErrorBanner');
                 const otpMsg = document.getElementById('otpErrorMessage');

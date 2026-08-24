@@ -13,7 +13,7 @@ use Database;
 class DashboardService
 {
     private static ?DashboardService $instance = null;
-    private const CACHE_TTL_SECONDS = 30;
+    private const CACHE_TTL_SECONDS = 180;
 
     private static function url(string $path = ''): string
     {
