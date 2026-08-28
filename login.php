@@ -89,14 +89,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $authService = new SessionAuthService();
                 $userCookieToken = $_COOKIE['civentral_session_' . $user['id']] ?? $_COOKIE['civentral_session'] ?? '';
-                $devBypassAuth = filter_var(Env::get('DEV_BYPASS_AUTH', Env::get('DEV_BYPASS_OTP', false)), FILTER_VALIDATE_BOOLEAN);
                 $twoFactorEnforced = class_exists('Settings') ? (bool)Settings::get('security.two_factor_auth', false) : false;
                 $hasVerifiedDevice = $authService->hasActiveVerifiedSession((int)$user['id'], $userCookieToken);
 
-                // If DEV_BYPASS_AUTH=false OR Two-Factor Auth is enabled in Settings, enforce OTP verification
-                $requireOtp = (!$devBypassAuth) || $twoFactorEnforced;
+                // Remembered Device Logic:
+                // If this device already has an active verified session/cookie and 2FA is not forced on every login, bypass OTP
+                $requireOtp = $twoFactorEnforced || !$hasVerifiedDevice;
 
-                // Direct login bypass only if requireOtp is false OR (device is already verified AND dev bypass is enabled)
+                // Direct login if device is already verified
                 if (!$requireOtp) {
                     $functionalRole               = $user['role_description'] ?? $user['role'] ?? 'Employee';
                     $_SESSION['user_id']          = $user['id'];
@@ -121,12 +121,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         \App\Services\RememberMeService::createToken($user);
                     }
 
-                    $logModel->log("User logged in" . ($devBypassAuth ? " (Dev Direct Login)" : " (Direct Login)"), [
+                    $logModel->log("User logged in (Verified Device)", [
                         'user_id'   => $user['id'],
                         'user_name' => $user['full_name'],
                         'role'      => $user['role_description'] ?? $user['role'] ?? 'Employee',
                         'module'    => 'Authentication',
-                        'details'   => $devBypassAuth ? "Direct login via DEV_BYPASS_AUTH: {$user['employee_id']}" : "Authenticated successfully: {$user['employee_id']}",
+                        'details'   => "Direct login on verified device: {$user['employee_id']}",
                         'status'    => 'Success',
                     ]);
 
@@ -161,15 +161,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 }
 
-                // Generate 6-digit OTP code & send email via SessionAuthService (When 2FA is Enforced)
+                // Generate 6-digit OTP code & send email via SessionAuthService
                 $otpResult   = $authService->generateAndSendOtp($user, $rememberMe);
 
                 // Mask recipient email for security
                 $rawEmail = $user['email'] ?? 'staff@health.gov.ph';
                 $parts    = explode('@', $rawEmail);
                 $maskedEmail = (strlen($parts[0]) > 2 ? substr($parts[0], 0, 2) . '***' : $parts[0]) . '@' . ($parts[1] ?? 'lgu.gov.ph');
-
-                $showDevVerificationCode = filter_var(Env::get('SHOW_VERIFICATION_CODE', Env::get('DEV_SHOW_OTP', false)), FILTER_VALIDATE_BOOLEAN);
 
                 $responsePayload = [
                     'success'       => true,
@@ -182,10 +180,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ],
                     'message'       => 'Credentials verified. 6-digit security code sent to ' . $maskedEmail
                 ];
-
-                if ($showDevVerificationCode && !empty($otpResult['otp_code'])) {
-                    $responsePayload['dev_otp_code'] = $otpResult['otp_code'];
-                }
 
                 echo json_encode($responsePayload);
                 exit;
@@ -348,10 +342,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $mailService = new MailService();
                 $email = $user['email'] ?? '';
                 $name = $user['full_name'] ?? ($user['username'] ?? 'Employee');
-                $showDevCode = filter_var(Env::get('SHOW_VERIFICATION_CODE', Env::get('DEV_SHOW_OTP', false)), FILTER_VALIDATE_BOOLEAN);
-                $skipEmail   = filter_var(Env::get('SKIP_EMAIL_IN_DEV', $showDevCode ? 'true' : 'false'), FILTER_VALIDATE_BOOLEAN);
 
-                if (!$skipEmail && !empty($email)) {
+                if (!empty($email)) {
                     $mailService->sendOtpEmail($email, $name, $otpCode, 15);
                 }
 
@@ -364,10 +356,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'masked_email' => $maskedEmail,
                     'message'      => "Verification code sent to {$maskedEmail}."
                 ];
-
-                if ($showDevCode) {
-                    $payload['dev_otp_code'] = $otpCode;
-                }
 
                 echo json_encode($payload);
                 exit;
@@ -713,7 +701,7 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
                 <form id="otpForm" class="space-y-4">
                     <input type="hidden" id="otpSessionToken" name="session_token" value="" />
 
-                    <!-- Developer Testing Option / Verification Code Display (Controlled by SHOW_VERIFICATION_CODE in .env) -->
+                    <!-- Security Code Entry Form -->
                     <div id="devOtpBox" class="hidden p-3 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900 items-center justify-between gap-2 shadow-xs">
                         <div class="flex items-center gap-2">
                             <span class="px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-mono font-bold text-[10px] uppercase tracking-wider flex items-center gap-1">

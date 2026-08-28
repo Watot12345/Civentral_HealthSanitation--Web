@@ -46,12 +46,8 @@ class SessionAuthService
         }
 
         // Send email via MailService (PHPMailer / SMTP)
-        // If developer testing option is ON (SHOW_VERIFICATION_CODE=true), skip slow external SMTP email
-        $showDevCode = filter_var(Env::get('SHOW_VERIFICATION_CODE', Env::get('DEV_SHOW_OTP', false)), FILTER_VALIDATE_BOOLEAN);
-        $skipEmail   = filter_var(Env::get('SKIP_EMAIL_IN_DEV', $showDevCode ? 'true' : 'false'), FILTER_VALIDATE_BOOLEAN);
-
         $sent = false;
-        if (!$skipEmail && !empty($email)) {
+        if (!empty($email)) {
             $sent = $this->mailService->sendOtpEmail($email, $name, $otpCode, 5);
         }
 
@@ -121,6 +117,10 @@ class SessionAuthService
             $cookieDuration = !empty($session['remember_me']) ? (7 * 86400) : (12 * 3600);
             setcookie('civentral_session', $sessionToken, time() + $cookieDuration, '/', '', false, true);
             setcookie('civentral_session_' . $employee['id'], $sessionToken, time() + $cookieDuration, '/', '', false, true);
+
+            if (!empty($session['remember_me']) && class_exists('App\Services\RememberMeService')) {
+                \App\Services\RememberMeService::createToken($employee);
+            }
 
             return [
                 'success'  => true,

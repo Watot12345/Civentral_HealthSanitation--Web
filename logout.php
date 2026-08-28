@@ -36,15 +36,8 @@ if (ini_get("session.use_cookies")) {
     );
 }
 
-// Clear device trust tokens
+// Clear active session cookie
 setcookie('civentral_session', '', time() - 42000, '/');
-if (isset($_COOKIE)) {
-    foreach ($_COOKIE as $cName => $cVal) {
-        if (str_starts_with($cName, 'civentral_session')) {
-            setcookie($cName, '', time() - 42000, '/');
-        }
-    }
-}
 session_destroy();
 ?>
 <!DOCTYPE html>
