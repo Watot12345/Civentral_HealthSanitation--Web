@@ -253,6 +253,51 @@ try {
             break;
 
         // ==========================================================
+        // SET STATUS — Active, Inactive, Suspended
+        // ==========================================================
+        case 'set_status':
+            $id = (int) ($_POST['user_id'] ?? 0);
+            $newStatus = trim($_POST['new_status'] ?? '');
+            $allowed = ['Active', 'Inactive', 'Suspended'];
+
+            if (!$id || !in_array($newStatus, $allowed, true)) {
+                $response = ['success' => false, 'message' => 'Invalid status value. Allowed: Active, Inactive, Suspended.'];
+                break;
+            }
+
+            $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+            if ($id && $currentUserId && $id === $currentUserId) {
+                $response = ['success' => false, 'message' => 'You cannot change your own logged-in account status.'];
+                break;
+            }
+
+            $user = $employeeModel->find($id);
+            if (!$user) {
+                $response = ['success' => false, 'message' => 'User not found.'];
+                break;
+            }
+
+            if (!$isSystemAdmin && !empty($userDept)) {
+                $targetDept = trim($user['department'] ?? '');
+                $targetRole = trim($user['role_description'] ?? $user['role'] ?? '');
+                if (!getDepartmentResolver()->isRoleInDepartment($targetRole, $userDept) && strcasecmp($targetDept, $userDept) !== 0) {
+                    $response = ['success' => false, 'message' => "Access Denied: You can only modify status for users within your department ({$userDept})."];
+                    break;
+                }
+            }
+
+            $employeeModel->updateById($id, ['status' => $newStatus]);
+
+            $userName = $user['full_name'] ?? "ID {$id}";
+            $logModel->log("Set user status: {$userName} to {$newStatus}", [
+                'module'  => 'User Management',
+                'details' => "Status changed to {$newStatus}"
+            ]);
+
+            $response = ['success' => true, 'message' => "Status for {$userName} updated to {$newStatus}.", 'new_status' => $newStatus];
+            break;
+
+        // ==========================================================
         // SAVE PERMISSIONS — Sync role permissions
         // ==========================================================
         case 'save_permissions':

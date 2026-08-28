@@ -16,7 +16,76 @@ class ServiceRequestController extends BaseController
     public function index(): void
     {
         $this->handle(function () {
+            $providerId = trim($_GET['provider_id'] ?? '');
+            $upcoming   = isset($_GET['upcoming']) && ($_GET['upcoming'] === '1' || $_GET['upcoming'] === 'true');
+            $history    = isset($_GET['history']) && ($_GET['history'] === '1' || $_GET['history'] === 'true');
+            
             $requests = $this->model->all(['order' => 'created_at.desc']);
+
+            if ($providerId !== '') {
+                $requests = array_values(array_filter($requests, function($r) use ($providerId) {
+                    $pid = (string)($r['provider_id'] ?? '');
+                    return $pid === $providerId || 
+                           str_ends_with($pid, '-' . $providerId) || 
+                           (is_numeric($providerId) && (int)$pid === (int)$providerId);
+                }));
+            }
+
+            if ($upcoming) {
+                $upcomingStatuses = ['pending', 'approved', 'in_progress', 'scheduled'];
+                $requests = array_values(array_filter($requests, fn($r) => in_array(strtolower($r['status'] ?? 'pending'), $upcomingStatuses)));
+            } elseif ($history) {
+                $historyStatuses = ['completed', 'cancelled'];
+                $requests = array_values(array_filter($requests, fn($r) => in_array(strtolower($r['status'] ?? ''), $historyStatuses)));
+            }
+
+            // Enrich with septic tank locations
+            require_once __DIR__ . '/../Models/SepticTank.php';
+            $tankModel = new SepticTank();
+            $tanks = [];
+            try {
+                $tanksRaw = $tankModel->all();
+                foreach ($tanksRaw as $t) {
+                    if (!empty($t['tank_id'])) {
+                        $tanks[$t['tank_id']] = $t;
+                    }
+                }
+            } catch (Throwable $e) {}
+
+            $baseLat = 14.6538;
+            $baseLng = 120.9820;
+            $idx = 0;
+
+            foreach ($requests as &$req) {
+                $tId = $req['tank_id'] ?? '';
+                $t = $tanks[$tId] ?? null;
+                $req['assignment_type'] = $req['service_type'] ?? 'maintenance';
+                $req['scheduled_date']  = $req['preferred_date'] ?? date('Y-m-d');
+                $req['scheduled_time']  = $req['preferred_time'] ?? '09:00 AM';
+                
+                // Coordinates
+                $lat = !empty($t['latitude']) ? (float)$t['latitude'] : null;
+                $lng = !empty($t['longitude']) ? (float)$t['longitude'] : null;
+                if (!$lat || !$lng) {
+                    $offsets = [
+                        [0.0052, 0.0031], [-0.0041, 0.0062], [0.0035, -0.0048],
+                        [-0.0060, -0.0035], [0.0080, 0.0010], [-0.0025, 0.0085]
+                    ];
+                    $pair = $offsets[$idx % count($offsets)];
+                    $lat = $baseLat + $pair[0];
+                    $lng = $baseLng + $pair[1];
+                }
+                $req['latitude'] = $lat;
+                $req['longitude'] = $lng;
+                $req['lat'] = $lat;
+                $req['lng'] = $lng;
+                if (empty($req['address']) && !empty($t['address'])) {
+                    $req['address'] = $t['address'];
+                }
+                $idx++;
+            }
+            unset($req);
+
             return ['success' => true, 'data' => $requests, 'total' => count($requests)];
         });
     }
@@ -87,6 +156,20 @@ class ServiceRequestController extends BaseController
             $d = $this->input();
             if (empty($d['owner_name']))   return ['success' => false, 'message' => 'Owner name is required',   'code' => 422];
             if (empty($d['service_type'])) return ['success' => false, 'message' => 'Service type is required', 'code' => 422];
+
+            // ⚡ DUPLICATE REQUEST PREVENTION: Block double requests for the same tank while an active request is open
+            if (!empty($d['tank_id'])) {
+                $active = $this->model->findActiveByTankId($d['tank_id'], $d['preferred_date'] ?? null);
+                if ($active) {
+                    $existingDate = substr((string)($active['preferred_date'] ?? $active['created_at'] ?? ''), 0, 10);
+                    $existingReq = $active['request_id'] ?? 'Request';
+                    return [
+                        'success' => false,
+                        'message' => "Duplicate request: Tank {$d['tank_id']} already has an active service request ({$existingReq}) for {$existingDate}.",
+                        'code' => 409
+                    ];
+                }
+            }
 
             $allowed = ['request_id','tank_id','owner_name','address','barangay','service_type',
                         'preferred_date','preferred_time','assigned_to','provider_id',

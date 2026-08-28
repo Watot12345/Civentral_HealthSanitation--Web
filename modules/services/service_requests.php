@@ -28,10 +28,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 require_once __DIR__ . '/../../app/Models/ServiceRequest.php';
+require_once __DIR__ . '/../../app/Models/SepticTank.php';
 $requestModel = new ServiceRequest();
+$septicTankModel = new SepticTank();
 
 // Fetch live Service Requests from Supabase
 $serviceRequests = $requestModel->all();
+
+// Fetch Septic Tanks and de-duplicate by tank_id for scalable, accurate selection
+$rawSepticTanks = $septicTankModel->all();
+$allSepticTanks = [];
+$seenTankIds = [];
+foreach ($rawSepticTanks as $st) {
+    $tid = trim($st['tank_id'] ?? '');
+    if ($tid !== '' && !isset($seenTankIds[$tid])) {
+        $seenTankIds[$tid] = true;
+        $allSepticTanks[] = $st;
+    }
+}
+
+$tankLookup = [];
+foreach ($allSepticTanks as $st) {
+    if (!empty($st['tank_id'])) {
+        $tankLookup[$st['tank_id']] = [
+            'lat' => (!empty($st['latitude']) && is_numeric($st['latitude'])) ? (float)$st['latitude'] : null,
+            'lng' => (!empty($st['longitude']) && is_numeric($st['longitude'])) ? (float)$st['longitude'] : null,
+            'address' => $st['address'] ?? '',
+            'barangay' => $st['barangay'] ?? '',
+            'owner' => $st['owner_name'] ?? ''
+        ];
+    }
+}
 
 // Stats
 $counts = $requestModel->countByStatus();
@@ -293,6 +320,10 @@ $title = 'Service Requests';
                                         class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
                                     <i class="fa-solid fa-eye text-sm"></i>
                                 </button>
+                                <button onclick="viewRequestRoute(<?php echo $request['id']; ?>)"
+                                        class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="Route / Location Map">
+                                    <i class="fa-solid fa-route text-sm"></i>
+                                </button>
                                 <?php if ($request['status'] === 'pending'): ?>
                                     <button onclick="updateRequestStatus(<?php echo $request['id']; ?>, 'in_progress')"
                                             class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start">
@@ -315,6 +346,10 @@ $title = 'Service Requests';
                                         <i class="fa-solid fa-comment text-sm"></i>
                                     </button>
                                 <?php endif; ?>
+                                <a href="wastewater_billing.php?client=<?php echo urlencode($request['owner_name']); ?>&tank_id=<?php echo urlencode($request['tank_id']); ?>&service_type=<?php echo urlencode($request['service_type']); ?>&action=new_quote"
+                                   class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="Proceed to Wastewater Billing">
+                                    <i class="fa-solid fa-file-invoice-dollar text-sm"></i>
+                                </a>
                                 <button onclick="editRequest(<?php echo $request['id']; ?>)"
                                         class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
                                     <i class="fa-solid fa-pen text-sm"></i>
@@ -373,21 +408,71 @@ $title = 'Service Requests';
         </div>
         <form id="newRequestForm" class="p-6 space-y-4" onsubmit="saveNewRequest(event)">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID</label>
-                <input type="text" id="req_tank" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="e.g. ST-001">
+            
+            <!-- Quick Live Filter / Search Bar for Scalable Tank Selection -->
+            <div class="p-3 bg-brand-light/30 rounded-xl border border-brand-border">
+                <div class="flex items-center gap-2 mb-1.5">
+                    <i class="fa-solid fa-magnifying-glass text-brand-medium text-xs"></i>
+                    <label for="reqTankQuickSearch" class="text-xs font-bold text-slate-700">Quick Tank or Owner Search</label>
+                    <span class="text-[10px] text-slate-400 ml-auto">Filters dropdowns instantly</span>
+                </div>
+                <input type="text" id="reqTankQuickSearch" oninput="filterRequestTankDropdowns(this.value, 'req_tank', 'req_owner')" placeholder="Type Tank ID, Owner name, or Address..." class="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Owner Name</label>
-                <input type="text" id="req_owner" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+
+            <!-- Real Septic Tank Data Linked Dropdowns -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="relative">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Select Septic Tank <span class="text-rose-500">*</span></label>
+                    <div class="relative">
+                        <select id="req_tank" required onchange="onRequestTankChange(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none appearance-none pr-8">
+                            <option value="">Select Septic Tank</option>
+                            <?php foreach ($allSepticTanks as $st): ?>
+                                <option value="<?php echo htmlspecialchars($st['tank_id'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-owner="<?php echo htmlspecialchars($st['owner_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-address="<?php echo htmlspecialchars($st['address'] . (isset($st['barangay']) ? ', ' . $st['barangay'] : ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-barangay="<?php echo htmlspecialchars($st['barangay'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-type="<?php echo htmlspecialchars($st['type'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo htmlspecialchars($st['owner_name'], ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+                    </div>
+                </div>
+                <div class="relative">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Owner Name <span class="text-rose-500">*</span></label>
+                    <div class="relative">
+                        <select id="req_owner" required onchange="onRequestOwnerChange(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none appearance-none pr-8">
+                            <option value="">Select Registered Owner</option>
+                            <?php foreach ($allSepticTanks as $st): ?>
+                                <option value="<?php echo htmlspecialchars($st['owner_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-tank="<?php echo htmlspecialchars($st['tank_id'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-address="<?php echo htmlspecialchars($st['address'] . (isset($st['barangay']) ? ', ' . $st['barangay'] : ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-barangay="<?php echo htmlspecialchars($st['barangay'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-type="<?php echo htmlspecialchars($st['type'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo htmlspecialchars($st['owner_name'], ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+                    </div>
+                </div>
             </div>
+
+            <!-- Duplicate Request Warning Alert -->
+            <div id="request_duplicate_warning" class="hidden p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500 mt-0.5 flex-shrink-0"></i>
+                <div id="request_duplicate_warning_text">This tank already has an active service request.</div>
+            </div>
+
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Address</label>
-                <input type="text" id="req_address" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <input type="text" id="req_address" readonly class="w-full px-3 py-2 border border-slate-200 bg-slate-50 text-slate-600 rounded-lg text-sm outline-none" placeholder="Auto-populated from selected tank">
+                <input type="hidden" id="req_barangay">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Type</label>
-                <select id="req_type" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <select id="req_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="desludging">Desludging</option>
                     <option value="maintenance">Maintenance</option>
                     <option value="inspection">Inspection</option>
@@ -396,12 +481,12 @@ $title = 'Service Requests';
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Preferred Date</label>
-                    <input type="date" id="req_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Preferred Date <span class="text-rose-500">*</span></label>
+                    <input type="date" id="req_date" required min="<?php echo date('Y-m-d'); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Preferred Time</label>
-                    <input type="time" id="req_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Preferred Time <span class="text-rose-500">*</span></label>
+                    <input type="time" id="req_time" value="09:00" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
             </div>
             <div>
@@ -432,7 +517,7 @@ $title = 'Service Requests';
 </div>
 
 <!-- ============================================================ -->
-<!-- VIEW REQUEST MODAL                                           -->
+<!-- EDIT REQUEST MODAL                                           -->
 <!-- ============================================================ -->
 <div id="editRequestModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -444,17 +529,74 @@ $title = 'Service Requests';
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
             <input type="hidden" id="edit_request_id">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID</label><input type="text" id="edit_request_tank" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
-                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Owner Name</label><input type="text" id="edit_request_owner" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div class="relative">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID <span class="text-rose-500">*</span></label>
+                    <div class="relative">
+                        <select id="edit_request_tank" required onchange="onEditRequestTankChange(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none appearance-none pr-8">
+                            <option value="">Select Tank ID</option>
+                            <?php foreach ($allSepticTanks as $st): ?>
+                                <option value="<?php echo htmlspecialchars($st['tank_id'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-owner="<?php echo htmlspecialchars($st['owner_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo htmlspecialchars($st['tank_id'], ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+                    </div>
+                </div>
+                <div class="relative">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Owner Name <span class="text-rose-500">*</span></label>
+                    <div class="relative">
+                        <select id="edit_request_owner" required onchange="onEditRequestOwnerChange(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none appearance-none pr-8">
+                            <option value="">Select Registered Owner</option>
+                            <?php foreach ($allSepticTanks as $st): ?>
+                                <option value="<?php echo htmlspecialchars($st['owner_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-tank="<?php echo htmlspecialchars($st['tank_id'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php echo htmlspecialchars($st['owner_name'], ENT_QUOTES, 'UTF-8'); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Type</label><select id="edit_request_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="desludging">Desludging</option><option value="maintenance">Maintenance</option><option value="inspection">Inspection</option><option value="installation">Installation</option></select></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Preferred Date</label><input type="date" id="edit_request_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
-                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Preferred Time</label><input type="text" id="edit_request_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Preferred Time</label><input type="time" id="edit_request_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Priority</label><select id="edit_request_priority" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_request_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="pending">Pending</option><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
             </div>
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label><textarea id="edit_request_notes" rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></textarea></div>
             <div class="flex justify-end gap-2 border-t border-slate-100 pt-4"><button type="button" onclick="closeModal('editRequestModal')" class="px-4 py-2 border border-slate-200 rounded-lg text-sm font-semibold">Cancel</button><button type="submit" class="px-4 py-2 bg-brand-dark text-white rounded-lg text-sm font-semibold">Save Changes</button></div>
         </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SERVICE REQUEST ROUTE / LOCATION MAP MODAL                   -->
+<!-- ============================================================ -->
+<div id="requestRouteModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-route text-brand-medium"></i>
+                Request Route & Location Map
+            </h3>
+            <button onclick="closeModal('requestRouteModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6">
+            <div class="mb-3 flex justify-between items-center text-xs text-slate-500">
+                <span id="reqRouteMapTitle" class="font-semibold text-slate-700">Request Location</span>
+                <span id="reqRouteMapCoordinates" class="font-mono text-slate-400">Lat: 0, Lng: 0</span>
+            </div>
+            <div id="leafletRequestMap" class="w-full h-80 rounded-xl border border-slate-200 shadow-inner z-10"></div>
+            <div id="reqRouteServiceInfo" class="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 flex justify-between items-center">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
     </div>
 </div>
 
@@ -584,9 +726,13 @@ $title = 'Service Requests';
     }
 </style>
 
+<!-- Leaflet CSS & JS for Interactive Map -->
+<link rel="stylesheet" href="<?= site_url('assets/css/leaflet.css'); ?>" />
+<script src="<?= site_url('assets/js/leaflet.js'); ?>"></script>
 <script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
     const REQUESTS = <?php echo json_encode(array_column($serviceRequests, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+    const TANKS_GEO = <?php echo json_encode($tankLookup, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
     // Modal functions, toast, sanitizeHTML provided by common.js
 
@@ -651,8 +797,12 @@ $title = 'Service Requests';
                     </div>
                     ${rNotes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${rNotes}</p></div>` : ''}
                     ${rFeedback ? `<div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">💬 Feedback</h5><p class="text-sm text-slate-800">${rFeedback}</p></div>` : ''}
-                    <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                    <div class="flex flex-wrap justify-end items-center gap-2 pt-2 border-t border-slate-200">
                         <button onclick="closeModal('viewRequestModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
+                        <a href="wastewater_billing.php?client=${encodeURIComponent(r.owner_name)}&tank_id=${encodeURIComponent(r.tank_id)}&service_type=${encodeURIComponent(r.service_type)}&action=new_quote"
+                           class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5 shadow-xs">
+                            <i class="fa-solid fa-file-invoice-dollar text-sm"></i> Proceed to Billing
+                        </a>
                         ${r.status === 'pending' ? `<button onclick="closeModal('viewRequestModal'); updateRequestStatus(${r.id}, 'in_progress')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold"><i class="fa-solid fa-play mr-1.5"></i> Start</button>` : ''}
                         ${r.status === 'in_progress' ? `<button onclick="closeModal('viewRequestModal'); completeRequest(${r.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-check mr-1.5"></i> Complete</button>` : ''}
                     </div>
@@ -692,9 +842,24 @@ $title = 'Service Requests';
             }
             
             updateRequestRow(r);
-            await sendAjaxRequest('update_request_status', r);
+            await fetch(`../../api/service_requests.php?id=${id}&action=update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: r.status,
+                    notes: r.notes,
+                    completed_at: r.completed_at || null
+                })
+            });
             closeModal('statusUpdateModal');
-            showToast('Request #' + r.request_id + ' updated to ' + r.status.replace('_', ' '), 'success');
+            if (r.status === 'completed') {
+                showToast(`Request marked completed! Redirecting to Wastewater Billing for ${r.owner_name}...`, 'success');
+                setTimeout(() => {
+                    window.location.href = `wastewater_billing.php?client=${encodeURIComponent(r.owner_name)}&tank_id=${encodeURIComponent(r.tank_id)}&service_type=${encodeURIComponent(r.service_type)}&action=new_quote`;
+                }, 600);
+            } else {
+                showToast('Request #' + r.request_id + ' updated to ' + r.status.replace('_', ' '), 'success');
+            }
         } catch (err) {
             console.error('saveStatusUpdate error:', err);
             showToast('An error occurred: ' + err.message, 'danger');
@@ -746,6 +911,10 @@ $title = 'Service Requests';
                     <button onclick="viewRequest(${r.id})"
                             class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
                         <i class="fa-solid fa-eye text-sm"></i>
+                    </button>
+                    <button onclick="viewRequestRoute(${r.id})"
+                            class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="Route / Location Map">
+                        <i class="fa-solid fa-route text-sm"></i>
                     </button>
                     ${isPending ? `
                         <button onclick="updateRequestStatus(${r.id}, 'in_progress')"
@@ -829,8 +998,258 @@ $title = 'Service Requests';
     }
 
     // ============================================================
+    // SERVICE REQUEST ROUTE / LOCATION MAP
+    // ============================================================
+    let _reqRouteMapInstance = null;
+    let _reqRouteMarker = null;
+
+    function viewRequestRoute(id) {
+        const r = REQUESTS[id];
+        if (!r) return;
+
+        const geo = (typeof TANKS_GEO !== 'undefined' && TANKS_GEO[r.tank_id]) ? TANKS_GEO[r.tank_id] : {};
+        const safeLat = (geo.lat && !isNaN(geo.lat)) ? Number(geo.lat) : 14.6538;
+        const safeLng = (geo.lng && !isNaN(geo.lng)) ? Number(geo.lng) : 120.9820;
+        const owner = r.owner_name || 'Client';
+        const tankId = r.tank_id || 'Tank';
+        const assigned = r.assigned_to || 'Unassigned';
+        const status = r.status || 'pending';
+
+        document.getElementById('reqRouteMapTitle').textContent = `${sanitizeHTML(owner)} — ${sanitizeHTML(tankId)}`;
+        document.getElementById('reqRouteMapCoordinates').textContent = `Lat: ${safeLat.toFixed(4)}, Lng: ${safeLng.toFixed(4)}`;
+
+        const statusBadges = {
+            pending: '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Pending</span>',
+            in_progress: '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">In Progress</span>',
+            completed: '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">Completed</span>',
+            cancelled: '<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">Cancelled</span>'
+        };
+
+        document.getElementById('reqRouteServiceInfo').innerHTML = `
+            <div>
+                <p class="font-bold text-slate-800">${sanitizeHTML(tankId)} &bull; ${sanitizeHTML(owner)}</p>
+                <p class="text-slate-500 mt-0.5"><i class="fa-solid fa-user-gear mr-1 text-brand-medium"></i> Assigned: <strong class="text-slate-700">${sanitizeHTML(assigned)}</strong></p>
+            </div>
+            <div class="text-right">
+                ${statusBadges[status] || ''}
+                <p class="text-slate-400 text-[11px] mt-1">${new Date(r.preferred_date).toLocaleDateString()} ${sanitizeHTML(r.preferred_time || '')}</p>
+            </div>
+        `;
+
+        openModal('requestRouteModal');
+
+        setTimeout(() => {
+            if (typeof L === 'undefined') return;
+            const container = document.getElementById('leafletRequestMap');
+            if (!container) return;
+
+            const customPinIcon = L.divIcon({
+                className: 'custom-req-marker',
+                html: `<div style="width:36px; height:36px; background:linear-gradient(135deg, #0B4F4A, #14807A); border:3px solid #ffffff; border-radius:50%; box-shadow:0 4px 12px rgba(11,79,74,0.45); display:flex; align-items:center; justify-content:center; color:#ffffff; font-size:15px; transform:translate(-2px, -2px);"><i class="fa-solid fa-location-dot"></i></div>`,
+                iconSize: [36, 36],
+                iconAnchor: [18, 18],
+                popupAnchor: [0, -20]
+            });
+
+            if (!_reqRouteMapInstance) {
+                _reqRouteMapInstance = L.map('leafletRequestMap').setView([safeLat, safeLng], 15);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(_reqRouteMapInstance);
+                _reqRouteMarker = L.marker([safeLat, safeLng], { icon: customPinIcon }).addTo(_reqRouteMapInstance);
+            } else {
+                _reqRouteMapInstance.setView([safeLat, safeLng], 15);
+                if (_reqRouteMarker) {
+                    _reqRouteMarker.setIcon(customPinIcon);
+                    _reqRouteMarker.setLatLng([safeLat, safeLng]);
+                } else {
+                    _reqRouteMarker = L.marker([safeLat, safeLng], { icon: customPinIcon }).addTo(_reqRouteMapInstance);
+                }
+            }
+            if (_reqRouteMarker) {
+                _reqRouteMarker.bindPopup(`
+                    <div style="font-family:inherit; padding:4px;">
+                        <strong style="color:#0B4F4A; font-size:13px;">${sanitizeHTML(owner)}</strong><br>
+                        <span style="font-size:11px; color:#64748b;">${sanitizeHTML(tankId)} &bull; ${sanitizeHTML(r.service_type || 'Service')}</span>
+                    </div>
+                `).openPopup();
+            }
+            _reqRouteMapInstance.invalidateSize();
+        }, 200);
+    }
+
+    // ============================================================
+    // REAL SEPTIC TANK DATA & OWNER DROPDOWN SYNCHRONIZATION
+    // ============================================================
+    function filterRequestTankDropdowns(query, tankSelectId = 'req_tank', ownerSelectId = 'req_owner') {
+        const q = (query || '').toLowerCase().trim();
+        const tankSelect = document.getElementById(tankSelectId);
+        const ownerSelect = document.getElementById(ownerSelectId);
+        if (!tankSelect || !ownerSelect) return;
+
+        let matchCount = 0;
+        let firstMatchedTank = '';
+
+        for (let i = 1; i < tankSelect.options.length; i++) {
+            const opt = tankSelect.options[i];
+            const text = (opt.textContent + ' ' + (opt.dataset.address || '')).toLowerCase();
+            const matches = !q || text.includes(q);
+            opt.style.display = matches ? '' : 'none';
+            if (matches) {
+                matchCount++;
+                if (!firstMatchedTank) firstMatchedTank = opt.value;
+            }
+        }
+
+        for (let i = 1; i < ownerSelect.options.length; i++) {
+            const opt = ownerSelect.options[i];
+            const text = (opt.textContent + ' ' + (opt.dataset.address || '')).toLowerCase();
+            const matches = !q || text.includes(q);
+            opt.style.display = matches ? '' : 'none';
+        }
+
+        // If exactly 1 match while typing, automatically select and sync it
+        if (q && matchCount === 1 && firstMatchedTank && tankSelect.value !== firstMatchedTank) {
+            tankSelect.value = firstMatchedTank;
+            if (tankSelectId === 'req_tank') {
+                onRequestTankChange(firstMatchedTank);
+            } else if (tankSelectId === 'edit_request_tank') {
+                onEditRequestTankChange(firstMatchedTank);
+            }
+        }
+    }
+
+    function checkDuplicateRequest(tankId) {
+        const warningBox = document.getElementById('request_duplicate_warning');
+        const warningText = document.getElementById('request_duplicate_warning_text');
+        if (!warningBox || !warningText) return null;
+
+        if (!tankId) {
+            warningBox.classList.add('hidden');
+            return null;
+        }
+
+        const active = Object.values(REQUESTS).find(r => 
+            r.tank_id === tankId && 
+            (r.status === 'pending' || r.status === 'in_progress' || r.status === 'approved')
+        );
+
+        if (active) {
+            const dateStr = active.preferred_date ? new Date(active.preferred_date).toLocaleDateString() : '';
+            const statusLabel = active.status === 'in_progress' ? 'In Progress' : 'Pending';
+            warningText.innerHTML = `<strong>Active Request Notice:</strong> Tank <strong>${sanitizeHTML(tankId)}</strong> already has an active <strong>${statusLabel}</strong> service request (<strong>${sanitizeHTML(active.request_id || '')}</strong>) for <strong>${dateStr}</strong>.`;
+            warningBox.classList.remove('hidden');
+            return active;
+        } else {
+            warningBox.classList.add('hidden');
+            return null;
+        }
+    }
+
+    function onRequestTankChange(tankId) {
+        if (!tankId) {
+            checkDuplicateRequest('');
+            return;
+        }
+        const select = document.getElementById('req_tank');
+        const opt = select.options[select.selectedIndex];
+        if (opt) {
+            const owner = opt.dataset.owner || '';
+            const address = opt.dataset.address || '';
+            const barangay = opt.dataset.barangay || '';
+            
+            const ownerSelect = document.getElementById('req_owner');
+            if (ownerSelect && owner) ownerSelect.value = owner;
+
+            const addressInput = document.getElementById('req_address');
+            if (addressInput) addressInput.value = address;
+
+            const brgyInput = document.getElementById('req_barangay');
+            if (brgyInput) brgyInput.value = barangay;
+        }
+        checkDuplicateRequest(tankId);
+    }
+
+    function onRequestOwnerChange(ownerName) {
+        if (!ownerName) {
+            checkDuplicateRequest('');
+            return;
+        }
+        const select = document.getElementById('req_owner');
+        const opt = select.options[select.selectedIndex];
+        let currentTank = '';
+        if (opt) {
+            const tank = opt.dataset.tank || '';
+            const address = opt.dataset.address || '';
+            const barangay = opt.dataset.barangay || '';
+            
+            const tankSelect = document.getElementById('req_tank');
+            if (tankSelect && tank) {
+                tankSelect.value = tank;
+                currentTank = tank;
+            }
+
+            const addressInput = document.getElementById('req_address');
+            if (addressInput) addressInput.value = address;
+
+            const brgyInput = document.getElementById('req_barangay');
+            if (brgyInput) brgyInput.value = barangay;
+        }
+        checkDuplicateRequest(currentTank || document.getElementById('req_tank')?.value);
+    }
+
+    function onEditRequestTankChange(tankId) {
+        if (!tankId) return;
+        const select = document.getElementById('edit_request_tank');
+        const opt = select.options[select.selectedIndex];
+        if (opt && opt.dataset.owner) {
+            const ownerSelect = document.getElementById('edit_request_owner');
+            if (ownerSelect) ownerSelect.value = opt.dataset.owner;
+        }
+    }
+
+    function onEditRequestOwnerChange(ownerName) {
+        if (!ownerName) return;
+        const select = document.getElementById('edit_request_owner');
+        const opt = select.options[select.selectedIndex];
+        if (opt && opt.dataset.tank) {
+            const tankSelect = document.getElementById('edit_request_tank');
+            if (tankSelect) tankSelect.value = opt.dataset.tank;
+        }
+    }
+
+    // ============================================================
     // EDIT REQUEST
     // ============================================================
+    function parseTimeTo24(timeStr) {
+        if (!timeStr) return '09:00';
+        timeStr = timeStr.trim();
+        if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
+        const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+        if (!match) return '09:00';
+        let hours = parseInt(match[1], 10);
+        const mins = match[2];
+        const modifier = (match[3] || '').toUpperCase();
+        if (modifier === 'PM' && hours < 12) hours += 12;
+        if (modifier === 'AM' && hours === 12) hours = 0;
+        return String(hours).padStart(2, '0') + ':' + mins;
+    }
+
+    function formatTime24to12(timeStr) {
+        if (!timeStr) return '09:00 AM';
+        timeStr = timeStr.trim();
+        const parts = timeStr.split(':');
+        if (parts.length < 2) return timeStr;
+        let hours = parseInt(parts[0], 10);
+        const mins = parts[1].slice(0, 2);
+        if (isNaN(hours)) return timeStr;
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        return String(hours).padStart(2, '0') + ':' + mins + ' ' + ampm;
+    }
+
     function editRequest(id) {
         const request = REQUESTS[id];
         if (!request) return;
@@ -839,7 +1258,7 @@ $title = 'Service Requests';
         document.getElementById('edit_request_owner').value = request.owner_name;
         document.getElementById('edit_request_type').value = request.service_type;
         document.getElementById('edit_request_date').value = request.preferred_date;
-        document.getElementById('edit_request_time').value = request.preferred_time;
+        document.getElementById('edit_request_time').value = parseTimeTo24(request.preferred_time);
         document.getElementById('edit_request_priority').value = request.priority;
         document.getElementById('edit_request_status').value = request.status;
         document.getElementById('edit_request_notes').value = request.notes || '';
@@ -850,12 +1269,13 @@ $title = 'Service Requests';
         event.preventDefault();
         try {
             const id = document.getElementById('edit_request_id').value;
+            const timeRaw = document.getElementById('edit_request_time').value;
             const payload = {
                 tank_id: document.getElementById('edit_request_tank').value.trim(),
                 owner_name: document.getElementById('edit_request_owner').value.trim(),
                 service_type: document.getElementById('edit_request_type').value,
                 preferred_date: document.getElementById('edit_request_date').value,
-                preferred_time: document.getElementById('edit_request_time').value,
+                preferred_time: formatTime24to12(timeRaw),
                 priority: document.getElementById('edit_request_priority').value,
                 status: document.getElementById('edit_request_status').value,
                 notes: document.getElementById('edit_request_notes').value.trim()
@@ -886,14 +1306,32 @@ $title = 'Service Requests';
     async function saveNewRequest(event) {
         event.preventDefault();
         try {
+            const tankId = document.getElementById('req_tank')?.value?.trim();
+            const ownerName = document.getElementById('req_owner')?.value?.trim();
+            if (!tankId || !ownerName) {
+                showToast('Please select a Septic Tank and Owner.', 'warning');
+                return;
+            }
+
+            // ⚡ DUPLICATE REQUEST PREVENTION: Block active request overlaps
+            const duplicateConflict = Object.values(REQUESTS).find(r => 
+                r.tank_id === tankId && 
+                (r.status === 'pending' || r.status === 'in_progress' || r.status === 'approved')
+            );
+            if (duplicateConflict) {
+                const confStatus = duplicateConflict.status === 'in_progress' ? 'In Progress' : 'Pending';
+                showToast(`Duplicate Prevention: Tank ${tankId} already has an active ${confStatus} request (#${duplicateConflict.request_id}).`, 'warning');
+                return;
+            }
+
             const payload = {
-                tank_id: document.getElementById('req_tank')?.value?.trim() || '',
-                owner_name: document.getElementById('req_owner')?.value?.trim() || '',
+                tank_id: tankId,
+                owner_name: ownerName,
                 address: document.getElementById('req_address')?.value?.trim() || '',
                 barangay: document.getElementById('req_barangay')?.value || 'Barangay San Jose',
                 service_type: document.getElementById('req_type')?.value || 'desludging',
                 preferred_date: document.getElementById('req_date')?.value || new Date().toISOString().split('T')[0],
-                preferred_time: document.getElementById('req_time')?.value || '09:00 AM',
+                preferred_time: formatTime24to12(document.getElementById('req_time')?.value || '09:00'),
                 priority: document.getElementById('req_priority')?.value || 'medium',
                 notes: document.getElementById('req_notes')?.value?.trim() || ''
             };
@@ -939,18 +1377,24 @@ $title = 'Service Requests';
         let visibleCount = 0;
 
         document.querySelectorAll('.request-row').forEach(row => {
-            const owner = row.dataset.owner;
-            const tank = row.dataset.tank;
-            const requestId = row.dataset.requestId || '';
-            const technician = row.dataset.technician || '';
-            const rowStatus = row.dataset.status;
-            const rowType = row.dataset.type;
+            const owner = (row.dataset.owner || '').toLowerCase();
+            const tank = (row.dataset.tank || '').toLowerCase();
+            const requestId = (row.dataset.requestId || '').toLowerCase();
+            const technician = (row.dataset.technician || '').toLowerCase();
+            const rowStatus = row.dataset.status || '';
+            const rowType = (row.dataset.type || '').toLowerCase();
             const preferredDate = row.dataset.preferredDate || '';
             const rowPriority = row.dataset.priority || '';
+            const rowText = (row.textContent || row.innerText || '').toLowerCase();
 
-            const matchesSearch = !search || [requestId, owner, tank, technician].some(value => value.includes(search));
+            const matchesSearch = !search || 
+                                  owner.includes(search) || 
+                                  tank.includes(search) || 
+                                  requestId.includes(search) || 
+                                  technician.includes(search) || 
+                                  rowText.includes(search);
             const matchesStatus = !status || rowStatus === status;
-            const matchesType = !type || rowType === type;
+            const matchesType = !type || rowType === type.toLowerCase();
             const matchesPriority = !priority || rowPriority === priority;
             const matchesDateFrom = !dateFrom || (preferredDate && preferredDate >= dateFrom);
             const matchesDateTo = !dateTo || (preferredDate && preferredDate <= dateTo);
@@ -960,7 +1404,10 @@ $title = 'Service Requests';
             if (isVisible) visibleCount++;
         });
 
-        document.getElementById('emptyState').style.display = visibleCount === 0 ? 'flex' : 'none';
+        const emptyState = document.getElementById('emptyState');
+        if (emptyState) {
+            emptyState.style.display = visibleCount === 0 ? 'flex' : 'none';
+        }
     }
 
     function resetFilters() {

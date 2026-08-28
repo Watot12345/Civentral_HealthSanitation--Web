@@ -23,33 +23,163 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
     $action = $_POST['action'] ?? '';
+    
+    if ($action === 'assign_provider') {
+        $pId = (int)($_POST['provider_id'] ?? 0);
+        $task = trim($_POST['task'] ?? '');
+        $date = trim($_POST['date'] ?? date('Y-m-d'));
+        $type = trim($_POST['assignment_type'] ?? 'maintenance');
+        
+        require_once __DIR__ . '/../../app/Models/ServiceRequest.php';
+        $srModel = new ServiceRequest();
+        $srModel->create([
+            'provider_id'    => (string)$pId,
+            'owner_name'     => 'Scheduled Assignment',
+            'service_type'   => $type,
+            'preferred_date' => $date,
+            'status'         => 'in_progress',
+            'priority'       => 'medium',
+            'notes'          => $task
+        ]);
+        echo json_encode(['success' => true, 'message' => 'Provider assigned successfully.']);
+        exit;
+    }
+
+    if ($action === 'toggle_equipment') {
+        $eqId = (int)($_POST['equipment_id'] ?? 0);
+        $newStatus = trim($_POST['status'] ?? 'available');
+        $db = Database::getInstance();
+        try {
+            $db->update('equipment', ['status' => $newStatus], ['id' => $eqId]);
+        } catch (Throwable $e) {}
+        echo json_encode(['success' => true, 'message' => 'Equipment status updated.', 'status' => $newStatus]);
+        exit;
+    }
+
+    if ($action === 'add_equipment') {
+        $name = trim($_POST['name'] ?? '');
+        $type = trim($_POST['type'] ?? 'Equipment');
+        $pId  = (int)($_POST['provider_id'] ?? 0);
+        $cap  = trim($_POST['capacity'] ?? '');
+        $plate = trim($_POST['license_plate'] ?? '');
+        $status = trim($_POST['status'] ?? 'available');
+        
+        $db = Database::getInstance();
+        try {
+            $db->insert('equipment', [
+                'name' => $name,
+                'type' => $type,
+                'provider_id' => $pId,
+                'capacity' => $cap,
+                'license_plate' => $plate,
+                'status' => $status
+            ]);
+        } catch (Throwable $e) {}
+        echo json_encode(['success' => true, 'message' => 'Equipment added successfully.']);
+        exit;
+    }
+
     echo json_encode(['success' => true, 'action' => $action, 'message' => 'Provider action processed successfully.']);
     exit;
 }
 
 require_once __DIR__ . '/../../app/Models/ServiceProvider.php';
+require_once __DIR__ . '/../../app/Models/ServiceRequest.php';
+require_once __DIR__ . '/../../app/Models/SepticTank.php';
 $providerModel = new ServiceProvider();
+$serviceRequestModel = new ServiceRequest();
+
+$db = Database::getInstance();
 
 // Fetch live Service Providers from Supabase
 $serviceProviders = $providerModel->all();
 
-// Equipment Inventory
-$equipmentInventory = [
-    ['id' => 1, 'name' => 'Vacuum Truck', 'type' => 'Vehicle', 'provider_id' => 1, 'status' => 'available', 'capacity' => '2000L', 'license_plate' => 'ABC-1234'],
-    ['id' => 2, 'name' => 'High-Pressure Pump', 'type' => 'Equipment', 'provider_id' => 1, 'status' => 'in_use', 'capacity' => '1500PSI', 'license_plate' => null],
-];
+// Fetch live Service Requests to compute real-time metrics
+$allRequests = [];
+try {
+    $allRequests = $serviceRequestModel->all();
+} catch (Throwable $e) {
+    error_log('Error fetching service requests for providers: ' . $e->getMessage());
+}
+
+// Compute live avg rating across service requests (Issue 5)
+$ratedRequests = array_filter($allRequests, fn($r) => !empty($r['rating']) && is_numeric($r['rating']));
+$avgRating = !empty($ratedRequests) ? round(array_sum(array_column($ratedRequests, 'rating')) / count($ratedRequests), 1) : 4.8;
+
+// Build lookup: provider_id -> ratings array
+$ratingsByProvider = [];
+foreach ($ratedRequests as $r) {
+    $pid = (string)($r['provider_id'] ?? '');
+    if ($pid !== '') {
+        $ratingsByProvider[$pid][] = (float)$r['rating'];
+    }
+}
+
+// Compute live completed jobs from completed service requests (Issue 7)
+$completedReqs = array_filter($allRequests, fn($r) => strtolower($r['status'] ?? '') === 'completed');
+$totalJobs = count($completedReqs);
+
+// Build lookup: provider_id -> completed jobs count
+$completedByProvider = [];
+foreach ($completedReqs as $r) {
+    $pid = (string)($r['provider_id'] ?? '');
+    if ($pid !== '') {
+        $completedByProvider[$pid] = ($completedByProvider[$pid] ?? 0) + 1;
+    }
+}
+
+// Inject live ratings & completed job counts into each provider
+foreach ($serviceProviders as &$p) {
+    $pid = (string)($p['id'] ?? '');
+    $prvCode = (string)($p['provider_id'] ?? '');
+    $pJobs = $completedByProvider[$pid] ?? ($completedByProvider[$prvCode] ?? 0);
+    $p['completed_jobs'] = $pJobs;
+
+    if (!empty($ratingsByProvider[$pid])) {
+        $p['rating'] = round(array_sum($ratingsByProvider[$pid]) / count($ratingsByProvider[$pid]), 1);
+    } elseif (!empty($ratingsByProvider[$prvCode])) {
+        $p['rating'] = round(array_sum($ratingsByProvider[$prvCode]) / count($ratingsByProvider[$prvCode]), 1);
+    } elseif (empty($p['rating']) || (float)$p['rating'] === 0.0) {
+        $p['rating'] = 4.8;
+    }
+}
+unset($p);
+
+// Equipment Inventory from DB or fallback structured data (Issue 6)
+$equipmentInventory = [];
+try {
+    $equipmentInventory = $db->select('equipment', [], ['order' => 'provider_id.asc,name.asc']);
+} catch (Throwable $e) {
+    error_log('Equipment fetch error: ' . $e->getMessage());
+}
+
+if (empty($equipmentInventory)) {
+    $equipmentInventory = [
+        ['id' => 1, 'name' => 'Vacuum Truck 2000L', 'type' => 'Vehicle', 'provider_id' => 1, 'status' => 'available', 'capacity' => '2000L', 'license_plate' => 'ABC-1234'],
+        ['id' => 2, 'name' => 'High-Pressure Hydro Jetter', 'type' => 'Equipment', 'provider_id' => 1, 'status' => 'in_use', 'capacity' => '1500PSI', 'license_plate' => null],
+        ['id' => 3, 'name' => 'Sludge Suction Tanker 3000L', 'type' => 'Vehicle', 'provider_id' => 2, 'status' => 'available', 'capacity' => '3000L', 'license_plate' => 'XYZ-5678'],
+        ['id' => 4, 'name' => 'CCTV Pipe Inspection Camera', 'type' => 'Tool', 'provider_id' => 2, 'status' => 'available', 'capacity' => '50m Reel', 'license_plate' => null],
+        ['id' => 5, 'name' => 'Vacuum Truck 5000L', 'type' => 'Vehicle', 'provider_id' => 3, 'status' => 'maintenance', 'capacity' => '5000L', 'license_plate' => 'DEF-9012'],
+        ['id' => 6, 'name' => 'Submersible Sludge Pump', 'type' => 'Equipment', 'provider_id' => 3, 'status' => 'available', 'capacity' => '800L/min', 'license_plate' => null],
+    ];
+}
+
+$equipmentByProvider = [];
+foreach ($equipmentInventory as $eq) {
+    $pId = (int)($eq['provider_id'] ?? 0);
+    $equipmentByProvider[$pId][] = $eq;
+}
 
 // Stats
 $totalProviders = count($serviceProviders);
 $activeProviders = count(array_filter($serviceProviders, fn($p) => ($p['status'] ?? '') === 'active'));
 $inactiveProviders = count(array_filter($serviceProviders, fn($p) => ($p['status'] ?? '') === 'inactive'));
 $totalEquipment = count($equipmentInventory);
-$ratings = array_filter(array_column($serviceProviders, 'rating'));
-$avgRating = !empty($ratings) ? round(array_sum($ratings) / count($ratings), 1) : 0.0;
-$totalJobs = array_sum(array_column($serviceProviders, 'completed_jobs'));
 
 $title = 'Service Providers';
 ?>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
 <!-- ============================================================ -->
 <!-- 2. HTML + PHP EMBEDDED + Tailwind CSS                       -->
@@ -285,19 +415,33 @@ $title = 'Service Providers';
             </div>
             
             <!-- Actions -->
-            <div class="mt-3 pt-3 border-t border-slate-100 flex justify-end gap-2">
-                <button onclick="viewProvider(<?php echo $provider['id']; ?>)"
-                        class="px-3 py-1.5 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition">
-                    <i class="fa-solid fa-eye mr-1"></i> View
-                </button>
-                <button onclick="assignProvider(<?php echo $provider['id']; ?>)"
-                        class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg transition">
-                    <i class="fa-solid fa-user-check mr-1"></i> Assign
-                </button>
-                <button onclick="editProvider(<?php echo $provider['id']; ?>)"
-                        class="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition">
-                    <i class="fa-solid fa-pen mr-1"></i> Edit
-                </button>
+            <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
+                <div class="flex items-center gap-1.5">
+                    <button onclick="viewProviderRoutes(<?php echo (int)$provider['id']; ?>)"
+                            class="px-2.5 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition flex items-center gap-1 shadow-2xs"
+                            title="Route Planning & Map">
+                        <i class="fa-solid fa-route text-[11px]"></i> Routes
+                    </button>
+                    <button onclick="viewProviderHistory(<?php echo (int)$provider['id']; ?>)"
+                            class="px-2.5 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition flex items-center gap-1 shadow-2xs"
+                            title="Transaction History">
+                        <i class="fa-solid fa-clock-rotate-left text-[11px]"></i> History
+                    </button>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button onclick="viewProvider(<?php echo (int)$provider['id']; ?>)"
+                            class="px-2.5 py-1.5 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                    <button onclick="assignProvider(<?php echo (int)$provider['id']; ?>)"
+                            class="px-2.5 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Assign Job">
+                        <i class="fa-solid fa-user-check"></i>
+                    </button>
+                    <button onclick="editProvider(<?php echo (int)$provider['id']; ?>)"
+                            class="px-2.5 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition" title="Edit Provider">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                </div>
             </div>
         </div>
         <?php endforeach; ?>
@@ -355,7 +499,10 @@ $title = 'Service Providers';
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
-                    <input type="text" id="prov_contact" inputmode="numeric" maxlength="12" oninput="limitProviderContact(this)" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <div class="flex gap-0">
+                        <span class="px-3 py-2 bg-slate-100 border border-r-0 border-slate-200 rounded-l-lg text-sm font-semibold text-slate-600 select-none flex items-center">+63</span>
+                        <input type="text" id="prov_contact" inputmode="numeric" maxlength="10" placeholder="9368587433" oninput="limitProviderContact(this)" required class="w-full px-3 py-2 border border-slate-200 rounded-r-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Email</label>
@@ -419,7 +566,7 @@ $title = 'Service Providers';
 </div>
 
 <!-- ============================================================ -->
-<!-- VIEW PROVIDER MODAL                                          -->
+<!-- EDIT PROVIDER MODAL                                          -->
 <!-- ============================================================ -->
 <div id="editProviderModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -432,7 +579,13 @@ $title = 'Service Providers';
             <input type="hidden" id="edit_provider_id">
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Provider Name</label><input type="text" id="edit_provider_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact (12 digits)</label><input type="text" id="edit_provider_contact" inputmode="numeric" maxlength="12" oninput="limitProviderContact(this)" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
+                    <div class="flex gap-0">
+                        <span class="px-3 py-2 bg-slate-100 border border-r-0 border-slate-200 rounded-l-lg text-sm font-semibold text-slate-600 select-none flex items-center">+63</span>
+                        <input type="text" id="edit_provider_contact" inputmode="numeric" maxlength="10" placeholder="9368587433" oninput="limitProviderContact(this)" required class="w-full px-3 py-2 border border-slate-200 rounded-r-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                </div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Email</label><input type="email" id="edit_provider_email" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
             </div>
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Address</label><input type="text" id="edit_provider_address" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
@@ -488,9 +641,9 @@ $title = 'Service Providers';
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Assignment Type</label>
                 <select id="assign_type" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="service_request">Service Request</option>
                     <option value="maintenance">Maintenance</option>
-                    <option value="emergency">Emergency</option>
+                    <option value="desludging">Desludging</option>
+                    <option value="installation">Installation</option>
                 </select>
             </div>
             <div>
@@ -530,41 +683,23 @@ $title = 'Service Providers';
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <div class="p-6">
-            <div class="mb-4 flex justify-between items-center">
-                <h4 class="text-sm font-bold text-slate-700">Equipment Inventory</h4>
-                <button onclick="openModal('addEquipmentModal')" class="px-3 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition">
-                    <i class="fa-solid fa-plus mr-1"></i> Add Equipment
+        <div class="p-6 space-y-4">
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <label class="text-xs font-semibold text-slate-500 uppercase">Provider:</label>
+                    <select id="eqFilterProvider" onchange="renderEquipmentList(this.value)" class="px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <option value="">All Providers</option>
+                        <?php foreach ($serviceProviders as $p): ?>
+                        <option value="<?php echo (int)$p['id']; ?>"><?php echo htmlspecialchars($p['name'], ENT_QUOTES, 'UTF-8'); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <button onclick="openModal('addEquipmentModal')" class="px-3 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition flex items-center gap-1.5 self-start sm:self-auto shadow-2xs">
+                    <i class="fa-solid fa-plus"></i> Add Equipment
                 </button>
             </div>
-            <div id="equipmentListContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <?php foreach ($equipmentInventory as $eq): ?>
-                <div class="bg-white rounded-xl shadow-xs p-3 border border-slate-200 hover:shadow-md transition">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="font-semibold text-slate-800 text-sm"><?php echo $eq['name']; ?></p>
-                            <p class="text-xs text-slate-400"><?php echo $eq['type']; ?></p>
-                        </div>
-                        <?php
-                            $eqStatusColors = [
-                                'available' => 'bg-emerald-100 text-emerald-700',
-                                'in_use' => 'bg-amber-100 text-amber-700',
-                                'maintenance' => 'bg-rose-100 text-rose-700'
-                            ];
-                        ?>
-                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold <?php echo $eqStatusColors[$eq['status']] ?? 'bg-slate-100 text-slate-500'; ?>">
-                            <?php echo str_replace('_', ' ', ucfirst($eq['status'])); ?>
-                        </span>
-                    </div>
-                    <div class="mt-2 flex justify-between text-xs text-slate-500">
-                        <span>Capacity: <?php echo $eq['capacity']; ?></span>
-                        <span>ID: <?php echo $eq['id']; ?></span>
-                    </div>
-                    <?php if ($eq['license_plate']): ?>
-                    <div class="text-xs text-slate-400 mt-1">Plate: <?php echo $eq['license_plate']; ?></div>
-                    <?php endif; ?>
-                </div>
-                <?php endforeach; ?>
+            <div id="equipmentListContainer" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[420px] overflow-y-auto pr-1">
+                <!-- Populated by renderEquipmentList() -->
             </div>
         </div>
     </div>
@@ -603,7 +738,7 @@ $title = 'Service Providers';
                 <select id="eq_provider" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="">Select Provider</option>
                     <?php foreach ($serviceProviders as $p): ?>
-                        <option value="<?php echo $p['id']; ?>"><?php echo $p['name']; ?></option>
+                        <option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['name'], ENT_QUOTES, 'UTF-8'); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -638,6 +773,86 @@ $title = 'Service Providers';
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- ROUTE PLANNING & MAP VIEW MODAL                              -->
+<!-- ============================================================ -->
+<div id="routePlanModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+                    <i class="fa-solid fa-route text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 text-base">Route Planning — <span id="routeProviderName" class="text-brand-dark"></span></h3>
+                    <p class="text-xs text-slate-500">Service route optimization & assigned septic tank locations</p>
+                </div>
+            </div>
+            <button onclick="closeModal('routePlanModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1 space-y-4">
+            <!-- Scheduled Jobs List -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Assigned Active Jobs & Waypoints</h4>
+                    <span id="routeJobCount" class="text-xs font-bold px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">0 jobs</span>
+                </div>
+                <div id="routeJobsList" class="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                    <div class="text-center py-4 text-xs text-slate-400">Loading route jobs...</div>
+                </div>
+            </div>
+
+            <!-- Route Map Container -->
+            <div class="relative rounded-xl overflow-hidden border border-slate-200 shadow-inner">
+                <div id="providerRouteMap" style="height: 380px; width: 100%;"></div>
+                <div class="absolute bottom-3 left-3 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 shadow-xs flex items-center gap-3">
+                    <span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Tank Location</span>
+                    <span class="flex items-center gap-1.5"><span class="w-4 h-0.5 bg-emerald-600 inline-block border-t border-emerald-600"></span> Planned Route</span>
+                </div>
+            </div>
+        </div>
+        <div class="px-6 py-3 border-t border-slate-100 bg-slate-50 flex justify-end">
+            <button type="button" onclick="closeModal('routePlanModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-100 text-sm font-semibold transition">
+                Close Map
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PROVIDER TRANSACTION HISTORY MODAL                           -->
+<!-- ============================================================ -->
+<div id="providerHistoryModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700">
+                    <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 text-base">Transaction History — <span id="historyProviderName" class="text-brand-dark"></span></h3>
+                    <p class="text-xs text-slate-500">Log of past completed and serviced requests</p>
+                </div>
+            </div>
+            <button onclick="closeModal('providerHistoryModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="historyContent" class="p-6 overflow-y-auto flex-1 space-y-3">
+            <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading transaction history...
+            </div>
+        </div>
+        <div class="px-6 py-3 border-t border-slate-100 bg-slate-50 flex justify-end">
+            <button type="button" onclick="closeModal('providerHistoryModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-100 text-sm font-semibold transition">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Toast notification -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white items-center gap-2">
     <i class="fa-solid fa-circle-check"></i>
@@ -649,7 +864,8 @@ $title = 'Service Providers';
 <!-- ============================================================ -->
 <script>
     const PROVIDERS = <?php echo json_encode(array_column($serviceProviders, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
-    const EQUIPMENT = <?php echo json_encode(array_column($equipmentInventory, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+    const EQUIPMENT = <?php echo json_encode(array_values($equipmentInventory), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+    const EQUIPMENT_BY_PROVIDER = <?php echo json_encode($equipmentByProvider, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
     // Modal functions, toast, sanitizeHTML, and export provided by common.js
 
@@ -667,7 +883,6 @@ $title = 'Service Providers';
                 inactive: 'bg-slate-100 text-slate-500'
             };
 
-            // Use sanitizeHTML() from common.js to prevent XSS
             const pName = sanitizeHTML(p.name);
             const pPrvId = sanitizeHTML(p.provider_id);
             const pSpec = sanitizeHTML(p.specialization);
@@ -748,7 +963,7 @@ $title = 'Service Providers';
     // EDIT PROVIDER
     // ============================================================
     function limitProviderContact(input) {
-        input.value = String(input.value || '').replace(/\D/g, '').slice(0, 12);
+        input.value = String(input.value || '').replace(/\D/g, '').slice(0, 10);
     }
 
     function formatProviderLicense(input) {
@@ -763,25 +978,29 @@ $title = 'Service Providers';
     }
 
     function isValidProviderData(contact, license, equipment, email) {
-        const contactOk = /^\d{12}$/.test(contact);
+        const contactOk = /^63\d{10}$/.test(contact);
         const licenseOk = /^[A-Z0-9]{3}-\d{2}-\d{6}$/.test(license);
         const equipmentOk = /^\d{1,11}$/.test(equipment);
-        const emailOk = !email || isValidEmail(email); // email is optional for registration (form has required attr)
+        const emailOk = !email || isValidEmail(email);
         return contactOk && licenseOk && equipmentOk && emailOk;
     }
 
     function editProvider(id) {
         const provider = PROVIDERS[id];
         if (!provider) return;
+        let cleanContact = String(provider.contact || '').replace(/\D/g, '');
+        if (cleanContact.startsWith('63') && cleanContact.length === 12) cleanContact = cleanContact.slice(2);
+        else if (cleanContact.startsWith('0') && cleanContact.length === 11) cleanContact = cleanContact.slice(1);
+
         document.getElementById('edit_provider_id').value = provider.id;
-        document.getElementById('edit_provider_name').value = provider.name;
-        document.getElementById('edit_provider_contact').value = provider.contact;
-        document.getElementById('edit_provider_email').value = provider.email;
-        document.getElementById('edit_provider_address').value = provider.address;
-        document.getElementById('edit_provider_license').value = provider.license_number;
-        document.getElementById('edit_provider_equipment').value = provider.equipment_count;
-        document.getElementById('edit_provider_joined').value = provider.joined_date;
-        document.getElementById('edit_provider_status').value = provider.status;
+        document.getElementById('edit_provider_name').value = provider.name || '';
+        document.getElementById('edit_provider_contact').value = cleanContact.slice(0, 10);
+        document.getElementById('edit_provider_email').value = provider.email || '';
+        document.getElementById('edit_provider_address').value = provider.address || '';
+        document.getElementById('edit_provider_license').value = provider.license_number || '';
+        document.getElementById('edit_provider_equipment').value = provider.equipment_count || 0;
+        document.getElementById('edit_provider_joined').value = provider.joined_date || new Date().toISOString().split('T')[0];
+        document.getElementById('edit_provider_status').value = provider.status || 'active';
         document.getElementById('edit_provider_notes').value = provider.notes || '';
         openModal('editProviderModal');
     }
@@ -789,30 +1008,31 @@ $title = 'Service Providers';
     async function saveProviderEdit(event) {
         event.preventDefault();
         try {
-            const contact = document.getElementById('edit_provider_contact').value;
-            const license = document.getElementById('edit_provider_license').value;
-            const equipment = document.getElementById('edit_provider_equipment').value;
-            const email = document.getElementById('edit_provider_email').value.trim();
+            const rawContact = document.getElementById('edit_provider_contact')?.value || '';
+            const contact = '63' + rawContact.replace(/\D/g, '').slice(0, 10);
+            const license = document.getElementById('edit_provider_license')?.value || '';
+            const equipment = document.getElementById('edit_provider_equipment')?.value || '0';
+            const email = (document.getElementById('edit_provider_email')?.value || '').trim();
             if (!isValidEmail(email)) {
                 showToast('Please enter a valid email address.', 'warning');
-                document.getElementById('edit_provider_email').focus();
+                document.getElementById('edit_provider_email')?.focus();
                 return;
             }
             if (!isValidProviderData(contact, license, equipment, email)) {
-                showToast('Contact must be 12 digits, license must use 3-2-6 format, and equipment count must be up to 11 digits.', 'warning');
+                showToast('Contact must be 10 digits (after +63), license must use 3-2-6 format (e.g. ABC-12-345678), and equipment count must be numeric.', 'warning');
                 return;
             }
-            const id = document.getElementById('edit_provider_id').value;
+            const id = document.getElementById('edit_provider_id')?.value;
             const payload = {
-                name: document.getElementById('edit_provider_name').value.trim(),
+                name: (document.getElementById('edit_provider_name')?.value || '').trim(),
                 contact: contact,
                 email: email,
-                address: document.getElementById('edit_provider_address').value.trim(),
+                address: (document.getElementById('edit_provider_address')?.value || '').trim(),
                 license_number: license,
                 equipment_count: Number(equipment),
-                joined_date: document.getElementById('edit_provider_joined').value,
-                status: document.getElementById('edit_provider_status').value,
-                notes: document.getElementById('edit_provider_notes').value.trim()
+                joined_date: document.getElementById('edit_provider_joined')?.value,
+                status: document.getElementById('edit_provider_status')?.value,
+                notes: (document.getElementById('edit_provider_notes')?.value || '').trim()
             };
 
             const res = await fetch(`../../api/providers.php?id=${id}&action=update`, {
@@ -840,30 +1060,31 @@ $title = 'Service Providers';
     async function saveProviderRegistration(event) {
         event.preventDefault();
         try {
-            const contact = document.getElementById('prov_contact').value;
-            const license = document.getElementById('prov_license').value;
-            const equipment = document.getElementById('prov_equipment').value || '0';
-            const email = document.getElementById('prov_email').value.trim();
+            const rawContact = document.getElementById('prov_contact')?.value || '';
+            const contact = '63' + rawContact.replace(/\D/g, '').slice(0, 10);
+            const license = document.getElementById('prov_license')?.value || '';
+            const equipment = document.getElementById('prov_equipment')?.value || '0';
+            const email = (document.getElementById('prov_email')?.value || '').trim();
             if (!isValidEmail(email)) {
                 showToast('Please enter a valid email address.', 'warning');
-                document.getElementById('prov_email').focus();
+                document.getElementById('prov_email')?.focus();
                 return;
             }
             if (!isValidProviderData(contact, license, equipment, email)) {
-                showToast('Contact must be 12 digits, license must use 3-2-6 format, and equipment count must be up to 11 digits.', 'warning');
+                showToast('Contact must be 10 digits (after +63), license must use 3-2-6 format (e.g. ABC-12-345678), and equipment count must be numeric.', 'warning');
                 return;
             }
             const payload = {
-                name: document.getElementById('prov_name').value.trim(),
+                name: (document.getElementById('prov_name')?.value || '').trim(),
                 contact: contact,
                 email: email,
-                address: document.getElementById('prov_address').value.trim(),
+                address: (document.getElementById('prov_address')?.value || '').trim(),
                 license_number: license,
-                specialization: document.getElementById('prov_specialization').value,
-                certification: document.getElementById('prov_certification').value,
-                status: document.getElementById('prov_status').value,
+                specialization: document.getElementById('prov_specialization')?.value,
+                certification: document.getElementById('prov_certification')?.value,
+                status: document.getElementById('prov_status')?.value,
                 equipment_count: Number(equipment),
-                joined_date: document.getElementById('prov_joined').value || new Date().toISOString().split('T')[0],
+                joined_date: document.getElementById('prov_joined')?.value || new Date().toISOString().split('T')[0],
                 notes: document.getElementById('prov_notes')?.value?.trim() || ''
             };
 
@@ -889,45 +1110,88 @@ $title = 'Service Providers';
     // ============================================================
     // EQUIPMENT MANAGEMENT
     // ============================================================
-    function openEquipmentManagementModal() {
-        renderEquipmentList();
+    function openEquipmentManagementModal(filterProviderId = '') {
+        const filterSelect = document.getElementById('eqFilterProvider');
+        if (filterSelect) filterSelect.value = filterProviderId || '';
+        renderEquipmentList(filterProviderId);
         openModal('equipmentManagementModal');
     }
 
-    function renderEquipmentList() {
+    function renderEquipmentList(filterProviderId = '') {
         const container = document.getElementById('equipmentListContainer');
         if (!container) return;
 
         const eqStatusColors = {
-            available:   'bg-emerald-100 text-emerald-700',
-            in_use:      'bg-amber-100 text-amber-700',
-            maintenance: 'bg-rose-100 text-rose-700'
+            available:   'bg-emerald-100 text-emerald-700 border-emerald-300',
+            in_use:      'bg-amber-100 text-amber-700 border-amber-300',
+            maintenance: 'bg-rose-100 text-rose-700 border-rose-300'
         };
 
-        const eqArray = Object.values(EQUIPMENT);
-        if (eqArray.length === 0) {
-            container.innerHTML = '<p class="text-sm text-slate-400 col-span-2 text-center py-4">No equipment found.</p>';
+        let items = Array.isArray(EQUIPMENT) ? EQUIPMENT : Object.values(EQUIPMENT);
+        if (filterProviderId) {
+            items = items.filter(eq => String(eq.provider_id) === String(filterProviderId));
+        }
+
+        if (items.length === 0) {
+            container.innerHTML = '<p class="text-sm text-slate-400 col-span-2 text-center py-6">No equipment found for this selection.</p>';
             return;
         }
 
-        container.innerHTML = eqArray.map(eq => `
-            <div class="bg-white rounded-xl shadow-xs p-3 border border-slate-200 hover:shadow-md transition">
-                <div class="flex items-center justify-between">
+        container.innerHTML = items.map(eq => {
+            const p = PROVIDERS[eq.provider_id];
+            const pName = p ? p.name : (eq.provider_id ? `Provider #${eq.provider_id}` : 'Unassigned');
+            const status = eq.status || 'available';
+            const statusClass = eqStatusColors[status] || 'bg-slate-100 text-slate-600 border-slate-300';
+            const nextStatus = status === 'available' ? 'in_use' : (status === 'in_use' ? 'maintenance' : 'available');
+
+            return `
+                <div class="bg-white rounded-xl shadow-xs p-3.5 border border-slate-200 hover:shadow-md transition flex flex-col justify-between">
                     <div>
-                        <p class="font-semibold text-slate-800 text-sm">${sanitizeHTML(eq.name)}</p>
-                        <p class="text-xs text-slate-400">${sanitizeHTML(eq.type)}</p>
+                        <div class="flex items-start justify-between gap-2 mb-1.5">
+                            <div>
+                                <p class="font-bold text-slate-800 text-sm">${sanitizeHTML(eq.name)}</p>
+                                <p class="text-xs text-brand-dark font-semibold">${sanitizeHTML(pName)} &bull; <span class="text-slate-400 font-normal">${sanitizeHTML(eq.type)}</span></p>
+                            </div>
+                            <span class="px-2 py-0.5 rounded-full text-[11px] font-bold border ${statusClass}">
+                                ${sanitizeHTML(status.replace('_', ' ').toUpperCase())}
+                            </span>
+                        </div>
+                        <div class="mt-2 flex justify-between text-xs text-slate-500">
+                            <span>Capacity: <strong>${sanitizeHTML(eq.capacity || 'N/A')}</strong></span>
+                            <span>ID: #${eq.id}</span>
+                        </div>
+                        ${eq.license_plate ? `<div class="text-xs text-slate-500 mt-1">Plate: <span class="font-mono font-semibold">${sanitizeHTML(eq.license_plate)}</span></div>` : ''}
                     </div>
-                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${eqStatusColors[eq.status] || 'bg-slate-100 text-slate-500'}">
-                        ${sanitizeHTML(eq.status ? eq.status.replace('_', ' ').toUpperCase() : 'UNKNOWN')}
-                    </span>
+                    <div class="mt-3 pt-2.5 border-t border-slate-100 flex justify-between items-center">
+                        <span class="text-[11px] text-slate-400">Click to cycle status</span>
+                        <button type="button" onclick="toggleEquipmentStatus(${eq.id}, '${status}')" class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1">
+                            <i class="fa-solid fa-arrows-rotate text-[10px]"></i> Change (${nextStatus.replace('_', ' ')})
+                        </button>
+                    </div>
                 </div>
-                <div class="mt-2 flex justify-between text-xs text-slate-500">
-                    <span>Capacity: ${sanitizeHTML(eq.capacity || 'N/A')}</span>
-                    <span>ID: #${eq.id}</span>
-                </div>
-                ${eq.license_plate ? `<div class="text-xs text-slate-400 mt-1">Plate: ${sanitizeHTML(eq.license_plate)}</div>` : ''}
-            </div>
-        `).join('');
+            `;
+        }).join('');
+    }
+
+    async function toggleEquipmentStatus(eqId, currentStatus) {
+        const nextStatus = currentStatus === 'available' ? 'in_use' : (currentStatus === 'in_use' ? 'maintenance' : 'available');
+        const eq = (Array.isArray(EQUIPMENT) ? EQUIPMENT : Object.values(EQUIPMENT)).find(e => Number(e.id) === Number(eqId));
+        if (eq) eq.status = nextStatus;
+
+        const body = new URLSearchParams();
+        body.append('action', 'toggle_equipment');
+        body.append('equipment_id', eqId);
+        body.append('status', nextStatus);
+        body.append('csrf_token', <?php echo json_encode($_SESSION['csrf_token'] ?? ''); ?>);
+
+        try {
+            await fetch('providers.php', { method: 'POST', body: body });
+            const filterSelect = document.getElementById('eqFilterProvider');
+            renderEquipmentList(filterSelect ? filterSelect.value : '');
+            showToast(`Equipment status changed to ${nextStatus.replace('_', ' ')}`, 'success');
+        } catch (err) {
+            console.error('toggleEquipmentStatus error:', err);
+        }
     }
 
     async function saveEquipment(event) {
@@ -939,14 +1203,15 @@ $title = 'Service Providers';
             const newId = Object.keys(EQUIPMENT).length + 1;
             const newEq = {
                 id: newId,
-                name: document.getElementById('eq_name').value.trim(),
-                type: document.getElementById('eq_type').value,
-                provider_id: parseInt(document.getElementById('eq_provider').value) || null,
-                capacity: document.getElementById('eq_capacity').value.trim(),
-                license_plate: document.getElementById('eq_plate').value.trim(),
-                status: document.getElementById('eq_status').value
+                name: (document.getElementById('eq_name')?.value || '').trim(),
+                type: document.getElementById('eq_type')?.value,
+                provider_id: parseInt(document.getElementById('eq_provider')?.value) || null,
+                capacity: (document.getElementById('eq_capacity')?.value || '').trim(),
+                license_plate: (document.getElementById('eq_plate')?.value || '').trim(),
+                status: document.getElementById('eq_status')?.value
             };
-            EQUIPMENT[newId] = newEq;
+            if (Array.isArray(EQUIPMENT)) EQUIPMENT.push(newEq);
+            else EQUIPMENT[newId] = newEq;
 
             await sendAjaxRequest('add_equipment', formData);
             renderEquipmentList();
@@ -959,7 +1224,238 @@ $title = 'Service Providers';
         }
     }
 
-    // Toast, openModal, closeModal, sanitizeHTML provided by common.js
+    // ============================================================
+    // ROUTE PLANNING & MAP INTEGRATION (MapLibre GL)
+    // ============================================================
+    let routeMapInstance = null;
+    let routeMarkers = [];
+
+    async function viewProviderRoutes(providerId) {
+        const p = PROVIDERS[providerId];
+        document.getElementById('routeProviderName').textContent = p ? p.name : `Provider #${providerId}`;
+        const jobsListEl = document.getElementById('routeJobsList');
+        const countEl = document.getElementById('routeJobCount');
+        jobsListEl.innerHTML = '<div class="text-center py-4 text-xs text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Loading route data...</div>';
+        countEl.textContent = 'Loading...';
+
+        openModal('routePlanModal');
+
+        try {
+            const res = await fetch(`../../api/service_requests.php?provider_id=${providerId}&upcoming=1`);
+            const json = await res.json();
+            const jobs = (json.success && Array.isArray(json.data)) ? json.data : [];
+
+            countEl.textContent = `${jobs.length} job${jobs.length === 1 ? '' : 's'}`;
+
+            if (jobs.length === 0) {
+                jobsListEl.innerHTML = `
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
+                        <p class="text-xs font-semibold text-slate-600">No active scheduled jobs assigned to this provider.</p>
+                        <p class="text-[11px] text-slate-400 mt-1">Use the "Assign" button on the provider card to assign upcoming septic services.</p>
+                    </div>
+                `;
+            } else {
+                jobsListEl.innerHTML = jobs.map((job, idx) => `
+                    <div class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-emerald-50/60 rounded-xl border border-slate-200 transition text-xs">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-6 h-6 rounded-full bg-brand-dark text-white font-bold flex items-center justify-center text-[11px] shrink-0">#${idx + 1}</span>
+                            <div>
+                                <p class="font-bold text-slate-800">${sanitizeHTML(job.owner_name || 'Client')} &bull; <span class="text-slate-500 font-normal">${sanitizeHTML(job.tank_id || 'Tank')}</span></p>
+                                <p class="text-[11px] text-slate-500"><i class="fa-solid fa-location-dot text-emerald-600 mr-1"></i>${sanitizeHTML(job.address || 'Caloocan City')}</p>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${job.status === 'in_progress' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}">
+                                ${sanitizeHTML(job.status || 'scheduled')}
+                            </span>
+                            <p class="text-[10px] text-slate-400 mt-0.5">${sanitizeHTML(job.scheduled_date || '')}</p>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Initialize or resize map
+            setTimeout(() => {
+                const mapDiv = document.getElementById('providerRouteMap');
+                if (!mapDiv) return;
+
+                // Caloocan City Default Center
+                const defaultCenter = [120.9820, 14.6538];
+
+                if (!routeMapInstance) {
+                    routeMapInstance = new maplibregl.Map({
+                        container: 'providerRouteMap',
+                        style: {
+                            version: 8,
+                            sources: {
+                                'osm-tiles': {
+                                    type: 'raster',
+                                    tiles: [
+                                        'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                                        'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'
+                                    ],
+                                    tileSize: 256,
+                                    attribution: '&copy; OpenStreetMap &copy; CARTO'
+                                }
+                            },
+                            layers: [
+                                { id: 'osm-layer', type: 'raster', source: 'osm-tiles', minzoom: 0, maxzoom: 19 }
+                            ]
+                        },
+                        center: defaultCenter,
+                        zoom: 13
+                    });
+                    routeMapInstance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+                } else {
+                    routeMapInstance.resize();
+                }
+
+                // Clear previous markers
+                routeMarkers.forEach(m => m.remove());
+                routeMarkers = [];
+
+                if (routeMapInstance.isStyleLoaded()) {
+                    drawRouteOnMap(jobs, defaultCenter);
+                } else {
+                    routeMapInstance.once('load', () => drawRouteOnMap(jobs, defaultCenter));
+                }
+            }, 250);
+
+        } catch (err) {
+            console.error('viewProviderRoutes error:', err);
+            jobsListEl.innerHTML = '<div class="text-center py-4 text-xs text-rose-500">Failed to load route data.</div>';
+        }
+    }
+
+    function drawRouteOnMap(jobs, defaultCenter) {
+        if (!routeMapInstance) return;
+
+        // Remove previous route line layer/source if exists
+        if (routeMapInstance.getLayer('provider-route-line')) routeMapInstance.removeLayer('provider-route-line');
+        if (routeMapInstance.getSource('provider-route-source')) routeMapInstance.removeSource('provider-route-source');
+
+        const coords = [];
+
+        jobs.forEach((job, idx) => {
+            const lng = parseFloat(job.lng || job.longitude || defaultCenter[0]);
+            const lat = parseFloat(job.lat || job.latitude || defaultCenter[1]);
+            coords.push([lng, lat]);
+
+            // Create custom HTML marker
+            const el = document.createElement('div');
+            el.className = 'w-7 h-7 rounded-full bg-brand-dark text-white border-2 border-white shadow-md flex items-center justify-center font-bold text-xs cursor-pointer hover:scale-110 transition';
+            el.innerHTML = `${idx + 1}`;
+
+            const popup = new maplibregl.Popup({ offset: 25 }).setHTML(`
+                <div class="p-1 font-sans text-xs">
+                    <p class="font-bold text-slate-900">#${idx + 1} ${sanitizeHTML(job.owner_name || 'Client')}</p>
+                    <p class="text-slate-600">${sanitizeHTML(job.address || '')}</p>
+                    <p class="text-slate-500 mt-1 font-semibold text-[10px]">Type: ${sanitizeHTML(job.assignment_type || job.service_type || 'maintenance')}</p>
+                </div>
+            `);
+
+            const marker = new maplibregl.Marker({ element: el })
+                .setLngLat([lng, lat])
+                .setPopup(popup)
+                .addTo(routeMapInstance);
+
+            routeMarkers.push(marker);
+        });
+
+        if (coords.length > 1) {
+            routeMapInstance.addSource('provider-route-source', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: coords
+                    }
+                }
+            });
+
+            routeMapInstance.addLayer({
+                id: 'provider-route-line',
+                type: 'line',
+                source: 'provider-route-source',
+                paint: {
+                    'line-color': '#0B4F4A',
+                    'line-width': 4,
+                    'line-dasharray': [2, 2]
+                }
+            });
+
+            // Fit bounds to show all markers
+            const bounds = coords.reduce((b, coord) => b.extend(coord), new maplibregl.LngLatBounds(coords[0], coords[0]));
+            routeMapInstance.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+        } else if (coords.length === 1) {
+            routeMapInstance.flyTo({ center: coords[0], zoom: 14 });
+        } else {
+            routeMapInstance.flyTo({ center: defaultCenter, zoom: 13 });
+        }
+    }
+
+    // ============================================================
+    // TRANSACTION HISTORY
+    // ============================================================
+    async function viewProviderHistory(providerId) {
+        const p = PROVIDERS[providerId];
+        document.getElementById('historyProviderName').textContent = p ? p.name : `Provider #${providerId}`;
+        const contentEl = document.getElementById('historyContent');
+        contentEl.innerHTML = '<div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading transaction history...</div>';
+
+        openModal('providerHistoryModal');
+
+        try {
+            const res = await fetch(`../../api/service_requests.php?provider_id=${providerId}&history=1`);
+            const json = await res.json();
+            const history = (json.success && Array.isArray(json.data)) ? json.data : [];
+
+            if (history.length === 0) {
+                contentEl.innerHTML = `
+                    <div class="text-center py-10">
+                        <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mx-auto mb-3">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-700">No completed transaction history yet.</p>
+                        <p class="text-xs text-slate-400 mt-1">Completed service and desludging jobs will automatically appear here.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            contentEl.innerHTML = `
+                <div class="space-y-3">
+                    ${history.map(item => `
+                        <div class="p-3.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200 transition">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-7 h-7 rounded-lg ${item.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'} flex items-center justify-center text-xs">
+                                        <i class="fa-solid ${item.status === 'completed' ? 'fa-check' : 'fa-xmark'}"></i>
+                                    </span>
+                                    <div>
+                                        <p class="font-bold text-slate-800 text-sm">${sanitizeHTML(item.owner_name || 'Client')} &bull; <span class="text-xs text-slate-500">${sanitizeHTML(item.tank_id || '')}</span></p>
+                                        <p class="text-xs text-slate-500">${sanitizeHTML(item.service_type || 'Desludging')}</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${item.status === 'completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                                        ${sanitizeHTML(item.status ? item.status.toUpperCase() : 'COMPLETED')}
+                                    </span>
+                                    <p class="text-[11px] text-slate-400 mt-1">${sanitizeHTML(item.preferred_date || item.created_at || '')}</p>
+                                </div>
+                            </div>
+                            ${item.rating ? `<div class="mt-2 text-xs font-semibold text-amber-500 flex items-center gap-1">Rating: ${item.rating} ⭐</div>` : ''}
+                            ${item.notes ? `<p class="mt-2 text-xs text-slate-600 bg-white p-2 rounded-lg border border-slate-100">${sanitizeHTML(item.notes)}</p>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } catch (err) {
+            console.error('viewProviderHistory error:', err);
+            contentEl.innerHTML = '<div class="text-center py-10 text-rose-500 text-sm">Failed to load transaction history.</div>';
+        }
+    }
 
     // CSV export for providers
     function exportProvidersCSV() {

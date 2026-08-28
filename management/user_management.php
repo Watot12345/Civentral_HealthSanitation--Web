@@ -205,9 +205,6 @@ $title = 'User Management';
             <button onclick="openModal('addUserModal')" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-user-plus text-xs"></i> Add New User
             </button>
-            <button onclick="refreshData()" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition text-sm font-semibold flex items-center gap-2">
-                <i class="fa-solid fa-sync-alt text-xs"></i> Refresh
-            </button>
         </div>
     </div>
 
@@ -419,8 +416,8 @@ $title = 'User Management';
                                 <button onclick="managePermissions(<?php echo (int) $user['id']; ?>)" class="text-purple-600 hover:text-purple-800 text-xs font-medium transition px-2 py-1 hover:bg-purple-50 rounded" title="Permissions">
                                     <i class="fa-solid fa-key"></i>
                                 </button>
-                                <button onclick="toggleUserStatus(<?php echo (int) $user['id']; ?>)" class="text-amber-600 hover:text-amber-800 text-xs font-medium transition px-2 py-1 hover:bg-amber-50 rounded" title="Toggle Status">
-                                    <i class="fa-solid <?php echo ($user['status'] ?? 'Active') === 'Active' ? 'fa-pause' : 'fa-play'; ?>"></i>
+                                <button onclick="setUserStatus(<?php echo (int) $user['id']; ?>)" class="text-amber-600 hover:text-amber-800 text-xs font-medium transition px-2 py-1 hover:bg-amber-50 rounded" title="Set Status">
+                                    <i class="fa-solid fa-sliders"></i>
                                 </button>
                                 <?php if ($isSystemAdmin): ?>
                                 <button onclick="deleteUser(<?php echo (int) $user['id']; ?>)" class="text-red-500 hover:text-red-700 text-xs font-medium transition px-2 py-1 hover:bg-red-50 rounded" title="Delete User">
@@ -435,66 +432,6 @@ $title = 'User Management';
                     <?php endforeach; ?>
                 </tbody>
             </table>
-        </div>
-    </div>
-
-    <!-- ============================================================ -->
-    <!-- ROLE ASSIGNMENT & PERMISSION MANAGEMENT                   -->
-    <!-- ============================================================ -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <!-- Role Assignment -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-user-tag text-brand-medium"></i>
-                    Role Assignment
-                </h3>
-                <span class="text-xs font-semibold px-2.5 py-0.5 bg-brand-light text-brand-dark rounded-full"><?php echo count($roles); ?> Roles</span>
-            </div>
-            <div class="p-4 max-h-[400px] overflow-y-auto">
-                <div class="space-y-3">
-                    <?php $roleNum = 1; foreach ($roles as $role): ?>
-                    <div class="role-item-card flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:shadow-md transition" data-rolename="<?php echo htmlspecialchars($role['name'], ENT_QUOTES); ?>">
-                        <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[11px] shrink-0">#<?php echo $roleNum++; ?></span>
-                            <span class="w-2.5 h-2.5 rounded-full <?php echo htmlspecialchars(explode(' ', $role['color'] ?? 'bg-slate-500')[0], ENT_QUOTES); ?> shrink-0"></span>
-                            <div>
-                                <p class="font-medium text-slate-800 text-sm"><?php echo htmlspecialchars($role['name'], ENT_QUOTES); ?></p>
-                                <p class="text-xs text-slate-500"><span class="role-user-count"><?php echo (int) ($role['user_count'] ?? 0); ?> users</span> • <?php echo count(array_filter($role['permissions'] ?? [], fn($p) => $p['granted'] ?? false)); ?> permissions</p>
-                            </div>
-                        </div>
-                        <button onclick="editRole(<?php echo (int) $role['id']; ?>)" class="px-3 py-1 bg-brand-light text-brand-dark rounded-lg hover:bg-brand-dark hover:text-white transition text-xs font-semibold shrink-0">
-                            <i class="fa-solid fa-pen"></i> Edit
-                        </button>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </div>
-
-        <!-- Permission Management -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-2">
-                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-key text-brand-medium"></i>
-                    Permission Management
-                </h3>
-                <select id="permissionRoleSelect" onchange="loadRolePermissions(this.value)" class="px-2 py-1 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <?php foreach ($roles as $role): ?>
-                    <option value="<?php echo (int) $role['id']; ?>"><?php echo htmlspecialchars($role['name'], ENT_QUOTES); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="p-4 max-h-[400px] overflow-y-auto">
-                <div class="space-y-4" id="permissionGrid">
-                    <p class="text-xs text-slate-400 text-center py-6">Loading permissions…</p>
-                </div>
-                <div class="flex justify-end pt-3 mt-1 border-t border-slate-100">
-                    <button onclick="savePermissions()" class="px-3 py-1.5 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold">
-                        <i class="fa-solid fa-save mr-1"></i> Save Permissions
-                    </button>
-               </div>
-        </div>
         </div>
     </div>
 
@@ -707,6 +644,46 @@ $title = 'User Management';
                     <i class="fa-solid fa-check text-xs"></i> Save Permissions
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SET USER STATUS MODAL (3-STATE STATUS PICKER)               -->
+<!-- ============================================================ -->
+<div id="setStatusModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full mx-4 p-6">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                <i class="fa-solid fa-sliders text-brand-medium"></i>
+                Set User Status
+            </h3>
+            <button onclick="closeModal('setStatusModal')" class="w-7 h-7 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+        </div>
+        <p id="setStatusUserName" class="text-sm font-semibold text-slate-700 mb-5"></p>
+        <input type="hidden" id="setStatusUserId">
+        <div class="grid grid-cols-3 gap-2.5 mb-6">
+            <button type="button" onclick="applyStatus('Active')"
+                    class="py-3 px-2 rounded-xl border-2 border-emerald-300 bg-emerald-50 text-emerald-800 font-bold text-xs hover:bg-emerald-100 transition flex flex-col items-center gap-1.5 shadow-2xs">
+                <span class="text-lg">✅</span>
+                <span>Active</span>
+            </button>
+            <button type="button" onclick="applyStatus('Inactive')"
+                    class="py-3 px-2 rounded-xl border-2 border-slate-300 bg-slate-50 text-slate-700 font-bold text-xs hover:bg-slate-100 transition flex flex-col items-center gap-1.5 shadow-2xs">
+                <span class="text-lg">⏸</span>
+                <span>Inactive</span>
+            </button>
+            <button type="button" onclick="applyStatus('Suspended')"
+                    class="py-3 px-2 rounded-xl border-2 border-red-300 bg-red-50 text-red-800 font-bold text-xs hover:bg-red-100 transition flex flex-col items-center gap-1.5 shadow-2xs">
+                <span class="text-lg">🚫</span>
+                <span>Suspended</span>
+            </button>
+        </div>
+        <div class="flex justify-end">
+            <button type="button" onclick="closeModal('setStatusModal')"
+                    class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition">Cancel</button>
         </div>
     </div>
 </div>
@@ -1230,8 +1207,8 @@ $title = 'User Management';
                                     <button onclick="managePermissions(${id})" class="text-purple-600 hover:text-purple-800 text-xs font-medium transition px-2 py-1 hover:bg-purple-50 rounded" title="Permissions">
                                         <i class="fa-solid fa-key"></i>
                                     </button>
-                                    <button onclick="toggleUserStatus(${id})" class="text-amber-600 hover:text-amber-800 text-xs font-medium transition px-2 py-1 hover:bg-amber-50 rounded toggle-btn" title="Toggle Status">
-                                        <i class="fa-solid ${status === 'Active' ? 'fa-pause' : 'fa-play'}"></i>
+                                    <button onclick="setUserStatus(${id})" class="text-amber-600 hover:text-amber-800 text-xs font-medium transition px-2 py-1 hover:bg-amber-50 rounded" title="Set Status">
+                                        <i class="fa-solid fa-sliders"></i>
                                     </button>
                                     <button onclick="deleteUser(${id})" class="text-red-500 hover:text-red-700 text-xs font-medium transition px-2 py-1 hover:bg-red-50 rounded" title="Delete User">
                                         <i class="fa-solid fa-trash"></i>
@@ -1778,63 +1755,62 @@ $title = 'User Management';
     });
 
     // ============================================================
-    // TOGGLE USER STATUS via API (REALTIME DOM UPDATE)
+    // SET USER STATUS via API (3-STATE PICKER + REALTIME DOM UPDATE)
     // ============================================================
-    function toggleUserStatus(userId) {
+    function setUserStatus(userId) {
         const row = document.querySelector(`.user-row[data-id="${userId}"]`);
-        const userName = row ? (row.dataset.fullname || `ID ${userId}`) : `ID ${userId}`;
+        const userName = row ? (row.dataset.fullname || row.dataset.username || `ID ${userId}`) : `ID ${userId}`;
+        document.getElementById('setStatusUserId').value = userId;
+        document.getElementById('setStatusUserName').textContent = `User: ${userName}`;
+        openModal('setStatusModal');
+    }
 
-        const performToggle = () => {
-            const body = new URLSearchParams();
-            body.append('action', 'toggle_status');
-            body.append('user_id', userId);
+    function applyStatus(newStatus) {
+        const userId = document.getElementById('setStatusUserId').value;
+        if (!userId) return;
 
-            fetch('user_management_api.php', {
-                method: 'POST',
-                body: body
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    if (row) {
-                        const currentStatus = (row.dataset.status || 'Active').trim();
-                        const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
-                        row.dataset.status = newStatus;
+        const body = new URLSearchParams();
+        body.append('action', 'set_status');
+        body.append('user_id', userId);
+        body.append('new_status', newStatus);
 
-                        const statusBadge = row.children[5].querySelector('span');
-                        if (statusBadge) {
-                            statusBadge.textContent = newStatus;
-                            statusBadge.className = `status-badge px-2 py-1 ${newStatus === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'} rounded-full text-xs font-semibold`;
-                        }
-
-                        const toggleBtn = row.querySelector('.toggle-btn i');
-                        if (toggleBtn) {
-                            toggleBtn.className = `fa-solid ${newStatus === 'Active' ? 'fa-pause' : 'fa-play'}`;
-                        }
+        fetch('user_management_api.php', {
+            method: 'POST',
+            body: body
+        })
+        .then(res => res.json())
+        .then(data => {
+            closeModal('setStatusModal');
+            if (data.success) {
+                const row = document.querySelector(`.user-row[data-id="${userId}"]`);
+                if (row) {
+                    row.dataset.status = newStatus;
+                    const badge = row.children[5]?.querySelector('span');
+                    if (badge) {
+                        badge.textContent = newStatus;
+                        badge.className = `status-badge px-2 py-1 ${
+                            newStatus === 'Active' ? 'bg-emerald-100 text-emerald-700' :
+                            newStatus === 'Suspended' ? 'bg-red-100 text-red-700' :
+                            'bg-slate-100 text-slate-700'
+                        } rounded-full text-xs font-semibold`;
                     }
-
-                    updateKPISummariesJS();
-                    addActivityLogJS(`Toggled status for: ${userName}`);
-                    showToast(data.message, 'success', 'Status Updated (Realtime)');
-                } else {
-                    showToast(data.message, 'danger', 'Update Failed');
                 }
-            })
-            .catch(err => {
-                showToast('Error toggling status', 'danger', 'Error');
-                console.error(err);
-            });
-        };
+                updateKPISummariesJS();
+                addActivityLogJS(`Set status to ${newStatus} for user: ${row ? (row.dataset.fullname || `ID ${userId}`) : `ID ${userId}`}`);
+                showToast(data.message, 'success', 'Status Updated (Realtime)');
+            } else {
+                showToast(data.message, 'danger', 'Update Failed');
+            }
+        })
+        .catch(err => {
+            closeModal('setStatusModal');
+            showToast('Error setting user status', 'danger', 'Error');
+            console.error(err);
+        });
+    }
 
-        if (typeof ModalSystem !== 'undefined' && ModalSystem.confirm) {
-            ModalSystem.confirm(
-                `Are you sure you want to change status for user '${userName}'?`,
-                performToggle,
-                { title: 'Change User Status', confirmText: 'Change Status', type: 'warning' }
-            );
-        } else if (confirm(`Are you sure you want to change status for user '${userName}'?`)) {
-            performToggle();
-        }
+    function toggleUserStatus(userId) {
+        setUserStatus(userId);
     }
 
     // ============================================================

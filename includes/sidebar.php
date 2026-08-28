@@ -313,10 +313,17 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
             <span>Service Providers</span>
           </a>
           
-          <a href="<?= site_url('modules/services/wastewater_billing.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'wastewater_billing.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/services/wastewater_billing.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'wastewater_billing.php') !== false && empty($_GET['action'])) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-file-invoice text-[10px] opacity-50"></i> 
             <span>Billing</span>
           </a>
+
+          <?php 
+          $_headAdminRegex = '/admin|administrator|superadmin|system admin|health center director|sanitation director|waste\s*water lead|director|coordinator|lead|head|department head|manager/i';
+          $isHeadOrAdmin = (bool) preg_match($_headAdminRegex, $_sidebarRole);
+          if ($isHeadOrAdmin || hasPermission('wastewater.manage')): 
+          ?>
+          <?php endif; ?>
 
         </div>
       </div>

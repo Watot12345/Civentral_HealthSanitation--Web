@@ -77,6 +77,21 @@ class WastewaterInvoiceController extends BaseController
             if (empty($d['service_type'])) return ['success' => false, 'message' => 'Service type is required',  'code' => 422];
             if (!isset($d['amount']))      return ['success' => false, 'message' => 'Amount is required',         'code' => 422];
 
+            // 🛡️ Duplicate Invoice Check for Active/Unpaid Invoices
+            $tankId = trim($d['tank_id'] ?? '');
+            $allowDuplicate = !empty($d['allow_duplicate']);
+            if ($tankId && !$allowDuplicate) {
+                $existingActive = $this->model->findActiveByTankId($tankId, $d['service_type']);
+                if ($existingActive) {
+                    return [
+                        'success' => false,
+                        'message' => "An active unpaid invoice ({$existingActive['invoice_id']}) already exists for Tank {$tankId} with status '{$existingActive['status']}'.",
+                        'duplicate_invoice' => $existingActive,
+                        'code' => 409
+                    ];
+                }
+            }
+
             $allowed = ['invoice_id','client_name','tank_id','service_request_id','provider_id',
                         'service_type','amount','tax','total_amount','status','payment_method',
                         'payment_reference','invoice_date','due_date','paid_at','notes','items'];
@@ -126,13 +141,45 @@ class WastewaterInvoiceController extends BaseController
             if (!$existing) return ['success' => false, 'message' => 'Invoice not found', 'code' => 404];
 
             $d = $this->input();
+            $method = $d['payment_method'] ?? 'Over-the-Counter';
+            $ref    = trim($d['payment_reference'] ?? '');
+
+            // ⚡ Auto-generate Official Receipt / OTC Reference for face-to-face over-the-counter payments
+            if (empty($ref) && ($method === 'Over-the-Counter' || $method === 'Cash')) {
+                $ref = 'OTC-' . date('ymd') . '-' . strtoupper(substr(uniqid(), -4));
+            }
+
             $data = [
                 'status'            => 'paid',
                 'paid_at'           => date('c'),
-                'payment_method'    => $d['payment_method'] ?? null,
-                'payment_reference' => $d['payment_reference'] ?? null,
+                'payment_method'    => $method,
+                'payment_reference' => $ref ?: null,
             ];
             $result = $this->model->updateById($id, $data);
+
+            // Automatically complete any linked active service request or maintenance record upon payment
+            try {
+                if (!empty($existing['service_request_id'])) {
+                    require_once __DIR__ . '/../Models/ServiceRequest.php';
+                    $srModel = new ServiceRequest();
+                    $srModel->updateById($existing['service_request_id'], ['status' => 'completed', 'completed_at' => date('c')]);
+                }
+                if (!empty($existing['tank_id'])) {
+                    require_once __DIR__ . '/../Models/MaintenanceRecord.php';
+                    $mrModel = new MaintenanceRecord();
+                    $activeMaint = $mrModel->findActiveByTankId($existing['tank_id']);
+                    if ($activeMaint && isset($activeMaint['id'])) {
+                        $mrModel->updateById($activeMaint['id'], [
+                            'status' => 'completed',
+                            'completed_date' => date('Y-m-d'),
+                            'completed_time' => date('H:i:s')
+                        ]);
+                    }
+                }
+            } catch (Throwable $e) {
+                error_log('WastewaterInvoiceController markPaid sync error: ' . $e->getMessage());
+            }
+
             return ['success' => true, 'message' => 'Invoice marked as paid.', 'data' => $result[0] ?? $result];
         });
     }

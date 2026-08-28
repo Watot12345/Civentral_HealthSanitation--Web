@@ -192,13 +192,18 @@ $title = 'Septic Tank Registry';
                     <option value="Plastic">Plastic</option>
                     <option value="Fiberglass">Fiberglass</option>
                 </select>
+                <select id="filterZone" onchange="onFilterZoneChange()" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                    <option value="">All Zones</option>
+                    <option value="Zone 1">Zone 1 (Brgy 1–4)</option>
+                    <option value="Zone 7">Zone 7 (Brgy 77–81)</option>
+                    <option value="Zone 8">Zone 8 (Brgy 82–85)</option>
+                    <option value="Zone 12">Zone 12 (Brgy 132–140)</option>
+                    <option value="Zone 13">Zone 13 (Brgy 141–150)</option>
+                    <option value="Zone 14">Zone 14 (Brgy 151–160)</option>
+                    <option value="Zone 15">Zone 15 (Brgy 161–164)</option>
+                </select>
                 <select id="filterBarangay" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Barangays</option>
-                    <option value="Barangay San Jose">San Jose</option>
-                    <option value="Barangay Poblacion">Poblacion</option>
-                    <option value="Barangay Riverside">Riverside</option>
-                    <option value="Barangay San Roque">San Roque</option>
-                    <option value="Barangay Sta. Cruz">Sta. Cruz</option>
                 </select>
                       <input type="date" id="filterDateFrom" aria-label="Maintenance date from"
                           class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
@@ -274,9 +279,13 @@ $title = 'Septic Tank Registry';
             
             <!-- Location -->
             <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-400">
-                <i class="fa-solid fa-location-dot text-brand-medium"></i>
-                <span><?php echo $tank['latitude']; ?>, <?php echo $tank['longitude']; ?></span>
-                <button onclick="viewMap(<?php echo $tank['latitude']; ?>, <?php echo $tank['longitude']; ?>, '<?php echo $tank['owner_name']; ?>')" 
+                <?php
+                    $lat = (!empty($tank['latitude']) && is_numeric($tank['latitude'])) ? (float)$tank['latitude'] : 14.6538;
+                    $lng = (!empty($tank['longitude']) && is_numeric($tank['longitude'])) ? (float)$tank['longitude'] : 120.9820;
+                    $ownerJs = json_encode($tank['owner_name'] ?? 'Septic Tank');
+                ?>
+                <span><?php echo htmlspecialchars((string)($tank['latitude'] ?? '14.6538')); ?>, <?php echo htmlspecialchars((string)($tank['longitude'] ?? '120.9820')); ?></span>
+                <button onclick="viewMap(<?php echo $lat; ?>, <?php echo $lng; ?>, <?php echo htmlspecialchars($ownerJs, ENT_QUOTES, 'UTF-8'); ?>)" 
                         class="ml-auto text-brand-medium hover:text-brand-dark transition">
                     <i class="fa-solid fa-map"></i> View Map
                 </button>
@@ -354,15 +363,27 @@ $title = 'Septic Tank Registry';
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Address</label>
                 <input type="text" id="tank_address" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label>
-                <select id="tank_barangay" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="Barangay San Jose">Barangay San Jose</option>
-                    <option value="Barangay Poblacion">Barangay Poblacion</option>
-                    <option value="Barangay Riverside">Barangay Riverside</option>
-                    <option value="Barangay San Roque">Barangay San Roque</option>
-                    <option value="Barangay Sta. Cruz">Barangay Sta. Cruz</option>
-                </select>
+            <!-- HIERARCHICAL ZONE & BARANGAY SELECTION -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Zone</label>
+                    <select id="tank_zone" onchange="onZoneChange('tank_zone', 'tank_barangay')" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <option value="">All Zones (Select Zone)</option>
+                        <option value="Zone 1">Zone 1 (Brgy 1 to 4)</option>
+                        <option value="Zone 7">Zone 7 (Brgy 77 to 81)</option>
+                        <option value="Zone 8">Zone 8 (Brgy 82 to 85)</option>
+                        <option value="Zone 12">Zone 12 (Brgy 132 to 140)</option>
+                        <option value="Zone 13">Zone 13 (Brgy 141 to 150)</option>
+                        <option value="Zone 14">Zone 14 (Brgy 151 to 160)</option>
+                        <option value="Zone 15">Zone 15 (Brgy 161 to 164)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay <span class="text-rose-500">*</span></label>
+                    <select id="tank_barangay" onchange="onBarangayChange('tank_barangay', 'tank_zone')" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <!-- Populated dynamically in ascending order -->
+                    </select>
+                </div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -441,7 +462,28 @@ $title = 'Septic Tank Registry';
             <input type="hidden" id="edit_tank_id">
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Owner Name</label><input type="text" id="edit_tank_owner" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Address</label><input type="text" id="edit_tank_address" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
-            <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label><select id="edit_tank_barangay" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option>Barangay San Jose</option><option>Barangay Poblacion</option><option>Barangay Riverside</option><option>Barangay San Roque</option><option>Barangay Sta. Cruz</option></select></div>
+            <!-- HIERARCHICAL ZONE & BARANGAY SELECTION -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Zone</label>
+                    <select id="edit_tank_zone" onchange="onZoneChange('edit_tank_zone', 'edit_tank_barangay')" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <option value="">All Zones (Select Zone)</option>
+                        <option value="Zone 1">Zone 1 (Brgy 1 to 4)</option>
+                        <option value="Zone 7">Zone 7 (Brgy 77 to 81)</option>
+                        <option value="Zone 8">Zone 8 (Brgy 82 to 85)</option>
+                        <option value="Zone 12">Zone 12 (Brgy 132 to 140)</option>
+                        <option value="Zone 13">Zone 13 (Brgy 141 to 150)</option>
+                        <option value="Zone 14">Zone 14 (Brgy 151 to 160)</option>
+                        <option value="Zone 15">Zone 15 (Brgy 161 to 164)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay <span class="text-rose-500">*</span></label>
+                    <select id="edit_tank_barangay" onchange="onBarangayChange('edit_tank_barangay', 'edit_tank_zone')" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <!-- Populated dynamically in ascending order -->
+                    </select>
+                </div>
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Capacity</label><select id="edit_tank_capacity" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option>500L</option><option>800L</option><option>1000L</option><option>1200L</option><option>1500L</option><option>2000L</option></select></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</label><select id="edit_tank_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option>Concrete</option><option>Plastic</option><option>Fiberglass</option></select></div>
@@ -603,7 +645,7 @@ $title = 'Septic Tank Registry';
                     <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                         <button onclick="closeModal('viewTankModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
                         <button onclick="scheduleServiceForTank('${sanitizeAttr(t.tank_id)}')" class="px-4 py-2 bg-brand-medium text-white rounded-lg hover:bg-brand-dark transition text-sm font-semibold"><i class="fa-solid fa-calendar-plus mr-1.5"></i> Schedule Service</button>
-                        <button onclick="closeModal('viewTankModal'); viewMap(${t.latitude}, ${t.longitude}, '${sanitizeAttr(t.owner_name)}')" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-map mr-1.5"></i> View Map</button>
+                        <button onclick="closeModal('viewTankModal'); viewMap(${Number(t.latitude) || 14.6538}, ${Number(t.longitude) || 120.9820}, ${JSON.stringify(t.owner_name || 'Septic Tank')})" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-map mr-1.5"></i> View Map</button>
                     </div>
                 </div>
             `;
@@ -651,6 +693,97 @@ $title = 'Septic Tank Registry';
     }
 
     // ============================================================
+    // CALOOCAN DISTRICT 1 ZONES & BARANGAYS CONFIGURATION
+    // ============================================================
+    const CALOOCAN_ZONES = {
+        'Zone 1': [1, 2, 3, 4],
+        'Zone 7': [77, 78, 79, 80, 81],
+        'Zone 8': [82, 83, 84, 85],
+        'Zone 12': [132, 133, 134, 135, 136, 137, 138, 139, 140],
+        'Zone 13': [141, 142, 143, 144, 145, 146, 147, 148, 149, 150],
+        'Zone 14': [151, 152, 153, 154, 155, 156, 157, 158, 159, 160],
+        'Zone 15': [161, 162, 163, 164]
+    };
+
+    function getZoneForBarangay(barangayName) {
+        if (!barangayName) return '';
+        const match = String(barangayName).match(/\b(\d{1,3})\b/);
+        if (!match) return '';
+        const num = parseInt(match[1]);
+        for (const [zone, brgys] of Object.entries(CALOOCAN_ZONES)) {
+            if (brgys.includes(num)) return zone;
+        }
+        return '';
+    }
+
+    function populateBarangayDropdown(selectId, targetZone = '', selectedValue = '') {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">' + (selectId.startsWith('filter') ? 'All Barangays' : 'Select Barangay') + '</option>';
+        
+        if (targetZone && CALOOCAN_ZONES[targetZone]) {
+            const brgys = CALOOCAN_ZONES[targetZone];
+            brgys.forEach(num => {
+                const val = `Barangay ${num}`;
+                const opt = document.createElement('option');
+                opt.value = val;
+                opt.textContent = `Barangay ${num}`;
+                if (val === selectedValue) opt.selected = true;
+                select.appendChild(opt);
+            });
+        } else {
+            // Show all grouped by zone in ascending numerical order
+            for (const [zone, brgys] of Object.entries(CALOOCAN_ZONES)) {
+                const group = document.createElement('optgroup');
+                group.label = `${zone} (Brgy ${brgys[0]}–${brgys[brgys.length-1]})`;
+                brgys.forEach(num => {
+                    const val = `Barangay ${num}`;
+                    const opt = document.createElement('option');
+                    opt.value = val;
+                    opt.textContent = `Barangay ${num}`;
+                    if (val === selectedValue) opt.selected = true;
+                    group.appendChild(opt);
+                });
+                select.appendChild(group);
+            }
+        }
+        if (selectedValue) {
+            select.value = selectedValue;
+        }
+    }
+
+    function onZoneChange(zoneSelectId, barangaySelectId) {
+        const zoneSelect = document.getElementById(zoneSelectId);
+        const zone = zoneSelect ? zoneSelect.value : '';
+        populateBarangayDropdown(barangaySelectId, zone, '');
+    }
+
+    function onBarangayChange(barangaySelectId, zoneSelectId) {
+        const barangaySelect = document.getElementById(barangaySelectId);
+        const zoneSelect = document.getElementById(zoneSelectId);
+        if (!barangaySelect || !zoneSelect) return;
+        
+        const zone = getZoneForBarangay(barangaySelect.value);
+        if (zone && zoneSelect.value !== zone) {
+            zoneSelect.value = zone;
+        }
+    }
+
+    function onFilterZoneChange() {
+        const filterZone = document.getElementById('filterZone')?.value || '';
+        populateBarangayDropdown('filterBarangay', filterZone, '');
+        filterTanks();
+    }
+
+    // Initialize all barangay dropdowns on DOM ready
+    document.addEventListener('DOMContentLoaded', () => {
+        populateBarangayDropdown('filterBarangay');
+        populateBarangayDropdown('tank_barangay');
+        populateBarangayDropdown('edit_tank_barangay');
+    });
+
+    // ============================================================
     // VIEW MAP
     // ============================================================
     // Leaflet map instance
@@ -658,8 +791,12 @@ $title = 'Septic Tank Registry';
     let _leafletMarker = null;
 
     function viewMap(lat, lng, owner) {
-        document.getElementById('mapLocation').textContent = sanitizeHTML(owner) + "'s Septic Tank Location";
-        document.getElementById('mapCoordinates').textContent = 'Lat: ' + lat + ', Lng: ' + lng;
+        const safeLat = (lat !== undefined && lat !== null && !isNaN(Number(lat))) ? Number(lat) : 14.6538;
+        const safeLng = (lng !== undefined && lng !== null && !isNaN(Number(lng))) ? Number(lng) : 120.9820;
+        const safeOwner = (owner || 'Septic Tank');
+
+        document.getElementById('mapLocation').textContent = sanitizeHTML(safeOwner) + "'s Septic Tank Location";
+        document.getElementById('mapCoordinates').textContent = 'Lat: ' + safeLat.toFixed(4) + ', Lng: ' + safeLng.toFixed(4);
         openModal('mapModal');
 
         setTimeout(() => {
@@ -667,18 +804,39 @@ $title = 'Septic Tank Registry';
             const container = document.getElementById('leafletMap');
             if (!container) return;
 
+            // Custom Vector HTML / SVG Pin - Completely avoids broken external PNG 404 images
+            const customPinIcon = L.divIcon({
+                className: 'custom-septic-marker',
+                html: `<div style="width:36px; height:36px; background:linear-gradient(135deg, #0B4F4A, #14807A); border:3px solid #ffffff; border-radius:50%; box-shadow:0 4px 12px rgba(11,79,74,0.45); display:flex; align-items:center; justify-content:center; color:#ffffff; font-size:15px; transform:translate(-2px, -2px);"><i class="fa-solid fa-location-dot"></i></div>`,
+                iconSize: [36, 36],
+                iconAnchor: [18, 18],
+                popupAnchor: [0, -20]
+            });
+
             if (!_leafletMapInstance) {
-                _leafletMapInstance = L.map('leafletMap').setView([lat, lng], 15);
+                _leafletMapInstance = L.map('leafletMap').setView([safeLat, safeLng], 15);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
-                    attribution: '&copy; OpenStreetMap'
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 }).addTo(_leafletMapInstance);
-                _leafletMarker = L.marker([lat, lng]).addTo(_leafletMapInstance);
+                _leafletMarker = L.marker([safeLat, safeLng], { icon: customPinIcon }).addTo(_leafletMapInstance);
             } else {
-                _leafletMapInstance.setView([lat, lng], 15);
-                _leafletMarker.setLatLng([lat, lng]);
+                _leafletMapInstance.setView([safeLat, safeLng], 15);
+                if (_leafletMarker) {
+                    _leafletMarker.setIcon(customPinIcon);
+                    _leafletMarker.setLatLng([safeLat, safeLng]);
+                } else {
+                    _leafletMarker = L.marker([safeLat, safeLng], { icon: customPinIcon }).addTo(_leafletMapInstance);
+                }
             }
-            _leafletMarker.bindPopup('<b>' + sanitizeHTML(owner) + '</b><br>Septic Tank Location').openPopup();
+            if (_leafletMarker) {
+                _leafletMarker.bindPopup(`
+                    <div style="font-family:inherit; padding:4px;">
+                        <strong style="color:#0B4F4A; font-size:13px;">${sanitizeHTML(safeOwner)}</strong><br>
+                        <span style="font-size:11px; color:#64748b;">Septic Tank Verified Location</span>
+                    </div>
+                `).openPopup();
+            }
             _leafletMapInstance.invalidateSize();
         }, 200);
     }
@@ -692,7 +850,11 @@ $title = 'Septic Tank Registry';
         document.getElementById('edit_tank_id').value = tank.id;
         document.getElementById('edit_tank_owner').value = tank.owner_name;
         document.getElementById('edit_tank_address').value = tank.address;
-        document.getElementById('edit_tank_barangay').value = tank.barangay;
+        
+        const zone = getZoneForBarangay(tank.barangay);
+        document.getElementById('edit_tank_zone').value = zone;
+        populateBarangayDropdown('edit_tank_barangay', zone, tank.barangay);
+
         document.getElementById('edit_tank_capacity').value = tank.capacity;
         document.getElementById('edit_tank_type').value = tank.type;
         document.getElementById('edit_tank_maintenance').value = tank.last_maintenance;
@@ -745,14 +907,15 @@ $title = 'Septic Tank Registry';
         try {
             const owner = document.getElementById('tank_owner').value.trim();
             const address = document.getElementById('tank_address').value.trim();
-            if (!owner || !address) {
-                showToast('Owner name and address are required.', 'warning');
+            const barangay = document.getElementById('tank_barangay').value;
+            if (!owner || !address || !barangay) {
+                showToast('Owner name, address, and barangay are required.', 'warning');
                 return;
             }
             const payload = {
                 owner_name: owner,
                 address: address,
-                barangay: document.getElementById('tank_barangay').value,
+                barangay: barangay,
                 capacity: document.getElementById('tank_capacity').value,
                 type: document.getElementById('tank_type').value,
                 installation_year: document.getElementById('tank_year')?.value ? Number(document.getElementById('tank_year').value) : null,
@@ -820,6 +983,7 @@ $title = 'Septic Tank Registry';
         const search = document.getElementById('searchTank').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const type = document.getElementById('filterType').value;
+        const zone = document.getElementById('filterZone')?.value || '';
         const barangay = document.getElementById('filterBarangay').value;
         const dateFrom = document.getElementById('filterDateFrom').value;
         const dateTo = document.getElementById('filterDateTo').value;
@@ -836,10 +1000,11 @@ $title = 'Septic Tank Registry';
             const matchesSearch = owner.includes(search) || id.includes(search);
             const matchesStatus = !status || cardStatus === status;
             const matchesType = !type || cardType === type;
-            const matchesBarangay = !barangay || cardBarangay === barangay;
+            const matchesZone = !zone || getZoneForBarangay(cardBarangay) === zone;
+            const matchesBarangay = !barangay || cardBarangay === barangay || cardBarangay.includes(barangay);
             const matchesDateFrom = !dateFrom || (maintenanceDate && maintenanceDate >= dateFrom);
             const matchesDateTo = !dateTo || (maintenanceDate && maintenanceDate <= dateTo);
-            const isVisible = matchesSearch && matchesStatus && matchesType && matchesBarangay && matchesDateFrom && matchesDateTo;
+            const isVisible = matchesSearch && matchesStatus && matchesType && matchesZone && matchesBarangay && matchesDateFrom && matchesDateTo;
 
             card.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
@@ -852,12 +1017,15 @@ $title = 'Septic Tank Registry';
         document.getElementById('searchTank').value = '';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterType').value = '';
-        document.getElementById('filterBarangay').value = '';
+        if (document.getElementById('filterZone')) document.getElementById('filterZone').value = '';
+        populateBarangayDropdown('filterBarangay');
         document.getElementById('filterDateFrom').value = '';
         document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.tank-card').forEach(card => card.style.display = '');
         document.getElementById('emptyState').style.display = 'none';
     }
+
+    // ESC key and backdrop-click handled by common.js
 
     // ESC key and backdrop-click handled by common.js
 </script>

@@ -37,6 +37,30 @@ class ServiceRequest
         }
     }
 
+    public function findActiveByTankId(string $tankId, ?string $date = null): ?array
+    {
+        try {
+            $records = $this->db->select($this->table, ['tank_id' => $tankId]);
+            foreach ($records as $r) {
+                $st = strtolower($r['status'] ?? '');
+                if ($st === 'pending' || $st === 'approved' || $st === 'in_progress' || $st === 'scheduled') {
+                    if ($date) {
+                        $rDate = substr((string)($r['preferred_date'] ?? $r['created_at'] ?? ''), 0, 10);
+                        if ($rDate === substr($date, 0, 10)) {
+                            return $r;
+                        }
+                    } else {
+                        return $r;
+                    }
+                }
+            }
+            return null;
+        } catch (Throwable $e) {
+            error_log('ServiceRequest Model Error (findActiveByTankId): ' . $e->getMessage());
+            return null;
+        }
+    }
+
     public function create(array $data): array
     {
         if (empty($data['request_id'])) {

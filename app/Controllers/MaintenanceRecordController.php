@@ -82,6 +82,20 @@ class MaintenanceRecordController extends BaseController
             if (empty($d['owner_name']))   return ['success' => false, 'message' => 'Owner name is required',   'code' => 422];
             if (empty($d['service_type'])) return ['success' => false, 'message' => 'Service type is required', 'code' => 422];
 
+            // ⚡ DUPLICATE SCHEDULE PREVENTION: Block double-scheduling active services for the same tank
+            if (!empty($d['tank_id'])) {
+                $active = $this->model->findActiveByTankId($d['tank_id'], $d['scheduled_date'] ?? null);
+                if ($active) {
+                    $existingDate = substr((string)($active['scheduled_date'] ?? ''), 0, 10);
+                    $existingSvc = $active['service_id'] ?? 'Service';
+                    return [
+                        'success' => false,
+                        'message' => "Duplicate schedule: Tank {$d['tank_id']} already has an active service ({$existingSvc}) on {$existingDate}.",
+                        'code' => 409
+                    ];
+                }
+            }
+
             $allowed = ['service_id','tank_id','owner_name','address','service_type','scheduled_date',
                         'scheduled_time','technician','provider_id','status','completed_date',
                         'completed_time','findings','recommendations','notes','cost','rating'];

@@ -38,7 +38,7 @@ try {
                 $controller->stats();
             } elseif ($id) {
                 $controller->show($id);
-            } elseif (isset($_GET['page']) || isset($_GET['q']) || isset($_GET['status']) || isset($_GET['service_type']) || isset($_GET['priority'])) {
+            } elseif (!isset($_GET['provider_id']) && (isset($_GET['page']) || isset($_GET['q']) || isset($_GET['status']) || isset($_GET['service_type']) || isset($_GET['priority']))) {
                 $controller->paginated();
             } else {
                 $controller->index();

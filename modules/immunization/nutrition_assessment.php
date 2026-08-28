@@ -28,7 +28,7 @@ $childModel = new Child();
 // Fetch Active Patients Waiting for Nutrition Assessment Visits
 $nutritionVisitsRaw = [];
 try {
-    $nutritionVisitsRaw = $triageQueueModel->getVisitsByReason('Nutrition Assessment');
+    $nutritionVisitsRaw = $triageQueueModel->getVisitsByReason('Nutrition Assessment', date('Y-m-d'));
 } catch (\Throwable $e) {
     error_log('Error fetching nutrition visits: ' . $e->getMessage());
 }
@@ -228,6 +228,15 @@ $title = 'Nutrition Assessment';
             <p class="text-sm text-slate-500 mt-0.5">Screen, detect malnutrition, plan interventions & track supplements</p>
         </div>
         <div class="flex gap-3">
+            <button onclick="openModal('nutritionQueueModal')"
+                    class="px-3.5 py-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
+                <i class="fa-solid fa-apple-whole text-xs text-emerald-600"></i> Waiting Queue
+                <?php if (count($nutritionVisits) > 0): ?>
+                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold">
+                        <?php echo count($nutritionVisits); ?>
+                    </span>
+                <?php endif; ?>
+            </button>
             <button onclick="openModal('nutritionScreeningModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-clipboard-list text-xs"></i> New Screening
@@ -237,74 +246,7 @@ $title = 'Nutrition Assessment';
                 <i class="fa-solid fa-pills text-xs"></i> Supplements
             </button>
         </div>
-    </div>    <!-- ============================================================ -->
-    <!-- PATIENTS WAITING FOR NUTRITION ASSESSMENT (TODAY'S VISITS)  -->
-    <!-- ============================================================ -->
-    <?php if (!empty($nutritionVisits)): ?>
-    <div class="bg-white rounded-2xl shadow-xs border border-emerald-200 mb-6 overflow-hidden">
-        <div class="p-4 border-b border-emerald-200/80 flex items-center justify-between bg-emerald-50/50">
-            <div class="flex items-center gap-2">
-                <div class="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
-                    <i class="fa-solid fa-apple-whole text-sm"></i>
-                </div>
-                <h3 class="text-sm font-bold text-emerald-950">Patients Waiting for Nutrition Assessment</h3>
-                <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold"><?php echo count($nutritionVisits); ?> active visit(s)</span>
-            </div>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                        <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Patient ID</th>
-                        <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Patient Name</th>
-                        <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Triage Intake Vitals</th>
-                        <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Check-in Time</th>
-                        <th class="px-4 py-2.5 text-center text-[10px] font-bold text-slate-500 uppercase">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($nutritionVisits as $visit): ?>
-                    <tr class="border-b border-slate-100 hover:bg-emerald-50/20 transition-colors">
-                        <td class="px-4 py-3 font-mono text-xs font-bold text-emerald-700"><?php echo htmlspecialchars($visit['patient_code']); ?></td>
-                        <td class="px-4 py-3 font-semibold text-slate-800">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs"><?php echo htmlspecialchars($visit['avatar']); ?></div>
-                                <div>
-                                    <p class="text-sm font-bold text-slate-900"><?php echo htmlspecialchars($visit['patient_name']); ?></p>
-                                    <span class="text-[11px] text-emerald-700 font-medium inline-flex items-center gap-1">
-                                        <i class="fa-solid fa-circle-check text-[8px]"></i> Ready for Clinical Screening
-                                    </span>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3">
-                            <?php if ($visit['weight'] || $visit['height']): ?>
-                                <div class="text-xs space-y-0.5">
-                                    <span class="font-bold text-slate-800"><?php echo $visit['weight'] ? $visit['weight'] . ' kg' : '—'; ?></span>
-                                    <span class="text-slate-400">•</span>
-                                    <span class="font-bold text-slate-800"><?php echo $visit['height'] ? $visit['height'] . ' cm' : '—'; ?></span>
-                                    <?php if ($visit['bmi']): ?>
-                                        <span class="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold ml-1">BMI: <?php echo $visit['bmi']; ?></span>
-                                    <?php endif; ?>
-                                </div>
-                            <?php else: ?>
-                                <span class="text-xs text-slate-400 italic">Vitals pending</span>
-                            <?php endif; ?>
-                        </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs font-medium"><?php echo htmlspecialchars($visit['check_in_time']); ?></td>
-                        <td class="px-4 py-3 text-center">
-                            <button onclick="startAssessmentFor(<?php echo htmlspecialchars(json_encode($visit), ENT_QUOTES); ?>)" 
-                                    class="px-4 py-2 text-xs font-bold text-white bg-brand-dark rounded-xl hover:bg-brand-medium transition shadow-xs inline-flex items-center gap-1.5">
-                                <i class="fa-solid fa-weight-scale text-xs"></i> Start Assessment
-                            </button>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
     </div>
-    <?php endif; ?>
 
     <!-- ============================================================ -->
     <!-- MODERN KPI CARDS - Updated to match design               -->
@@ -791,6 +733,100 @@ $title = 'Nutrition Assessment';
                     </div>
                     <?php endforeach; ?>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- WAITING QUEUE MODAL (TODAY'S VISITS)                         -->
+<!-- ============================================================ -->
+<div id="nutritionQueueModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-emerald-200 sticky top-0 bg-emerald-50/90 backdrop-blur-xs rounded-t-2xl z-10">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+                    <i class="fa-solid fa-apple-whole text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-emerald-950 text-base">Patients Waiting for Nutrition Assessment</h3>
+                    <p class="text-xs text-emerald-700">Today's active triage queue entries for nutrition screening</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold"><?php echo count($nutritionVisits); ?> active visit(s)</span>
+                <button onclick="closeModal('nutritionQueueModal')" class="w-8 h-8 rounded-lg hover:bg-emerald-200/50 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+        <div class="p-6">
+            <?php if (!empty($nutritionVisits)): ?>
+            <div class="overflow-x-auto rounded-xl border border-slate-200">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Patient ID</th>
+                            <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Patient Name</th>
+                            <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Triage Intake Vitals</th>
+                            <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Check-in Time</th>
+                            <th class="px-4 py-2.5 text-center text-[10px] font-bold text-slate-500 uppercase">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <?php foreach ($nutritionVisits as $visit): ?>
+                        <tr class="hover:bg-emerald-50/20 transition-colors">
+                            <td class="px-4 py-3 font-mono text-xs font-bold text-emerald-700"><?php echo htmlspecialchars($visit['patient_code']); ?></td>
+                            <td class="px-4 py-3 font-semibold text-slate-800">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs"><?php echo htmlspecialchars($visit['avatar']); ?></div>
+                                    <div>
+                                        <p class="text-sm font-bold text-slate-900"><?php echo htmlspecialchars($visit['patient_name']); ?></p>
+                                        <span class="text-[11px] text-emerald-700 font-medium inline-flex items-center gap-1">
+                                            <i class="fa-solid fa-circle-check text-[8px]"></i> Ready for Clinical Screening
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <?php if ($visit['weight'] || $visit['height']): ?>
+                                    <div class="text-xs space-y-0.5">
+                                        <span class="font-bold text-slate-800"><?php echo $visit['weight'] ? $visit['weight'] . ' kg' : '—'; ?></span>
+                                        <span class="text-slate-400">•</span>
+                                        <span class="font-bold text-slate-800"><?php echo $visit['height'] ? $visit['height'] . ' cm' : '—'; ?></span>
+                                        <?php if ($visit['bmi']): ?>
+                                            <span class="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold ml-1">BMI: <?php echo $visit['bmi']; ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="text-xs text-slate-400 italic">Vitals pending</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3 text-slate-600 text-xs font-medium"><?php echo htmlspecialchars($visit['check_in_time']); ?></td>
+                            <td class="px-4 py-3 text-center">
+                                <button onclick="closeModal('nutritionQueueModal'); startAssessmentFor(<?php echo htmlspecialchars(json_encode($visit), ENT_QUOTES); ?>)" 
+                                        class="px-4 py-2 text-xs font-bold text-white bg-brand-dark rounded-xl hover:bg-brand-medium transition shadow-xs inline-flex items-center gap-1.5">
+                                    <i class="fa-solid fa-weight-scale text-xs"></i> Start Assessment
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php else: ?>
+            <div class="flex flex-col items-center justify-center py-12 text-center">
+                <div class="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 mb-3">
+                    <i class="fa-solid fa-apple-whole text-2xl"></i>
+                </div>
+                <h4 class="text-base font-bold text-slate-800">No Patients in Queue Today</h4>
+                <p class="text-xs text-slate-400 mt-1 max-w-sm">There are currently no patients checked in with reason "Nutrition Assessment" for today.</p>
+            </div>
+            <?php endif; ?>
+            <div class="flex justify-end mt-4 pt-3 border-t border-slate-100">
+                <button type="button" onclick="closeModal('nutritionQueueModal')" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 text-sm font-semibold transition">
+                    Close
+                </button>
             </div>
         </div>
     </div>

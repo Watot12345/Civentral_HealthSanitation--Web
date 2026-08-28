@@ -321,11 +321,6 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
                     Heatmap
                 </label>
 
-                <label class="flex items-center gap-1.5 text-slate-600 font-semibold cursor-pointer select-none">
-                    <input type="checkbox" id="toggleClusters" checked onchange="toggleLayer('clusters')" class="rounded text-brand-dark focus:ring-brand-medium">
-                    Clusters
-                </label>
-
                 <!-- Interactive Time Slider & Animated Playback -->
                 <div class="flex items-center gap-2 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
                     <i class="fa-regular fa-clock text-slate-400"></i>
@@ -573,11 +568,12 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
             'osm-tiles': {
                 type: 'raster',
                 tiles: [
-                    'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
-                    'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'
+                    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'
                 ],
                 tileSize: 256,
-                attribution: '&copy; OpenStreetMap &copy; CARTO'
+                attribution: '&copy; OpenStreetMap contributors'
             },
             'esri-satellite': {
                 type: 'raster',
@@ -842,16 +838,20 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
         if (!map || !map.isStyleLoaded()) return;
 
         if (layerName === 'points') {
-            const vis = document.getElementById('togglePoints').checked ? 'visible' : 'none';
+            const el = document.getElementById('togglePoints');
+            const vis = (el && el.checked) ? 'visible' : 'none';
             if (map.getLayer('layer-points')) map.setLayoutProperty('layer-points', 'visibility', vis);
         } else if (layerName === 'buffers') {
-            const vis = document.getElementById('toggleBuffers').checked ? 'visible' : 'none';
+            const el = document.getElementById('toggleBuffers');
+            const vis = (el && el.checked) ? 'visible' : 'none';
             if (map.getLayer('layer-buffers')) map.setLayoutProperty('layer-buffers', 'visibility', vis);
         } else if (layerName === 'heatmap') {
-            const vis = document.getElementById('toggleHeatmap').checked ? 'visible' : 'none';
+            const el = document.getElementById('toggleHeatmap');
+            const vis = (el && el.checked) ? 'visible' : 'none';
             if (map.getLayer('layer-heatmap')) map.setLayoutProperty('layer-heatmap', 'visibility', vis);
         } else if (layerName === 'clusters') {
-            const vis = document.getElementById('toggleClusters').checked ? 'visible' : 'none';
+            const el = document.getElementById('toggleClusters');
+            const vis = (!el || el.checked) ? 'visible' : 'none';
             if (map.getLayer('layer-clusters-halo')) map.setLayoutProperty('layer-clusters-halo', 'visibility', vis);
         }
     }

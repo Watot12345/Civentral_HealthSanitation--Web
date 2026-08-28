@@ -37,6 +37,30 @@ class MaintenanceRecord
         }
     }
 
+    public function findActiveByTankId(string $tankId, ?string $date = null): ?array
+    {
+        try {
+            $records = $this->db->select($this->table, ['tank_id' => $tankId]);
+            foreach ($records as $r) {
+                $st = $r['status'] ?? '';
+                if ($st === 'scheduled' || $st === 'in_progress') {
+                    if ($date) {
+                        $rDate = substr((string)($r['scheduled_date'] ?? ''), 0, 10);
+                        if ($rDate === substr($date, 0, 10)) {
+                            return $r;
+                        }
+                    } else {
+                        return $r;
+                    }
+                }
+            }
+            return null;
+        } catch (Throwable $e) {
+            error_log('MaintenanceRecord Model Error (findActiveByTankId): ' . $e->getMessage());
+            return null;
+        }
+    }
+
     public function create(array $data): array
     {
         if (empty($data['service_id'])) {
