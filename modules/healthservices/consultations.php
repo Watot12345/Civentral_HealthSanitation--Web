@@ -70,25 +70,59 @@ try {
 } catch (Throwable $e) {
     error_log('Error loading patients: ' . $e->getMessage());
 }
-// Fetch Employees/Doctors
+// Fetch Employees / Attending Healthcare Practitioners
 $employeeModel = new Employee();
 $dbEmployees = [];
-$medicalStaff = []; // Attending Doctors / Physicians (filtered by role_description)
+$medicalStaff = []; // Attending Healthcare Providers / Practitioners
 try {
     $rawEmployees = $employeeModel->all();
     foreach ($rawEmployees as $e) {
         $roleDesc = strtolower(trim($e['role_description'] ?? ''));
         $role = strtolower(trim($e['role'] ?? ''));
+        $combinedRole = "$roleDesc $role";
         
         $name = trim($e['full_name'] ?? (($e['first_name'] ?? '') . ' ' . ($e['last_name'] ?? '')));
         if (empty($name)) $name = $e['name'] ?? $e['username'] ?? ("Employee #{$e['id']}");
-        $displayName = (str_starts_with($name, 'Dr.') || str_starts_with($name, 'Doctor')) ? $name : ('Dr. ' . $name);
+        $cleanName = trim(preg_replace('/^(Dr\.|Doctor|Nutritionist|Dentist|Nurse)\s+/i', '', $name));
 
-        $e['full_name'] = $displayName;
+        // Format proper professional title
+        if (str_contains($combinedRole, 'doctor') || str_contains($combinedRole, 'physician') || str_contains($combinedRole, 'general medicine') || str_contains($combinedRole, 'pediatrician')) {
+            $formattedName = 'Dr. ' . $cleanName;
+            $providerCategory = 'Doctor';
+        } elseif (str_contains($combinedRole, 'dentist')) {
+            $formattedName = 'Dr. ' . $cleanName . ' (Dentist)';
+            $providerCategory = 'Dentist';
+        } elseif (str_contains($combinedRole, 'health center director')) {
+            $formattedName = 'Dr. ' . $cleanName . ' (Health Center Director)';
+            $providerCategory = 'Director';
+        } elseif (str_contains($combinedRole, 'nutrition') || str_contains($combinedRole, 'dietitian')) {
+            $formattedName = 'Nutritionist ' . $cleanName;
+            $providerCategory = 'Nutritionist';
+        } elseif (str_contains($combinedRole, 'nurse') || str_contains($combinedRole, 'midwife')) {
+            $formattedName = 'Nurse ' . $cleanName;
+            $providerCategory = 'Nurse';
+        } else {
+            $formattedName = $cleanName;
+            $providerCategory = 'Staff';
+        }
+
+        $e['full_name'] = $formattedName;
+        $e['provider_category'] = $providerCategory;
         $dbEmployees[] = $e;
 
-        // Attending Physicians, Doctors, Dentists, Directors & Admins (based on role_description)
-        if ((str_contains($roleDesc, 'doctor') || str_contains($roleDesc, 'dentist') || str_contains($roleDesc, 'health center director') || str_contains($roleDesc, 'system administrator') || str_contains($roleDesc, 'physician')) && !str_contains($roleDesc, 'nurse') && !str_contains($roleDesc, 'technician') && !str_contains($roleDesc, 'sanitation')) {
+        // Attending Practitioners who can conduct consultations:
+        // Doctors, Dentists, Health Center Directors, Nutritionists, Dietitians
+        // EXCLUDE: System Administrators (Admins are administrative overseers, not medical doctors), IT, Clerks, Sanitation
+        $isConsultingProvider = (
+            str_contains($combinedRole, 'doctor') || 
+            str_contains($combinedRole, 'physician') || 
+            str_contains($combinedRole, 'dentist') || 
+            str_contains($combinedRole, 'health center director') || 
+            str_contains($combinedRole, 'nutrition') || 
+            str_contains($combinedRole, 'dietitian')
+        ) && !str_contains($combinedRole, 'system administrator') && !str_contains($combinedRole, 'sanitation');
+
+        if ($isConsultingProvider) {
             $medicalStaff[] = $e;
         }
     }
@@ -98,7 +132,7 @@ try {
     $medicalStaff = [];
 }
 
-// Resolve logged in doctor / employee ID
+// Resolve logged in practitioner / employee ID
 $sessionUserId = $_SESSION['user_id'] ?? null;
 $sessionEmployeeId = $_SESSION['employee_id'] ?? null;
 $sessionFullName = trim($_SESSION['full_name'] ?? ($_SESSION['name'] ?? ($_SESSION['username'] ?? '')));
@@ -123,11 +157,24 @@ foreach ($dbEmployees as $e) {
     }
 }
 
-// Doctor Scoping — doctors only see consultations performed by themselves
+// Practitioner Scoping — Individual practitioners (Doctor, Dentist, Nutritionist) only see consultations performed by themselves
+// System Administrators & Health Center Directors can oversee ALL consultations across all practitioners
 $_sessionRoleDesc = strtolower(trim($_SESSION['role_description'] ?? $_SESSION['role'] ?? ''));
-$isDoctorRole = (str_contains($_sessionRoleDesc, 'doctor') || str_contains($_sessionRoleDesc, 'physician') || str_contains($_sessionRoleDesc, 'dentist') || str_contains($_sessionRoleDesc, 'medical practitioner'));
-$isAdminRole = (str_contains($_sessionRoleDesc, 'admin') || str_contains($_sessionRoleDesc, 'director') || str_contains($_sessionRoleDesc, 'system administrator'));
-$isDoctorOnly = ($isDoctorRole && !$isAdminRole);
+$isPractitionerRole = (
+    str_contains($_sessionRoleDesc, 'doctor') || 
+    str_contains($_sessionRoleDesc, 'physician') || 
+    str_contains($_sessionRoleDesc, 'dentist') || 
+    str_contains($_sessionRoleDesc, 'nutrition') || 
+    str_contains($_sessionRoleDesc, 'dietitian') || 
+    str_contains($_sessionRoleDesc, 'medical practitioner')
+);
+$isAdminRole = (
+    str_contains($_sessionRoleDesc, 'admin') || 
+    str_contains($_sessionRoleDesc, 'system administrator') || 
+    str_contains($_sessionRoleDesc, 'director') || 
+    str_contains($_sessionRoleDesc, 'health center director')
+);
+$isDoctorOnly = ($isPractitionerRole && !$isAdminRole);
 
 // Fetch real consultations from database
 $consultationModel = new Consultation();

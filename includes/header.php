@@ -65,6 +65,7 @@ require_once __DIR__ . '/../app/services/NotificationService.php';
 $notificationService = new NotificationService();
 $headerNotifications = $notificationService->getNotifications(10);
 $initialTotalCount = count($headerNotifications);
+$initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($n['is_read'])));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -315,7 +316,7 @@ $initialTotalCount = count($headerNotifications);
       <div class="relative inline-block">
         <button type="button" id="notifBellBtn" onclick="toggleNotificationDropdown(event)" class="relative p-2 text-slate-400 hover:text-brand-dark rounded-lg hover:bg-slate-50 transition focus:outline-none cursor-pointer" title="Alerts & Notifications">
           <i class="fa-solid fa-bell text-lg"></i>
-          <span id="notifBadgeCount" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center ring-2 ring-white shadow-xs leading-none z-10 pointer-events-none <?php echo $initialTotalCount > 0 ? '' : 'hidden'; ?>"><?php echo $initialTotalCount > 99 ? '99+' : $initialTotalCount; ?></span>
+          <span id="notifBadgeCount" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center ring-2 ring-white shadow-xs leading-none z-10 pointer-events-none <?php echo $initialUnreadCount > 0 ? '' : 'hidden'; ?>"><?php echo $initialUnreadCount > 99 ? '99+' : $initialUnreadCount; ?></span>
         </button>
 
         <!-- Dropdown Popover Panel -->
@@ -325,7 +326,7 @@ $initialTotalCount = count($headerNotifications);
             <div class="flex items-center gap-1.5 text-xs font-bold text-slate-800">
               <i class="fas fa-bell text-brand-medium text-xs"></i>
               <span>Notifications</span>
-              <span id="dropdownNotifBadge" class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[9px] font-extrabold ml-1"><?php echo $initialTotalCount; ?> New</span>
+              <span id="dropdownNotifBadge" class="px-2 py-0.5 <?php echo $initialUnreadCount > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'; ?> rounded-full text-[9px] font-extrabold ml-1"><?php echo $initialUnreadCount; ?> New</span>
             </div>
             <button type="button" onclick="markAllNotificationsRead(event)" class="text-[10px] text-brand-medium hover:text-brand-dark font-semibold transition-colors flex items-center gap-1 cursor-pointer">
               <i class="fas fa-check-circle text-[10px]"></i> Mark read
@@ -335,13 +336,13 @@ $initialTotalCount = count($headerNotifications);
           <!-- Notification Filter Tabs: All & Unread -->
           <div class="px-3 py-2 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between text-xs font-semibold flex-shrink-0 gap-2">
             <div class="flex items-center gap-1 p-0.5 bg-slate-200/70 rounded-xl w-full">
-              <button type="button" id="notifTabAll" onclick="switchNotifTab('all', event)"
-                      class="flex-1 py-1 px-3 text-[11px] font-bold rounded-lg text-center transition-all cursor-pointer bg-white text-slate-800 shadow-xs">
-                All <span id="notifTabAllCount" class="ml-1 px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full text-[9px]"><?php echo $initialTotalCount; ?></span>
-              </button>
               <button type="button" id="notifTabUnread" onclick="switchNotifTab('unread', event)"
+                      class="flex-1 py-1 px-3 text-[11px] font-bold rounded-lg text-center transition-all cursor-pointer bg-white text-slate-800 shadow-xs">
+                Unread <span id="notifTabUnreadCount" class="ml-1 px-1.5 py-0.2 bg-rose-100 text-rose-700 rounded-full text-[9px]"><?php echo $initialUnreadCount; ?></span>
+              </button>
+              <button type="button" id="notifTabAll" onclick="switchNotifTab('all', event)"
                       class="flex-1 py-1 px-3 text-[11px] font-bold rounded-lg text-center transition-all cursor-pointer text-slate-500 hover:text-slate-800">
-                Unread <span id="notifTabUnreadCount" class="ml-1 px-1.5 py-0.2 bg-rose-100 text-rose-700 rounded-full text-[9px]"><?php echo $initialTotalCount; ?></span>
+                All
               </button>
             </div>
           </div>
@@ -357,11 +358,14 @@ $initialTotalCount = count($headerNotifications);
 
             <?php if (!empty($headerNotifications)): ?>
               <?php foreach ($headerNotifications as $n): ?>
+                <?php $isRead = !empty($n['is_read']); ?>
                 <a href="<?php echo htmlspecialchars($n['url']); ?>"
                    data-notif-id="<?php echo htmlspecialchars($n['id']); ?>"
-                   data-notif-status="unread"
+                   data-notif-status="<?php echo $isRead ? 'read' : 'unread'; ?>"
                    class="notif-item p-3 hover:bg-slate-50/80 transition flex items-start gap-2.5 block relative group">
-                  <span class="unread-dot w-2 h-2 rounded-full bg-rose-500 absolute top-3.5 right-3"></span>
+                  <?php if (!$isRead): ?>
+                    <span class="unread-dot w-2 h-2 rounded-full bg-rose-500 absolute top-3.5 right-3"></span>
+                  <?php endif; ?>
                   <div class="w-7 h-7 rounded-full <?php echo htmlspecialchars($n['icon_bg']); ?> flex items-center justify-center flex-shrink-0 mt-0.5">
                     <i class="<?php echo htmlspecialchars($n['icon']); ?> <?php echo htmlspecialchars($n['icon_color']); ?> text-xs"></i>
                   </div>
@@ -393,16 +397,6 @@ $initialTotalCount = count($headerNotifications);
           </div>
         </div>
       </div>
-
-      <!-- Data Mask Toggle -->
-      <button id="dataMaskToggle" onclick="toggleDataMask()"
-              class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all duration-300 cursor-pointer"
-              title="Click to toggle data masking (Ctrl+Shift+M)">
-        <i id="maskToggleIcon" class="fa-solid fa-eye-slash text-sm transition-all duration-300"></i>
-        <span id="maskToggleLabel" class="hidden sm:inline">Hidden</span>
-      </button>
-
-      <div class="h-6 w-px bg-slate-200"></div>
 
       <!-- User Profile & Personal Settings Dropdown Container -->
       <div class="relative inline-block">
@@ -618,6 +612,27 @@ $initialTotalCount = count($headerNotifications);
           </label>
         </div>
 
+        <!-- Data Privacy & Citizen Confidentiality (Data Masking) -->
+        <div class="space-y-2 pt-3 border-t border-slate-100">
+          <h4 class="font-extrabold text-slate-800 uppercase text-[10px] tracking-wider text-slate-400 flex items-center gap-1.5">
+            <i class="fas fa-shield-halved"></i> Data Privacy &amp; Citizen Confidentiality
+          </h4>
+          
+          <label class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100/80 transition">
+            <div class="flex items-center gap-2 font-bold text-slate-700">
+              <i id="settingsMaskIcon" class="fa-solid fa-eye-slash text-slate-500"></i>
+              <div>
+                <span>Mask Citizen Confidential Data</span>
+                <p class="text-[10px] text-slate-400 font-normal">Hides names, contact info, and patient IDs across tables (Shortcut: Ctrl+Shift+D)</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="settingsMaskBadge" class="px-2 py-0.5 bg-slate-200 text-slate-700 rounded-md text-[9px] font-extrabold uppercase">Hidden</span>
+              <input type="checkbox" id="settingsDataMaskToggle" onchange="if(typeof toggleDataMask==='function')toggleDataMask()" class="w-4 h-4 text-c3 rounded border-slate-300 focus:ring-c3 cursor-pointer" />
+            </div>
+          </label>
+        </div>
+
         <!-- Portal Display Preferences -->
         <div class="space-y-2 pt-3 border-t border-slate-100">
           <h4 class="font-extrabold text-slate-800 uppercase text-[10px] tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -762,6 +777,10 @@ $initialTotalCount = count($headerNotifications);
       if (nameInput) nameInput.value = savedName;
     }
 
+    if (typeof updateMaskToggleButton === 'function') {
+      updateMaskToggleButton();
+    }
+
     const modal = document.getElementById('personalSettingsModal');
     if (modal) {
       modal.classList.remove('hidden');
@@ -793,7 +812,7 @@ $initialTotalCount = count($headerNotifications);
     }
   }
 
-  let currentNotifFilter = 'all';
+  let currentNotifFilter = 'unread';
   let isNoLimitNotifView = false;
 
   function switchNotifTab(filter, e) {
@@ -875,36 +894,6 @@ $initialTotalCount = count($headerNotifications);
     }
   }
 
-  function getReadNotifIds() {
-    try {
-      return JSON.parse(localStorage.getItem('portal_read_notif_ids') || '[]');
-    } catch (e) {
-      return [];
-    }
-  }
-
-  function setReadNotifIds(ids) {
-    try {
-      localStorage.setItem('portal_read_notif_ids', JSON.stringify(ids));
-    } catch (e) {}
-  }
-
-  function syncNotifReadStateFromStorage() {
-    const readIds = new Set(getReadNotifIds());
-    const items = document.querySelectorAll('#notifItemsContainer .notif-item');
-    
-    items.forEach(item => {
-      const id = item.getAttribute('data-notif-id');
-      if (id && readIds.has(id)) {
-        item.setAttribute('data-notif-status', 'read');
-        const dot = item.querySelector('.unread-dot');
-        if (dot) dot.remove();
-      }
-    });
-
-    updateNotificationCounts();
-  }
-
   function updateNotificationCounts() {
     const unreadItems = document.querySelectorAll('#notifItemsContainer .notif-item[data-notif-status="unread"]');
     const totalItems = document.querySelectorAll('#notifItemsContainer .notif-item');
@@ -959,24 +948,36 @@ $initialTotalCount = count($headerNotifications);
     }
 
     const items = document.querySelectorAll('#notifItemsContainer .notif-item');
-    const readIds = getReadNotifIds();
+    const unreadIds = [];
 
     items.forEach(item => {
       const id = item.getAttribute('data-notif-id');
-      if (id && !readIds.includes(id)) {
-        readIds.push(id);
+      const status = item.getAttribute('data-notif-status');
+      if (id && status !== 'read') {
+        unreadIds.push(id);
       }
       item.setAttribute('data-notif-status', 'read');
       const unreadDot = item.querySelector('.unread-dot');
       if (unreadDot) unreadDot.remove();
     });
 
-    setReadNotifIds(readIds);
     updateNotificationCounts();
     applyNotifFilter();
+
+    // Persist directly to database via API (Zero LocalStorage)
+    if (unreadIds.length > 0) {
+      fetch('<?php echo site_url('api/notifications.php?action=mark_read'); ?>', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ notification_ids: unreadIds })
+      }).catch(err => console.error('Notif DB read sync error:', err));
+    }
   }
 
-  // Handle individual notification clicks and initialize count
+  // Handle individual notification clicks and persist directly to Database
   document.addEventListener('DOMContentLoaded', function() {
     const notifContainer = document.getElementById('notifItemsContainer');
     if (notifContainer) {
@@ -984,22 +985,30 @@ $initialTotalCount = count($headerNotifications);
         const item = e.target.closest('.notif-item');
         if (item) {
           const id = item.getAttribute('data-notif-id');
-          if (id) {
-            const readIds = getReadNotifIds();
-            if (!readIds.includes(id)) {
-              readIds.push(id);
-              setReadNotifIds(readIds);
-            }
+          const currentStatus = item.getAttribute('data-notif-status');
+          
+          if (id && currentStatus !== 'read') {
+            item.setAttribute('data-notif-status', 'read');
+            const unreadDot = item.querySelector('.unread-dot');
+            if (unreadDot) unreadDot.remove();
+            updateNotificationCounts();
+
+            // Persist directly to Database via API (Zero LocalStorage)
+            fetch('<?php echo site_url('api/notifications.php?action=mark_read'); ?>', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+              },
+              body: JSON.stringify({ notification_ids: [id] })
+            }).catch(err => console.error('Notif DB read sync error:', err));
           }
-          item.setAttribute('data-notif-status', 'read');
-          const unreadDot = item.querySelector('.unread-dot');
-          if (unreadDot) unreadDot.remove();
-          updateNotificationCounts();
         }
       });
     }
 
-    syncNotifReadStateFromStorage();
+    updateNotificationCounts();
+    applyNotifFilter();
   });
 
   // Close dropdowns on click outside or ESC key

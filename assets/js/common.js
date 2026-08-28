@@ -69,6 +69,10 @@ function isValidCostValue(value) {
 // MODAL MANAGEMENT
 // ============================================================
 function openModal(id) {
+    if (typeof window.openQuickActionModal === 'function' && typeof QUICK_ACTION_SCHEMAS !== 'undefined' && QUICK_ACTION_SCHEMAS[id]) {
+        window.openQuickActionModal(id);
+        return;
+    }
     const el = document.getElementById(id);
     if (!el) return;
     el.classList.remove('hidden');

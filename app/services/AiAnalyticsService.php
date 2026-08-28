@@ -474,11 +474,11 @@ class AiAnalyticsService
     }
 
     /**
-     * Statistical Predictive ML Engine (Multi-Step Forward-Looking Linear Regression)
+     * AI-Driven Multi-Horizon Predictive Forecaster using Google Gemini AI with Mathematical Fallback
      */
     private function generatePredictiveForecast(string $range, array $snap, string $scope = 'admin'): array
     {
-        // 1. Fetch 6-month historical baseline data for linear regression fitting
+        // 1. Fetch 6-month historical baseline data
         $dateInfo = $this->getDynamicDateBuckets('6m');
         $buckets  = $dateInfo['buckets'];
 
@@ -490,6 +490,27 @@ class AiAnalyticsService
             $historicalAudits  = $this->countRecordsPerBucket($snap['inspections'] ?? [], 'created_at', $buckets, '6m');
             $historicalInspect = $this->countRecordsPerBucket(array_filter($snap['permits'] ?? [], fn($p) => strtolower($p['status'] ?? '') === 'approved'), 'created_at', $buckets, '6m');
 
+            $histMetrics = [
+                'permits'    => $historicalPermits,
+                'audits'     => $historicalAudits,
+                'clearances' => $historicalInspect
+            ];
+
+            // Attempt AI-Processed Forecast via Gemini AI
+            $aiForecast = $this->geminiAi->generateAiForecast($histMetrics, 'sanitation', 6);
+            if ($aiForecast && !empty($aiForecast['series'])) {
+                return [
+                    'categories' => $categories,
+                    'is_future_focused' => true,
+                    'ai_processed' => true,
+                    'model_used' => $aiForecast['model_used'] ?? 'Google Gemini AI',
+                    'series' => $aiForecast['series'],
+                    'cards' => $aiForecast['cards'] ?? [],
+                    'ai_narrative' => $aiForecast['ai_narrative'] ?? 'AI seasonal forecast processed for sanitation permits and compliance audits.'
+                ];
+            }
+
+            // Mathematical Fallback
             $resPermits = $this->predictFutureHorizon($historicalPermits, 6, 'Sanitation Permits');
             $resAudits  = $this->predictFutureHorizon($historicalAudits, 6, 'Food Audits');
             $resInspect = $this->predictFutureHorizon($historicalInspect, 6, 'Approved Clearances');
@@ -497,6 +518,7 @@ class AiAnalyticsService
             return [
                 'categories' => $categories,
                 'is_future_focused' => true,
+                'ai_processed' => false,
                 'series' => [
                     ['name' => 'Sanitation Permits', 'data' => $resPermits['forecast']],
                     ['name' => 'Food Audits & Inspections', 'data' => $resAudits['forecast']],
@@ -515,6 +537,26 @@ class AiAnalyticsService
             $historicalConsult  = $this->countRecordsPerBucket($snap['consultations'] ?? [], 'created_at', $buckets, '6m');
             $historicalTriage   = $this->countRecordsPerBucket($snap['appointments'] ?? [], 'created_at', $buckets, '6m');
 
+            $histMetrics = [
+                'patients'      => $historicalPatients,
+                'consultations' => $historicalConsult,
+                'appointments'  => $historicalTriage
+            ];
+
+            // Attempt AI-Processed Forecast via Gemini AI
+            $aiForecast = $this->geminiAi->generateAiForecast($histMetrics, 'health_center', 6);
+            if ($aiForecast && !empty($aiForecast['series'])) {
+                return [
+                    'categories' => $categories,
+                    'is_future_focused' => true,
+                    'ai_processed' => true,
+                    'model_used' => $aiForecast['model_used'] ?? 'Google Gemini AI',
+                    'series' => $aiForecast['series'],
+                    'cards' => $aiForecast['cards'] ?? [],
+                    'ai_narrative' => $aiForecast['ai_narrative'] ?? 'AI forecast processed for patient turnout and outpatient consultation demand.'
+                ];
+            }
+
             $resPatients = $this->predictFutureHorizon($historicalPatients, 6, 'Patient Queue');
             $resConsult  = $this->predictFutureHorizon($historicalConsult, 6, 'Consultations');
             $resTriage   = $this->predictFutureHorizon($historicalTriage, 6, 'Appointments');
@@ -522,6 +564,7 @@ class AiAnalyticsService
             return [
                 'categories' => $categories,
                 'is_future_focused' => true,
+                'ai_processed' => false,
                 'series' => [
                     ['name' => 'Patient Queue', 'data' => $resPatients['forecast']],
                     ['name' => 'Consultations', 'data' => $resConsult['forecast']],
@@ -540,6 +583,26 @@ class AiAnalyticsService
             $historicalNutrition = $this->countRecordsPerBucket($snap['consultations'] ?? [], 'created_at', $buckets, '6m');
             $historicalGrowth    = $this->countRecordsPerBucket($snap['prescriptions'] ?? [], 'created_at', $buckets, '6m');
 
+            $histMetrics = [
+                'vaccines'  => $historicalVaccines,
+                'nutrition' => $historicalNutrition,
+                'growth'    => $historicalGrowth
+            ];
+
+            // Attempt AI-Processed Forecast via Gemini AI
+            $aiForecast = $this->geminiAi->generateAiForecast($histMetrics, 'immunization', 6);
+            if ($aiForecast && !empty($aiForecast['series'])) {
+                return [
+                    'categories' => $categories,
+                    'is_future_focused' => true,
+                    'ai_processed' => true,
+                    'model_used' => $aiForecast['model_used'] ?? 'Google Gemini AI',
+                    'series' => $aiForecast['series'],
+                    'cards' => $aiForecast['cards'] ?? [],
+                    'ai_narrative' => $aiForecast['ai_narrative'] ?? 'AI seasonal forecast processed for immunization uptake and nutrition programs.'
+                ];
+            }
+
             $resVaccines  = $this->predictFutureHorizon($historicalVaccines, 6, 'Vaccine Demand');
             $resNutrition = $this->predictFutureHorizon($historicalNutrition, 6, 'Nutrition Checks');
             $resGrowth    = $this->predictFutureHorizon($historicalGrowth, 6, 'Prescriptions');
@@ -547,6 +610,7 @@ class AiAnalyticsService
             return [
                 'categories' => $categories,
                 'is_future_focused' => true,
+                'ai_processed' => false,
                 'series' => [
                     ['name' => 'Child Vaccine Demand', 'data' => $resVaccines['forecast']],
                     ['name' => 'Nutrition Checks', 'data' => $resNutrition['forecast']],
@@ -565,6 +629,26 @@ class AiAnalyticsService
             $historicalContact = $this->countRecordsPerBucket($snap['alerts'] ?? [], 'created_at', $buckets, '6m');
             $historicalAlerts  = $this->countRecordsPerBucket(array_filter($snap['cases'] ?? [], fn($c) => in_array($c['status'] ?? '', ['Confirmed', 'Active', 'Suspected'])), 'created_at', $buckets, '6m');
 
+            $histMetrics = [
+                'cases'    => $historicalCases,
+                'alerts'   => $historicalContact,
+                'active'   => $historicalAlerts
+            ];
+
+            // Attempt AI-Processed Forecast via Gemini AI
+            $aiForecast = $this->geminiAi->generateAiForecast($histMetrics, 'surveillance', 6);
+            if ($aiForecast && !empty($aiForecast['series'])) {
+                return [
+                    'categories' => $categories,
+                    'is_future_focused' => true,
+                    'ai_processed' => true,
+                    'model_used' => $aiForecast['model_used'] ?? 'Google Gemini AI',
+                    'series' => $aiForecast['series'],
+                    'cards' => $aiForecast['cards'] ?? [],
+                    'ai_narrative' => $aiForecast['ai_narrative'] ?? 'AI epidemiological forecast predicting disease outbreak trajectories and climate risk.'
+                ];
+            }
+
             $resCases   = $this->predictFutureHorizon($historicalCases, 6, 'Suspected Cases');
             $resContact = $this->predictFutureHorizon($historicalContact, 6, 'Surveillance Alerts');
             $resAlerts  = $this->predictFutureHorizon($historicalAlerts, 6, 'Active Infections');
@@ -572,6 +656,7 @@ class AiAnalyticsService
             return [
                 'categories' => $categories,
                 'is_future_focused' => true,
+                'ai_processed' => false,
                 'series' => [
                     ['name' => 'Suspected Cases', 'data' => $resCases['forecast']],
                     ['name' => 'Surveillance Alerts', 'data' => $resContact['forecast']],
@@ -590,6 +675,26 @@ class AiAnalyticsService
             $historicalClearance = $this->countRecordsPerBucket($snap['permits'] ?? [], 'created_at', $buckets, '6m');
             $historicalSamples   = $this->countRecordsPerBucket($snap['inspections'] ?? [], 'created_at', $buckets, '6m');
 
+            $histMetrics = [
+                'septic'     => $historicalSeptic,
+                'clearances' => $historicalClearance,
+                'samples'    => $historicalSamples
+            ];
+
+            // Attempt AI-Processed Forecast via Gemini AI
+            $aiForecast = $this->geminiAi->generateAiForecast($histMetrics, 'wastewater', 6);
+            if ($aiForecast && !empty($aiForecast['series'])) {
+                return [
+                    'categories' => $categories,
+                    'is_future_focused' => true,
+                    'ai_processed' => true,
+                    'model_used' => $aiForecast['model_used'] ?? 'Google Gemini AI',
+                    'series' => $aiForecast['series'],
+                    'cards' => $aiForecast['cards'] ?? [],
+                    'ai_narrative' => $aiForecast['ai_narrative'] ?? 'AI environmental forecast predicting septic tank maintenance and wastewater inspection cycles.'
+                ];
+            }
+
             $resSeptic    = $this->predictFutureHorizon($historicalSeptic, 6, 'Wastewater Units');
             $resClearance = $this->predictFutureHorizon($historicalClearance, 6, 'Discharge Clearances');
             $resSamples   = $this->predictFutureHorizon($historicalSamples, 6, 'Field Inspections');
@@ -597,6 +702,7 @@ class AiAnalyticsService
             return [
                 'categories' => $categories,
                 'is_future_focused' => true,
+                'ai_processed' => false,
                 'series' => [
                     ['name' => 'Wastewater Resources', 'data' => $resSeptic['forecast']],
                     ['name' => 'Discharge Clearances', 'data' => $resClearance['forecast']],
@@ -610,13 +716,73 @@ class AiAnalyticsService
             ];
         }
 
-        // Default Admin Scope: All 5 Municipal Modules 6-Month Forward Linear Regression
+        // Default Admin Scope: All 5 Municipal Modules
         $historicalCases      = $this->countRecordsPerBucket(array_merge($snap['cases'] ?? [], $snap['contacts'] ?? []), 'created_at', $buckets, '6m');
         $historicalConsults   = $this->countRecordsPerBucket(array_merge($snap['patients'] ?? [], $snap['consultations'] ?? []), 'created_at', $buckets, '6m');
         $historicalPermits    = $this->countRecordsPerBucket(array_merge($snap['permits'] ?? [], $snap['inspections'] ?? []), 'created_at', $buckets, '6m');
         $historicalVaccines   = $this->countRecordsPerBucket(array_merge($snap['children'] ?? [], $snap['prescriptions'] ?? []), 'created_at', $buckets, '6m');
         $historicalWastewater = $this->countRecordsPerBucket(array_merge($snap['septic_tanks'] ?? [], $snap['invoices'] ?? []), 'created_at', $buckets, '6m');
 
+        $histMetrics = [
+            'cases'      => $historicalCases,
+            'consults'   => $historicalConsults,
+            'permits'    => $historicalPermits,
+            'vaccines'   => $historicalVaccines,
+            'wastewater' => $historicalWastewater
+        ];
+
+        // Attempt AI-Processed Forecast via Gemini AI
+        $aiForecast = $this->geminiAi->generateAiForecast($histMetrics, 'admin', 6);
+        if ($aiForecast && !empty($aiForecast['series'])) {
+            $cards = $aiForecast['cards'] ?? [];
+            $summaryKpis = [];
+            foreach ($aiForecast['series'] as $s) {
+                $k = $s['key'] ?? strtolower(str_replace(' ', '_', $s['name']));
+                $conf = $s['confidence'] ?? 92;
+                $val = $s['data'][1] ?? ($s['data'][0] ?? 0);
+                $summaryKpis[] = [
+                    'key' => $k,
+                    'name' => $s['name'],
+                    'module' => match($k) {
+                        'cases' => 'Surveillance',
+                        'consults' => 'Health Center',
+                        'permits' => 'Sanitation',
+                        'vaccines' => 'Immunization',
+                        'wastewater' => 'Wastewater',
+                        default => 'Municipal'
+                    },
+                    'value' => $val,
+                    'confidence' => $conf,
+                    'conf_label' => $conf . '% Certainty',
+                    'color' => match($k) {
+                        'cases' => 'red',
+                        'consults' => 'teal',
+                        'permits' => 'amber',
+                        'vaccines' => 'blue',
+                        'wastewater' => 'purple',
+                        default => 'indigo'
+                    }
+                ];
+            }
+
+            return [
+                'categories' => $categories,
+                'is_future_focused' => true,
+                'ai_processed' => true,
+                'model_used' => $aiForecast['model_used'] ?? 'Google Gemini AI',
+                'series' => $aiForecast['series'],
+                'confidence_cases'      => $summaryKpis[0]['confidence'] ?? 92,
+                'confidence_consults'   => $summaryKpis[1]['confidence'] ?? 94,
+                'confidence_permits'    => $summaryKpis[2]['confidence'] ?? 90,
+                'confidence_vaccines'   => $summaryKpis[3]['confidence'] ?? 95,
+                'confidence_wastewater' => $summaryKpis[4]['confidence'] ?? 89,
+                'summary_kpis' => $summaryKpis,
+                'cards' => $cards,
+                'ai_narrative' => $aiForecast['ai_narrative'] ?? 'City-wide AI seasonal forecast processed using Google Gemini neural model.'
+            ];
+        }
+
+        // Mathematical Fallback for Admin Scope
         $resCases      = $this->predictFutureHorizon($historicalCases, 6, 'Disease Cases (Surveillance)');
         $resConsults   = $this->predictFutureHorizon($historicalConsults, 6, 'Consultations (Health Center)');
         $resPermits    = $this->predictFutureHorizon($historicalPermits, 6, 'Permit Requests (Sanitation)');
@@ -626,6 +792,7 @@ class AiAnalyticsService
         return [
             'categories' => $categories,
             'is_future_focused' => true,
+            'ai_processed' => false,
             'series' => [
                 ['name' => 'Disease Cases', 'data' => $resCases['forecast']],
                 ['name' => 'Consultations', 'data' => $resConsults['forecast']],

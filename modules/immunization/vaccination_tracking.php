@@ -85,12 +85,34 @@ $vaccineSchedule = [
     ['vaccine' => 'Measles-Mumps-Rubella (MMR)', 'dose' => 2, 'due_age_days' => 365, 'due_age' => '12 months', 'description' => 'Second dose for full immunity'],
 ];
 
+// ============================================================
+// FETCH STAFF WHO CAN ADMINISTER VACCINES
+// Includes: Immunization, Nutrition, Health Center departments
+// ============================================================
+$immunizationStaff = [];
+try {
+    $db = Database::getInstance();
+    $allEmployees = $db->select('employees', ['status' => 'Active'], ['limit' => 200, 'order' => 'department.asc,full_name.asc']);
+    $staffDepts = ['immunization', 'nutrition', 'health center', 'health center services'];
+    foreach ($allEmployees as $emp) {
+        $dept = strtolower($emp['department'] ?? '');
+        if (in_array($dept, $staffDepts)) {
+            $immunizationStaff[] = [
+                'name' => $emp['full_name'] ?? 'Unknown',
+                'role' => $emp['role'] ?? '',
+                'department' => $emp['department'] ?? ''
+            ];
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Error fetching immunization staff: ' . $e->getMessage());
+}
+
 // Base Children Data
 $children = [];
 $childrenRaw = []; // keyed by id => ['birth' => DateTime, 'name' => ..., 'child_code' => ...]
 
 try {
-    $db = Database::getInstance();
     $dbChildren = $db->query('children', 'GET');
     if (!empty($dbChildren) && is_array($dbChildren)) {
         foreach ($dbChildren as $c) {
@@ -192,40 +214,11 @@ foreach ($childrenRaw as $childId => $info) {
             continue;
         }
 
-        // Not administered yet — only surface it once it's due or due soon
-        if ($daysLeft < 0) {
-            $status = 'missed';
-            $childHasMissed = true;
-        } elseif ($daysLeft <= 30) {
-            $status = 'pending';
-        } else {
-            continue; // not due yet, don't clutter the table
+        // Not administered yet — skip entirely, only show actual administered records
+        if ($daysLeft < 0 || $daysLeft <= 30) {
+            $childHasMissed = true; // still track for the on-track badge
         }
-
-        $entryId = 'sched_' . $childId . '_' . preg_replace('/[^a-z0-9]/i', '', $vaccine) . '_' . $dose;
-
-        $entry = [
-            'id' => (string)$entryId,
-            'child_id' => $info['child_code'],
-            'child_db_id' => $childId,
-            'child_name' => $info['name'],
-            'vaccine' => $vaccine,
-            'dose' => $dose,
-            'date' => null,
-            'next_due' => $dueDate->format('Y-m-d'),
-            'batch_number' => null,
-            'administered_by' => null,
-            'health_center' => '—',
-            'status' => $status,
-        ];
-
-        $immunizations[] = $entry;
-
-        if ($status === 'missed') {
-            $missedVaccines[] = $entry;
-        } else {
-            $dueAlerts[] = $entry;
-        }
+        // Do NOT push to $immunizations — only completed/administered doses appear in the table
     }
 
     $childTrackStatus[$childId] = $childHasMissed ? 'not_on_track' : 'on_track';
@@ -252,7 +245,18 @@ $title = 'Vaccination Tracking';
             <h2 class="text-2xl font-black text-slate-900 tracking-tight">Vaccination Tracking</h2>
             <p class="text-sm text-slate-500 mt-0.5">Track immunizations, schedules, and due dates</p>
         </div>
-        <div class="flex gap-3">
+        <div class="flex gap-2 flex-wrap items-center">
+            <button onclick="openModal('waitingQueueModal')"
+                    class="px-3.5 py-2 bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
+                <i class="fa-solid fa-user-clock text-xs text-blue-600"></i> Waiting Queue
+                <?php if (count($immunizationVisits) > 0): ?>
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[10px] font-bold"><?php echo count($immunizationVisits); ?></span>
+                <?php endif; ?>
+            </button>
+            <button onclick="openModal('vaccineScheduleModal')"
+                    class="px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
+                <i class="fa-solid fa-book-medical text-xs text-brand-medium"></i> Schedule Guide
+            </button>
             <button onclick="openModal('recordVaccinationModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-syringe text-xs"></i> Record Vaccination
@@ -260,74 +264,40 @@ $title = 'Vaccination Tracking';
         </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- PATIENTS WAITING FOR IMMUNIZATION (TODAY'S VISITS)          -->
-    <!-- ============================================================ -->
-    <div class="bg-white rounded-xl shadow-xs border border-blue-200 mb-6 overflow-hidden">
-        <div class="p-4 border-b border-blue-200/80 flex items-center justify-between bg-blue-50/50">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-syringe text-blue-600"></i>
-                <h3 class="text-sm font-bold text-blue-900">Patients Waiting for Immunization</h3>
-                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold"><?php echo count($immunizationVisits); ?> active visit(s)</span>
+    <!-- Active Triage Queue Alert (if patients waiting) -->
+    <?php if (!empty($immunizationVisits)): ?>
+    <div class="bg-blue-50/80 border border-blue-200 rounded-xl p-3.5 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs shrink-0 font-bold">
+                <i class="fa-solid fa-user-clock"></i>
             </div>
-            <a href="../healthservices/triage.php" class="text-xs font-semibold text-blue-700 hover:text-blue-900 flex items-center gap-1">
-                <i class="fa-solid fa-plus-circle text-xs"></i> Waiting Queue
-            </a>
+            <div>
+                <p class="text-xs font-bold text-blue-900">
+                    <?php echo count($immunizationVisits); ?> patient(s) waiting for immunization
+                </p>
+                <p class="text-[11px] text-blue-700">
+                    Latest check-in: <strong><?php echo htmlspecialchars($immunizationVisits[0]['patient_name']); ?></strong> (<?php echo htmlspecialchars($immunizationVisits[0]['patient_code']); ?>) at <?php echo htmlspecialchars($immunizationVisits[0]['check_in_time']); ?>
+                </p>
+            </div>
         </div>
-        <?php if (!empty($immunizationVisits)): ?>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient ID</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient Name</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Reason for Visit</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Check-in Time</th>
-                        <th class="px-4 py-2 text-center text-[10px] font-bold text-slate-500 uppercase">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($immunizationVisits as $visit): ?>
-                    <tr class="border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
-                        <td class="px-4 py-3 font-mono text-xs font-bold text-blue-700"><?php echo htmlspecialchars($visit['patient_code']); ?></td>
-                        <td class="px-4 py-3 font-semibold text-slate-800">
-                            <div class="flex items-center gap-2">
-                                <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-[10px]"><?php echo htmlspecialchars($visit['avatar']); ?></div>
-                                <span><?php echo htmlspecialchars($visit['patient_name']); ?></span>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3">
-                            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200 inline-flex items-center gap-1">
-                                <i class="fa-solid fa-syringe text-[10px] text-blue-600"></i> Immunization
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs"><?php echo htmlspecialchars($visit['check_in_time']); ?></td>
-                        <td class="px-4 py-3 text-center">
-                            <button onclick="startImmunizationAssessment(<?php echo (int)$visit['patient_id']; ?>, '<?php echo htmlspecialchars(addslashes($visit['patient_name']), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($visit['patient_code']), ENT_QUOTES); ?>');" 
-                                    class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition inline-flex items-center gap-1 shadow-xs">
-                                <i class="fa-solid fa-stethoscope text-xs"></i> Start Assessment
-                            </button>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+        <div class="flex items-center gap-2 shrink-0">
+            <button onclick="openModal('waitingQueueModal')" class="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 text-xs font-semibold rounded-lg transition">
+                View Queue
+            </button>
+            <button onclick="startImmunizationAssessment(<?php echo (int)$immunizationVisits[0]['patient_id']; ?>, '<?php echo htmlspecialchars(addslashes($immunizationVisits[0]['patient_name']), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($immunizationVisits[0]['patient_code']), ENT_QUOTES); ?>');" 
+                    class="px-3 py-1.5 bg-brand-dark text-white hover:bg-brand-medium text-xs font-semibold rounded-lg transition flex items-center gap-1 shadow-xs">
+                <i class="fa-solid fa-stethoscope text-xs"></i> Start Assessment
+            </button>
         </div>
-        <?php else: ?>
-        <div class="p-6 text-center text-slate-500 bg-slate-50/50">
-            <i class="fa-solid fa-user-clock text-2xl text-slate-300 mb-2 block"></i>
-            <p class="text-xs font-semibold text-slate-700">No patients currently waiting for immunization</p>
-            <p class="text-[11px] text-slate-400 mt-0.5">Use <a href="../healthservices/triage.php" class="text-blue-600 underline font-semibold">Patient Check-in</a> to register incoming arrivals.</p>
-        </div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- ============================================================ -->
     <!-- MODERN KPI CARDS - Updated to match design               -->
     <!-- ============================================================ -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <!-- Card 1: Total Records -->
-        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+        <div onclick="document.getElementById('filterStatus').value=''; filterVaccinations();" class="cursor-pointer relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
             <div class="absolute -top-12 -right-12 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
             <div class="relative">
                 <div class="flex items-center gap-3">
@@ -347,7 +317,7 @@ $title = 'Vaccination Tracking';
         </div>
 
         <!-- Card 2: Completed -->
-        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+        <div onclick="document.getElementById('filterStatus').value='completed'; filterVaccinations();" class="cursor-pointer relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
             <div class="absolute -top-12 -right-12 w-24 h-24 bg-emerald-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
             <div class="relative">
                 <div class="flex items-center gap-3">
@@ -367,7 +337,7 @@ $title = 'Vaccination Tracking';
         </div>
 
         <!-- Card 3: Missed -->
-        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+        <div onclick="document.getElementById('filterStatus').value='missed'; filterVaccinations();" class="cursor-pointer relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
             <div class="absolute -top-12 -right-12 w-24 h-24 bg-rose-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
             <div class="relative">
                 <div class="flex items-center gap-3">
@@ -387,7 +357,7 @@ $title = 'Vaccination Tracking';
         </div>
 
         <!-- Card 4: Due Soon -->
-        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+        <div onclick="document.getElementById('filterStatus').value='due_soon'; filterVaccinations();" class="cursor-pointer relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
             <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
             <div class="relative">
                 <div class="flex items-center gap-3">
@@ -407,38 +377,6 @@ $title = 'Vaccination Tracking';
         </div>
     </div>
 
-    <!-- Due Date Alerts -->
-    <?php if (count($dueAlerts) > 0): ?>
-    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <i class="fa-solid fa-bell text-amber-500 text-lg"></i>
-            <span class="text-sm text-amber-700">
-                <span class="font-bold"><?php echo count($dueAlerts); ?></span> vaccine(s) due within 30 days
-            </span>
-        </div>
-        <button onclick="document.getElementById('filterStatus').value='due_soon'; filterVaccinations();" 
-                class="text-xs font-semibold text-amber-700 hover:text-amber-900 underline">
-            View due
-        </button>
-    </div>
-    <?php endif; ?>
-
-    <!-- Missed Vaccines Alert -->
-    <?php if (count($missedVaccines) > 0): ?>
-    <div class="bg-rose-50 border border-rose-200 rounded-xl p-3 mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <i class="fa-solid fa-triangle-exclamation text-rose-500 text-lg"></i>
-            <span class="text-sm text-rose-700">
-                <span class="font-bold"><?php echo count($missedVaccines); ?></span> missed vaccine(s) require attention
-            </span>
-        </div>
-        <button onclick="document.getElementById('filterStatus').value='missed'; filterVaccinations();" 
-                class="text-xs font-semibold text-rose-700 hover:text-rose-900 underline">
-            View missed
-        </button>
-    </div>
-    <?php endif; ?>
-
     <!-- Search & Filter -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
         <div class="flex flex-col sm:flex-row gap-3">
@@ -446,34 +384,29 @@ $title = 'Vaccination Tracking';
                 <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                 <input type="text"
                        id="searchVaccination"
-                       placeholder="Search by child name, vaccine, or batch number..."
-                       class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
+                       placeholder="Search by child name, ID (e.g. CH-001), vaccine, dose, or batch..."
+                       class="w-full pl-9 pr-9 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
+                <button type="button" id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs w-6 h-6 rounded-full hover:bg-slate-100 items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
-            <div class="flex gap-2 flex-wrap">
-                <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+            <div class="flex gap-2 flex-wrap sm:flex-nowrap">
+                <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white min-w-[140px]">
                     <option value="">All Status</option>
                     <option value="completed">Completed</option>
                     <option value="pending">Pending</option>
                     <option value="missed">Missed</option>
                     <option value="due_soon">Due Soon</option>
                 </select>
-                <select id="filterVaccine" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                <select id="filterVaccine" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white min-w-[160px]">
                     <option value="">All Vaccines</option>
                     <?php 
                         $vaccines = array_unique(array_column($vaccineSchedule, 'vaccine'));
                         foreach ($vaccines as $v): 
                     ?>
-                        <option value="<?php echo $v; ?>"><?php echo $v; ?></option>
+                        <option value="<?php echo htmlspecialchars($v); ?>"><?php echo htmlspecialchars($v); ?></option>
                     <?php endforeach; ?>
                 </select>
-                      <input type="date" id="filterDateFrom" aria-label="Administered date from"
-                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                      <input type="date" id="filterDateTo" aria-label="Administered date to"
-                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                <button onclick="resetFilters()" title="Reset filters"
-                        class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
-                    <i class="fa-solid fa-rotate-right"></i>
-                </button>
             </div>
         </div>
     </div>
@@ -518,6 +451,7 @@ $title = 'Vaccination Tracking';
                     ?>
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors vaccination-row <?php echo $immunization['status'] === 'missed' ? 'bg-rose-50/50' : ''; ?>"
                         data-child="<?php echo strtolower($immunization['child_name']); ?>"
+                        data-child-code="<?php echo htmlspecialchars(strtolower($immunization['child_id'] ?? '')); ?>"
                         data-vaccine="<?php echo strtolower($immunization['vaccine']); ?>"
                         data-status="<?php echo $immunization['status']; ?>"
                         data-date="<?php echo htmlspecialchars($immunization['date'] ?? ''); ?>"
@@ -534,7 +468,11 @@ $title = 'Vaccination Tracking';
                         <td class="px-4 py-3 font-medium text-slate-700 text-xs"><?php echo $immunization['vaccine']; ?></td>
                         <td class="px-4 py-3 text-slate-600 text-xs">Dose <?php echo $immunization['dose']; ?></td>
                         <td class="px-4 py-3 text-slate-600 text-xs">
-                            <?php echo isset($immunization['date']) && $immunization['date'] ? date('M d, Y', strtotime($immunization['date'])) : '—'; ?>
+                            <?php if (!empty($immunization['date'])): ?>
+                                <span class="font-medium text-slate-800"><?php echo date('M d, Y', strtotime($immunization['date'])); ?></span>
+                            <?php else: ?>
+                                <span class="text-slate-400 italic text-[11px]">Not administered</span>
+                            <?php endif; ?>
                         </td>
                         <td class="px-4 py-3 text-slate-600 text-xs">
                             <?php 
@@ -555,7 +493,9 @@ $title = 'Vaccination Tracking';
                                 <span class="text-slate-400">—</span>
                             <?php endif; ?>
                         </td>
-                        <td class="px-4 py-3 text-slate-500 text-xs font-mono"><?php echo $immunization['batch_number'] ?? '—'; ?></td>
+                        <td class="px-4 py-3 text-slate-500 text-xs font-mono">
+                            <?php echo !empty($immunization['batch_number']) ? htmlspecialchars($immunization['batch_number']) : '<span class="text-slate-400 font-sans italic text-[11px]">—</span>'; ?>
+                        </td>
                         <td class="px-4 py-3">
                             <?php
                                 $statusColors = [
@@ -606,32 +546,114 @@ $title = 'Vaccination Tracking';
                 <span class="font-semibold text-slate-700"><?php echo min(10, $totalImmunizations); ?></span> of
                 <span class="font-semibold text-slate-700"><?php echo $totalImmunizations; ?></span> records
             </p>
-            <div class="flex gap-1">
-                <button class="px-3 py-1.5 rounded-lg text-sm bg-slate-100 text-slate-300 cursor-not-allowed" disabled>
-                    <i class="fa-solid fa-chevron-left text-xs"></i>
+            <div class="flex items-center gap-3">
+                <button onclick="openModal('vaccineScheduleModal')" 
+                        class="text-xs font-semibold text-brand-medium hover:text-brand-dark transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-book-medical"></i>
+                    <span>DOH Schedule Reference</span>
                 </button>
-                <button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-brand-dark text-white">1</button>
-                <button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">2</button>
-                <button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">
-                    <i class="fa-solid fa-chevron-right text-xs"></i>
-                </button>
+                <div class="flex gap-1">
+                    <button class="px-3 py-1.5 rounded-lg text-sm bg-slate-100 text-slate-300 cursor-not-allowed" disabled>
+                        <i class="fa-solid fa-chevron-left text-xs"></i>
+                    </button>
+                    <button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-brand-dark text-white">1</button>
+                    <button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">2</button>
+                    <button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">
+                        <i class="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Vaccine Schedule Section -->
-    <div class="mt-6">
-        <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-table-list text-brand-medium"></i> Recommended Vaccine Schedule
+<!-- ============================================================ -->
+<!-- MODAL: PATIENTS WAITING FOR IMMUNIZATION (QUEUE)             -->
+<!-- ============================================================ -->
+<div id="waitingQueueModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-blue-200 bg-blue-50/50 sticky top-0 rounded-t-2xl">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-syringe text-blue-600"></i>
+                <h3 class="text-sm font-bold text-blue-900">Patients Waiting for Immunization</h3>
+                <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold"><?php echo count($immunizationVisits); ?> active visit(s)</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="../healthservices/triage.php" class="text-xs font-semibold text-blue-700 hover:text-blue-900 flex items-center gap-1">
+                    <i class="fa-solid fa-plus-circle text-xs"></i> Patient Check-in
+                </a>
+                <button onclick="closeModal('waitingQueueModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+        <div class="p-6">
+            <?php if (!empty($immunizationVisits)): ?>
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient ID</th>
+                            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient Name</th>
+                            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Reason</th>
+                            <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Check-in Time</th>
+                            <th class="px-4 py-2 text-center text-[10px] font-bold text-slate-500 uppercase">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($immunizationVisits as $visit): ?>
+                        <tr class="border-b border-slate-100 hover:bg-blue-50/20 transition-colors">
+                            <td class="px-4 py-3 font-mono text-xs font-bold text-blue-700"><?php echo htmlspecialchars($visit['patient_code']); ?></td>
+                            <td class="px-4 py-3 font-semibold text-slate-800">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-[10px]"><?php echo htmlspecialchars($visit['avatar']); ?></div>
+                                    <span><?php echo htmlspecialchars($visit['patient_name']); ?></span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200 inline-flex items-center gap-1">
+                                    <i class="fa-solid fa-syringe text-[10px] text-blue-600"></i> Immunization
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-slate-600 text-xs"><?php echo htmlspecialchars($visit['check_in_time']); ?></td>
+                            <td class="px-4 py-3 text-center">
+                                <button onclick="closeModal('waitingQueueModal'); startImmunizationAssessment(<?php echo (int)$visit['patient_id']; ?>, '<?php echo htmlspecialchars(addslashes($visit['patient_name']), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($visit['patient_code']), ENT_QUOTES); ?>');" 
+                                        class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition inline-flex items-center gap-1 shadow-xs">
+                                    <i class="fa-solid fa-stethoscope text-xs"></i> Start Assessment
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php else: ?>
+            <div class="p-8 text-center text-slate-500 bg-slate-50/50 rounded-xl">
+                <i class="fa-solid fa-user-clock text-3xl text-slate-300 mb-2 block"></i>
+                <p class="text-xs font-semibold text-slate-700">No patients currently waiting for immunization</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Use <a href="../healthservices/triage.php" class="text-blue-600 underline font-semibold">Patient Check-in</a> to register incoming arrivals.</p>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL: RECOMMENDED VACCINE SCHEDULE GUIDE (DOH)              -->
+<!-- ============================================================ -->
+<div id="vaccineScheduleModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-table-list text-brand-medium"></i>
+                Recommended Vaccine Schedule (DOH National Program)
             </h3>
-            <button onclick="document.getElementById('vaccineSchedule').classList.toggle('hidden')" 
-                    class="text-xs font-semibold text-brand-medium hover:text-brand-dark transition">
-                <i class="fa-solid fa-chevron-down"></i> Toggle
+            <button onclick="closeModal('vaccineScheduleModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <div id="vaccineSchedule" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-            <div class="overflow-x-auto">
+        <div class="p-6">
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
                 <table class="w-full text-sm">
                     <thead class="bg-slate-50 border-b border-slate-200">
                         <tr>
@@ -653,9 +675,9 @@ $title = 'Vaccination Tracking';
                     </tbody>
                 </table>
             </div>
-            <div class="px-4 py-2 text-center text-xs text-slate-400 border-t border-slate-200">
-                <i class="fa-solid fa-info-circle mr-1"></i>
-                Based on DOH National Immunization Program schedule
+            <div class="px-4 py-3 mt-4 text-center text-xs text-slate-500 bg-slate-50 rounded-xl border border-slate-200">
+                <i class="fa-solid fa-info-circle mr-1 text-brand-medium"></i>
+                Based on Philippine Department of Health Expanded Program on Immunization (EPI) schedule
             </div>
         </div>
     </div>
@@ -832,11 +854,22 @@ $title = 'Vaccination Tracking';
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Administered By</label>
-                <select id="vacc_admin" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="Nurse Maria Cruz">Nurse Maria Cruz</option>
-                    <option value="Nurse Anna Reyes">Nurse Anna Reyes</option>
-                    <option value="Dr. Elena Santos">Dr. Elena Santos</option>
-                    <option value="Dr. Ana Cruz">Dr. Ana Cruz</option>
+                <select id="vacc_admin" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="">-- Select Staff --</option>
+                    <?php
+                    $grouped = [];
+                    foreach ($immunizationStaff as $s) {
+                        $grouped[$s['department']][] = $s;
+                    }
+                    foreach ($grouped as $dept => $staffList): ?>
+                    <optgroup label="<?php echo htmlspecialchars($dept); ?>">
+                        <?php foreach ($staffList as $s): ?>
+                        <option value="<?php echo htmlspecialchars($s['name']); ?>">
+                            <?php echo htmlspecialchars($s['name']); ?> — <?php echo htmlspecialchars($s['role']); ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                    <?php endforeach; ?>
                 </select>
             </div>
             <div>
@@ -1086,14 +1119,14 @@ $title = 'Vaccination Tracking';
 
     async function saveVaccinationRecord(event) {
         event.preventDefault();
-        const childId = document.getElementById('vacc_child').value;
-        const vaccine = document.getElementById('vacc_vaccine').value;
-        const dose = document.getElementById('vacc_dose').value;
-        const dateAdmin = document.getElementById('vacc_date').value;
-        const nextDue = document.getElementById('vacc_next_due').value;
-        const adminBy = document.getElementById('vacc_admin').value;
-        const center = document.getElementById('vacc_center').value;
-        const batch = document.getElementById('vacc_batch').value;
+        const childId = document.getElementById('vacc_child')?.value || '';
+        const vaccine = document.getElementById('vacc_vaccine')?.value || '';
+        const dose = document.getElementById('vacc_dose')?.value || '1';
+        const dateAdmin = document.getElementById('vacc_date')?.value || '';
+        const nextDue = document.getElementById('vacc_next_due')?.value || '';
+        const adminBy = document.getElementById('vacc_admin')?.value || '';
+        const center = document.getElementById('vacc_center')?.value || 'Caloocan Main Health Center';
+        const batch = document.getElementById('vacc_batch')?.value || '';
 
         if (!childId) {
             showToast('Please select a child.', 'warning');
@@ -1165,42 +1198,76 @@ $title = 'Vaccination Tracking';
     // ============================================================
     // SEARCH & FILTER
     // ============================================================
-    document.getElementById('searchVaccination').addEventListener('input', filterVaccinations);
-    document.getElementById('filterStatus').addEventListener('change', filterVaccinations);
-    document.getElementById('filterVaccine').addEventListener('change', filterVaccinations);
-    document.getElementById('filterDateFrom').addEventListener('change', filterVaccinations);
-    document.getElementById('filterDateTo').addEventListener('change', filterVaccinations);
+    const searchInputEl = document.getElementById('searchVaccination');
+    if (searchInputEl) {
+        searchInputEl.addEventListener('input', function() {
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (clearBtn) {
+                if (this.value) {
+                    clearBtn.classList.remove('hidden');
+                    clearBtn.classList.add('flex');
+                } else {
+                    clearBtn.classList.add('hidden');
+                    clearBtn.classList.remove('flex');
+                }
+            }
+            filterVaccinations();
+        });
+    }
+
+    document.getElementById('filterStatus')?.addEventListener('change', filterVaccinations);
+    document.getElementById('filterVaccine')?.addEventListener('change', filterVaccinations);
+
+    function clearSearch() {
+        const searchInput = document.getElementById('searchVaccination');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+        }
+        const clearBtn = document.getElementById('clearSearchBtn');
+        if (clearBtn) {
+            clearBtn.classList.add('hidden');
+            clearBtn.classList.remove('flex');
+        }
+        filterVaccinations();
+    }
 
     function filterVaccinations() {
-        const search = document.getElementById('searchVaccination').value.trim().toLowerCase();
-        const status = document.getElementById('filterStatus').value;
-        const vaccine = document.getElementById('filterVaccine').value.toLowerCase();
-        const dateFrom = document.getElementById('filterDateFrom').value;
-        const dateTo = document.getElementById('filterDateTo').value;
+        const search = (document.getElementById('searchVaccination')?.value || '').trim().toLowerCase();
+        const status = document.getElementById('filterStatus')?.value || '';
+        const vaccine = (document.getElementById('filterVaccine')?.value || '').toLowerCase();
         let visibleCount = 0;
 
         document.querySelectorAll('.vaccination-row').forEach(row => {
-            const child = row.dataset.child;
-            const rowVaccine = row.dataset.vaccine;
-            const rowStatus = row.dataset.status;
-            const rowDate = row.dataset.date || '';
+            const child = row.dataset.child || '';
+            const childCode = row.dataset.childCode || '';
+            const rowVaccine = row.dataset.vaccine || '';
+            const rowStatus = row.dataset.status || '';
             const rowBatch = row.dataset.batch || '';
-            const rowDose = row.dataset.dose || '';
+            const rowDose = String(row.dataset.dose || '');
+            const doseFormatted = 'dose ' + rowDose;
 
-            const matchesSearch = !search || [child, rowVaccine, rowBatch, rowDose]
-                .some(value => String(value || '').toLowerCase().includes(search));
+            // Search matches child name, ID (e.g. CH-001), vaccine name, batch #, dose number or "dose 1"
+            const matchesSearch = !search || 
+                child.includes(search) || 
+                childCode.includes(search) || 
+                rowVaccine.includes(search) || 
+                rowBatch.includes(search) || 
+                rowDose === search || 
+                doseFormatted.includes(search);
+
             const matchesStatus = !status || 
                 (status === 'due_soon' ? isDueSoon(row) : rowStatus === status);
             const matchesVaccine = !vaccine || rowVaccine === vaccine;
-            const matchesDateFrom = !dateFrom || (rowDate && rowDate >= dateFrom);
-            const matchesDateTo = !dateTo || (rowDate && rowDate <= dateTo);
-            const isVisible = matchesSearch && matchesStatus && matchesVaccine && matchesDateFrom && matchesDateTo;
+
+            const isVisible = matchesSearch && matchesStatus && matchesVaccine;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
         });
 
-        document.getElementById('emptyState').style.display = visibleCount === 0 ? 'flex' : 'none';
+        const emptyState = document.getElementById('emptyState');
+        if (emptyState) emptyState.style.display = visibleCount === 0 ? 'flex' : 'none';
     }
 
     function isDueSoon(row) {
@@ -1211,13 +1278,22 @@ $title = 'Vaccination Tracking';
     }
 
     function resetFilters() {
-        document.getElementById('searchVaccination').value = '';
-        document.getElementById('filterStatus').value = '';
-        document.getElementById('filterVaccine').value = '';
-        document.getElementById('filterDateFrom').value = '';
-        document.getElementById('filterDateTo').value = '';
+        const searchInput = document.getElementById('searchVaccination');
+        if (searchInput) searchInput.value = '';
+        const statusSelect = document.getElementById('filterStatus');
+        if (statusSelect) statusSelect.value = '';
+        const vaccineSelect = document.getElementById('filterVaccine');
+        if (vaccineSelect) vaccineSelect.value = '';
+        
+        const clearBtn = document.getElementById('clearSearchBtn');
+        if (clearBtn) {
+            clearBtn.classList.add('hidden');
+            clearBtn.classList.remove('flex');
+        }
+
         document.querySelectorAll('.vaccination-row').forEach(row => row.style.display = '');
-        document.getElementById('emptyState').style.display = 'none';
+        const emptyState = document.getElementById('emptyState');
+        if (emptyState) emptyState.style.display = 'none';
     }
 
     function changePage(page) {

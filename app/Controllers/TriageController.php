@@ -483,11 +483,15 @@ class TriageController extends BaseController
         $dbStatus = strtolower($triage['status'] ?? 'pending');
         $statusMap = [
             'pending' => 'waiting',
-            'triaged' => 'in_triage',
-            'consulted' => 'sent_to_doctor',
+            'in_triage' => 'in_triage',
+            'triaged' => 'sent_to_doctor',
+            'sent_to_doctor' => 'sent_to_doctor',
+            'in_consultation' => 'in_consultation',
+            'consulted' => 'completed',
+            'completed' => 'completed',
             'cancelled' => 'cancelled'
         ];
-        $triage['status'] = $statusMap[$dbStatus] ?? 'in_triage';
+        $triage['status'] = $statusMap[$dbStatus] ?? 'sent_to_doctor';
 
         return $triage;
     }

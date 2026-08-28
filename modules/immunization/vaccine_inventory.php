@@ -186,7 +186,7 @@ $title = 'Vaccine Inventory';
                     <span class="px-2 py-0.5 <?php echo $totalCritical > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'; ?> rounded-full text-[10px] font-bold">
                         <?php echo $totalCritical > 0 ? '🚨 Immediate action' : '✅ All good'; ?>
                     </span>
-                    <span class="text-[10px] text-slate-400">Urgent reorder</span>
+                    <span class="text-[10px] text-slate-400">Severely low</span>
                 </div>
             </div>
         </div>
@@ -208,7 +208,7 @@ $title = 'Vaccine Inventory';
                 </div>
                 <div class="mt-3 flex items-center gap-2">
                     <span class="px-2 py-0.5 <?php echo $totalOutOfStock > 0 ? 'bg-slate-200 text-slate-700' : 'bg-emerald-100 text-emerald-700'; ?> rounded-full text-[10px] font-bold">
-                        <?php echo $totalOutOfStock > 0 ? '📦 Reorder required' : '✅ In stock'; ?>
+                        <?php echo $totalOutOfStock > 0 ? '⚠️ Stock depleted' : '✅ In stock'; ?>
                     </span>
                     <span class="text-[10px] text-slate-400">Unavailable</span>
                 </div>
@@ -216,59 +216,9 @@ $title = 'Vaccine Inventory';
         </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- ALERT DISPLAY UI - STOCK ALERTS                             -->
-    <!-- ============================================================ -->
-    <div class="mb-4 space-y-2" id="alertContainer">
-        <?php 
-            $alertItems = array_filter($vaccineInventory, fn($v) => $v['status'] === 'low_stock' || $v['status'] === 'critical' || $v['status'] === 'out_of_stock');
-            if (count($alertItems) > 0):
-        ?>
-        <div class="flex items-center justify-between p-3 bg-rose-50 border border-rose-200 rounded-xl">
-            <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0">
-                    <i class="fa-solid fa-bell text-rose-500"></i>
-                </div>
-                <div>
-                    <p class="text-sm font-semibold text-rose-700">⚠️ <span class="font-bold"><?php echo count($alertItems); ?></span> Stock Alert(s) Require Immediate Attention</p>
-                    <div class="flex flex-wrap gap-2 mt-1">
-                        <?php 
-                            $lowItems = array_filter($alertItems, fn($v) => $v['status'] === 'low_stock');
-                            $critItems = array_filter($alertItems, fn($v) => $v['status'] === 'critical');
-                            $outItems = array_filter($alertItems, fn($v) => $v['status'] === 'out_of_stock');
-                        ?>
-                        <?php if (count($lowItems) > 0): ?>
-                            <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
-                                <?php echo count($lowItems); ?> Low Stock
-                            </span>
-                        <?php endif; ?>
-                        <?php if (count($critItems) > 0): ?>
-                            <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-xs font-medium">
-                                <?php echo count($critItems); ?> Critical
-                            </span>
-                        <?php endif; ?>
-                        <?php if (count($outItems) > 0): ?>
-                            <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs font-medium">
-                                <?php echo count($outItems); ?> Out of Stock
-                            </span>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="document.getElementById('filterStatus').value='alert'; filterInventory();" 
-                        class="px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 rounded-lg hover:bg-rose-700 transition">
-                    View All
-                </button>
-                <button onclick="document.getElementById('alertContainer').style.display='none'" 
-                        class="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition">
-                    Dismiss
-                </button>
-            </div>
-        </div>
-        <?php endif; ?>
 
-        <?php if (count($expiringSoon) > 0): ?>
+    <?php if (count($expiringSoon) > 0): ?>
+    <div class="mb-4 space-y-2" id="alertContainer">
         <div class="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-xl">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
@@ -305,8 +255,8 @@ $title = 'Vaccine Inventory';
                 </button>
             </div>
         </div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- ============================================================ -->
     <!-- SEARCH & FILTER                                              -->
@@ -447,19 +397,17 @@ $title = 'Vaccine Inventory';
                         <td class="px-4 py-3">
                             <div class="flex items-center justify-center gap-1">
                                 <button onclick="viewVaccine(<?php echo $item['id']; ?>)"
-                                        class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                                        class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details">
                                     <i class="fa-solid fa-eye text-sm"></i>
+                                </button>
+                                <button onclick="openAdjustStockFor(<?php echo $item['id']; ?>)"
+                                        class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Adjust Stock">
+                                    <i class="fa-solid fa-sliders text-sm"></i>
                                 </button>
                                 <button onclick="editVaccine(<?php echo $item['id']; ?>)"
                                         class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
                                     <i class="fa-solid fa-pen text-sm"></i>
                                 </button>
-                                <?php if ($item['status'] === 'low_stock' || $item['status'] === 'critical' || $item['status'] === 'out_of_stock'): ?>
-                                    <button onclick="reorderVaccine(<?php echo $item['id']; ?>)"
-                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Reorder">
-                                        <i class="fa-solid fa-truck text-sm"></i>
-                                    </button>
-                                <?php endif; ?>
                             </div>
                         </td>
                     </tr>
@@ -542,8 +490,8 @@ $title = 'Vaccine Inventory';
                 <input type="text" id="edit_vaccine_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Batch Number</label>
-                <input type="text" id="edit_batch_number" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Batch Number (System Generated)</label>
+                <input type="text" id="edit_batch_number" required readonly class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-100 text-slate-700 cursor-not-allowed font-semibold focus:outline-none select-none">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Quantity</label>
@@ -620,47 +568,60 @@ $title = 'Vaccine Inventory';
         </div>
         <form id="addStockForm" class="p-6 space-y-4" onsubmit="saveAddStock(event)">
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Vaccine Name</label>
-                <input type="text" id="stock_vaccine" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Vaccine Name *</label>
+                <input type="text" id="stock_vaccine" list="doh_vaccine_list" oninput="onVaccineNameChange()" placeholder="Select or type vaccine..." required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <datalist id="doh_vaccine_list">
+                    <option value="BCG Vaccine">
+                    <option value="Hepatitis B Vaccine">
+                    <option value="Pentavalent (DPT-HepB-Hib)">
+                    <option value="Oral Polio Vaccine (OPV)">
+                    <option value="Inactivated Polio Vaccine (IPV)">
+                    <option value="Pneumococcal Conjugate Vaccine (PCV)">
+                    <option value="Measles, Mumps, Rubella (MMR)">
+                    <option value="Rotavirus Vaccine">
+                    <option value="Influenza Vaccine">
+                    <option value="Tetanus Toxoid (TT)">
+                </datalist>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Batch Number</label>
-                <input type="text" id="stock_batch" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Batch Number (Auto-Generated) *</label>
+                    <button type="button" onclick="generateBatchNumber()" class="text-[11px] font-semibold text-brand-medium hover:text-brand-dark flex items-center gap-1 transition">
+                        <i class="fa-solid fa-arrows-rotate"></i> Regenerate
+                    </button>
+                </div>
+                <input type="text" id="stock_batch" required readonly placeholder="e.g. BCG-2026-A4F2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono bg-slate-100 text-slate-700 cursor-not-allowed font-semibold focus:outline-none select-none">
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Quantity</label>
-                <input type="number" id="stock_qty" required min="1" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" title="Maximum 8 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Quantity *</label>
+                <input type="number" id="stock_qty" required min="1" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" placeholder="e.g. 100" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none font-semibold">
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Minimum Stock</label>
-                <input type="number" id="stock_min" required min="1" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" title="Maximum 8 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Minimum Stock Alert Threshold *</label>
+                <input type="number" id="stock_min" required min="1" max="99999999" value="20" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none font-semibold">
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Expiry Date</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Expiry Date *</label>
                 <input type="date" id="stock_expiry" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Temperature (°C)</label>
-                <input type="number" id="stock_temp" min="-999" max="999" step="0.1" inputmode="decimal" oninput="limitTemperatureInput(this)" required title="Maximum 3 whole-number digits with decimals" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Storage Temperature (°C) *</label>
+                <input type="number" id="stock_temp" min="-999" max="999" step="0.1" value="4.0" inputmode="decimal" oninput="limitTemperatureInput(this)" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Storage Location</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Storage Location *</label>
                 <select id="stock_location" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="Freezer A1">Freezer A1</option>
-                    <option value="Freezer A2">Freezer A2</option>
-                    <option value="Freezer B1">Freezer B1</option>
-                    <option value="Freezer C1">Freezer C1</option>
-                    <option value="Refrigerator A1">Refrigerator A1</option>
+                    <option value="Refrigerator A1">Refrigerator A1 (Main Cold Chain)</option>
                     <option value="Refrigerator A2">Refrigerator A2</option>
                     <option value="Refrigerator B1">Refrigerator B1</option>
                     <option value="Refrigerator B2">Refrigerator B2</option>
-                    <option value="Refrigerator C1">Refrigerator C1</option>
-                    <option value="Refrigerator C2">Refrigerator C2</option>
+                    <option value="Freezer A1">Freezer A1 (-20°C for OPV/Live)</option>
+                    <option value="Freezer A2">Freezer A2</option>
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Supplier</label>
-                <input type="text" id="stock_supplier" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Supplier / Source *</label>
+                <input type="text" id="stock_supplier" value="DOH Central Supply Office" placeholder="e.g. DOH Central Supply Office, Provincial Health Office" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
 
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -693,29 +654,58 @@ $title = 'Vaccine Inventory';
         </div>
         <form id="adjustStockForm" class="p-6 space-y-4" onsubmit="saveAdjustStock(event)">
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Select Vaccine</label>
-                <select id="adjust_vaccine" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">Select Vaccine</option>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Select Vaccine *</label>
+                <select id="adjust_vaccine" required onchange="updateAdjustPreview()" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="">-- Choose Vaccine to Adjust --</option>
                     <?php foreach ($vaccineInventory as $v): ?>
-                        <option value="<?php echo $v['id']; ?>"><?php echo $v['vaccine_name']; ?> (<?php echo number_format($v['quantity']); ?> in stock)</option>
+                        <option value="<?php echo $v['id']; ?>" data-qty="<?php echo $v['quantity']; ?>" data-min="<?php echo $v['minimum_stock']; ?>">
+                            <?php echo htmlspecialchars($v['vaccine_name']); ?> (<?php echo number_format($v['quantity']); ?> in stock)
+                        </option>
                     <?php endforeach; ?>
                 </select>
             </div>
+
+            <!-- Dynamic Live Stock Preview Box -->
+            <div id="adjust_stock_preview" class="hidden p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                <div class="grid grid-cols-2 gap-2 pb-2 border-b border-slate-200">
+                    <div>
+                        <span class="text-slate-400 block text-[10px] uppercase font-bold">Batch Number</span>
+                        <span id="prev_batch_number" class="font-mono font-bold text-slate-800">--</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block text-[10px] uppercase font-bold">Supplier</span>
+                        <span id="prev_supplier" class="font-semibold text-slate-800 truncate block">DOH Central Supply Office</span>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between text-slate-600">
+                    <span>Current Stock:</span>
+                    <span id="prev_current_stock" class="font-bold text-slate-900">0 doses</span>
+                </div>
+                <div class="flex items-center justify-between text-slate-600">
+                    <span>Adjustment:</span>
+                    <span id="prev_adjustment_calc" class="font-semibold text-brand-dark">+0 doses</span>
+                </div>
+                <div class="pt-1.5 border-t border-slate-200 flex items-center justify-between font-bold">
+                    <span>Projected New Stock:</span>
+                    <span id="prev_projected_stock" class="text-sm text-emerald-600">0 doses</span>
+                </div>
+            </div>
+
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Adjustment Type</label>
-                <select id="adjust_type" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="add">Add Stock</option>
-                    <option value="remove">Remove Stock</option>
-                    <option value="set">Set to Quantity</option>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Adjustment Action *</label>
+                <select id="adjust_type" required onchange="updateAdjustPreview()" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="add">➕ Add Stock (Received new units)</option>
+                    <option value="remove">➖ Remove Stock (Doses administered / damaged / expired)</option>
+                    <option value="set">🔄 Set Direct Quantity (Inventory reconciliation)</option>
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Quantity</label>
-                <input type="number" id="adjust_qty" required min="1" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" title="Maximum 8 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Quantity (Units) *</label>
+                <input type="number" id="adjust_qty" required min="1" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this); updateAdjustPreview()" placeholder="Enter quantity" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none font-semibold">
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reason</label>
-                <input type="text" id="adjust_reason" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="e.g. Received shipment, Damaged, Expired">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reason / Notes</label>
+                <input type="text" id="adjust_reason" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="e.g. DOH Shipment Batch #2, Wastage, Physical Count">
             </div>
 
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -723,65 +713,12 @@ $title = 'Vaccine Inventory';
                         class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
                     Cancel
                 </button>
-                <button type="submit"
-                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                    <i class="fa-solid fa-check mr-1.5"></i> Adjust Stock
+                <button type="submit" id="btnSubmitAdjust"
+                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-check"></i> Apply Adjustment
                 </button>
             </div>
         </form>
-    </div>
-</div>
-
-<!-- ============================================================ -->
-<!-- REORDER CONFIRMATION MODAL                                   -->
-<!-- ============================================================ -->
-<div id="reorderModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-            <h3 class="font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-truck text-emerald-600"></i>
-                Reorder Confirmation
-            </h3>
-            <button onclick="closeModal('reorderModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div class="p-6 space-y-4">
-            <div class="flex items-center gap-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                    <i class="fa-solid fa-box-open text-emerald-600 text-xl"></i>
-                </div>
-                <div>
-                    <p class="font-semibold text-slate-800" id="reorderVaccineName">Vaccine Name</p>
-                    <p class="text-sm text-slate-500">Current Stock: <span id="reorderCurrentStock" class="font-bold text-rose-600">0</span> units</p>
-                </div>
-            </div>
-            
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reorder Quantity</label>
-                <input type="number" id="reorderQuantity" value="100" min="1" max="99999999" step="1" inputmode="numeric" oninput="limitInventoryInteger(this)" title="Maximum 8 digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-            </div>
-            
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes (Optional)</label>
-                <textarea id="reorderNotes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Urgent reorder needed..."></textarea>
-            </div>
-
-            <div class="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
-                <p class="text-xs text-amber-700">This will create a purchase request for approval.</p>
-            </div>
-        </div>
-        <div class="flex justify-end gap-2 px-6 pb-6">
-            <button type="button" onclick="closeModal('reorderModal')"
-                    class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
-                Cancel
-            </button>
-            <button type="button" onclick="confirmReorder()"
-                    class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold">
-                <i class="fa-solid fa-check mr-1.5"></i> Submit Reorder
-            </button>
-        </div>
     </div>
 </div>
 
@@ -806,6 +743,16 @@ $title = 'Vaccine Inventory';
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.classList.add('overflow-hidden');
+        }
+        if (id === 'addStockModal') {
+            const batchInput = document.getElementById('stock_batch');
+            if (batchInput && !batchInput.value.trim()) {
+                generateBatchNumber();
+            }
+            const suppInput = document.getElementById('stock_supplier');
+            if (suppInput && !suppInput.value.trim()) {
+                suppInput.value = 'DOH Central Supply Office';
+            }
         }
     }
 
@@ -894,7 +841,7 @@ $title = 'Vaccine Inventory';
                     </div>
                     <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                         <button onclick="closeModal('viewVaccineModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                        ${v.status === 'low_stock' || v.status === 'critical' || v.status === 'out_of_stock' ? `<button onclick="closeModal('viewVaccineModal'); reorderVaccine('${v.id}')" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-truck mr-1.5"></i> Reorder</button>` : ''}
+                        <button onclick="closeModal('viewVaccineModal'); openAdjustStockFor('${v.id}')" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5"><i class="fa-solid fa-sliders text-xs"></i> Adjust Stock</button>
                     </div>
                 </div>
             `;
@@ -1024,66 +971,108 @@ $title = 'Vaccine Inventory';
         });
     }
 
-    // ============================================================
-    // REORDER VACCINE
-    // ============================================================
-    let reorderVaccineId = null;
 
-    function reorderVaccine(id) {
-        const v = INVENTORY[id];
-        if (!v) {
-            showToast('Vaccine not found', 'danger');
-            return;
+    // ============================================================
+    // ADJUST STOCK HELPERS
+    // ============================================================
+    function openAdjustStockFor(id) {
+        const sel = document.getElementById('adjust_vaccine');
+        if (sel) {
+            sel.value = id;
+            updateAdjustPreview();
         }
-        
-        reorderVaccineId = id;
-        
-        document.getElementById('reorderVaccineName').textContent = v.vaccine_name;
-        document.getElementById('reorderCurrentStock').textContent = v.quantity;
-        document.getElementById('reorderQuantity').value = v.minimum_stock * 2;
-        document.getElementById('reorderNotes').value = 'Low stock alert - ' + v.vaccine_name + ' is at ' + v.quantity + ' units. Minimum required: ' + v.minimum_stock;
-        
-        openModal('reorderModal');
+        openModal('adjustStockModal');
     }
 
-    async function confirmReorder() {
-        const v = INVENTORY[reorderVaccineId];
-        if (!v) {
-            showToast('Vaccine not found', 'danger');
-            closeModal('reorderModal');
-            return;
+    // ============================================================
+    // BATCH NUMBER GENERATOR & ADD STOCK HELPERS
+    // ============================================================
+    function generateBatchNumber() {
+        const vName = (document.getElementById('stock_vaccine').value || '').trim();
+        let prefix = 'VAC';
+        if (vName) {
+            const clean = vName.replace(/[^A-Za-z]/g, '').toUpperCase();
+            if (clean.includes('BCG')) prefix = 'BCG';
+            else if (clean.includes('HEPB') || clean.includes('HEPATITIS')) prefix = 'HEPB';
+            else if (clean.includes('PENTA')) prefix = 'PENTA';
+            else if (clean.includes('OPV')) prefix = 'OPV';
+            else if (clean.includes('IPV')) prefix = 'IPV';
+            else if (clean.includes('PCV')) prefix = 'PCV';
+            else if (clean.includes('MMR')) prefix = 'MMR';
+            else if (clean.includes('ROTA')) prefix = 'ROTA';
+            else if (clean.includes('FLU') || clean.includes('INFLUENZA')) prefix = 'FLU';
+            else if (clean.includes('TETANUS') || clean.includes('TT')) prefix = 'TT';
+            else prefix = clean.substring(0, 4) || 'VAC';
         }
-        
-        const quantity = parseInt(document.getElementById('reorderQuantity').value) || 100;
-        if (!isValidInventoryInteger(String(quantity), 1)) {
-            showToast('Reorder quantity must be between 1 and 99999999.', 'warning');
-            return;
-        }
-        const notes = document.getElementById('reorderNotes').value.trim() || 'Reorder requested';
+        const yr = new Date().getFullYear();
+        const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+        const autoBatch = `${prefix}-${yr}-${rand}`;
+        document.getElementById('stock_batch').value = autoBatch;
+    }
 
-        try {
-            const res = await fetch('<?php echo site_url('api/inventory.php?action=reorder'); ?>', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    id: v.id,
-                    quantity: quantity,
-                    reason: notes
-                })
-            });
-            const data = await res.json();
-            if (data.success) {
-                closeModal('reorderModal');
-                showToast(`✅ Reorder request for ${v.vaccine_name} (${quantity} units) logged successfully!`, 'success');
-            } else {
-                showToast(data.message || 'Failed to log reorder.', 'danger');
-            }
-        } catch (err) {
-            console.error('Reorder error:', err);
-            showToast('Error sending reorder to server.', 'danger');
-        } finally {
-            reorderVaccineId = null;
+    function onVaccineNameChange() {
+        const currentBatch = (document.getElementById('stock_batch').value || '').trim();
+        // If batch is empty or was auto-generated format, regenerate with new prefix
+        if (!currentBatch || /^[A-Z]{2,6}-\d{4}-[A-Z0-9]{4}$/.test(currentBatch)) {
+            generateBatchNumber();
         }
+    }
+
+    // ============================================================
+    // ADJUST STOCK HELPERS
+    // ============================================================
+    function openAdjustStockFor(id) {
+        const sel = document.getElementById('adjust_vaccine');
+        if (sel) {
+            sel.value = id;
+            updateAdjustPreview();
+        }
+        openModal('adjustStockModal');
+    }
+
+    function updateAdjustPreview() {
+        const sel = document.getElementById('adjust_vaccine');
+        const previewBox = document.getElementById('adjust_stock_preview');
+        if (!sel || !previewBox) return;
+
+        const opt = sel.options[sel.selectedIndex];
+        if (!sel.value || !opt) {
+            previewBox.classList.add('hidden');
+            return;
+        }
+
+        const v = INVENTORY[sel.value] || {};
+        previewBox.classList.remove('hidden');
+
+        const currQty = parseInt(opt.dataset.qty) || v.quantity || 0;
+        const batchNum = v.batch_number || '--';
+        const supplierName = v.supplier || 'DOH Central Supply Office';
+
+        const type = document.getElementById('adjust_type').value;
+        const inputQty = parseInt(document.getElementById('adjust_qty').value) || 0;
+
+        let projected = currQty;
+        let calcStr = '+0';
+
+        if (type === 'add') {
+            projected = currQty + inputQty;
+            calcStr = `+${inputQty.toLocaleString()} doses`;
+        } else if (type === 'remove') {
+            projected = Math.max(0, currQty - inputQty);
+            calcStr = `-${inputQty.toLocaleString()} doses`;
+        } else if (type === 'set') {
+            projected = Math.max(0, inputQty);
+            calcStr = `Set to ${inputQty.toLocaleString()} doses`;
+        }
+
+        document.getElementById('prev_batch_number').textContent = batchNum;
+        document.getElementById('prev_supplier').textContent = supplierName;
+        document.getElementById('prev_current_stock').textContent = `${currQty.toLocaleString()} doses`;
+        document.getElementById('prev_adjustment_calc').textContent = calcStr;
+
+        const projEl = document.getElementById('prev_projected_stock');
+        projEl.textContent = `${projected.toLocaleString()} doses`;
+        projEl.className = projected <= 0 ? 'text-sm font-bold text-rose-600' : (projected <= (v.minimum_stock || 20) ? 'text-sm font-bold text-amber-600' : 'text-sm font-bold text-emerald-600');
     }
 
     // ============================================================
@@ -1103,7 +1092,7 @@ $title = 'Vaccine Inventory';
         if (!isValidInventoryInteger(quantity, 1) ||
             !isValidInventoryInteger(minStock, 1) ||
             !isValidTemperature(temp)) {
-            showToast('Quantity and minimum stock allow up to 8 digits; temperature allows up to 3 digits with decimals.', 'warning');
+            showToast('Quantity and minimum stock must be valid numbers; temperature must be within reasonable bounds.', 'warning');
             return;
         }
 
@@ -1119,6 +1108,12 @@ $title = 'Vaccine Inventory';
             unit: 'doses'
         };
 
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Saving...';
+        }
+
         try {
             const res = await fetch('<?php echo site_url('api/inventory.php'); ?>', {
                 method: 'POST',
@@ -1128,14 +1123,22 @@ $title = 'Vaccine Inventory';
             const data = await res.json();
             if (data.success) {
                 closeModal('addStockModal');
-                showToast('Stock added successfully!', 'success');
-                setTimeout(() => location.reload(), 600);
+                showToast('✅ Vaccine stock added successfully!', 'success');
+                setTimeout(() => location.reload(), 500);
             } else {
                 showToast(data.message || 'Failed to add stock.', 'danger');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-plus mr-1.5"></i> Add Stock';
+                }
             }
         } catch (err) {
             console.error('Add stock error:', err);
             showToast('Error saving stock to server.', 'danger');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-plus mr-1.5"></i> Add Stock';
+            }
         }
     }
 
@@ -1150,12 +1153,12 @@ $title = 'Vaccine Inventory';
         const reason = document.getElementById('adjust_reason').value.trim();
 
         if (!id) {
-            showToast('Please select a vaccine.', 'warning');
+            showToast('Please select a vaccine to adjust.', 'warning');
             return;
         }
 
         if (!isValidInventoryInteger(qty, 1)) {
-            showToast('Adjustment quantity must be between 1 and 99999999.', 'warning');
+            showToast('Adjustment quantity must be at least 1.', 'warning');
             return;
         }
 
@@ -1163,8 +1166,14 @@ $title = 'Vaccine Inventory';
             id: Number(id),
             adjustment_type: type,
             quantity: Number(qty),
-            reason: reason
+            reason: reason || 'Manual Stock Adjustment'
         };
+
+        const submitBtn = document.getElementById('btnSubmitAdjust');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Adjusting...';
+        }
 
         try {
             const res = await fetch('<?php echo site_url('api/inventory.php?action=adjust'); ?>', {
@@ -1175,22 +1184,22 @@ $title = 'Vaccine Inventory';
             const data = await res.json();
             if (data.success) {
                 closeModal('adjustStockModal');
-                showToast('Stock adjusted successfully!', 'success');
-                const updated = data.data;
-                if (updated && updated.id) {
-                    const item = INVENTORY[updated.id];
-                    if (item) {
-                        item.quantity = updated.quantity;
-                        item.status = updated.status;
-                        updateInventoryRow(item);
-                    }
-                }
+                showToast('✅ Stock adjusted successfully!', 'success');
+                setTimeout(() => location.reload(), 500);
             } else {
                 showToast(data.message || 'Failed to adjust stock.', 'danger');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-check mr-1.5"></i> Apply Adjustment';
+                }
             }
         } catch (err) {
             console.error('Adjust stock error:', err);
             showToast('Error sending stock adjustment to server.', 'danger');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-check mr-1.5"></i> Apply Adjustment';
+            }
         }
     }
 

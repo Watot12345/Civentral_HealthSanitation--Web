@@ -65,6 +65,46 @@ class NutritionController
         $record = $this->prepareData($data);
 
         try {
+            // Resolve child_id if it was passed as patient_id
+            $db = Database::getInstance();
+            $childExists = $db->select('children', ['id' => $record['child_id']]);
+            if (empty($childExists)) {
+                $patient = $db->select('patients', ['id' => $record['child_id']]);
+                if (!empty($patient)) {
+                    $p = $patient[0];
+                    $childByMatch = $db->select('children', [
+                        'first_name' => $p['first_name'],
+                        'last_name' => $p['last_name']
+                    ]);
+                    if (!empty($childByMatch)) {
+                        $record['child_id'] = (int)$childByMatch[0]['id'];
+                    } else {
+                        require_once __DIR__ . '/../Models/Child.php';
+                        $childModel = new Child();
+                        $insertedChild = $db->insert('children', [
+                            'child_id' => $childModel->generateChildId(),
+                            'first_name' => $p['first_name'],
+                            'last_name' => $p['last_name'],
+                            'middle_name' => $p['middle_name'] ?? null,
+                            'gender' => $p['gender'] ?? 'Female',
+                            'birth_date' => $p['birth_date'] ?? date('Y-m-d'),
+                            'birth_weight' => $record['weight'] ?? null,
+                            'birth_height' => $record['height'] ?? null,
+                            'blood_type' => $p['blood_type'] ?? 'O+',
+                            'address' => $p['address'] ?? 'Caloocan City',
+                            'barangay' => $p['barangay'] ?? 'Barangay 2',
+                            'mother_name' => $p['emergency_contact'] ?? ($p['last_name'] . ' (Mother)'),
+                            'status' => 'active',
+                            'nutrition_status' => $record['nutrition_status'] ?? 'Normal',
+                            'registration_date' => date('Y-m-d')
+                        ]);
+                        if (!empty($insertedChild['id'])) {
+                            $record['child_id'] = (int)$insertedChild['id'];
+                        }
+                    }
+                }
+            }
+
             $result = $this->model->create($record);
 
             // Sync children.nutrition_status for KPI accuracy

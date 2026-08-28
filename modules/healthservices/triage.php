@@ -78,7 +78,7 @@ $today = date('Y-m-d');
 
 if (!function_exists('parseLocalDate')) {
     function parseLocalDate($dateStr) {
-        if (empty($dateStr)) return date('Y-m-d');
+        if (empty($dateStr)) return '';
         try {
             $dt = new DateTime($dateStr);
             $dt->setTimezone(new DateTimeZone('Asia/Manila'));
@@ -96,14 +96,17 @@ foreach ($rawTriage as $t) {
     }
 }
 
-// Build patients array for Triage dropdown (all active waiting check-ins)
+// Build patients array for Triage dropdown (all active waiting check-ins checked in TODAY)
 $checkedInTodayIds = [];
 foreach ($waitingCheckins as $c) {
     $checkinStatus = strtolower($c['status'] ?? 'waiting');
     if ($checkinStatus === 'completed') {
         continue;
     }
-    $checkedInTodayIds[] = (int)($c['patient_id'] ?? 0);
+    $cDate = parseLocalDate($c['check_in_time'] ?? ($c['created_at'] ?? ''));
+    if ($cDate === $today) {
+        $checkedInTodayIds[] = (int)($c['patient_id'] ?? 0);
+    }
 }
 $checkedInTodayIds = array_values(array_unique(array_filter($checkedInTodayIds)));
 
@@ -156,14 +159,16 @@ $doctors = [];
 foreach ($rawEmployees as $emp) {
     $roleDesc = strtolower(trim($emp['role_description'] ?? ''));
     $role = strtolower(trim($emp['role'] ?? ''));
+    $combinedRole = "$roleDesc $role";
     
     $name = trim($emp['full_name'] ?? (($emp['first_name'] ?? '') . ' ' . ($emp['last_name'] ?? '')));
     if (empty($name)) $name = $emp['name'] ?? $emp['username'] ?? ("Employee #{$emp['id']}");
+    $cleanName = trim(preg_replace('/^(Dr\.|Doctor|Nutritionist|Dentist|Nurse|Midwife)\s+/i', '', $name));
 
     // Nurse & Midwife intake staff (based on role_description)
-    if (str_contains($roleDesc, 'nurse') || str_contains($roleDesc, 'midwife') || str_contains($role, 'nurse') || str_contains($role, 'midwife')) {
-        $prefix = str_contains($roleDesc, 'midwife') ? 'Midwife ' : 'Nurse ';
-        $displayName = (str_starts_with($name, 'Nurse') || str_starts_with($name, 'Midwife')) ? $name : ($prefix . $name);
+    if (str_contains($combinedRole, 'nurse') || str_contains($combinedRole, 'midwife')) {
+        $prefix = str_contains($combinedRole, 'midwife') ? 'Midwife ' : 'Nurse ';
+        $displayName = $prefix . $cleanName;
         $nurses[] = [
             'id' => $emp['id'],
             'name' => $displayName,
@@ -171,13 +176,30 @@ foreach ($rawEmployees as $emp) {
         ];
     }
 
-    // Attending Physicians, Doctors, Dentists, Directors & Admins (based on role_description)
-    if ((str_contains($roleDesc, 'doctor') || str_contains($roleDesc, 'dentist') || str_contains($roleDesc, 'health center director') || str_contains($roleDesc, 'system administrator') || str_contains($roleDesc, 'physician')) && !str_contains($roleDesc, 'nurse') && !str_contains($roleDesc, 'technician') && !str_contains($roleDesc, 'sanitation')) {
-        $displayName = (str_starts_with($name, 'Dr.') || str_starts_with($name, 'Doctor')) ? $name : ('Dr. ' . $name);
+    // Attending Healthcare Practitioners (Doctors, Dentists, Health Center Directors, Nutritionists, Dietitians)
+    // EXCLUDE: System Administrators, IT, Clerks, Sanitation
+    $isConsultingPractitioner = (
+        str_contains($combinedRole, 'doctor') || 
+        str_contains($combinedRole, 'physician') || 
+        str_contains($combinedRole, 'dentist') || 
+        str_contains($combinedRole, 'health center director') || 
+        str_contains($combinedRole, 'nutrition') || 
+        str_contains($combinedRole, 'dietitian')
+    ) && !str_contains($combinedRole, 'system administrator') && !str_contains($combinedRole, 'sanitation') && !str_contains($combinedRole, 'nurse');
+
+    if ($isConsultingPractitioner) {
+        if (str_contains($combinedRole, 'nutrition') || str_contains($combinedRole, 'dietitian')) {
+            $displayName = 'Nutritionist ' . $cleanName;
+        } elseif (str_starts_with($cleanName, 'Dr.')) {
+            $displayName = $cleanName;
+        } else {
+            $displayName = 'Dr. ' . $cleanName;
+        }
+
         $doctors[] = [
             'id' => $emp['id'],
             'name' => $displayName,
-            'role_description' => $emp['role_description'] ?? 'Doctor'
+            'role_description' => $emp['role_description'] ?? 'General Medicine'
         ];
     }
 }
@@ -264,11 +286,13 @@ foreach ($rawTriage as $t) {
 
     $dbStatus = strtolower($t['status'] ?? 'pending');
     $status = match($dbStatus) {
-        'pending' => 'waiting',
-        'triaged' => 'in_triage',
-        'consulted' => 'sent_to_doctor',
+        'pending', 'waiting' => 'waiting',
+        'in_triage' => 'in_triage',
+        'triaged' => 'sent_to_doctor',
+        'in_consultation' => 'in_consultation',
+        'consulted', 'completed' => 'completed',
         'cancelled' => 'cancelled',
-        default => 'in_triage'
+        default => $dbStatus
     };
 
     $triageQueue[] = [
@@ -312,12 +336,17 @@ foreach ($rawTriage as $t) {
     ];
 }
 
-// Build check-in queue for display (patients waiting to be triaged)
+// Build check-in queue for display (ONLY patients who checked in TODAY and are waiting for assessment)
 $checkinDisplayQueue = [];
 foreach ($waitingCheckins as $c) {
     $checkinStatus = strtolower($c['status'] ?? 'waiting');
     if ($checkinStatus === 'completed') {
         continue;
+    }
+
+    $cDate = parseLocalDate($c['check_in_time'] ?? ($c['created_at'] ?? ''));
+    if ($cDate !== $today) {
+        continue; // Strictly filter out past days' historical check-ins
     }
 
     $pId = $c['patient_id'] ?? null;
@@ -369,24 +398,27 @@ $paginatedTriage = array_slice($triageQueue, $offset, $limit);
 
 $title = 'Check-in & Patient Assessment';
 
-// Stats Calculation (Timezone-aware with fallback to active clinical records)
+// Stats Calculation (Strictly for TODAY's operational data - no historical fallbacks)
 $triageTodayQueue = array_filter($triageQueue, fn($t) => isset($t['date']) && $t['date'] === $today);
 
-$checkinWaitingCount = count(array_filter($checkinDisplayQueue, fn($c) => $c['status'] === 'waiting'));
-$totalWaiting = $checkinWaitingCount + count(array_filter($triageQueue, fn($t) => strtolower($t['queue_status'] ?? '') === 'waiting'));
+// 1. Today's Check-ins = today's active waiting check-ins + today's waiting triage
+$checkinWaitingCount = count($checkinDisplayQueue);
+$triageWaitingTodayCount = count(array_filter($triageTodayQueue, fn($t) => strtolower($t['queue_status'] ?? '') === 'waiting'));
+$totalWaiting = $checkinWaitingCount + $triageWaitingTodayCount;
 
-$criticalTodayCount = count(array_filter($triageTodayQueue, fn($t) => $t['priority'] === 'critical'));
-$totalCritical = $criticalTodayCount > 0 ? $criticalTodayCount : count(array_filter($triageQueue, fn($t) => $t['priority'] === 'critical'));
+// 2. Critical Alerts Today = critical triage assessments recorded today
+$totalCritical = count(array_filter($triageTodayQueue, fn($t) => $t['priority'] === 'critical'));
 
-$completedTodayCount = count(array_filter($triageTodayQueue, fn($t) => $t['status'] === 'completed' || $t['status'] === 'sent_to_doctor'));
-$totalCompleted = $completedTodayCount > 0 ? $completedTodayCount : count(array_filter($triageQueue, fn($t) => $t['status'] === 'completed' || $t['status'] === 'sent_to_doctor'));
+// 3. Sent to Doctor Today = patients assessed and sent to doctor today
+$totalCompleted = count(array_filter($triageTodayQueue, fn($t) => $t['status'] === 'completed' || $t['status'] === 'sent_to_doctor'));
 
-$totalTriageToday = count($triageTodayQueue) > 0 ? count($triageTodayQueue) : count($triageQueue);
+// 4. Total Assessed Today = all triage assessments completed today
+$totalTriageToday = count($triageTodayQueue);
 $avgWaitTime = rand(15, 45);
 
 // NEW: Generate next queue number for check-in
 $todayCheckins = array_filter($waitingCheckins, function($c) use ($today) {
-    return isset($c['created_at']) && date('Y-m-d', strtotime($c['created_at'])) === $today;
+    return parseLocalDate($c['check_in_time'] ?? ($c['created_at'] ?? '')) === $today;
 });
 $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1, 3, '0', STR_PAD_LEFT);
 ?>
@@ -436,7 +468,9 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 </div>
             </div>
             <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">📋 Arrivals</span>
+                <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold inline-flex items-center">
+                    <i class="fa-solid fa-clipboard-check text-[9px] mr-1 text-amber-600"></i> Arrivals
+                </span>
                 <span class="text-[10px] text-slate-400">Arrived today</span>
             </div>
         </div>
@@ -456,7 +490,9 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 </div>
             </div>
             <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold">🚨 Urgent</span>
+                <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold inline-flex items-center">
+                    <i class="fa-solid fa-triangle-exclamation text-[9px] mr-1 text-rose-600"></i> Urgent
+                </span>
                 <span class="text-[10px] text-slate-400">Immediate attention</span>
             </div>
         </div>
@@ -476,7 +512,9 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 </div>
             </div>
             <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">🩺 Ready</span>
+                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold inline-flex items-center">
+                    <i class="fa-solid fa-stethoscope text-[9px] mr-1 text-emerald-600"></i> Ready
+                </span>
                 <span class="text-[10px] text-slate-400">For Consultation</span>
             </div>
         </div>
@@ -496,7 +534,9 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 </div>
             </div>
             <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 bg-sky-100 text-sky-700 rounded-full text-[10px] font-bold">📅 Today</span>
+                <span class="px-2 py-0.5 bg-sky-100 text-sky-700 rounded-full text-[10px] font-bold inline-flex items-center">
+                    <i class="fa-solid fa-calendar-day text-[9px] mr-1 text-sky-600"></i> Today
+                </span>
                 <span class="text-[10px] text-slate-400"><?php echo date('F d, Y'); ?></span>
             </div>
         </div>
@@ -512,13 +552,26 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             </div>
             <div class="flex items-center gap-3 flex-wrap">
                 <?php 
-                    $priorities = ['critical' => '🔴 Critical', 'high' => '🟠 High', 'medium' => '🟡 Medium', 'low' => '🟢 Low'];
-                    foreach ($priorities as $key => $label):
-                        $count = count(array_filter($triageQueue, fn($t) => $t['priority'] === $key));
+                    $priorities = [
+                        'critical' => ['label' => 'Critical', 'dot' => 'text-rose-500'],
+                        'high' => ['label' => 'High', 'dot' => 'text-orange-500'],
+                        'medium' => ['label' => 'Medium', 'dot' => 'text-amber-500'],
+                        'low' => ['label' => 'Low', 'dot' => 'text-emerald-500']
+                    ];
+                    $hasTodayAssessment = false;
+                    foreach ($priorities as $key => $pInfo):
+                        $count = count(array_filter($triageTodayQueue, fn($t) => $t['priority'] === $key));
                         if ($count > 0):
+                            $hasTodayAssessment = true;
                 ?>
-                    <span class="text-xs text-slate-600 font-semibold bg-white border border-slate-200 px-2.5 py-1 rounded-full shadow-2xs"><?php echo $label; ?>: <strong class="text-slate-800"><?php echo $count; ?></strong></span>
+                    <span class="text-xs text-slate-600 font-semibold bg-white border border-slate-200 px-2.5 py-1 rounded-full shadow-2xs inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle text-[7px] <?php echo $pInfo['dot']; ?>"></i>
+                        <?php echo $pInfo['label']; ?>: <strong class="text-slate-800"><?php echo $count; ?></strong>
+                    </span>
                 <?php endif; endforeach; ?>
+                <?php if (!$hasTodayAssessment): ?>
+                    <span class="text-xs text-slate-400 font-medium">No assessments recorded today yet</span>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -530,19 +583,21 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             <div class="flex items-center gap-2">
                 <i class="fa-solid fa-clipboard-list text-amber-600"></i>
                 <h3 class="text-sm font-bold text-amber-800">Today's Patient Visits</h3>
-                <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold"><?php echo count($checkinDisplayQueue); ?> waiting for assessment</span>
             </div>
+            <span class="px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-bold">
+                <?php echo count($checkinDisplayQueue); ?> waiting for assessment
+            </span>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
-                <thead class="bg-slate-50 border-b border-slate-200">
+                <thead class="bg-amber-50/60 border-b border-amber-200/70 text-slate-600 text-xs">
                     <tr>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient ID</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Reason for Visit</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Check-in Time</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Status</th>
-                        <th class="px-4 py-2 text-center text-[10px] font-bold text-slate-500 uppercase">Action</th>
+                        <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Patient ID</th>
+                        <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Patient</th>
+                        <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Reason for Visit</th>
+                        <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Check-in Time</th>
+                        <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Status</th>
+                        <th class="px-4 py-2.5 text-center font-bold text-[11px] uppercase tracking-wider text-amber-900">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -584,41 +639,71 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
 
     <!-- Search & Filter -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
+        <!-- Top Search Bar & Dropdown Selects -->
         <div class="flex flex-col sm:flex-row gap-3">
             <div class="flex-1 relative">
                 <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                 <input type="text"
                        id="searchTriage"
-                       placeholder="Search by patient name or ID..."
+                       placeholder="Search by patient name, ID (e.g. P-0071), doctor, complaint..."
                        class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
             </div>
-            <div class="flex gap-2 flex-wrap">
-                <select id="filterPriority" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+            <div class="flex gap-2 flex-wrap items-center">
+                <select id="filterPriority" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-xs font-semibold bg-white text-slate-700">
                     <option value="">All Priorities</option>
                     <option value="critical">Critical</option>
                     <option value="high">High</option>
                     <option value="medium">Medium</option>
                     <option value="low">Low</option>
                 </select>
-                <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                <select id="filterStatus" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-xs font-semibold bg-white text-slate-700">
                     <option value="">All Status</option>
                     <option value="waiting">Checked In</option>
                     <option value="in_triage">In Assessment</option>
-                    <option value="completed">Assessment Completed</option>
                     <option value="sent_to_doctor">Sent to Doctor</option>
+                    <option value="in_consultation">In Consultation</option>
+                    <option value="completed">Consultation Done</option>
                 </select>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                <label class="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                     <span>From</span>
-                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                    <input type="date" id="filterDateFrom" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white">
                 </label>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
+                <label class="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
                     <span>To</span>
-                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
+                    <input type="date" id="filterDateTo" class="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white">
                 </label>
-                <button onclick="resetFilters()" title="Reset filters"
-                        class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
-                    <i class="fa-solid fa-rotate-right"></i>
+            </div>
+        </div>
+
+        <!-- Quick Date Range Pills Under Search -->
+        <div class="flex items-center justify-between flex-wrap gap-3 pt-3 mt-3 border-t border-slate-100">
+            <div class="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl w-fit">
+                <button type="button" onclick="setDateFilter('today')" id="dateFilterBtnToday"
+                        class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer bg-white text-slate-800 shadow-xs">
+                    <i class="fa-solid fa-calendar-day mr-1 text-amber-500"></i> Today
+                    <span class="ml-1 px-1.5 py-0.2 bg-amber-100 text-amber-700 rounded-full text-[9px] font-extrabold"><?php echo count($triageTodayQueue); ?></span>
                 </button>
+                <button type="button" onclick="setDateFilter('week')" id="dateFilterBtnWeek"
+                        class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-calendar-week mr-1"></i> This Week
+                </button>
+                <button type="button" onclick="setDateFilter('all')" id="dateFilterBtnAll"
+                        class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-layer-group mr-1"></i> All History
+                    <span class="ml-1 px-1.5 py-0.2 bg-slate-200 text-slate-700 rounded-full text-[9px] font-extrabold"><?php echo count($triageQueue); ?></span>
+                </button>
+                <button type="button" onclick="setDateFilter('custom')" id="dateFilterBtnCustom"
+                        class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-calendar-days mr-1 text-blue-500"></i> Specific Day / Range
+                </button>
+            </div>
+
+            <!-- Custom Date Range (Only visible when 'Specific Day / Range' is clicked) -->
+            <div id="customDateRangeContainer" class="hidden flex items-center gap-2 text-xs text-slate-500 font-medium bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                <span>From</span>
+                <input type="date" id="filterDateFrom" onchange="filterTriage()" class="px-2 py-1 border border-slate-200 rounded-md text-xs bg-white focus:ring-1 focus:ring-brand-medium outline-none">
+                <span>To</span>
+                <input type="date" id="filterDateTo" onchange="filterTriage()" class="px-2 py-1 border border-slate-200 rounded-md text-xs bg-white focus:ring-1 focus:ring-brand-medium outline-none">
             </div>
         </div>
     </div>
@@ -641,7 +726,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     </tr>
                 </thead>
                 <tbody id="triageTableBody">
-                    <?php foreach ($paginatedTriage as $triage): ?>
+                    <?php foreach ($triageQueue as $triage): ?>
                     <?php
                         // Abnormal vital sign checks
                         $bp = $triage['vital_signs']['blood_pressure'] ?? '';
@@ -653,19 +738,21 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         if (!empty($bp) && str_contains($bp, '/')) {
                             [$sys, $dia] = array_map('intval', explode('/', $bp));
                             if ($sys >= 140 || $dia >= 90) {
-                                $vitalAlerts[] = '<span class="px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded text-[10px] font-bold">⚠️ High BP (' . htmlspecialchars($bp) . ')</span>';
+                                $vitalAlerts[] = '<span class="px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded text-[10px] font-bold inline-flex items-center gap-1"><i class="fa-solid fa-arrow-trend-up text-[9px]"></i> High BP (' . htmlspecialchars($bp) . ')</span>';
                             }
                         }
                         if ($temp >= 38.0) {
-                            $vitalAlerts[] = '<span class="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">🔥 Fever (' . $temp . '°C)</span>';
+                            $vitalAlerts[] = '<span class="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold inline-flex items-center gap-1"><i class="fa-solid fa-temperature-high text-[9px]"></i> Fever (' . $temp . '°C)</span>';
                         }
                         if ($spo2 <= 94) {
-                            $vitalAlerts[] = '<span class="px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded text-[10px] font-bold">🚨 Low SpO₂ (' . $spo2 . '%)</span>';
+                            $vitalAlerts[] = '<span class="px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded text-[10px] font-bold inline-flex items-center gap-1"><i class="fa-solid fa-lungs text-[9px]"></i> Low SpO₂ (' . $spo2 . '%)</span>';
                         }
 
                         $docAssigned = null;
                         if (!empty($triage['doctor_assigned'])) {
-                            $docAssigned = $triage['doctor_assigned'];
+                            // Strip any repeated parenthesized titles like (Health Center Director)
+                            $cleanDoc = preg_replace('/\s*\([^)]*\)/', '', $triage['doctor_assigned']);
+                            $docAssigned = trim($cleanDoc);
                         } elseif (!empty($triage['doctor_id']) && isset($employeesMap[$triage['doctor_id']])) {
                             $docEmp = $employeesMap[$triage['doctor_id']];
                             $docName = trim($docEmp['full_name'] ?? (($docEmp['first_name'] ?? '') . ' ' . ($docEmp['last_name'] ?? '')));
@@ -677,9 +764,13 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                             $docAssigned = 'Unassigned';
                         }
                         $serviceAssigned = $triage['service_type'] ?? 'General Medicine';
+                        $patientIdStr = 'P-' . str_pad((string)($triage['patient_id'] ?? $triage['id']), 4, '0', STR_PAD_LEFT);
                     ?>
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors triage-row <?php echo $triage['priority'] === 'critical' ? 'bg-rose-50/50' : ''; ?>"
                         data-patient="<?php echo strtolower($triage['patient_name']); ?>"
+                        data-patient-id="<?php echo strtolower($patientIdStr . ' ' . ($triage['patient_id'] ?? '') . ' ' . ($triage['triage_id'] ?? '')); ?>"
+                        data-doctor="<?php echo strtolower($docAssigned); ?>"
+                        data-complaint="<?php echo strtolower($triage['chief_complaint']); ?>"
                         data-priority="<?php echo $triage['priority']; ?>"
                         data-date="<?php echo htmlspecialchars($triage['date']); ?>"
                         data-status="<?php echo $triage['status']; ?>">
@@ -736,15 +827,16 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                                     'medium' => 'bg-yellow-100 text-yellow-700 border-yellow-200',
                                     'low' => 'bg-green-100 text-green-700 border-green-200'
                                 ];
-                                $priorityIcons = [
-                                    'critical' => '🔴',
-                                    'high' => '🟠',
-                                    'medium' => '🟡',
-                                    'low' => '🟢'
+                                $priorityDots = [
+                                    'critical' => 'text-rose-500',
+                                    'high' => 'text-orange-500',
+                                    'medium' => 'text-amber-500',
+                                    'low' => 'text-emerald-500'
                                 ];
                             ?>
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold border <?php echo $priorityColors[$triage['priority']] ?? $priorityColors['medium']; ?>">
-                                <?php echo $priorityIcons[$triage['priority']] ?? ''; ?> <?php echo ucfirst($triage['priority']); ?>
+                            <span class="px-2.5 py-1 rounded-full text-xs font-semibold border inline-flex items-center gap-1.5 <?php echo $priorityColors[$triage['priority']] ?? $priorityColors['medium']; ?>">
+                                <i class="fa-solid fa-circle text-[7px] <?php echo $priorityDots[$triage['priority']] ?? 'text-slate-400'; ?>"></i>
+                                <?php echo ucfirst($triage['priority']); ?>
                             </span>
                         </td>
                         <td class="px-4 py-3">
@@ -752,9 +844,11 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                                 $statusBadge = match($triage['status']) {
                                     'waiting' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">Checked In</span>',
                                     'in_triage' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200">In Assessment</span>',
-                                    'completed', 'sent_to_doctor', 'triaged' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Sent to Doctor</span>',
+                                    'sent_to_doctor', 'triaged' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">Sent to Doctor</span>',
                                     'in_consultation' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700 border border-purple-200">In Consultation</span>',
-                                    default => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Sent to Doctor</span>'
+                                    'completed', 'consulted' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Consultation Done</span>',
+                                    'cancelled' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">Cancelled</span>',
+                                    default => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">' . htmlspecialchars(ucfirst(str_replace('_', ' ', $triage['status']))) . '</span>'
                                 };
                                 echo $statusBadge;
                             ?>
@@ -787,38 +881,23 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         </div>
 
         <!-- Empty state -->
-        <div id="emptyState" class="flex-col items-center justify-center py-14 text-center" style="display: <?php echo empty($triageQueue) ? 'flex' : 'none'; ?>;">
+        <div id="emptyState" class="flex-col items-center justify-center py-14 text-center" style="display: none;">
             <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
-                <i class="fa-solid fa-user-slash text-slate-400"></i>
+                <i class="fa-solid fa-clipboard-check text-slate-400 text-lg"></i>
             </div>
-            <p class="text-sm font-semibold text-slate-600">No patients in triage queue</p>
-            <p class="text-xs text-slate-400 mt-1">All patients have been attended to</p>
+            <p id="emptyStateTitle" class="text-sm font-semibold text-slate-700">No assessments found for this filter</p>
+            <p id="emptyStateSub" class="text-xs text-slate-400 mt-1">Try selecting "All History" or changing your search criteria</p>
         </div>
 
-        <!-- Pagination -->
+        <!-- Showing Counter & Filter Info Footer -->
         <div class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
             <p class="text-xs text-slate-500">
-                Showing <span class="font-semibold text-slate-700"><?php echo $offset + 1; ?></span> to
-                <span class="font-semibold text-slate-700"><?php echo min($offset + $limit, $totalTriage); ?></span> of
-                <span class="font-semibold text-slate-700"><?php echo $totalTriage; ?></span> patients
+                Showing <span id="visibleTriageCount" class="font-bold text-slate-700"><?php echo count($triageTodayQueue); ?></span> of
+                <span class="font-bold text-slate-700"><?php echo count($triageQueue); ?></span> total recorded patients
             </p>
-            <div class="flex gap-1">
-                <button onclick="changePage(<?php echo $page - 1; ?>)"
-                        class="px-3 py-1.5 rounded-lg text-sm <?php echo $page <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
-                        <?php echo $page <= 1 ? 'disabled' : ''; ?>>
-                    <i class="fa-solid fa-chevron-left text-xs"></i>
-                </button>
-                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                    <button onclick="changePage(<?php echo $i; ?>)"
-                            class="px-3 py-1.5 rounded-lg text-sm font-medium <?php echo $i === $page ? 'bg-brand-dark text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>">
-                        <?php echo $i; ?>
-                    </button>
-                <?php endfor; ?>
-                <button onclick="changePage(<?php echo $page + 1; ?>)"
-                        class="px-3 py-1.5 rounded-lg text-sm <?php echo $page >= $totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'; ?>"
-                        <?php echo $page >= $totalPages ? 'disabled' : ''; ?>>
-                    <i class="fa-solid fa-chevron-right text-xs"></i>
-                </button>
+            <div class="flex items-center gap-2 text-xs text-slate-400">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>Use quick pills above to toggle between Today and Historical intakes</span>
             </div>
         </div>
     </div>
@@ -919,60 +998,74 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             
             <!-- Vital Signs -->
             <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">Vital Signs</h4>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Core Vital Signs</h4>
+                    <button type="button" onclick="document.getElementById('advancedVitalsAdd').classList.toggle('hidden')" class="text-xs font-semibold text-brand-medium hover:text-brand-dark flex items-center gap-1">
+                        <i class="fa-solid fa-sliders text-[11px]"></i>
+                        <span>Advanced Vitals (O2, Blood Sugar, GCS)</span>
+                    </button>
+                </div>
+                <!-- Primary Core Vitals -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">BP (Systolic/Diastolic)</label>
-                        <input type="text" id="triage_bp" maxlength="7" inputmode="numeric" placeholder="120/80" class="triage-bp w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_bp" maxlength="7" inputmode="numeric" placeholder="120/80" class="triage-bp w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Heart Rate (bpm)</label>
-                        <input type="text" id="triage_hr" maxlength="3" inputmode="numeric" placeholder="72" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_hr" maxlength="3" inputmode="numeric" placeholder="72" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Temperature (°C)</label>
-                        <input type="text" id="triage_temp" maxlength="5" inputmode="decimal" placeholder="36.5" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">O2 Saturation (%)</label>
-                        <input type="text" id="triage_o2" maxlength="3" inputmode="numeric" placeholder="98" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_temp" maxlength="5" inputmode="decimal" placeholder="36.5" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Respiratory Rate</label>
-                        <input type="text" id="triage_rr" maxlength="2" inputmode="numeric" placeholder="18" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_rr" maxlength="2" inputmode="numeric" placeholder="18" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Weight (kg)</label>
-                        <input type="text" id="triage_weight" maxlength="5" inputmode="decimal" placeholder="65.0" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_weight" maxlength="5" inputmode="decimal" placeholder="65.0" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Height (cm)</label>
-                        <input type="text" id="triage_height" maxlength="5" inputmode="decimal" placeholder="165" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="triage_height" maxlength="5" inputmode="decimal" placeholder="165" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar</label>
-                        <input type="text" id="triage_blood_sugar" maxlength="4" inputmode="decimal" placeholder="100" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar Type</label>
-                        <select id="triage_blood_sugar_type" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                            <option value="">Select type</option>
-                            <option value="fasting">Fasting</option>
-                            <option value="random">Random</option>
-                            <option value="post_prandial">Post Prandial</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Eye</label>
-                        <input type="text" id="triage_gcs_eye" maxlength="1" inputmode="numeric" placeholder="1-4" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Verbal</label>
-                        <input type="text" id="triage_gcs_verbal" maxlength="1" inputmode="numeric" placeholder="1-5" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Motor</label>
-                        <input type="text" id="triage_gcs_motor" maxlength="1" inputmode="numeric" placeholder="1-6" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+
+                <!-- Specialized / Advanced Vitals (Collapsible) -->
+                <div id="advancedVitalsAdd" class="hidden mt-4 pt-3 border-t border-slate-200">
+                    <p class="text-[11px] font-bold text-slate-600 mb-2 uppercase tracking-wide">Specialized / Neurological Assessment</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">O2 Saturation (%)</label>
+                            <input type="text" id="triage_o2" maxlength="3" inputmode="numeric" placeholder="98" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar</label>
+                            <input type="text" id="triage_blood_sugar" maxlength="4" inputmode="decimal" placeholder="100" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar Type</label>
+                            <select id="triage_blood_sugar_type" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                                <option value="">Select type</option>
+                                <option value="fasting">Fasting</option>
+                                <option value="random">Random</option>
+                                <option value="post_prandial">Post Prandial</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Eye (1-4)</label>
+                            <input type="text" id="triage_gcs_eye" maxlength="1" inputmode="numeric" placeholder="4" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Verbal (1-5)</label>
+                            <input type="text" id="triage_gcs_verbal" maxlength="1" inputmode="numeric" placeholder="5" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Motor (1-6)</label>
+                            <input type="text" id="triage_gcs_motor" maxlength="1" inputmode="numeric" placeholder="6" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1013,7 +1106,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         <?php foreach ($doctors as $d): 
                             $assignedToday = $doctorTodayCounts[$d['id']] ?? 0;
                         ?>
-                            <option value="<?php echo $d['id']; ?>"><?php echo htmlspecialchars($d['name']); ?> (<?php echo htmlspecialchars($d['role_description'] ?? 'Doctor'); ?>) — <?php echo $assignedToday; ?> assigned/scheduled today</option>
+                            <option value="<?php echo $d['id']; ?>" data-name="<?php echo htmlspecialchars($d['name']); ?>"><?php echo htmlspecialchars($d['name']); ?> (<?php echo htmlspecialchars($d['role_description'] ?? 'General Medicine'); ?>) — <?php echo $assignedToday; ?> assigned/scheduled today</option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -1084,60 +1177,74 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             </div>
 
             <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">Vital Signs</h4>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Core Vital Signs</h4>
+                    <button type="button" onclick="document.getElementById('advancedVitalsEdit').classList.toggle('hidden')" class="text-xs font-semibold text-brand-medium hover:text-brand-dark flex items-center gap-1">
+                        <i class="fa-solid fa-sliders text-[11px]"></i>
+                        <span>Advanced Vitals (O2, Blood Sugar, GCS)</span>
+                    </button>
+                </div>
+                <!-- Primary Core Vitals -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">BP</label>
-                        <input type="text" id="edit_triage_bp" maxlength="7" inputmode="numeric" class="triage-bp w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_bp" maxlength="7" inputmode="numeric" class="triage-bp w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Heart Rate</label>
-                        <input type="text" id="edit_triage_hr" maxlength="3" inputmode="numeric" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_hr" maxlength="3" inputmode="numeric" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Temperature</label>
-                        <input type="text" id="edit_triage_temp" maxlength="5" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">O2 Saturation</label>
-                        <input type="text" id="edit_triage_o2" maxlength="3" inputmode="numeric" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_temp" maxlength="5" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Respiratory Rate</label>
-                        <input type="text" id="edit_triage_rr" maxlength="2" inputmode="numeric" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_rr" maxlength="2" inputmode="numeric" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Weight (kg)</label>
-                        <input type="text" id="edit_triage_weight" maxlength="5" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_weight" maxlength="5" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
                     <div>
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Height (cm)</label>
-                        <input type="text" id="edit_triage_height" maxlength="5" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <input type="text" id="edit_triage_height" maxlength="5" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar</label>
-                        <input type="text" id="edit_triage_blood_sugar" maxlength="4" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar Type</label>
-                        <select id="edit_triage_blood_sugar_type" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                            <option value="">Select type</option>
-                            <option value="fasting">Fasting</option>
-                            <option value="random">Random</option>
-                            <option value="post_prandial">Post Prandial</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Eye</label>
-                        <input type="text" id="edit_triage_gcs_eye" maxlength="1" inputmode="numeric" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Verbal</label>
-                        <input type="text" id="edit_triage_gcs_verbal" maxlength="1" inputmode="numeric" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Motor</label>
-                        <input type="text" id="edit_triage_gcs_motor" maxlength="1" inputmode="numeric" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+
+                <!-- Specialized / Advanced Vitals (Collapsible) -->
+                <div id="advancedVitalsEdit" class="hidden mt-4 pt-3 border-t border-slate-200">
+                    <p class="text-[11px] font-bold text-slate-600 mb-2 uppercase tracking-wide">Specialized / Neurological Assessment</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">O2 Saturation</label>
+                            <input type="text" id="edit_triage_o2" maxlength="3" inputmode="numeric" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar</label>
+                            <input type="text" id="edit_triage_blood_sugar" maxlength="4" inputmode="decimal" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">Blood Sugar Type</label>
+                            <select id="edit_triage_blood_sugar_type" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                                <option value="">Select type</option>
+                                <option value="fasting">Fasting</option>
+                                <option value="random">Random</option>
+                                <option value="post_prandial">Post Prandial</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Eye (1-4)</label>
+                            <input type="text" id="edit_triage_gcs_eye" maxlength="1" inputmode="numeric" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Verbal (1-5)</label>
+                            <input type="text" id="edit_triage_gcs_verbal" maxlength="1" inputmode="numeric" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-500 mb-1">GCS Motor (1-6)</label>
+                            <input type="text" id="edit_triage_gcs_motor" maxlength="1" inputmode="numeric" class="triage-gcs w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1174,9 +1281,9 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label>
                     <select id="edit_triage_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <option value="pending">Waiting</option>
-                        <option value="triaged">In Triage</option>
-                        <option value="consulted">Sent to Doctor</option>
+                        <option value="pending">Checked In / Waiting</option>
+                        <option value="triaged">Sent to Doctor (Assessment Done)</option>
+                        <option value="consulted">Consultation Done</option>
                         <option value="cancelled">Cancelled</option>
                     </select>
                 </div>
@@ -1461,7 +1568,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         document.getElementById('edit_triage_gcs_motor').value = t.vital_signs.gcs_motor || '';
         document.getElementById('edit_triage_complaint').value = t.chief_complaint;
         document.getElementById('edit_triage_priority').value = t.priority;
-        document.getElementById('edit_triage_status').value = t.status === 'waiting' ? 'pending' : t.status === 'in_triage' ? 'triaged' : t.status === 'sent_to_doctor' ? 'consulted' : 'cancelled';
+        document.getElementById('edit_triage_status').value = (t.status === 'waiting' || t.status === 'pending') ? 'pending' : (t.status === 'sent_to_doctor' || t.status === 'triaged' || t.status === 'in_triage') ? 'triaged' : (t.status === 'completed' || t.status === 'consulted') ? 'consulted' : (t.status === 'cancelled' ? 'cancelled' : 'triaged');
 
         // Set nurse
         const nurseSelect = document.getElementById('edit_triage_nurse');
@@ -1592,13 +1699,13 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
     // ============================================================
    async function completeTriage(id) {
     ModalSystem.confirm(
-        'This will mark the patient as complete and send them to the doctor.',
+        'This will mark the assessment as complete and send the patient to the doctor queue.',
         async () => {
             try {
                 const res = await fetch('../../api/triage.php?id=' + id + '&action=status', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: 'consulted' })
+                    body: JSON.stringify({ status: 'triaged' })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -1611,7 +1718,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 ModalSystem.toast.error('Error updating status');
             }
         },
-        { title: 'Complete Triage', confirmText: 'Send to Doctor', type: 'info' }
+        { title: 'Complete Assessment', confirmText: 'Send to Doctor', type: 'info' }
     );
 }
 
@@ -1653,7 +1760,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
 
         const doctorEl = document.getElementById('triage_doctor');
         const doctorId = doctorEl ? doctorEl.value : null;
-        const doctorName = doctorEl && doctorEl.options[doctorEl.selectedIndex] ? doctorEl.options[doctorEl.selectedIndex].text.split('—')[0].trim() : null;
+        const doctorName = doctorEl && doctorEl.options[doctorEl.selectedIndex] ? (doctorEl.options[doctorEl.selectedIndex].dataset.name || doctorEl.options[doctorEl.selectedIndex].text.split('(')[0].trim()) : null;
 
         const payload = {
             patient_id: parseInt(patientId),
@@ -1675,7 +1782,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             symptoms: selectedSymptoms.join(', '),
             notes: complaint,
             priority: priority,
-            status: 'pending'
+            status: 'triaged'
         };
 
         try {
@@ -1926,16 +2033,91 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
     }
 
     // ============================================================
-    // SEARCH & FILTER
+    // SEARCH & FILTER WITH DATE RANGE PILLS (DEFAULT: TODAY)
     // ============================================================
+    let currentDateRange = 'today';
+    const TODAY_DATE_STR = '<?php echo $today; ?>';
+
     document.getElementById('searchTriage').addEventListener('input', filterTriage);
     document.getElementById('filterPriority').addEventListener('change', filterTriage);
     document.getElementById('filterStatus').addEventListener('change', filterTriage);
-    document.getElementById('filterDateFrom').addEventListener('change', filterTriage);
-    document.getElementById('filterDateTo').addEventListener('change', filterTriage);
+    document.getElementById('filterDateFrom').addEventListener('change', function() {
+        if (this.value) {
+            currentDateRange = 'custom';
+            updateDateFilterButtonsUI('custom');
+        }
+        filterTriage();
+    });
+    document.getElementById('filterDateTo').addEventListener('change', function() {
+        if (this.value) {
+            currentDateRange = 'custom';
+            updateDateFilterButtonsUI('custom');
+        }
+        filterTriage();
+    });
+
+    function setDateFilter(range) {
+        currentDateRange = range;
+        
+        const customContainer = document.getElementById('customDateRangeContainer');
+        if (customContainer) {
+            if (range === 'custom') {
+                customContainer.classList.remove('hidden');
+            } else {
+                customContainer.classList.add('hidden');
+                const fromEl = document.getElementById('filterDateFrom');
+                const toEl = document.getElementById('filterDateTo');
+                if (fromEl) fromEl.value = '';
+                if (toEl) toEl.value = '';
+            }
+        }
+
+        updateDateFilterButtonsUI(range);
+        filterTriage();
+    }
+
+    function updateDateFilterButtonsUI(range) {
+        const btnToday  = document.getElementById('dateFilterBtnToday');
+        const btnWeek   = document.getElementById('dateFilterBtnWeek');
+        const btnAll    = document.getElementById('dateFilterBtnAll');
+        const btnCustom = document.getElementById('dateFilterBtnCustom');
+
+        [btnToday, btnWeek, btnAll, btnCustom].forEach(btn => {
+            if (btn) {
+                btn.className = 'date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer text-slate-500 hover:text-slate-800';
+            }
+        });
+
+        if (range === 'today' && btnToday) {
+            btnToday.className = 'date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer bg-white text-slate-800 shadow-xs';
+        } else if (range === 'week' && btnWeek) {
+            btnWeek.className = 'date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer bg-white text-slate-800 shadow-xs';
+        } else if (range === 'all' && btnAll) {
+            btnAll.className = 'date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer bg-white text-slate-800 shadow-xs';
+        } else if (range === 'custom' && btnCustom) {
+            btnCustom.className = 'date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer bg-white text-slate-800 shadow-xs';
+        }
+    }
+
+    function matchesDateRange(rowDate, range) {
+        if (!range || range === 'all') return true;
+        if (!rowDate) return false;
+        
+        if (range === 'today') {
+            return rowDate === TODAY_DATE_STR;
+        }
+        if (range === 'week') {
+            const d = new Date(rowDate);
+            const now = new Date();
+            const firstDay = new Date(now.setDate(now.getDate() - now.getDay()));
+            firstDay.setHours(0,0,0,0);
+            return d >= firstDay;
+        }
+        return true;
+    }
 
     function filterTriage() {
-        const search = document.getElementById('searchTriage').value.toLowerCase();
+        const search = (document.getElementById('searchTriage').value || '').trim().toLowerCase();
         const priority = document.getElementById('filterPriority').value;
         const status = document.getElementById('filterStatus').value;
         const dateFrom = document.getElementById('filterDateFrom').value;
@@ -1943,39 +2125,71 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         let visibleCount = 0;
 
         if (dateFrom && dateTo && dateFrom > dateTo) {
-            ModalSystem.toast.error('The start date cannot be after the end date');
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                ModalSystem.toast.error('The start date cannot be after the end date');
+            }
             return;
         }
 
         document.querySelectorAll('.triage-row').forEach(row => {
-            const patient = row.dataset.patient;
-            const rowPriority = row.dataset.priority;
-            const rowStatus = row.dataset.status;
-            const rowDate = row.dataset.date;
+            const patientName = (row.dataset.patient || '').toLowerCase();
+            const patientId   = (row.dataset.patientId || '').toLowerCase();
+            const doctor      = (row.dataset.doctor || '').toLowerCase();
+            const complaint   = (row.dataset.complaint || '').toLowerCase();
+            const rowPriority = row.dataset.priority || '';
+            const rowStatus   = row.dataset.status || '';
+            const rowDate     = row.dataset.date || '';
 
-            const matchesSearch = patient.includes(search);
+            // Search matches patient name, patient ID (e.g. P-0071, 0071, 71), doctor, or reason/complaint
+            const matchesSearch = !search || 
+                patientName.includes(search) || 
+                patientId.includes(search) || 
+                doctor.includes(search) || 
+                complaint.includes(search);
+
             const matchesPriority = !priority || rowPriority === priority;
-            const matchesStatus = !status || rowStatus === status;
+            const matchesStatus = !status || rowStatus === status || 
+                (status === 'completed' && (rowStatus === 'consulted' || rowStatus === 'completed')) || 
+                (status === 'sent_to_doctor' && (rowStatus === 'triaged' || rowStatus === 'sent_to_doctor'));
             const matchesDateFrom = !dateFrom || rowDate >= dateFrom;
             const matchesDateTo = !dateTo || rowDate <= dateTo;
-            const isVisible = matchesSearch && matchesPriority && matchesStatus && matchesDateFrom && matchesDateTo;
+            const matchesPill = (dateFrom || dateTo) ? true : matchesDateRange(rowDate, currentDateRange);
+
+            const isVisible = matchesSearch && matchesPriority && matchesStatus && matchesDateFrom && matchesDateTo && matchesPill;
 
             row.style.display = isVisible ? '' : 'none';
             if (isVisible) visibleCount++;
         });
 
-        document.getElementById('emptyState').style.display = visibleCount === 0 ? 'flex' : 'none';
+        const emptyState = document.getElementById('emptyState');
+        if (emptyState) {
+            emptyState.style.display = visibleCount === 0 ? 'flex' : 'none';
+            const emptyTitle = document.getElementById('emptyStateTitle');
+            const emptySub = document.getElementById('emptyStateSub');
+            if (emptyTitle && emptySub) {
+                if (search) {
+                    emptyTitle.textContent = "No matching patients found";
+                    emptySub.textContent = `No assessment records matched "${search}". Try switching to "All History" or clearing your search.`;
+                } else if (currentDateRange === 'today') {
+                    emptyTitle.textContent = "No assessments recorded today";
+                    emptySub.textContent = "Start by assessing a checked-in patient or select 'All History' to review past records";
+                } else {
+                    emptyTitle.textContent = "No patient assessments found";
+                    emptySub.textContent = "Try selecting 'All History' or adjusting your search filters";
+                }
+            }
+        }
+
+        const visibleCountEl = document.getElementById('visibleTriageCount');
+        if (visibleCountEl) {
+            visibleCountEl.textContent = visibleCount;
+        }
     }
 
-    function resetFilters() {
-        document.getElementById('searchTriage').value = '';
-        document.getElementById('filterPriority').value = '';
-        document.getElementById('filterStatus').value = '';
-        document.getElementById('filterDateFrom').value = '';
-        document.getElementById('filterDateTo').value = '';
-        document.querySelectorAll('.triage-row').forEach(row => row.style.display = '');
-        document.getElementById('emptyState').style.display = 'none';
-    }
+    // Apply default Today filter on load
+    document.addEventListener('DOMContentLoaded', function() {
+        filterTriage();
+    });
     
     let currentTriagePage = <?php echo $page; ?>;
     const TRIAGE_LIMIT = 5;

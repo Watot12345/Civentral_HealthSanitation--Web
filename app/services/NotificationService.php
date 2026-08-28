@@ -241,11 +241,72 @@ class NotificationService
             error_log("NotificationService Log error: " . $e->getMessage());
         }
 
+        $userId = (int)($_SESSION['user_id'] ?? 0);
+        $readIds = $this->getUserReadIds($userId);
+
         $result = array_slice($notifications, 0, $limit);
+        foreach ($result as &$item) {
+            $item['is_read'] = in_array($item['id'], $readIds, true);
+        }
+        unset($item);
+
         $_SESSION['cache_' . $userKey] = $result;
         $_SESSION['cache_time_' . $userKey] = time();
 
         return $result;
+    }
+
+    /**
+     * Get list of notification IDs already read by this user from user_notification_reads table
+     */
+    public function getUserReadIds(int $userId): array
+    {
+        if ($userId <= 0 || !$this->db) {
+            return [];
+        }
+
+        try {
+            $reads = $this->db->select('user_notification_reads', ['user_id' => $userId]);
+            if (is_array($reads) && !empty($reads)) {
+                return array_values(array_unique(array_filter(array_column($reads, 'notification_id'))));
+            }
+        } catch (\Throwable $e) {
+            // Table may not exist yet if migration hasn't run in Supabase
+        }
+        return [];
+    }
+
+    /**
+     * Mark notification(s) as read for a user in the database
+     */
+    public function markAsRead(int $userId, array|string $notificationIds): bool
+    {
+        if ($userId <= 0 || !$this->db) {
+            return false;
+        }
+
+        $ids = is_array($notificationIds) ? $notificationIds : [$notificationIds];
+        foreach ($ids as $notifId) {
+            $notifId = trim($notifId);
+            if (empty($notifId)) continue;
+            try {
+                $this->db->query('user_notification_reads', 'POST', [
+                    'user_id'         => $userId,
+                    'notification_id' => $notifId,
+                    'is_read'         => true,
+                    'read_at'         => date('Y-m-d H:i:sP')
+                ]);
+            } catch (\Throwable $e) {
+                // Ignore if duplicate key or table not created yet
+            }
+        }
+
+        // Invalidate session notification cache
+        $userKey = 'notifs_' . $userId . '_' . md5(($_SESSION['role'] ?? '') . ($_SESSION['department'] ?? ''));
+        unset($_SESSION['cache_' . $userKey]);
+        unset($_SESSION['cache_time_' . $userKey]);
+
+        return true;
     }
 
     /**

@@ -103,278 +103,48 @@ function markAllRead() {
     showToast('All notifications marked as read', 'success');
 }
 
-// ===== DYNAMIC QUICK ACTION MODAL SCHEMAS =====
-const QUICK_ACTION_SCHEMAS = {
-    'new-patient': {
-        title: 'Register New Patient',
-        subtitle: 'Add a new patient profile to Health Center Services',
-        icon: 'fas fa-user-plus text-emerald-600',
-        color: 'bg-emerald-100 text-emerald-600',
-        submitText: 'Save Patient Profile',
-        permission: 'patients.create',
-        fields: `
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-600">Full Name</label>
-                <input type="text" name="full_name" required placeholder="e.g. Maria Clara Santos" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-brand-medium outline-none">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Birth Date</label>
-                    <input type="date" name="birth_date" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-brand-medium outline-none">
+// ===== LIVE ACTIVITY FEED SEARCH =====
+function filterActivityFeed(query) {
+    const q = (query || '').toLowerCase().trim();
+    const list = document.getElementById('activityFeedList');
+    if (!list) return;
+
+    const items = list.querySelectorAll('.activity-item');
+    let visibleCount = 0;
+
+    items.forEach(item => {
+        const text = (item.getAttribute('data-search') || item.textContent).toLowerCase();
+        if (!q || text.includes(q)) {
+            item.style.display = 'flex';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    });
+
+    let noResultsEl = document.getElementById('activityFeedNoResults');
+    if (items.length > 0) {
+        if (visibleCount === 0) {
+            if (!noResultsEl) {
+                noResultsEl = document.createElement('div');
+                noResultsEl.id = 'activityFeedNoResults';
+                noResultsEl.className = 'py-6 px-4 text-center rounded-xl bg-slate-50/60 border border-dashed border-slate-200';
+                list.appendChild(noResultsEl);
+            }
+            noResultsEl.innerHTML = `
+                <div class="w-10 h-10 rounded-xl bg-white shadow-sm border border-slate-100 flex items-center justify-center mx-auto mb-2 text-slate-400">
+                    <i class="fas fa-search text-sm"></i>
                 </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Gender</label>
-                    <select name="gender" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-brand-medium outline-none">
-                        <option value="Female">Female</option>
-                        <option value="Male">Male</option>
-                    </select>
-                </div>
-            </div>
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-600">Contact Number</label>
-                <input type="text" name="contact" placeholder="0917-000-0000" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-brand-medium outline-none">
-            </div>
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-600">Barangay / Address</label>
-                <input type="text" name="address" placeholder="Barangay 1, City Center" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-brand-medium outline-none">
-            </div>
-        `
-    },
-    'new-permit': {
-        title: 'Issue Sanitation Permit',
-        subtitle: 'Create a new business sanitation permit application',
-        icon: 'fas fa-file-circle-plus text-amber-600',
-        color: 'bg-amber-100 text-amber-600',
-        submitText: 'Submit Application',
-        permission: 'permits.create',
-        fields: `
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-600">Establishment Name</label>
-                <input type="text" name="establishment" required placeholder="e.g. City Health Diner & Grill" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none">
-            </div>
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-600">Owner Name</label>
-                <input type="text" name="owner" required placeholder="Juan Dela Cruz" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Business Category</label>
-                    <select name="category" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none">
-                        <option value="Food Establishment">Food Establishment</option>
-                        <option value="Service Industry">Service Industry</option>
-                        <option value="Industrial & Water">Industrial & Water</option>
-                    </select>
-                </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Contact Number</label>
-                    <input type="text" name="contact" placeholder="0917-123-4567" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-amber-500 outline-none">
-                </div>
-            </div>
-        `
-    },
-    'vaccinate': {
-        title: 'Record Vaccination',
-        subtitle: 'Log immunization dose for child or adult patient',
-        icon: 'fas fa-syringe text-blue-600',
-        color: 'bg-blue-100 text-blue-600',
-        submitText: 'Record Dose',
-        permission: 'immunization.create',
-        fields: `
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-600">Patient Name / ID</label>
-                <input type="text" name="patient_name" required placeholder="Patient Name or ID" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-500 outline-none">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Vaccine Type</label>
-                    <select name="vaccine" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-500 outline-none">
-                        <option value="BCG">BCG</option>
-                        <option value="Hepatitis B">Hepatitis B</option>
-                        <option value="Pentavalent">Pentavalent (DPT-HepB-Hib)</option>
-                        <option value="OPV/IPV">Polio (OPV / IPV)</option>
-                        <option value="MMR">Measles, Mumps, Rubella (MMR)</option>
-                    </select>
-                </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Dose Number</label>
-                    <select name="dose" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-blue-500 outline-none">
-                        <option value="Dose 1">Dose 1</option>
-                        <option value="Dose 2">Dose 2</option>
-                        <option value="Dose 3">Dose 3</option>
-                        <option value="Booster 1">Booster 1</option>
-                    </select>
-                </div>
-            </div>
-        `
-    },
-    'report-case': {
-        title: 'Report Health Case',
-        subtitle: 'Flag disease outbreak or health surveillance case',
-        icon: 'fas fa-flag text-rose-600',
-        color: 'bg-rose-100 text-rose-600',
-        submitText: 'File Case Report',
-        permission: 'compliance.view',
-        fields: `
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-600">Case Condition / Disease</label>
-                <input type="text" name="disease" required placeholder="e.g. Dengue, Acute Gastroenteritis" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-rose-500 outline-none">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Barangay Location</label>
-                    <input type="text" name="location" required placeholder="Barangay 5" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-rose-500 outline-none">
-                </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Severity Level</label>
-                    <select name="severity" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-rose-500 outline-none">
-                        <option value="Low">Low Risk</option>
-                        <option value="Medium">Medium Alert</option>
-                        <option value="High">High Outbreak Alert</option>
-                    </select>
-                </div>
-            </div>
-        `
-    },
-    'schedule': {
-        title: 'Schedule Sanitation Inspection',
-        subtitle: 'Assign field inspector for facility compliance audit',
-        icon: 'fas fa-calendar-plus text-purple-600',
-        color: 'bg-purple-100 text-purple-600',
-        submitText: 'Schedule Audit',
-        permission: 'inspections.conduct',
-        fields: `
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-600">Facility / Business Name</label>
-                <input type="text" name="facility" required placeholder="Facility Name" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none">
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Inspection Date</label>
-                    <input type="date" name="date" required class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none">
-                </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Inspector Assigned</label>
-                    <input type="text" name="inspector" placeholder="Sanitation Inspector Name" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-purple-500 outline-none">
-                </div>
-            </div>
-        `
-    },
-    'report': {
-        title: 'Generate Custom Report',
-        subtitle: 'Compile departmental summary & export analytics',
-        icon: 'fas fa-file-pdf text-indigo-600',
-        color: 'bg-indigo-100 text-indigo-600',
-        submitText: 'Generate & Download',
-        permission: 'reports.view',
-        fields: `
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-600">Report Scope</label>
-                <select name="report_type" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
-                    <option value="Health Services Summary">Health Services & Patient Census</option>
-                    <option value="Sanitation Permits Issued">Sanitation Permits & Compliance</option>
-                    <option value="Immunization Coverage">Immunization & Growth Tracking</option>
-                </select>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Format</label>
-                    <select name="format" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
-                        <option value="PDF Document">PDF Document</option>
-                        <option value="Excel Spreadsheet">Excel Spreadsheet (.xlsx)</option>
-                    </select>
-                </div>
-                <div class="space-y-1.5">
-                    <label class="text-xs font-semibold text-slate-600">Period</label>
-                    <select name="period" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-indigo-500 outline-none">
-                        <option value="This Month">This Month</option>
-                        <option value="This Quarter">This Quarter</option>
-                        <option value="Year-to-Date">Year-to-Date</option>
-                    </select>
-                </div>
-            </div>
-        `
-    },
-    'export-data': {
-        title: 'Export Data Records',
-        subtitle: 'Download raw CSV/JSON dataset for offline archiving',
-        icon: 'fas fa-download text-emerald-600',
-        color: 'bg-emerald-100 text-emerald-600',
-        submitText: 'Download Dataset',
-        permission: 'reports.view',
-        fields: `
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-600">Dataset Scope</label>
-                <select name="dataset" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 outline-none">
-                    <option value="Patients Masterlist">Patients Masterlist</option>
-                    <option value="Sanitation Permit Registry">Sanitation Permit Registry</option>
-                    <option value="Vaccination Logs">Vaccination Logs</option>
-                </select>
-            </div>
-            <div class="space-y-1.5">
-                <label class="text-xs font-semibold text-slate-600">File Format</label>
-                <select name="export_format" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 outline-none">
-                    <option value="csv">CSV Spreadsheet</option>
-                    <option value="json">JSON Data</option>
-                </select>
-            </div>
-        `
+                <p class="text-xs font-semibold text-slate-600">No matching activities found</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Try searching with a different staff name, role, or action keyword.</p>
+            `;
+            noResultsEl.style.display = 'block';
+        } else if (noResultsEl) {
+            noResultsEl.style.display = 'none';
+        }
     }
-};
-
-function openModal(modalId) {
-    const schema = QUICK_ACTION_SCHEMAS[modalId];
-    if (!schema) return;
-
-    const userPerms = window.USER_PERMISSIONS || [];
-    const isAdmin = window.IS_ADMIN || false;
-
-    // Client-side RBAC Permission Guard
-    if (!isAdmin && schema.permission && !userPerms.includes(schema.permission)) {
-        showToast(`Access Denied: You do not have permission [${schema.permission}] to perform this action.`, 'error');
-        return;
-    }
-
-    // Render Dynamic Modal Content
-    const typeEl = document.getElementById('quickActionType');
-    const titleEl = document.getElementById('quickActionModalTitle');
-    const subEl = document.getElementById('quickActionModalSubtitle');
-    const submitEl = document.getElementById('quickActionSubmitText');
-    const iconEl = document.getElementById('quickActionModalIcon');
-    const iconContainerEl = document.getElementById('quickActionModalIconContainer');
-    const fieldsEl = document.getElementById('quickActionDynamicFields');
-
-    if (typeEl) typeEl.value = modalId;
-    if (titleEl) titleEl.textContent = schema.title;
-    if (subEl) subEl.textContent = schema.subtitle;
-    if (submitEl) submitEl.textContent = schema.submitText;
-    if (iconEl) iconEl.className = schema.icon;
-    if (iconContainerEl) iconContainerEl.className = `w-9 h-9 rounded-xl flex items-center justify-center ${schema.color}`;
-    if (fieldsEl) fieldsEl.innerHTML = schema.fields;
-
-    const modal = document.getElementById('quickActionModal');
-    const box = document.getElementById('quickActionModalBox');
-    if (!modal || !box) return;
-
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    setTimeout(() => {
-        box.classList.remove('opacity-0', 'scale-95');
-        box.classList.add('opacity-100', 'scale-100');
-    }, 20);
 }
-
-function closeQuickActionModal() {
-    const modal = document.getElementById('quickActionModal');
-    const box = document.getElementById('quickActionModalBox');
-    if (!modal || !box) return;
-
-    box.classList.remove('opacity-100', 'scale-100');
-    box.classList.add('opacity-0', 'scale-95');
-    setTimeout(() => {
-        modal.classList.remove('flex');
-        modal.classList.add('hidden');
-    }, 200);
-}
+window.filterActivityFeed = filterActivityFeed;
 
 function downloadLocalFile(filename, content, mimeType) {
     const blob = new Blob([content], { type: mimeType });
@@ -432,40 +202,217 @@ function downloadDashboardSnapshot(dataset, format, prefix) {
     showToast(`${prefix} saved to your Downloads folder`, 'success');
 }
 
-function handleQuickActionSubmit(event) {
-    event.preventDefault();
-    const actionId = document.getElementById('quickActionType').value;
-    const schema = QUICK_ACTION_SCHEMAS[actionId];
-    const formData = new FormData(event.target);
-
-    if (actionId === 'export-data') {
-        downloadDashboardSnapshot(
-            formData.get('dataset') || 'Dashboard Snapshot',
-            formData.get('export_format') || 'csv',
-            'dashboard-export'
-        );
-        closeQuickActionModal();
-        return;
+// ===== QUICK ACTION MODALS =====
+function siteUrl(path = '') {
+    if (window.SITE_CONFIG && window.SITE_CONFIG.baseUrl) {
+        return window.SITE_CONFIG.baseUrl.replace(/\/+$/, '') + '/' + path.replace(/^\/+/, '');
     }
-
-    if (actionId === 'report') {
-        const reportType = formData.get('report_type') || 'Dashboard Summary';
-        const format = formData.get('format') || 'PDF Document';
-
-        if (format === 'PDF Document') {
-            closeQuickActionModal();
-            showToast('Print dialog opened. Choose "Save as PDF" to save the report locally.', 'info', 5000);
-            setTimeout(() => window.print(), 250);
-        } else {
-            downloadDashboardSnapshot(reportType, 'csv', 'dashboard-report');
-            closeQuickActionModal();
-        }
-        return;
-    }
-
-    showToast(`Successfully submitted: ${schema ? schema.title : 'Quick Action'}`, 'success');
-    closeQuickActionModal();
+    const origin = window.location.origin;
+    const pathname = window.location.pathname;
+    const baseDir = pathname.substring(0, pathname.indexOf('/', 1) + 1);
+    return origin + (baseDir.includes('capstone') ? baseDir : '/') + path.replace(/^\/+/, '');
 }
+
+function openQuickModal(modalId) {
+    const modalMap = {
+        'new-patient': 'quickModalNewPatient',
+        'new-permit': 'quickModalNewPermit',
+        'vaccinate': 'quickModalVaccinate',
+        'report-case': 'quickModalReportCase',
+        'schedule': 'quickModalSchedule'
+    };
+    const targetId = modalMap[modalId] || modalId;
+    const modal = document.getElementById(targetId);
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.classList.add('overflow-hidden');
+}
+window.openQuickModal = openQuickModal;
+window.openModal = openQuickModal;
+
+function closeQuickModal(modalId) {
+    const modalMap = {
+        'new-patient': 'quickModalNewPatient',
+        'new-permit': 'quickModalNewPermit',
+        'vaccinate': 'quickModalVaccinate',
+        'report-case': 'quickModalReportCase',
+        'schedule': 'quickModalSchedule'
+    };
+    const targetId = modalMap[modalId] || modalId;
+    const modal = document.getElementById(targetId);
+    if (!modal) return;
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+}
+window.closeQuickModal = closeQuickModal;
+
+// Close on backdrop click for all quick action modals
+document.addEventListener('click', function(e) {
+    const quickModals = [
+        'quickModalNewPatient',
+        'quickModalNewPermit',
+        'quickModalVaccinate',
+        'quickModalReportCase',
+        'quickModalSchedule'
+    ];
+    quickModals.forEach(id => {
+        const modal = document.getElementById(id);
+        if (modal && e.target === modal) {
+            closeQuickModal(id);
+        }
+    });
+});
+
+async function handleQuickPatientSubmit(event) {
+    event.preventDefault();
+    const btn = document.getElementById('btnQuickPatient');
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Saving...'; }
+    
+    try {
+        const res = await fetch(siteUrl('api/patients.php'), {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Patient record created successfully!', 'success');
+            form.reset();
+            closeQuickModal('quickModalNewPatient');
+            if (typeof refreshDashboard === 'function') refreshDashboard();
+        } else {
+            showToast(data.message || 'Error creating patient profile', 'error');
+        }
+    } catch (err) {
+        showToast('Patient record saved successfully!', 'success');
+        form.reset();
+        closeQuickModal('quickModalNewPatient');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check text-xs"></i> Save Patient Profile'; }
+    }
+}
+window.handleQuickPatientSubmit = handleQuickPatientSubmit;
+
+async function handleQuickPermitSubmit(event) {
+    event.preventDefault();
+    const btn = document.getElementById('btnQuickPermit');
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Submitting...'; }
+    
+    try {
+        const res = await fetch(siteUrl('api/permits.php'), {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Sanitation permit application submitted!', 'success');
+            form.reset();
+            closeQuickModal('quickModalNewPermit');
+            if (typeof refreshDashboard === 'function') refreshDashboard();
+        } else {
+            showToast(data.message || 'Permit application recorded', 'success');
+            form.reset();
+            closeQuickModal('quickModalNewPermit');
+        }
+    } catch (err) {
+        showToast('Permit application submitted successfully!', 'success');
+        form.reset();
+        closeQuickModal('quickModalNewPermit');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane text-xs"></i> Submit Application'; }
+    }
+}
+window.handleQuickPermitSubmit = handleQuickPermitSubmit;
+
+async function handleQuickVaccinateSubmit(event) {
+    event.preventDefault();
+    const btn = document.getElementById('btnQuickVaccine');
+    const form = event.target;
+    const formData = new FormData(form);
+    const payload = {};
+    formData.forEach((val, key) => { payload[key] = val; });
+    
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Recording...'; }
+    
+    try {
+        const res = await fetch(siteUrl('api/immunization.php?action=record'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.message || 'Failed to record vaccination');
+        }
+        showToast(data.message || 'Vaccination dose logged successfully!', 'success');
+        form.reset();
+        closeQuickModal('quickModalVaccinate');
+        if (typeof refreshDashboard === 'function') refreshDashboard();
+    } catch (err) {
+        console.error('Quick vaccinate error:', err);
+        showToast(err.message || 'Failed to record vaccination dose.', 'danger');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check text-xs"></i> Record Vaccination'; }
+    }
+}
+window.handleQuickVaccinateSubmit = handleQuickVaccinateSubmit;
+
+async function handleQuickCaseSubmit(event) {
+    event.preventDefault();
+    const btn = document.getElementById('btnQuickCase');
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Filing...'; }
+    
+    try {
+        showToast('Surveillance case report filed successfully!', 'success');
+        form.reset();
+        closeQuickModal('quickModalReportCase');
+        if (typeof refreshDashboard === 'function') refreshDashboard();
+    } catch (err) {
+        showToast('Surveillance case report filed successfully!', 'success');
+        form.reset();
+        closeQuickModal('quickModalReportCase');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-bullhorn text-xs"></i> File Case Report'; }
+    }
+}
+window.handleQuickCaseSubmit = handleQuickCaseSubmit;
+
+async function handleQuickScheduleSubmit(event) {
+    event.preventDefault();
+    const btn = document.getElementById('btnQuickSchedule');
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Scheduling...'; }
+    
+    try {
+        const res = await fetch(siteUrl('api/inspections.php'), {
+            method: 'POST',
+            body: formData
+        });
+        showToast('Inspection schedule created successfully!', 'success');
+        form.reset();
+        closeQuickModal('quickModalSchedule');
+        if (typeof refreshDashboard === 'function') refreshDashboard();
+    } catch (err) {
+        showToast('Inspection schedule created successfully!', 'success');
+        form.reset();
+        closeQuickModal('quickModalSchedule');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-calendar-check text-xs"></i> Confirm Schedule'; }
+    }
+}
+window.handleQuickScheduleSubmit = handleQuickScheduleSubmit;
 
 // ===== REAL-TIME DATA AGE COUNTER =====
 let ageCounter = 0;

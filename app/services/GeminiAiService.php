@@ -11,7 +11,7 @@ class GeminiAiService
     private string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/';
     private string $cacheDir;
     private int $ttlSeconds = 1800; // 30 Minutes Cache TTL
-    private int $maxCallsPerWindow = 5; // Max 5 external Gemini API calls per 30 mins
+    private int $maxCallsPerWindow = 60; // Max 60 external Gemini API calls per 30 mins
 
     public function __construct()
     {
@@ -333,8 +333,120 @@ class GeminiAiService
         @file_put_contents($cacheFile, json_encode($payload, JSON_PRETTY_PRINT));
     }
 
+    /**
+     * AI-Driven Multi-Horizon Time Series Predictive Forecaster using Gemini AI
+     */
+    public function generateAiForecast(array $historicalMetrics, string $scope = 'admin', int $horizonMonths = 6): ?array
+    {
+        $cacheKey = 'gemini_forecast_' . md5($scope . '_' . json_encode($historicalMetrics) . '_' . $horizonMonths);
+        $cacheFile = $this->cacheDir . '/' . $cacheKey . '.json';
+
+        if (file_exists($cacheFile)) {
+            $raw = @file_get_contents($cacheFile);
+            $cached = json_decode($raw, true);
+            if ($cached && isset($cached['expires_at']) && time() < $cached['expires_at'] && !empty($cached['data'])) {
+                return array_merge($cached['data'], ['cached' => true, 'ai_processed' => true]);
+            }
+        }
+
+        if (empty($this->apiKey) || !$this->canMakeApiCall()) {
+            return null;
+        }
+
+        try {
+            $scopeContext = match(strtolower($scope)) {
+                'health_center' => 'Health Center Outpatient Services (Patient intake, Doctor consultations, Appointment queues).',
+                'sanitation'    => 'Sanitation & Food Safety Inspections (Business permits, field food audits, health clearances with Q1 renewal surge).',
+                'immunization'  => 'Child Immunization & Growth Tracking (Vaccine demand, nutrition monitoring, child health visits).',
+                'surveillance'  => 'Disease Surveillance & Outbreak Response (Dengue, gastroenteritis, flu cases factoring in Philippine monsoon rainfall peak July-October).',
+                'wastewater'    => 'Wastewater & Septic Tank Management (Desludging operations, wastewater discharge clearances, compliance audits).',
+                default         => 'City-wide Municipal Health System (Disease surveillance, Health Center consultations, Sanitation permits, Immunization, Wastewater).'
+            };
+
+            $prompt = <<<EOT
+You are an expert Epidemiologist and Municipal Public Health AI Forecaster for Caloocan City Health Department, Philippines.
+Analyze the following real historical monthly series (past 6 months) and generate an AI predictive forecast for the NEXT {$horizonMonths} months (+1M to +{$horizonMonths}M).
+
+Domain Scope: {$scopeContext}
+Historical Data (Past 6 Months per Metric):
+EOT;
+            $prompt .= json_encode($historicalMetrics, JSON_PRETTY_PRINT);
+            $prompt .= <<<EOT
+
+
+MANDATORY RULES:
+1. Account for Philippine seasonality (Monsoon rainfall July-October increasing Dengue/Gastroenteritis, January-February annual business permit renewal spikes, Q4 seasonal flu).
+2. Generate realistic non-linear predictive integer numbers for each metric starting with the current baseline (index 0) followed by the next {$horizonMonths} months (total {$horizonMonths} + 1 values per series).
+3. Compute an AI confidence certainty percentage (between 75% and 98%) and estimated R-squared fit (0.75 to 0.99).
+4. Output STRICT raw JSON only with no markdown formatting, matching this exact schema:
+{
+  "series": [
+    {
+      "key": "metric_key",
+      "name": "Display Name",
+      "data": [10, 12, 15, 18, 14, 11, 9],
+      "confidence": 92,
+      "r_squared": 0.94,
+      "growth_pct": 12.5
+    }
+  ],
+  "cards": [
+    {
+      "key": "metric_key",
+      "title": "Display Title",
+      "value": "12",
+      "confidence": "92%",
+      "r_squared": 0.94,
+      "trend": "AI Seasonal Projection",
+      "ai_reasoning": "Short 1-sentence epidemiological or operational reason"
+    }
+  ],
+  "ai_narrative": "2-sentence executive summary of the forecast trajectory and key risk factors."
+}
+EOT;
+
+            $payload = [
+                'contents' => [
+                    [
+                        'parts' => [
+                            ['text' => $prompt]
+                        ]
+                    ]
+                ],
+                'generationConfig' => [
+                    'temperature' => 0.2,
+                    'maxOutputTokens' => 2048
+                ]
+            ];
+
+            $apiResult = $this->makeApiCallWithFallback($payload, 6);
+
+            if ($apiResult) {
+                $rawText = trim($apiResult['text']);
+                $jsonStart = strpos($rawText, '{');
+                $jsonEnd = strrpos($rawText, '}');
+                if ($jsonStart !== false && $jsonEnd !== false) {
+                    $jsonStr = substr($rawText, $jsonStart, $jsonEnd - $jsonStart + 1);
+                    $parsed = json_decode($jsonStr, true);
+
+                    if (is_array($parsed) && !empty($parsed['series'])) {
+                        $parsed['ai_processed'] = true;
+                        $parsed['model_used'] = $apiResult['model_used'] ?? $this->model;
+                        $this->saveToCache($cacheFile, $parsed);
+                        return $parsed;
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('GeminiAiService AI Forecast Error: ' . $e->getMessage());
+        }
+
+        return null;
+    }
+
     public function getModelName(): string
     {
         return $this->model;
     }
 }
+

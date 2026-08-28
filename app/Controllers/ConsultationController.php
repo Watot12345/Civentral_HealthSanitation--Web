@@ -128,16 +128,29 @@ class ConsultationController extends BaseController
                 }
             }
 
-            // Update triage/assessment status to consulted if triage_id is provided or extracted
-            if (!empty($triageId)) {
-                try {
+            // Update triage/assessment status to consulted
+            try {
+                require_once __DIR__ . '/../Models/Triage.php';
+                $triageModel = new Triage();
+                if (!empty($triageId)) {
                     error_log('Updating triage ' . $triageId . ' to consulted');
-                    require_once __DIR__ . '/../Models/Triage.php';
-                    $triageModel = new Triage();
                     $triageModel->updateStatus($triageId, 'consulted');
-                } catch (Throwable $e) {
-                    error_log('Failed to update triage status: ' . $e->getMessage());
+                } elseif (!empty($dbData['patient_id'])) {
+                    // Auto-resolve open triage for this patient
+                    $openTriages = $triageModel->all([
+                        'patient_id' => $dbData['patient_id'],
+                        'order' => 'created_at.desc'
+                    ]);
+                    if (!empty($openTriages)) {
+                        $latest = $openTriages[0];
+                        if (in_array(strtolower($latest['status'] ?? ''), ['triaged', 'pending', 'in_triage', 'waiting', 'in_consultation'])) {
+                            error_log('Auto-updating patient triage ' . $latest['id'] . ' to consulted');
+                            $triageModel->updateStatus($latest['id'], 'consulted');
+                        }
+                    }
                 }
+            } catch (Throwable $e) {
+                error_log('Failed to update triage status: ' . $e->getMessage());
             }
 
             // Primary Source Health Surveillance Bridge (Auto-detect & sync to surveillance_cases)

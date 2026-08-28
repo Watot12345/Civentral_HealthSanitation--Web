@@ -78,15 +78,23 @@ class TriageQueue
     }
 
     /**
-     * Get active visits filtered by reason_for_visit
+     * Get active visits filtered by reason_for_visit (defaults to today's active queue)
      */
-    public function getVisitsByReason(string $reason): array
+    public function getVisitsByReason(string $reason, bool $todayOnly = true): array
     {
         try {
-            $all = $this->all(['order' => 'created_at.asc']);
-            return array_values(array_filter($all, function($item) use ($reason) {
+            $all = $this->all(['order' => 'created_at.desc']);
+            $today = date('Y-m-d');
+            return array_values(array_filter($all, function($item) use ($reason, $todayOnly, $today) {
                 $status = strtolower($item['status'] ?? 'waiting');
-                if ($status === 'completed') return false;
+                if ($status === 'cancelled') return false;
+                
+                if ($todayOnly) {
+                    $itemDate = !empty($item['check_in_time']) 
+                        ? date('Y-m-d', strtotime($item['check_in_time'])) 
+                        : (!empty($item['created_at']) ? date('Y-m-d', strtotime($item['created_at'])) : '');
+                    if ($itemDate !== $today) return false;
+                }
                 
                 $itemReason = $item['reason_for_visit'] ?? '';
                 return strcasecmp(trim($itemReason), trim($reason)) === 0;

@@ -164,23 +164,117 @@ try {
         return strcmp($b['date'], $a['date']);
     });
 
-    // 3. Fetch Real Activity Logs for Recent Reports Activity
+    // 3. Fetch Real Report Generation Activity Logs (Strictly Exclude Authentication Events)
+    $userRoleDesc  = strtolower(trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? ''));
+    $userRole      = strtolower(trim($_SESSION['role'] ?? $_SESSION['user']['role'] ?? ''));
+    $currentUserId = (int)($_SESSION['user']['id'] ?? ($_SESSION['user_id'] ?? 0));
+    $isAdmin       = $permService->isAdminRole($userRoleDesc) || $permService->isAdminRole($userRole);
+    $isHeadRole    = str_contains($userRoleDesc, 'head') || str_contains($userRoleDesc, 'director') || str_contains($userRoleDesc, 'coordinator') || str_contains($userRoleDesc, 'supervisor') || str_contains($userRoleDesc, 'officer');
+
     $recentActivity = [];
     try {
         $logs = $db->select('activity_logs');
-        usort($logs, function($a, $b) {
+
+        // Filter: ONLY report generation events, NEVER authentication logs, with hierarchical role scoping
+        $reportLogs = array_filter($logs, function($log) use ($isAdmin, $isHeadRole, $userRoleDesc, $currentUserId) {
+            $module = strtolower($log['module'] ?? '');
+            $action = strtolower($log['action'] ?? '');
+            $desc   = strtolower($log['details'] ?? ($log['description'] ?? ''));
+            $logUserId = (int)($log['user_id'] ?? 0);
+
+            // 1. Strictly exclude any authentication / security logs
+            $isAuth = in_array($module, ['auth', 'authentication', 'login', 'security', 'session'])
+                   || str_contains($action, 'login')
+                   || str_contains($action, 'logout')
+                   || str_contains($action, 'sign-in')
+                   || str_contains($action, 'sign-out')
+                   || str_contains($action, 'password')
+                   || str_contains($action, '2fa')
+                   || str_contains($action, 'otp')
+                   || str_contains($desc, 'logged in')
+                   || str_contains($desc, 'logged out');
+
+            if ($isAuth) {
+                return false;
+            }
+
+            // 2. Must be a report generation or export action
+            $isReport = in_array($module, ['reports', 'report generator', 'report management', 'custom report', 'analytics report'])
+                     || str_contains($action, 'report')
+                     || str_contains($action, 'export')
+                     || str_contains($desc, 'generated report')
+                     || str_contains($desc, 'exported');
+
+            if (!$isReport) {
+                return false;
+            }
+
+            // 3. Role Scoping
+            if ($isAdmin) {
+                return true; // System Administrator sees all generated reports
+            }
+
+            if ($isHeadRole) {
+                if (str_contains($userRoleDesc, 'sanitation')) {
+                    return str_contains($module, 'sanitat') || str_contains($desc, 'sanitat') || $logUserId === $currentUserId;
+                }
+                if (str_contains($userRoleDesc, 'health center') || str_contains($userRoleDesc, 'medical') || str_contains($userRoleDesc, 'director')) {
+                    return str_contains($module, 'health') || str_contains($desc, 'health') || str_contains($module, 'consult') || $logUserId === $currentUserId;
+                }
+                if (str_contains($userRoleDesc, 'surveillance') || str_contains($userRoleDesc, 'epidemiol')) {
+                    return str_contains($module, 'surveill') || str_contains($desc, 'surveill') || str_contains($desc, 'disease') || $logUserId === $currentUserId;
+                }
+                if (str_contains($userRoleDesc, 'immuniz') || str_contains($userRoleDesc, 'nutrition')) {
+                    return str_contains($module, 'immuniz') || str_contains($desc, 'vaccin') || str_contains($desc, 'nutri') || $logUserId === $currentUserId;
+                }
+                if (str_contains($userRoleDesc, 'water') || str_contains($userRoleDesc, 'waste')) {
+                    return str_contains($module, 'waste') || str_contains($desc, 'septic') || $logUserId === $currentUserId;
+                }
+                return true;
+            }
+
+            // Regular staff only sees report generation logs executed by themselves
+            return $logUserId === $currentUserId;
+        });
+
+        usort($reportLogs, function($a, $b) {
             return strcmp($b['created_at'] ?? '', $a['created_at'] ?? '');
         });
 
-        foreach (array_slice($logs, 0, 10) as $log) {
+        foreach ($reportLogs as $log) {
             $empId = $log['user_id'] ?? 0;
-            $actorName = $employeeMap[$empId] ?? ($log['user_name'] ?? 'System User');
+            $actorName = $employeeMap[$empId] ?? ($log['user_name'] ?? 'Staff Member');
+            $actorRole = $log['role'] ?? 'Staff Member';
+
+            $rawAction = $log['action'] ?? '';
+            $cleanName = str_replace(['Generated Report: ', 'Generated Report ', 'Generated '], '', $rawAction);
+            if (empty($cleanName)) {
+                $cleanName = 'Compliance & Operational Report';
+            }
+
+            $details = $log['details'] ?? ($log['description'] ?? '');
+            $typeStr = 'Custom Report';
+            if (str_contains($details, 'PDF') || str_contains($rawAction, 'PDF')) {
+                $typeStr = 'PDF Export';
+            } elseif (str_contains($details, 'Excel') || str_contains($details, 'XLS') || str_contains($rawAction, 'Excel')) {
+                $typeStr = 'Excel Export';
+            } elseif (str_contains($details, 'Word') || str_contains($details, 'DOC') || str_contains($rawAction, 'Word')) {
+                $typeStr = 'Word Export';
+            } elseif (str_contains($details, 'CSV') || str_contains($rawAction, 'CSV')) {
+                $typeStr = 'CSV Export';
+            }
+
             $recentActivity[] = [
-                'name' => $log['action'] ?? 'Report Activity Generated',
-                'type' => $log['module'] ?? 'System',
-                'date' => substr($log['created_at'] ?? date('Y-m-d'), 0, 10),
-                'status' => 'Generated',
-                'user' => $actorName
+                'id'        => $log['id'] ?? 0,
+                'name'      => $cleanName,
+                'type'      => $typeStr,
+                'department'=> $log['module'] ?? 'Reports',
+                'details'   => $details,
+                'date'      => !empty($log['created_at']) ? date('M d, Y h:i A', strtotime($log['created_at'])) : date('M d, Y'),
+                'raw_date'  => $log['created_at'] ?? date('Y-m-d H:i:s'),
+                'status'    => 'Generated',
+                'user'      => $actorName,
+                'role'      => $actorRole
             ];
         }
     } catch (Throwable $e) {}

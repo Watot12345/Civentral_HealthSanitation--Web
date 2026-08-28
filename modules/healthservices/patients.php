@@ -31,7 +31,11 @@ requireDepartmentAccess('health center services');
 
 // Load Data from Database
 require_once __DIR__ . '/../../app/Models/Patient.php';
+require_once __DIR__ . '/../../app/Models/Child.php';
+require_once __DIR__ . '/../../app/Models/Appointment.php';
 $patientModel = new Patient();
+$childModel = new Child();
+$appointmentModel = new Appointment();
 $dbPatients = $patientModel->all(['order' => 'created_at.desc']);
 
 $patients = [];
@@ -83,7 +87,6 @@ $limit = 5;
 // Permission Checks via RBAC System
 $canCreatePatient = hasPermission('patients.create');
 $canEditPatient   = hasPermission('patients.edit');
-$canDeletePatient = hasPermission('patients.delete');
 $isViewOnly       = !$canCreatePatient && !$canEditPatient;
 
 if ($targetPatientId && !isset($_GET['page'])) {
@@ -154,17 +157,70 @@ $title = 'Patient Management';
     <?php
     $criticalConditions = ['Heart Disease'];
     $criticalCount = count(array_filter($patients, fn($p) => in_array($p['conditions'], $criticalConditions)));
-    $todaysAppointments = 3;
+    
+    // Dynamic real-time calculation of today's appointments
+    $todaysAppointments = 0;
+    try {
+        $allAppointments = $appointmentModel->all();
+        $todayStr = date('Y-m-d');
+        $todaysAppointments = count(array_filter($allAppointments, function($a) use ($todayStr) {
+            $status = strtolower($a['status'] ?? 'pending');
+            if ($status === 'cancelled') return false;
+            $aDate = !empty($a['appointment_date']) 
+                ? substr($a['appointment_date'], 0, 10) 
+                : (!empty($a['date']) ? substr($a['date'], 0, 10) : '');
+            return $aDate === $todayStr;
+        }));
+    } catch (\Throwable $e) {
+        error_log('Error counting today appointments in patients.php: ' . $e->getMessage());
+        $todaysAppointments = 0;
+    }
     $pendingLabResults  = 2;
     $followUpsDue       = 4;
-    $ageGroups = ['0-17' => 0, '18-35' => 0, '36-50' => 0, '51-65' => 0, '66+' => 0];
+    $ageGroups = [
+        '0-5 yrs'  => 0,
+        '6-17 yrs' => 0,
+        '18-35 yrs'=> 0,
+        '36-50 yrs'=> 0,
+        '51-65 yrs'=> 0,
+        '66+ yrs'  => 0
+    ];
+
     foreach ($patients as $p) {
-        $a = $p['age'];
-        if ($a <= 17) $ageGroups['0-17']++;
-        elseif ($a <= 35) $ageGroups['18-35']++;
-        elseif ($a <= 50) $ageGroups['36-50']++;
-        elseif ($a <= 65) $ageGroups['51-65']++;
-        else $ageGroups['66+']++;
+        $a = (int)$p['age'];
+        if ($a <= 5) $ageGroups['0-5 yrs']++;
+        elseif ($a <= 17) $ageGroups['6-17 yrs']++;
+        elseif ($a <= 35) $ageGroups['18-35 yrs']++;
+        elseif ($a <= 50) $ageGroups['36-50 yrs']++;
+        elseif ($a <= 65) $ageGroups['51-65 yrs']++;
+        else $ageGroups['66+ yrs']++;
+    }
+
+    // Include registered children under 5 from child records
+    try {
+        $dbChildren = $childModel->all();
+        if (!empty($dbChildren) && is_array($dbChildren)) {
+            $now = new DateTime();
+            foreach ($dbChildren as $c) {
+                $cAge = 0;
+                if (!empty($c['birth_date'])) {
+                    try {
+                        $dob = new DateTime($c['birth_date']);
+                        $cAge = $now->diff($dob)->y;
+                    } catch (\Throwable $e) {
+                        $cAge = 0;
+                    }
+                }
+                if ($cAge <= 5) $ageGroups['0-5 yrs']++;
+                elseif ($cAge <= 17) $ageGroups['6-17 yrs']++;
+                elseif ($cAge <= 35) $ageGroups['18-35 yrs']++;
+                elseif ($cAge <= 50) $ageGroups['36-50 yrs']++;
+                elseif ($cAge <= 65) $ageGroups['51-65 yrs']++;
+                else $ageGroups['66+ yrs']++;
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('Error loading children in age distribution: ' . $e->getMessage());
     }
     $caloocanZones = [
         'Zone 1'  => [1, 2, 3, 4],
@@ -223,7 +279,7 @@ $title = 'Patient Management';
             <div class="absolute -top-12 -right-12 w-24 h-24 bg-emerald-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
             <div class="relative"><div class="flex items-center gap-3"><div class="w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200"><i class="fa-solid fa-user-check text-lg"></i></div><div><p class="text-2xl font-black text-emerald-600" id="statActive"><?php echo count(array_filter($patients, fn($p) => $p['status'] === 'active')); ?></p><p class="text-xs font-medium text-slate-500">Active</p></div></div><div class="mt-3 flex items-center gap-2"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅ Verified</span><span class="text-[10px] text-slate-400">Currently active</span></div></div>
         </div>
-        <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
+        <div onclick="window.location.href='appointments.php'" class="cursor-pointer relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group" title="View Today's Appointments">
             <div class="absolute -top-12 -right-12 w-24 h-24 bg-sky-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
             <div class="relative"><div class="flex items-center gap-3"><div class="w-11 h-11 bg-gradient-to-br from-sky-500 to-sky-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-sky-200"><i class="fa-solid fa-calendar-check text-lg"></i></div><div><p class="text-2xl font-black text-sky-600"><?php echo $todaysAppointments; ?></p><p class="text-xs font-medium text-slate-500">Today's Appointments</p></div></div><div class="mt-3 flex items-center gap-2"><span class="px-2 py-0.5 bg-sky-100 text-sky-700 rounded-full text-[10px] font-bold">📅 Today</span><span class="text-[10px] text-slate-400"><?php echo date('F d, Y'); ?></span></div></div>
         </div>
@@ -253,10 +309,17 @@ $title = 'Patient Management';
 
     <!-- Search & Filter -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
+        <!-- Top Search Bar & Location/Status Dropdowns -->
         <div class="flex flex-col sm:flex-row gap-3">
-            <div class="flex-1 relative"><i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i><input type="text" id="searchPatient" placeholder="Search by name, ID, or barangay..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition"></div>
+            <div class="flex-1 relative">
+                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input type="text" id="searchPatient" oninput="filterPatients()" placeholder="Search by name, ID (e.g. P-0068), or barangay..." class="w-full pl-9 pr-9 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
+                <button type="button" id="clearPatientSearch" onclick="clearPatientSearchInput()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
             <div class="flex gap-2 flex-wrap items-center">
-                <select id="filterZone" onchange="onFilterZoneChange()" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white font-medium text-slate-700">
+                <select id="filterZone" onchange="onFilterZoneChange()" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-xs font-semibold bg-white text-slate-700">
                     <option value="">All Zones</option>
                     <option value="Zone 1">Zone 1 (Brgy 1–4)</option>
                     <option value="Zone 7">Zone 7 (Brgy 77–81)</option>
@@ -266,13 +329,48 @@ $title = 'Patient Management';
                     <option value="Zone 14">Zone 14 (Brgy 151–160)</option>
                     <option value="Zone 15">Zone 15 (Brgy 161–164)</option>
                 </select>
-                <select id="filterBarangay" onchange="filterPatients()" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white font-medium text-slate-700">
+                <select id="filterBarangay" onchange="filterPatients()" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-xs font-semibold bg-white text-slate-700">
                     <option value="">All Barangays</option>
                 </select>
-                <select id="filterStatus" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"><option value="">All Status</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
-                <select id="filterDateType" onchange="onDateFilterTypeChange()" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"><option value="">Last Visit: Any time</option><option value="today">Today</option><option value="day">Specific day</option><option value="month">Specific month</option><option value="year">Specific year</option></select>
-                <input type="date" id="filterDateValue" class="hidden px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                <button onclick="resetFilters()" title="Reset filters" class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm"><i class="fa-solid fa-rotate-right"></i></button>
+                <select id="filterStatus" onchange="filterPatients()" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-xs font-semibold bg-white text-slate-700">
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Quick Date Range Pills Under Search -->
+        <div class="flex items-center justify-between flex-wrap gap-3 pt-3 mt-3 border-t border-slate-100">
+            <div class="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl w-fit">
+                <button type="button" onclick="setDateFilter('all')" id="dateFilterBtnAll"
+                        class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer bg-white text-slate-800 shadow-xs">
+                    <i class="fa-solid fa-users mr-1"></i> All Patients (<?php echo count($patients); ?>)
+                </button>
+                <button type="button" onclick="setDateFilter('today')" id="dateFilterBtnToday"
+                        class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-calendar-day mr-1 text-amber-500"></i> Today's Visits
+                </button>
+                <button type="button" onclick="setDateFilter('week')" id="dateFilterBtnWeek"
+                        class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-calendar-week mr-1"></i> This Week
+                </button>
+                <button type="button" onclick="setDateFilter('month')" id="dateFilterBtnMonth"
+                        class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-calendar mr-1"></i> This Month
+                </button>
+                <button type="button" onclick="setDateFilter('custom')" id="dateFilterBtnCustom"
+                        class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer text-slate-500 hover:text-slate-800">
+                    <i class="fa-solid fa-calendar-days mr-1 text-blue-500"></i> Specific Day / Range
+                </button>
+            </div>
+
+            <!-- Custom Date Range (Only visible when 'Specific Day / Range' is clicked) -->
+            <div id="customDateRangeContainer" class="hidden flex items-center gap-2 text-xs text-slate-500 font-medium bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                <span>From</span>
+                <input type="date" id="filterDateFrom" onchange="filterPatients()" class="px-2 py-1 border border-slate-200 rounded-md text-xs bg-white focus:ring-1 focus:ring-brand-medium outline-none">
+                <span>To</span>
+                <input type="date" id="filterDateTo" onchange="filterPatients()" class="px-2 py-1 border border-slate-200 rounded-md text-xs bg-white focus:ring-1 focus:ring-brand-medium outline-none">
             </div>
         </div>
     </div>
@@ -283,7 +381,7 @@ $title = 'Patient Management';
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 border-b border-slate-200"><tr><th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Patient ID</th><th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Name</th><th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gender</th><th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Age</th><th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Blood Type</th><th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Barangay</th><th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th><th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Last Visit</th><th class="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</th></tr></thead>
                 <tbody id="patientTableBody">
-                   <?php foreach ($paginatedPatients as $patient): ?>
+                   <?php foreach ($patients as $patient): ?>
 <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors patient-row" 
     data-row-id="<?php echo $patient['id']; ?>" 
     data-name="<?php echo strtolower($patient['first_name'] . ' ' . $patient['last_name']); ?>" 
@@ -353,9 +451,6 @@ $title = 'Patient Management';
             <button onclick="scheduleAppointment(<?php echo $patient['id']; ?>)" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Schedule Appointment"><i class="fa-solid fa-calendar-plus text-sm"></i></button>
             <button onclick="checkInPatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Check-in / Queue"><i class="fa-solid fa-receipt text-sm"></i></button>
             <button onclick="openMedicalRecord(<?php echo $patient['id']; ?>)" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Medical Record"><i class="fa-solid fa-folder-open text-sm"></i></button>
-            <?php if ($canDeletePatient): ?>
-            <button onclick="deletePatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Delete Patient"><i class="fa-solid fa-trash-can text-sm"></i></button>
-            <?php endif; ?>
         </div>
     </td>
 </tr>
@@ -378,7 +473,7 @@ $title = 'Patient Management';
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">First Name</label><input type="text" id="edit_first_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Name</label><input type="text" id="edit_last_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Email</label><input type="email" id="edit_email" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
-<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact Number</label><input type="text" id="edit_contact" required minlength="12" maxlength="12" pattern="[0-9]{12}" inputmode="numeric" placeholder="639XXXXXXXXX" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
+<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact Number</label><div class="flex rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-brand-medium/40 focus-within:border-brand-medium overflow-hidden"><span class="inline-flex items-center px-3 bg-slate-50 border-r border-slate-200 text-slate-700 font-bold text-xs select-none">🇵🇭 +63</span><input type="text" id="edit_contact" required maxlength="10" inputmode="numeric" placeholder="9XXXXXXXXX" class="w-full px-3 py-2 text-sm outline-none border-0 focus:ring-0 bg-transparent"></div></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Gender</label><select id="edit_gender" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="Male">Male</option><option value="Female">Female</option></select></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Age</label><input type="number" id="edit_age" min="0" max="120" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Blood Type</label><select id="edit_blood_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><?php foreach(['O+','O-','A+','A-','B+','B-','AB+','AB-'] as $bt): ?><option value="<?php echo $bt; ?>"><?php echo $bt; ?></option><?php endforeach; ?></select></div>
@@ -414,9 +509,6 @@ $title = 'Patient Management';
 <div class="flex justify-end gap-2 pt-2 border-t border-slate-100"><button type="button" onclick="ModalSystem.close('editPatientModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button><button type="submit" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-check mr-1.5"></i> Save Changes</button></div>
 </form></div></div>
 
-<!-- DELETE CONFIRMATION MODAL -->
-<div id="deletePatientModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-sm"><div class="p-6 text-center"><div class="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-trash-can text-rose-500"></i></div><h3 class="font-bold text-slate-900 mb-1">Delete this patient?</h3><p class="text-sm text-slate-500" id="deletePatientName">This action cannot be undone.</p></div><div class="flex gap-2 px-6 pb-6"><button type="button" onclick="ModalSystem.close('deletePatientModal')" class="flex-1 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button><button type="button" onclick="confirmDeletePatient()" class="flex-1 px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition text-sm font-semibold"><i class="fa-solid fa-trash-can mr-1.5"></i> Delete</button></div></div></div>
-
 <!-- ADD PATIENT MODAL -->
 <div id="addPatientModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl"><div><h3 class="font-bold text-slate-900">Add New Patient</h3><p class="text-xs text-slate-400 mt-0.5">Next ID: <span id="nextPatientIdPreview" class="font-mono font-semibold text-brand-dark"></span></p></div><button onclick="ModalSystem.close('addPatientModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div>
 <form id="addPatientForm" class="p-6 space-y-5">
@@ -424,7 +516,7 @@ $title = 'Patient Management';
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">First Name</label><input type="text" id="add_first_name" required class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Name</label><input type="text" id="add_last_name" required class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Email</label><input type="email" id="add_email" required class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
-<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact Number</label><input type="text" id="add_contact" required minlength="12" maxlength="12" pattern="[0-9]{12}" inputmode="numeric" placeholder="639XXXXXXXXX" class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
+<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact Number</label><div class="flex rounded-lg border border-slate-200 bg-white focus-within:ring-2 focus-within:ring-brand-medium/40 focus-within:border-brand-medium overflow-hidden"><span class="inline-flex items-center px-3 bg-slate-50 border-r border-slate-200 text-slate-700 font-bold text-xs select-none">🇵🇭 +63</span><input type="text" id="add_contact" required maxlength="10" inputmode="numeric" placeholder="9XXXXXXXXX" class="maskable input-maskable w-full px-3 py-2 text-sm outline-none border-0 focus:ring-0 bg-transparent"></div></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Gender</label><select id="add_gender" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="Male">Male</option><option value="Female">Female</option></select></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Age</label><input type="number" id="add_age" min="0" max="120" required class="maskable input-maskable w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Blood Type</label><select id="add_blood_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><?php foreach(['O+','O-','A+','A-','B+','B-','AB+','AB-'] as $bt): ?><option value="<?php echo $bt; ?>"><?php echo $bt; ?></option><?php endforeach; ?></select></div>
@@ -494,9 +586,17 @@ $title = 'Patient Management';
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Queue Number</label>
-                <input type="text" id="checkin_queue_number" readonly class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 font-mono font-bold text-amber-700" value="Q-1001">
-                <p class="text-xs text-slate-400 mt-1">Queue number auto-assigned for today's visit</p>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reason for Visit *</label>
+                <select id="checkin_reason_for_visit" required class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 outline-none font-semibold text-slate-800">
+                    <option value="Medical Consultation">🩺 Medical Consultation (Doctor)</option>
+                    <option value="Nutrition Assessment">🥗 Nutrition Assessment (Dietetics & Growth)</option>
+                    <option value="Immunization">💉 Immunization / Vaccination</option>
+                    <option value="Dental Consultation">🦷 Dental Consultation</option>
+                    <option value="Prenatal Consultation">🤰 Prenatal / Maternal Care</option>
+                    <option value="General Checkup">📋 General Checkup / Vitals</option>
+                    <option value="Follow-up">🔄 Follow-up Visit</option>
+                </select>
+                <p class="text-[11px] text-slate-400 mt-1">Directs the patient to the corresponding clinic service queue</p>
             </div>
 
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -705,10 +805,9 @@ td .text-slate-600.maskable.masked::after {
             const code = patient.patient_id || ('P-' + patientId);
             name = `${name} (${code})`;
         }
+        document.getElementById('checkin_patient_id').value = patientId;
         document.getElementById('checkin_patient_name_display').textContent = name;
-        
-        const qNum = 'Q-' + String(Math.floor(1000 + Math.random() * 9000));
-        document.getElementById('checkin_queue_number').value = qNum;
+        document.getElementById('checkin_reason_for_visit').value = 'Medical Consultation';
 
         ModalSystem.open('checkInModal');
     }
@@ -716,7 +815,13 @@ td .text-slate-600.maskable.masked::after {
     async function submitCheckinFromPatients(event) {
         event.preventDefault();
         const patientId = document.getElementById('checkin_patient_id').value;
-        const queueNumber = document.getElementById('checkin_queue_number').value;
+        const reasonForVisit = document.getElementById('checkin_reason_for_visit').value;
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Checking in...';
+        }
 
         try {
             const response = await fetch(`${API_BASE}/triage-queue.php`, {
@@ -724,18 +829,23 @@ td .text-slate-600.maskable.masked::after {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     patient_id: parseInt(patientId),
-                    queue_number: queueNumber
+                    reason_for_visit: reasonForVisit
                 })
             });
             const data = await response.json();
             if (data.success || response.ok) {
-                ModalSystem.toast.success(`Patient checked in successfully! Queue #: ${data.queue_number || queueNumber}`);
+                ModalSystem.toast.success(`✅ Patient checked in successfully for ${reasonForVisit}!`);
                 ModalSystem.close('checkInModal');
             } else {
                 ModalSystem.toast.error(data.message || 'Failed to check in patient');
             }
         } catch (e) {
             ModalSystem.toast.error('Network error during check-in');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-check-circle mr-1.5"></i> Confirm Check-in';
+            }
         }
     }
 
@@ -812,11 +922,12 @@ td .text-slate-600.maskable.masked::after {
         // DEBUG: Log the patient data
         console.log('📝 Editing patient:', p);
         
+        let cleanContactForEdit = (p.contact || '').replace(/^\+?63/, '').replace(/^0/, '');
         const fields = {
             'edit_first_name': p.first_name || '',
             'edit_last_name': p.last_name || '',
             'edit_email': p.email || '',
-            'edit_contact': p.contact || '',
+            'edit_contact': cleanContactForEdit,
             'edit_age': String(p.age || ''),
             'edit_address': p.address || '',
             'edit_allergies': p.allergies || 'None',
@@ -907,7 +1018,7 @@ td .text-slate-600.maskable.masked::after {
     const firstName = document.getElementById('add_first_name')?.value || '';
     const lastName = document.getElementById('add_last_name')?.value || '';
     const email = document.getElementById('add_email')?.value || '';
-    const contact = document.getElementById('add_contact')?.value || '';
+    let rawContact = (document.getElementById('add_contact')?.value || '').trim();
     const gender = document.getElementById('add_gender')?.value || '';
     const age = parseInt(document.getElementById('add_age')?.value) || 0;
     const bloodType = document.getElementById('add_blood_type')?.value || '';
@@ -918,16 +1029,22 @@ td .text-slate-600.maskable.masked::after {
     const allergies = document.getElementById('add_allergies')?.value || 'None';
     const conditions = document.getElementById('add_conditions')?.value || 'None';
     
+    // Clean and validate contact number (10 digits starting with 9, e.g. 9358587433)
+    let cleanContact = rawContact.replace(/\D/g, '');
+    if (cleanContact.startsWith('63')) cleanContact = cleanContact.substring(2);
+    if (cleanContact.startsWith('0')) cleanContact = cleanContact.substring(1);
+
     // Validate required fields
-    if (!firstName || !lastName || !contact) {
+    if (!firstName || !lastName || !cleanContact) {
         ModalSystem.toast.error('Please fill in all required fields (First Name, Last Name, Contact)');
         return;
     }
 
-    if (!/^\d{12}$/.test(contact)) {
-        ModalSystem.toast.error('Contact number must contain exactly 12 digits (example: 639171234567)');
+    if (cleanContact.length !== 10 || !cleanContact.startsWith('9')) {
+        ModalSystem.toast.error('Contact number must contain 10 digits starting with 9 (example: 9358587433)');
         return;
     }
+    const contact = '+63' + cleanContact;
     
     console.log('📝 Add Patient Data:', {
         firstName,
@@ -1050,16 +1167,20 @@ td .text-slate-600.maskable.masked::after {
         const firstName = getRealVal('edit_first_name');
         const lastName = getRealVal('edit_last_name');
         const email = getRealVal('edit_email');
-        const contact = getRealVal('edit_contact');
+        let rawContact = getRealVal('edit_contact') || '';
+        let cleanContact = rawContact.replace(/\D/g, '');
+        if (cleanContact.startsWith('63')) cleanContact = cleanContact.substring(2);
+        if (cleanContact.startsWith('0')) cleanContact = cleanContact.substring(1);
+
+        if (cleanContact.length !== 10 || !cleanContact.startsWith('9')) {
+            ModalSystem.toast.error('Contact number must contain 10 digits starting with 9 (example: 9358587433)');
+            return;
+        }
+        const contact = '+63' + cleanContact;
         const address = getRealVal('edit_address');
         const allergies = getRealVal('edit_allergies') || 'None';
         const conditions = getRealVal('edit_conditions') || 'None';
         const age = parseInt(document.getElementById('edit_age').value) || 0;
-
-        if (!/^\d{12}$/.test(contact)) {
-            ModalSystem.toast.error('Contact number must contain exactly 12 digits (example: 639171234567)');
-            return;
-        }
         
         // DEBUG: Log the real values being retrieved
         console.log('📝 Real values retrieved:', {
@@ -1136,25 +1257,6 @@ td .text-slate-600.maskable.masked::after {
         }
     }
 
-    // ============================================================
-    // DELETE
-    // ============================================================
-    function deletePatient(id) {
-        const p = PATIENTS[id]; if (!p) return;
-        pendingDeleteId = id;
-        document.getElementById('deletePatientName').textContent = `${p.first_name} ${p.last_name} (${p.patient_id}) will be permanently removed.`;
-        ModalSystem.open('deletePatientModal');
-    }
-    async function confirmDeletePatient() {
-        if (!pendingDeleteId) return;
-        try {
-            const res = await fetch(API_BASE + '/patients.php?action=delete&id=' + pendingDeleteId, { method:'POST' });
-            const data = await res.json();
-            if (data.success) { ModalSystem.toast.success('Patient deleted!'); ModalSystem.close('deletePatientModal'); setTimeout(() => window.location.reload(), 1000); }
-            else { ModalSystem.toast.error(data.message || 'Failed'); }
-        } catch (err) { ModalSystem.toast.success('Patient deleted!'); ModalSystem.close('deletePatientModal'); setTimeout(() => window.location.reload(), 1000); }
-        pendingDeleteId = null;
-    }
 
     // ============================================================
     // IMPORT / EXPORT
@@ -1182,49 +1284,55 @@ td .text-slate-600.maskable.masked::after {
     function runExport(){ const rows=Object.values(PATIENTS); const h=['patient_id','first_name','last_name','gender','age','blood_type','barangay','status','contact','email']; const csv=[h.join(',')]; rows.forEach(p=>csv.push(h.map(k=>`"${String(p[k]??'').replace(/"/g,'""')}"`).join(','))); const blob=new Blob([csv.join('\n')],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='patients_export.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); ModalSystem.close('exportModal'); ModalSystem.toast.success(rows.length+' patient(s) exported.'); }
 
     // ============================================================
-// SEARCH & FILTER - IMPROVED
+// SEARCH & FILTER - DATE PILLS & LIVE SEARCH
 // ============================================================
-function onDateFilterTypeChange() {
-    const t = document.getElementById('filterDateType').value;
-    const v = document.getElementById('filterDateValue');
-    if (t === 'day') {
-        v.type = 'date';
-        v.classList.remove('hidden');
-    } else if (t === 'month') {
-        v.type = 'month';
-        v.classList.remove('hidden');
-    } else if (t === 'year') {
-        v.type = 'number';
-        v.min = 2000;
-        v.max = 2100;
-        v.classList.remove('hidden');
-    } else {
-        v.classList.add('hidden');
+let currentPatientDateFilter = 'all';
+
+function setDateFilter(mode) {
+    currentPatientDateFilter = mode;
+    
+    document.querySelectorAll('.date-filter-btn').forEach(btn => {
+        btn.classList.remove('bg-white', 'text-slate-800', 'shadow-xs');
+        btn.classList.add('text-slate-500', 'hover:text-slate-800');
+    });
+
+    const activeBtn = document.getElementById(
+        mode === 'today' ? 'dateFilterBtnToday' :
+        mode === 'week' ? 'dateFilterBtnWeek' :
+        mode === 'month' ? 'dateFilterBtnMonth' :
+        mode === 'custom' ? 'dateFilterBtnCustom' :
+        mode === 'all' ? 'dateFilterBtnAll' : null
+    );
+
+    if (activeBtn) {
+        activeBtn.classList.remove('text-slate-500', 'hover:text-slate-800');
+        activeBtn.classList.add('bg-white', 'text-slate-800', 'shadow-xs');
     }
-    v.value = '';
+
+    const customContainer = document.getElementById('customDateRangeContainer');
+    if (customContainer) {
+        if (mode === 'custom') {
+            customContainer.classList.remove('hidden');
+        } else {
+            customContainer.classList.add('hidden');
+            const fromEl = document.getElementById('filterDateFrom');
+            const toEl = document.getElementById('filterDateTo');
+            if (fromEl) fromEl.value = '';
+            if (toEl) toEl.value = '';
+        }
+    }
+
     filterPatients();
 }
 
-function matchesDateFilter(lastVisit, filterType, filterValue) {
-    if (!filterType || !lastVisit) return true;
-    
-    const d = new Date(lastVisit + 'T00:00:00');
-    const td = new Date();
-    td.setHours(0, 0, 0, 0);
-    
-    if (filterType === 'today') {
-        return d.getTime() === td.getTime();
+function clearPatientSearchInput() {
+    const input = document.getElementById('searchPatient');
+    if (input) {
+        input.value = '';
+        document.getElementById('clearPatientSearch')?.classList.add('hidden');
+        filterPatients();
+        input.focus();
     }
-    if (filterType === 'day') {
-        return !filterValue || lastVisit === filterValue;
-    }
-    if (filterType === 'month') {
-        return !filterValue || lastVisit.slice(0, 7) === filterValue;
-    }
-    if (filterType === 'year') {
-        return !filterValue || lastVisit.slice(0, 4) === String(filterValue);
-    }
-    return true;
 }
 
 // ============================================================
@@ -1312,12 +1420,23 @@ function onFilterZoneChange() {
 }
 
 function filterPatients() {
-    const search = document.getElementById('searchPatient').value.toLowerCase().trim();
-    const status = document.getElementById('filterStatus').value;
+    const search = (document.getElementById('searchPatient')?.value || '').toLowerCase().trim();
+    const clearBtn = document.getElementById('clearPatientSearch');
+    if (clearBtn) {
+        clearBtn.classList.toggle('hidden', search.length === 0);
+    }
+    
+    const status = document.getElementById('filterStatus')?.value || '';
     const filterZone = document.getElementById('filterZone')?.value || '';
     const filterBrgy = document.getElementById('filterBarangay')?.value || '';
-    const dt = document.getElementById('filterDateType').value;
-    const dv = document.getElementById('filterDateValue').value;
+    const dateFrom = document.getElementById('filterDateFrom')?.value || '';
+    const dateTo = document.getElementById('filterDateTo')?.value || '';
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const currentMonthPrefix = todayStr.slice(0, 7);
+
     let visibleCount = 0;
     
     document.querySelectorAll('.patient-row').forEach(row => {
@@ -1336,7 +1455,7 @@ function filterPatients() {
         const emailCell = row.querySelector('.cell-email');
         const email = emailCell ? emailCell.textContent.toLowerCase() : '';
         
-        // Get all text content for searching (catches everything)
+        // Get all text content for searching
         const allText = row.textContent.toLowerCase();
         
         // Check if search matches ANY field
@@ -1371,7 +1490,17 @@ function filterPatients() {
         }
         
         // Check date filter
-        let matchesDate = matchesDateFilter(lastVisit, dt, dv);
+        let matchesDate = true;
+        if (currentPatientDateFilter === 'today') {
+            matchesDate = (lastVisit === todayStr);
+        } else if (currentPatientDateFilter === 'week') {
+            matchesDate = (lastVisit >= oneWeekAgo && lastVisit <= todayStr);
+        } else if (currentPatientDateFilter === 'month') {
+            matchesDate = lastVisit.startsWith(currentMonthPrefix);
+        } else if (currentPatientDateFilter === 'custom') {
+            if (dateFrom && lastVisit < dateFrom) matchesDate = false;
+            if (dateTo && lastVisit > dateTo) matchesDate = false;
+        }
         
         // Check if row should be visible
         const isVisible = matchesSearch && matchesStatus && matchesZone && matchesBarangay && matchesDate;
@@ -1388,17 +1517,13 @@ function filterPatients() {
 }
 
 function resetFilters() {
-    document.getElementById('searchPatient').value = '';
-    document.getElementById('filterStatus').value = '';
+    const searchInput = document.getElementById('searchPatient');
+    if (searchInput) searchInput.value = '';
+    document.getElementById('clearPatientSearch')?.classList.add('hidden');
+    if (document.getElementById('filterStatus')) document.getElementById('filterStatus').value = '';
     if (document.getElementById('filterZone')) document.getElementById('filterZone').value = '';
     populateBarangayDropdown('filterBarangay', '', '');
-    document.getElementById('filterDateType').value = '';
-    document.getElementById('filterDateValue').value = '';
-    document.getElementById('filterDateValue').classList.add('hidden');
-    document.querySelectorAll('.patient-row').forEach(row => {
-        row.style.display = '';
-    });
-    document.getElementById('emptyState').style.display = 'none';
+    setDateFilter('all');
 }
 
 function prepAddPatientModal() {
@@ -1429,7 +1554,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // ============================================================
     function initPatientValidation(){
         if(typeof ModalSystem==='undefined'||!ModalSystem.validateForm){ setTimeout(initPatientValidation,100); return; }
-        const contactValidator = value => /^\d{12}$/.test(value) || 'Contact number must contain exactly 12 digits';
+        const contactValidator = value => {
+            const clean = (value || '').toString().replace(/\D/g, '').replace(/^\+?63/, '').replace(/^0/, '');
+            return (clean.length === 10 && clean.startsWith('9')) || 'Contact number must contain 10 digits starting with 9 (e.g. 9358587433)';
+        };
         ModalSystem.validateForm('addPatientModal',{ fields:{ 'add_first_name':{label:'First Name'}, 'add_last_name':{label:'Last Name'}, 'add_email':{label:'Email'}, 'add_contact':{label:'Contact', validator:contactValidator}, 'add_age':{label:'Age'}, 'add_address':{label:'Address'} }, onSubmit:saveNewPatient });
         ModalSystem.validateForm('editPatientModal',{ fields:{ 'edit_first_name':{label:'First Name'}, 'edit_last_name':{label:'Last Name'}, 'edit_email':{label:'Email'}, 'edit_contact':{label:'Contact', validator:contactValidator}, 'edit_age':{label:'Age'} }, onSubmit:saveEditedPatient });
         console.log('✅ Patient form validation initialized');
@@ -1441,9 +1569,24 @@ document.addEventListener('DOMContentLoaded', function() {
     function changePage(page){ if(page<1||page><?php echo $totalPages; ?>)return; window.location.href='?page='+page; }
 
     // ============================================================
-// UPDATE DATASET.REAL ON INPUT CHANGE
+// UPDATE DATASET.REAL ON INPUT CHANGE & AUTO-CLEAN CONTACT INPUTS
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
+    // Auto-clean mobile inputs to 10 digits without formatting errors
+    ['add_contact', 'edit_contact'].forEach(fieldId => {
+        const input = document.getElementById(fieldId);
+        if (input) {
+            input.addEventListener('input', function() {
+                let val = this.value.replace(/\D/g, '');
+                if (val.startsWith('63')) val = val.substring(2);
+                if (val.startsWith('0')) val = val.substring(1);
+                if (val.length > 10) val = val.substring(0, 10);
+                this.value = val;
+                this.dataset.real = val;
+            });
+        }
+    });
+
     // Add input listeners to edit form fields
     const editFields = [
         'edit_first_name', 'edit_last_name', 'edit_email', 
@@ -1454,10 +1597,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const input = document.getElementById(fieldId);
         if (input) {
             input.addEventListener('input', function() {
-                // When user types, update dataset.real with the new value
                 const newValue = this.value;
-                // Only update if it's not masked (or we want to store the real value)
-                // Since we're editing, the user is typing the real value
                 if (newValue) {
                     this.dataset.real = newValue;
                 }
@@ -1473,12 +1613,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-// Attach event listeners for real-time filtering
+// Attach event listeners for real-time filtering & initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchPatient');
     const statusFilter = document.getElementById('filterStatus');
-    const dateTypeFilter = document.getElementById('filterDateType');
-    const dateValueFilter = document.getElementById('filterDateValue');
     
     if (searchInput) {
         searchInput.addEventListener('input', filterPatients);
@@ -1487,16 +1625,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (statusFilter) {
         statusFilter.addEventListener('change', filterPatients);
     }
-    if (dateTypeFilter) {
-        dateTypeFilter.addEventListener('change', function() {
-            onDateFilterTypeChange();
-            filterPatients();
-        });
-    }
-    if (dateValueFilter) {
-        dateValueFilter.addEventListener('change', filterPatients);
-        dateValueFilter.addEventListener('input', filterPatients);
-    }
+
+    // Default to filtering today's visits on load
+    filterPatients();
 });
 // ============================================================
 // HIGHLIGHT PATIENT FROM URL PARAMETER

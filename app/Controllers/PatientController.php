@@ -193,28 +193,11 @@ class PatientController extends BaseController
     public function destroy(string $id): void
     {
         $this->handle(function() use ($id) {
-            $patient = $this->patientModel->find($id);
-            if (!$patient) {
-                return ['success' => false, 'message' => 'Patient not found', 'code' => 404];
-            }
-            $success = $this->patientModel->deleteById($id);
-            
-            if ($success && (class_exists('ActivityLog') || file_exists(__DIR__ . '/../Models/ActivityLog.php'))) {
-                require_once __DIR__ . '/../Models/ActivityLog.php';
-                try {
-                    $logger = new ActivityLog();
-                    $fullName = trim(($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? ''));
-                    $logger->log("Deleted Patient Record: {$fullName}", [
-                        'module'  => 'Health Center Services',
-                        'details' => "Removed patient record #{$id}",
-                        'status'  => 'Success'
-                    ]);
-                } catch (Throwable $e) {
-                    error_log('PatientController destroy log error: ' . $e->getMessage());
-                }
-            }
-            
-            return ['success' => $success, 'message' => $success ? 'Patient deleted successfully' : 'Failed to delete patient'];
+            return [
+                'success' => false, 
+                'message' => 'Deletion of patient records is disabled to preserve clinical history and compliance records.', 
+                'code' => 403
+            ];
         });
     }
     

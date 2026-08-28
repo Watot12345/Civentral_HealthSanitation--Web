@@ -18,10 +18,14 @@ requireDepartmentAccess('immunization & nutrition');
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../app/Models/TriageQueue.php';
 require_once __DIR__ . '/../../app/Models/Patient.php';
+require_once __DIR__ . '/../../app/Models/Child.php';
 
-// Fetch Active Patients Waiting for Nutrition Assessment Visits
+$db = Database::getInstance();
 $triageQueueModel = new TriageQueue();
 $patientModel = new Patient();
+$childModel = new Child();
+
+// Fetch Active Patients Waiting for Nutrition Assessment Visits
 $nutritionVisitsRaw = [];
 try {
     $nutritionVisitsRaw = $triageQueueModel->getVisitsByReason('Nutrition Assessment');
@@ -49,6 +53,19 @@ foreach ($nutritionVisitsRaw as $v) {
     foreach ($parts as $part) {
         if (!empty($part)) $initials .= strtoupper($part[0]);
     }
+
+    // Pull triage intake vitals (weight, height, BMI)
+    $triageVitals = null;
+    try {
+        $assRows = $db->select('assessment', ['patient_id' => $pId], ['order' => 'id.desc', 'limit' => 1]);
+        if (!empty($assRows)) {
+            $triageVitals = $assRows[0];
+        }
+    } catch (\Throwable $e) {}
+
+    $weight = $triageVitals['weight'] ?? null;
+    $height = $triageVitals['height'] ?? null;
+    $bmi = $triageVitals['bmi'] ?? null;
     
     $nutritionVisits[] = [
         'id' => $v['id'],
@@ -56,17 +73,20 @@ foreach ($nutritionVisitsRaw as $v) {
         'patient_name' => $name,
         'patient_code' => $pCode,
         'avatar' => substr($initials, 0, 2) ?: 'P',
+        'weight' => $weight ? (float)$weight : null,
+        'height' => $height ? (float)$height : null,
+        'bmi' => $bmi ? (float)$bmi : null,
         'check_in_time' => isset($v['check_in_time']) ? date('h:i A', strtotime($v['check_in_time'])) : (isset($v['created_at']) ? date('h:i A', strtotime($v['created_at'])) : date('h:i A')),
         'status' => $v['status'] ?? 'waiting'
     ];
 }
 
-// Base Children Data
+// Base Children and Pediatric Patients for Screening Selectors
 $children = [];
-
 try {
-    $db = Database::getInstance();
-    $dbChildren = $db->query('children', 'GET');
+    $dbChildren = $db->select('children', [], ['order' => 'first_name.asc']);
+    $dbPatients = $db->select('patients', [], ['order' => 'first_name.asc']);
+
     if (!empty($dbChildren) && is_array($dbChildren)) {
         foreach ($dbChildren as $c) {
             $cId = (int)$c['id'];
@@ -82,20 +102,44 @@ try {
                 'name' => trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')),
                 'gender' => !empty($c['gender']) ? ucfirst(strtolower($c['gender'])) : 'Female',
                 'age' => $ageStr,
-                'birth_date' => $birthDate
+                'birth_date' => $birthDate,
+                'source' => 'child'
             ];
         }
     }
-} catch (\Throwable $e) {
-    error_log('Supabase children query exception: ' . $e->getMessage());
-}
 
-if (empty($children)) {
-    $children = [
-        ['id' => 1, 'child_id' => 'CH-001', 'name' => 'Sofia Garcia', 'gender' => 'Female', 'age' => '2 yrs 4 mos', 'birth_date' => '2024-03-15'],
-        ['id' => 2, 'child_id' => 'CH-002', 'name' => 'Luis Mendoza', 'gender' => 'Male', 'age' => '1 yr 3 mos', 'birth_date' => '2025-04-20'],
-        ['id' => 3, 'child_id' => 'CH-003', 'name' => 'Emma Lim', 'gender' => 'Female', 'age' => '3 yrs 1 mo', 'birth_date' => '2023-06-01']
-    ];
+    if (!empty($dbPatients) && is_array($dbPatients)) {
+        foreach ($dbPatients as $p) {
+            $pName = trim(($p['first_name'] ?? '') . ' ' . ($p['last_name'] ?? ''));
+            $exists = false;
+            foreach ($children as $c) {
+                if (strcasecmp($c['name'], $pName) === 0) {
+                    $exists = true;
+                    break;
+                }
+            }
+            if (!$exists) {
+                $pId = (int)$p['id'];
+                $birthDate = $p['birth_date'] ?? date('Y-m-d');
+                $birth = new DateTime($birthDate);
+                $today = new DateTime();
+                $diff = $today->diff($birth);
+                $ageStr = $diff->y > 0 ? "{$diff->y} yrs {$diff->m} mos" : "{$diff->m} mos";
+
+                $children[] = [
+                    'id' => $pId,
+                    'child_id' => $p['patient_id'] ?? ('P-' . sprintf('%03d', $pId)),
+                    'name' => $pName,
+                    'gender' => !empty($p['gender']) ? ucfirst(strtolower($p['gender'])) : 'Female',
+                    'age' => $ageStr,
+                    'birth_date' => $birthDate,
+                    'source' => 'patient'
+                ];
+            }
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Error querying children & patients: ' . $e->getMessage());
 }
 
 // Real Nutrition Assessments from Database
@@ -193,29 +237,29 @@ $title = 'Nutrition Assessment';
                 <i class="fa-solid fa-pills text-xs"></i> Supplements
             </button>
         </div>
-    </div>
-
-    <!-- ============================================================ -->
+    </div>    <!-- ============================================================ -->
     <!-- PATIENTS WAITING FOR NUTRITION ASSESSMENT (TODAY'S VISITS)  -->
     <!-- ============================================================ -->
     <?php if (!empty($nutritionVisits)): ?>
-    <div class="bg-white rounded-xl shadow-xs border border-emerald-200 mb-6 overflow-hidden">
+    <div class="bg-white rounded-2xl shadow-xs border border-emerald-200 mb-6 overflow-hidden">
         <div class="p-4 border-b border-emerald-200/80 flex items-center justify-between bg-emerald-50/50">
             <div class="flex items-center gap-2">
-                <i class="fa-solid fa-apple-whole text-emerald-600"></i>
-                <h3 class="text-sm font-bold text-emerald-900">Patients Waiting for Nutrition Assessment</h3>
-                <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold"><?php echo count($nutritionVisits); ?> active visit(s)</span>
+                <div class="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700">
+                    <i class="fa-solid fa-apple-whole text-sm"></i>
+                </div>
+                <h3 class="text-sm font-bold text-emerald-950">Patients Waiting for Nutrition Assessment</h3>
+                <span class="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-bold"><?php echo count($nutritionVisits); ?> active visit(s)</span>
             </div>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 border-b border-slate-200">
                     <tr>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient ID</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Patient Name</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Reason for Visit</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Check-in Time</th>
-                        <th class="px-4 py-2 text-center text-[10px] font-bold text-slate-500 uppercase">Action</th>
+                        <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Patient ID</th>
+                        <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Patient Name</th>
+                        <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Triage Intake Vitals</th>
+                        <th class="px-4 py-2.5 text-left text-[10px] font-bold text-slate-500 uppercase">Check-in Time</th>
+                        <th class="px-4 py-2.5 text-center text-[10px] font-bold text-slate-500 uppercase">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -223,20 +267,34 @@ $title = 'Nutrition Assessment';
                     <tr class="border-b border-slate-100 hover:bg-emerald-50/20 transition-colors">
                         <td class="px-4 py-3 font-mono text-xs font-bold text-emerald-700"><?php echo htmlspecialchars($visit['patient_code']); ?></td>
                         <td class="px-4 py-3 font-semibold text-slate-800">
-                            <div class="flex items-center gap-2">
-                                <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-[10px]"><?php echo htmlspecialchars($visit['avatar']); ?></div>
-                                <span><?php echo htmlspecialchars($visit['patient_name']); ?></span>
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs"><?php echo htmlspecialchars($visit['avatar']); ?></div>
+                                <div>
+                                    <p class="text-sm font-bold text-slate-900"><?php echo htmlspecialchars($visit['patient_name']); ?></p>
+                                    <span class="text-[11px] text-emerald-700 font-medium inline-flex items-center gap-1">
+                                        <i class="fa-solid fa-circle-check text-[8px]"></i> Ready for Clinical Screening
+                                    </span>
+                                </div>
                             </div>
                         </td>
                         <td class="px-4 py-3">
-                            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
-                                <i class="fa-solid fa-apple-whole text-[10px] text-emerald-600"></i> Nutrition Assessment
-                            </span>
+                            <?php if ($visit['weight'] || $visit['height']): ?>
+                                <div class="text-xs space-y-0.5">
+                                    <span class="font-bold text-slate-800"><?php echo $visit['weight'] ? $visit['weight'] . ' kg' : '—'; ?></span>
+                                    <span class="text-slate-400">•</span>
+                                    <span class="font-bold text-slate-800"><?php echo $visit['height'] ? $visit['height'] . ' cm' : '—'; ?></span>
+                                    <?php if ($visit['bmi']): ?>
+                                        <span class="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold ml-1">BMI: <?php echo $visit['bmi']; ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            <?php else: ?>
+                                <span class="text-xs text-slate-400 italic">Vitals pending</span>
+                            <?php endif; ?>
                         </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs"><?php echo htmlspecialchars($visit['check_in_time']); ?></td>
+                        <td class="px-4 py-3 text-slate-600 text-xs font-medium"><?php echo htmlspecialchars($visit['check_in_time']); ?></td>
                         <td class="px-4 py-3 text-center">
-                            <button onclick="openModal('nutritionScreeningModal');" 
-                                    class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition inline-flex items-center gap-1">
+                            <button onclick="startAssessmentFor(<?php echo htmlspecialchars(json_encode($visit), ENT_QUOTES); ?>)" 
+                                    class="px-4 py-2 text-xs font-bold text-white bg-brand-dark rounded-xl hover:bg-brand-medium transition shadow-xs inline-flex items-center gap-1.5">
                                 <i class="fa-solid fa-weight-scale text-xs"></i> Start Assessment
                             </button>
                         </td>
@@ -949,6 +1007,63 @@ $title = 'Nutrition Assessment';
             console.error('Emergency intervention error:', err);
             showToast('Error connecting to server.', 'danger');
         }
+    }
+
+    // ============================================================
+    // START ASSESSMENT FROM ACTIVE TRIAGE VISIT
+    // ============================================================
+    function startAssessmentFor(visit) {
+        if (!visit) return;
+        
+        const sel = document.getElementById('screen_child');
+        if (sel) {
+            let matched = false;
+            for (let i = 0; i < sel.options.length; i++) {
+                const optText = sel.options[i].text.toLowerCase();
+                const optVal = sel.options[i].value;
+                if (optVal == visit.patient_id || optText.includes(visit.patient_name.toLowerCase())) {
+                    sel.selectedIndex = i;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched && sel.options.length > 1) {
+                sel.selectedIndex = 1;
+            }
+        }
+
+        document.getElementById('screen_date').value = new Date().toISOString().split('T')[0];
+        
+        const weightInput = document.getElementById('screen_weight');
+        const heightInput = document.getElementById('screen_height');
+        
+        if (visit.weight) weightInput.value = visit.weight;
+        if (visit.height) heightInput.value = visit.height;
+
+        // Auto-compute status and risk based on BMI / measurements
+        if (visit.weight && visit.height) {
+            const hM = visit.height / 100;
+            const bmi = visit.weight / (hM * hM);
+            const statusEl = document.getElementById('screen_status');
+            const riskEl = document.getElementById('screen_risk');
+            if (bmi < 14) {
+                if (statusEl) statusEl.value = 'critical';
+                if (riskEl) riskEl.value = 'high';
+            } else if (bmi < 15.5) {
+                if (statusEl) statusEl.value = 'moderate';
+                if (riskEl) riskEl.value = 'medium';
+            } else {
+                if (statusEl) statusEl.value = 'normal';
+                if (riskEl) riskEl.value = 'low';
+            }
+        }
+
+        const notesEl = document.getElementById('screen_notes');
+        if (notesEl && !notesEl.value) {
+            notesEl.value = 'Intake from Triage: Patient presented for Nutrition Assessment.';
+        }
+
+        openModal('nutritionScreeningModal');
     }
 
     // ============================================================

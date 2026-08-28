@@ -176,21 +176,28 @@ class InventoryController
     {
         $record = [];
 
-        if (!$isUpdate && isset($data['vaccine_name'])) {
+        if (isset($data['vaccine_name'])) {
             $record['vaccine_name'] = trim(strip_tags($data['vaccine_name']));
         }
-        if (isset($data['vaccine_name']) && $isUpdate) {
-            $record['vaccine_name'] = trim(strip_tags($data['vaccine_name']));
+        if (isset($data['batch_number']) && !empty(trim($data['batch_number']))) {
+            $record['batch_number'] = trim(strip_tags($data['batch_number']));
+        } elseif (!$isUpdate) {
+            $vClean = isset($record['vaccine_name']) ? strtoupper(preg_replace('/[^A-Z]/', '', $record['vaccine_name'])) : 'VAC';
+            $prefix = substr($vClean, 0, 4) ?: 'VAC';
+            $record['batch_number'] = $prefix . '-' . date('Y') . '-' . strtoupper(substr(uniqid(), -4));
         }
-        if (isset($data['batch_number']))    $record['batch_number']    = trim(strip_tags($data['batch_number']));
+
         if (isset($data['quantity']))        $record['quantity']         = max(0, (int)$data['quantity']);
         if (isset($data['minimum_stock']))   $record['minimum_stock']    = max(0, (int)$data['minimum_stock']);
         if (isset($data['expiry_date']))     $record['expiry_date']      = $this->sanitizeDate($data['expiry_date']);
         if (isset($data['temperature']))     $record['temperature']      = (float)$data['temperature'];
-        if (isset($data['storage_location']))$record['storage_location'] = trim(strip_tags($data['storage_location']));
-        if (isset($data['supplier']))        $record['supplier']         = trim(strip_tags($data['supplier']));
-        if (isset($data['unit']))            $record['unit']             = trim(strip_tags($data['unit']));
-        if (isset($data['received_date']))   $record['received_date']    = $this->sanitizeDate($data['received_date']);
+        if (isset($data['storage_location']))$record['storage_location'] = !empty(trim($data['storage_location'])) ? trim(strip_tags($data['storage_location'])) : 'Refrigerator A1';
+        
+        $supplier = isset($data['supplier']) ? trim(strip_tags($data['supplier'])) : '';
+        $record['supplier'] = !empty($supplier) ? $supplier : 'DOH Central Supply Office';
+
+        if (isset($data['unit']))            $record['unit']             = !empty(trim($data['unit'])) ? trim(strip_tags($data['unit'])) : 'doses';
+        if (isset($data['received_date']))   $record['received_date']    = $this->sanitizeDate($data['received_date'] ?? 'now');
 
         return $record;
     }

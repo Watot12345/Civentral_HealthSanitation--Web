@@ -14,12 +14,12 @@ class SessionAuthService
     }
 
     /**
-     * Generates a 6-digit OTP code, stores it in session/DB, and emails it to the employee.
+     * Generates a 6-digit OTP code with 3-minute TTL, stores it in DB, and emails it to the employee.
      */
     public function generateAndSendOtp(array $employee, bool $rememberMe = false): array
     {
         $otpCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $otpExpiresAt = date('Y-m-d H:i:s', strtotime('+5 minutes'));
+        $otpExpiresAt = date('Y-m-d H:i:s', strtotime('+3 minutes'));
         $sessionToken = bin2hex(random_bytes(32));
 
         // Calculate final session expiration post-OTP verification
@@ -45,10 +45,10 @@ class SessionAuthService
             error_log('SessionAuthService DB error: ' . $e->getMessage());
         }
 
-        // Send email via MailService (PHPMailer / SMTP)
+        // Send email via MailService (PHPMailer / SMTP) with 3-minute expiration note
         $sent = false;
         if (!empty($email)) {
-            $sent = $this->mailService->sendOtpEmail($email, $name, $otpCode, 5);
+            $sent = $this->mailService->sendOtpEmail($email, $name, $otpCode, 3);
         }
 
         return [
@@ -62,7 +62,7 @@ class SessionAuthService
     }
 
     /**
-     * Verifies the 6-digit OTP code and activates the 12-hour (or 7-day) session.
+     * Verifies the 6-digit OTP code (Enforces max 5 attempts before locking code).
      */
     public function verifyOtp(string $sessionToken, string $enteredCode): array
     {
@@ -75,12 +75,79 @@ class SessionAuthService
             }
 
             $session = $sessions[0];
-            if (strtotime($session['otp_expires_at']) < time()) {
-                return ['success' => false, 'error_type' => 'code_expired', 'message' => 'Security code has expired. Click "Resend Code" for a new 5-minute code.'];
+
+            // 1. Check if token/code has expired or already been invalidated/locked
+            if (strtotime($session['otp_expires_at']) < time() || empty($session['otp_code'])) {
+                return [
+                    'success' => false,
+                    'error_type' => 'code_expired',
+                    'message' => 'Verification code has expired (3-minute limit). Please click "Resend Code" for a new code.'
+                ];
             }
 
+            // 2. Track & Enforce Maximum 5 OTP Attempts (Brute Force Protection)
+            $cacheDir = __DIR__ . '/../../storage/cache';
+            if (!is_dir($cacheDir)) {
+                @mkdir($cacheDir, 0755, true);
+            }
+            $attemptFile = $cacheDir . '/otp_attempts_' . md5($sessionToken) . '.json';
+            $attemptData = ['attempts' => 0, 'created_at' => time()];
+            if (file_exists($attemptFile)) {
+                $raw = @file_get_contents($attemptFile);
+                $attemptData = json_decode($raw, true) ?: $attemptData;
+            }
+
+            // If already at or above 5 attempts, lock and invalidate the code
+            if (($attemptData['attempts'] ?? 0) >= 5) {
+                try {
+                    $db->update('user_sessions', [
+                        'otp_code' => null,
+                        'otp_expires_at' => date('Y-m-d H:i:s', time() - 10)
+                    ], ['session_token' => $sessionToken], true);
+                } catch (\Throwable $ignored) {}
+
+                return [
+                    'success' => false,
+                    'error_type' => 'too_many_attempts',
+                    'locked' => true,
+                    'message' => 'Maximum verification attempts exceeded (5/5). For your security, this code has been locked and invalidated. Please click "Resend Code" to receive a new code.'
+                ];
+            }
+
+            // 3. Verify the Code
             if (trim($session['otp_code']) !== trim($enteredCode)) {
-                return ['success' => false, 'error_type' => 'wrong_code', 'message' => 'Incorrect 6-digit verification code. Please check your email.'];
+                $attemptData['attempts'] = ($attemptData['attempts'] ?? 0) + 1;
+                @file_put_contents($attemptFile, json_encode($attemptData));
+
+                $remaining = max(0, 5 - $attemptData['attempts']);
+
+                if ($remaining === 0) {
+                    try {
+                        $db->update('user_sessions', [
+                            'otp_code' => null,
+                            'otp_expires_at' => date('Y-m-d H:i:s', time() - 10)
+                        ], ['session_token' => $sessionToken], true);
+                    } catch (\Throwable $ignored) {}
+
+                    return [
+                        'success' => false,
+                        'error_type' => 'too_many_attempts',
+                        'locked' => true,
+                        'message' => 'Maximum verification attempts exceeded (5/5). For your security, this code has been locked. Click "Resend Code" to generate a new verification code.'
+                    ];
+                }
+
+                return [
+                    'success' => false,
+                    'error_type' => 'wrong_code',
+                    'remaining_attempts' => $remaining,
+                    'message' => "Incorrect 6-digit verification code. ({$remaining} attempt" . ($remaining === 1 ? '' : 's') . " remaining before code is locked)"
+                ];
+            }
+
+            // Code is valid! Clean up attempt tracker file
+            if (file_exists($attemptFile)) {
+                @unlink($attemptFile);
             }
 
             // Fetch employee record

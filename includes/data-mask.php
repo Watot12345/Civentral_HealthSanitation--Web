@@ -95,7 +95,7 @@ function applyMasking(){
     }finally{isApplying=false}
 }
 
-// Update toggle button
+// Update toggle button and settings controls
 function updateMaskToggleButton(){
     var icon=document.getElementById('maskToggleIcon');
     var label=document.getElementById('maskToggleLabel');
@@ -104,6 +104,22 @@ function updateMaskToggleButton(){
     }
     if(label){
         label.textContent=isMasked?'Hidden':'Visible';
+    }
+
+    var settingsToggle = document.getElementById('settingsDataMaskToggle');
+    var settingsBadge  = document.getElementById('settingsMaskBadge');
+    var settingsIcon   = document.getElementById('settingsMaskIcon');
+    if(settingsToggle){
+        settingsToggle.checked = isMasked;
+    }
+    if(settingsBadge){
+        settingsBadge.textContent = isMasked ? 'Hidden' : 'Visible';
+        settingsBadge.className = isMasked 
+            ? 'px-2 py-0.5 bg-slate-200 text-slate-700 rounded-md text-[9px] font-extrabold uppercase'
+            : 'px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[9px] font-extrabold uppercase';
+    }
+    if(settingsIcon){
+        settingsIcon.className = isMasked ? 'fa-solid fa-eye-slash text-slate-500' : 'fa-solid fa-eye text-emerald-600';
     }
 }
 

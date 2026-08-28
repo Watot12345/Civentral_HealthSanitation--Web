@@ -18,15 +18,138 @@ if (empty($_SESSION['logged_in'])) {
 }
 
 require_once __DIR__ . '/../app/Models/ActivityLog.php';
-$activityLogModel = new ActivityLog();
-$allDashboardLogs = $activityLogModel->all(['limit' => 8]);
-$recentActivities = array_values(array_filter($allDashboardLogs, function($log) {
-    $module = strtolower($log['module'] ?? '');
-    return !str_contains($module, 'authentication') 
-        && !str_contains($module, 'user management') 
-        && !str_contains($module, 'system management');
-}));
-$recentActivities = array_slice($recentActivities, 0, 5);
+
+// Determine user role and permissions for Activity Feed scoping
+$currentUserRole = $_SESSION['user_role'] ?? $_SESSION['role_description'] ?? $_SESSION['role'] ?? 'Staff';
+$currentUserId   = (int)($_SESSION['user_id'] ?? 0);
+$currentDept     = strtolower((string)($_SESSION['department'] ?? $_SESSION['user_department'] ?? ''));
+
+$roleLower = strtolower($currentUserRole);
+$isSysAdmin = str_contains($roleLower, 'admin') || str_contains($roleLower, 'system administrator');
+$isHeadRole = str_contains($roleLower, 'director') 
+           || str_contains($roleLower, 'head') 
+           || str_contains($roleLower, 'coordinator') 
+           || str_contains($roleLower, 'supervisor') 
+           || str_contains($roleLower, 'chief')
+           || str_contains($roleLower, 'manager');
+
+// Staff members do not have an activity feed; only Heads and System Admins see it
+$canViewActivityFeed = $isSysAdmin || $isHeadRole;
+
+$recentActivities = [];
+
+if ($canViewActivityFeed) {
+    $activityLogModel = new ActivityLog();
+    // Fetch logs to filter
+    $allDashboardLogs = $activityLogModel->all(['limit' => 60]);
+    
+    $recentActivities = array_values(array_filter($allDashboardLogs, function($log) use ($isSysAdmin, $roleLower, $currentDept) {
+        $module = strtolower($log['module'] ?? '');
+        $action = strtolower($log['action'] ?? '');
+        $desc   = strtolower($log['description'] ?? ($log['details'] ?? ''));
+        $logRole = strtolower($log['role'] ?? '');
+
+        // 1. STRICTLY EXCLUDE all Authentication & Login/Logout/Session events
+        if (
+            str_contains($module, 'auth') ||
+            str_contains($action, 'login') ||
+            str_contains($action, 'logout') ||
+            str_contains($action, 'sign-in') ||
+            str_contains($action, 'sign-out') ||
+            str_contains($desc, 'logged in') ||
+            str_contains($desc, 'logged out') ||
+            str_contains($desc, 'otp') ||
+            str_contains($desc, 'password') ||
+            str_contains($action, '2fa')
+        ) {
+            return false;
+        }
+
+        // 2. ONLY INCLUDE Operational Modules & Main Controls
+        $allowedOperationalModules = [
+            'patients', 'patient', 'health center', 'consultation', 'consultations', 'triage',
+            'immunization', 'vaccination', 'vaccines', 'nutrition', 'growth',
+            'permits', 'sanitation', 'inspections', 'sanitation permits',
+            'surveillance', 'case reports', 'epidemiology', 'outbreak',
+            'wastewater', 'septic tanks', 'billing', 'services',
+            'announcements', 'announcement', 'inventory', 'pharmacy', 'prescriptions',
+            'reports', 'report generation', 'export', 'users', 'roles', 'settings', 'system settings', 'user management'
+        ];
+
+        $isOperational = false;
+        foreach ($allowedOperationalModules as $modKey) {
+            if (str_contains($module, $modKey) || str_contains($action, $modKey) || str_contains($desc, $modKey)) {
+                $isOperational = true;
+                break;
+            }
+        }
+        if (!$isOperational && !in_array($module, ['system', 'general', 'audit', 'operations', 'main controls'])) {
+            return false;
+        }
+
+        // 3. System Administrator sees all operational activities across all roles
+        if ($isSysAdmin) {
+            return true;
+        }
+
+        // 4. Department Heads / Coordinators see actions of staff within their domain
+        // Health Center Director
+        if (str_contains($roleLower, 'health center') || str_contains($currentDept, 'health')) {
+            return str_contains($module, 'patient') 
+                || str_contains($module, 'consult') 
+                || str_contains($module, 'triage') 
+                || str_contains($module, 'immuniz') 
+                || str_contains($module, 'vaccin') 
+                || str_contains($module, 'nutri') 
+                || str_contains($module, 'prescript')
+                || str_contains($module, 'health')
+                || str_contains($logRole, 'doctor')
+                || str_contains($logRole, 'nurse')
+                || str_contains($logRole, 'dentist')
+                || str_contains($logRole, 'nutritionist')
+                || str_contains($logRole, 'midwife')
+                || str_contains($logRole, 'clerk');
+        }
+
+        // Sanitation Director
+        if (str_contains($roleLower, 'sanitation') || str_contains($currentDept, 'sanitation')) {
+            return str_contains($module, 'permit') 
+                || str_contains($module, 'inspect') 
+                || str_contains($module, 'sanitation') 
+                || str_contains($module, 'waste') 
+                || str_contains($module, 'septic')
+                || str_contains($module, 'bill')
+                || str_contains($logRole, 'inspector')
+                || str_contains($logRole, 'permit')
+                || str_contains($logRole, 'cashier')
+                || str_contains($logRole, 'wastewater');
+        }
+
+        // Immunization Coordinator
+        if (str_contains($roleLower, 'immuniz') || str_contains($currentDept, 'immuniz') || str_contains($currentDept, 'nutrition')) {
+            return str_contains($module, 'immuniz') 
+                || str_contains($module, 'vaccin') 
+                || str_contains($module, 'nutri') 
+                || str_contains($module, 'growth')
+                || str_contains($logRole, 'midwife')
+                || str_contains($logRole, 'nutrition')
+                || str_contains($logRole, 'nurse');
+        }
+
+        // Surveillance Coordinator
+        if (str_contains($roleLower, 'surveillance') || str_contains($currentDept, 'surveillance')) {
+            return str_contains($module, 'surveill') 
+                || str_contains($module, 'case') 
+                || str_contains($module, 'epidemiol') 
+                || str_contains($module, 'outbreak')
+                || str_contains($logRole, 'surveillance');
+        }
+
+        return true;
+    }));
+
+    $recentActivities = array_slice($recentActivities, 0, 7);
+}
 
 // Fetch real Supabase cloud storage and database health metrics
 require_once __DIR__ . '/../config/database.php';
@@ -1574,45 +1697,57 @@ if ($_isHcRole) {
 
         </div>
 
+        <?php if ($canViewActivityFeed): ?>
         <!-- ============================================================ -->
-        <!-- ACTIVITY FEED                                                 -->
+        <!-- ACTIVITY FEED (Leadership & Head Roles Only)                 -->
         <!-- ============================================================ -->
         <div id="activityFeed" class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm mt-4 flex-shrink-0">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
                     <i class="fas fa-clock-rotate-left" aria-hidden="true"></i> Activity Feed
-                    <span class="text-[9px] font-normal text-slate-400 ml-1">Who did what, and when</span>
+                    <span class="text-[9px] font-normal text-slate-400 ml-1">Staff & Operational Actions</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <input type="text" 
+                           id="activitySearchInput"
+                           oninput="filterActivityFeed(this.value)"
                            placeholder="Search staff or action..." 
                            class="text-[10px] border border-c1/40 rounded-lg px-2.5 py-1.5 w-44 focus:outline-none focus:ring-2 focus:ring-c2/30"
                            aria-label="Search activity log" />
-                    <a href="activity-log.php" 
+                    <a href="<?= site_url('management/system_logs.php'); ?>" 
                        class="text-[10px] text-c2 font-semibold hover:underline whitespace-nowrap"
                        aria-label="View full activity log">
                         <i class="fas fa-arrow-right text-[8px] mr-1" aria-hidden="true"></i> View Full Log
                     </a>
                 </div>
             </div>
-            <div class="space-y-2">
+            <div id="activityFeedList" class="space-y-2">
                 <?php if (empty($recentActivities)): ?>
-                    <div class="p-4 text-center text-xs text-slate-400">No activity logs recorded yet.</div>
+                    <div class="py-8 px-4 text-center rounded-xl bg-slate-50/60 border border-dashed border-slate-200">
+                        <div class="w-12 h-12 rounded-2xl bg-white shadow-sm border border-slate-100 flex items-center justify-center mx-auto mb-2.5 text-slate-400">
+                            <i class="fas fa-clipboard-list text-lg text-slate-400"></i>
+                        </div>
+                        <h4 class="text-xs font-bold text-slate-700">No Recent Operational Activity</h4>
+                        <p class="text-[11px] text-slate-400 max-w-sm mx-auto mt-1">Staff activities in clinical services, sanitation inspections, and disease surveillance will appear here automatically.</p>
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-medium mt-3 border border-emerald-100">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live Operational Monitoring Active
+                        </span>
+                    </div>
                 <?php else: ?>
                     <?php foreach ($recentActivities as $act): 
-                        $userName = htmlspecialchars($act['user_name'] ?? 'System');
+                        $userName = htmlspecialchars($act['user_name'] ?? 'Staff Member');
                         $initials = strtoupper(substr($userName, 0, 2));
-                        $action = htmlspecialchars($act['action'] ?? '');
-                        $module = htmlspecialchars($act['module'] ?? 'System');
+                        $action = htmlspecialchars($act['action'] ?? 'Operational Action');
+                        $module = htmlspecialchars($act['module'] ?? 'Operations');
                         $ip = htmlspecialchars($act['ip_address'] ?? '127.0.0.1');
-                        $device = htmlspecialchars($act['device'] ?? 'Desktop');
+                        $device = htmlspecialchars($act['device'] ?? 'Workstation');
                         $role = htmlspecialchars($act['role'] ?? 'Staff');
-                        $dateFormatted = !empty($act['created_at']) ? date('M j, g:i A', strtotime($act['created_at'])) : 'Just now';
+                        $dateFormatted = !empty($act['created_at']) ? date('M j, g:i A', strtotime($act['created_at'])) : 'Recent';
                         
-                        $avatarColors = ['bg-emerald-500', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-rose-500'];
+                        $avatarColors = ['bg-emerald-500', 'bg-blue-500', 'bg-purple-500', 'bg-amber-500', 'bg-rose-500', 'bg-teal-500', 'bg-indigo-500'];
                         $avatarBg = $avatarColors[abs(crc32($userName)) % count($avatarColors)];
                     ?>
-                    <div class="activity-item flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition">
+                    <div class="activity-item flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 transition" data-search="<?= strtolower($userName . ' ' . $action . ' ' . $module . ' ' . $role); ?>">
                         <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white <?php echo $avatarBg; ?>"><?php echo $initials; ?></div>
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center justify-between flex-wrap gap-1">
@@ -1632,6 +1767,7 @@ if ($_isHcRole) {
                 <?php endif; ?>
             </div>
         </div>
+        <?php endif; ?>
 
     </div>   
        <!-- ============================================================ -->
@@ -1651,7 +1787,7 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
 <?php if ($hasAnyQuickAction): ?>
 <div id="bottomActionBar" 
       class="fixed bottom-6 left-1/2 z-40 hidden lg:block transition-all duration-500 ease-out"
-     style="opacity: 0 !important; transform: translateX(-50%) translateY(30px) !important; margin-left: 200px; pointer-events: none !important;">
+     style="opacity: 0; transform: translateX(-50%) translateY(30px); margin-left: 120px; pointer-events: none;">
     
     <div class="bg-white/95 backdrop-blur-xl border border-slate-200/80 shadow-2xl shadow-slate-200/50 rounded-2xl px-3 py-2 hover:shadow-2xl hover:shadow-slate-300/50 transition-all duration-300 hover:-translate-y-1">
         <div class="flex items-center gap-0.5">
@@ -1669,8 +1805,8 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
             
             <!-- Action 1: New Patient (RBAC Guarded) -->
             <?php if (hasPermission(Permissions::PATIENTS_CREATE)): ?>
-            <button onclick="openModal('new-patient')" 
-                    class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-emerald-50 transition-all duration-200"
+            <button type="button" onclick="openQuickModal('quickModalNewPatient')" 
+                    class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-emerald-50 transition-all duration-200 cursor-pointer"
                     aria-label="Register new patient"
                     data-label="Patient">
                 <div class="w-7 h-7 rounded-lg bg-emerald-50 group-hover:bg-emerald-100 flex items-center justify-center transition-all duration-200 group-hover:scale-105">
@@ -1684,8 +1820,8 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
             
             <!-- Action 2: New Permit (RBAC Guarded) -->
             <?php if (hasPermission(Permissions::PERMITS_CREATE)): ?>
-            <button onclick="openModal('new-permit')" 
-                    class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-amber-50 transition-all duration-200"
+            <button type="button" onclick="openQuickModal('quickModalNewPermit')" 
+                    class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-amber-50 transition-all duration-200 cursor-pointer"
                     aria-label="Issue new sanitation permit"
                     data-label="Permit">
                 <div class="w-7 h-7 rounded-lg bg-amber-50 group-hover:bg-amber-100 flex items-center justify-center transition-all duration-200 group-hover:scale-105">
@@ -1699,8 +1835,8 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
             
             <!-- Action 3: Vaccinate (RBAC Guarded - Highlighted) -->
             <?php if (hasPermission(Permissions::IMMUNIZATION_CREATE)): ?>
-            <button onclick="openModal('vaccinate')" 
-                    class="action-btn group relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg shadow-blue-200 transition-all duration-200 group hover:scale-105 -my-0.5"
+            <button type="button" onclick="openQuickModal('quickModalVaccinate')" 
+                    class="action-btn group relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg shadow-blue-200 transition-all duration-200 group hover:scale-105 -my-0.5 cursor-pointer"
                     aria-label="Record vaccination"
                     data-label="Vaccinate">
                 <div class="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
@@ -1715,8 +1851,8 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
             
             <!-- Action 4: Report Case (RBAC Guarded) -->
             <?php if (hasPermission(Permissions::COMPLIANCE_VIEW)): ?>
-            <button onclick="openModal('report-case')" 
-                    class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-rose-50 transition-all duration-200"
+            <button type="button" onclick="openQuickModal('quickModalReportCase')" 
+                    class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-rose-50 transition-all duration-200 cursor-pointer"
                     aria-label="Report new health case"
                     data-label="Report">
                 <div class="w-7 h-7 rounded-lg bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center transition-all duration-200 group-hover:scale-105">
@@ -1730,8 +1866,8 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
             
             <!-- Action 5: Schedule (RBAC Guarded) -->
             <?php if (hasPermission(Permissions::INSPECTIONS_CONDUCT)): ?>
-            <button onclick="openModal('schedule')" 
-                    class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-purple-50 transition-all duration-200"
+            <button type="button" onclick="openQuickModal('quickModalSchedule')" 
+                    class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-purple-50 transition-all duration-200 cursor-pointer"
                     aria-label="Schedule inspection"
                     data-label="Schedule">
                 <div class="w-7 h-7 rounded-lg bg-purple-50 group-hover:bg-purple-100 flex items-center justify-center transition-all duration-200 group-hover:scale-105">
@@ -1744,7 +1880,7 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
             <?php endif; ?>
 
             <!-- Action 6: Post Announcement -->
-            <button onclick="openPostAnnouncementModal()" 
+            <button type="button" onclick="openPostAnnouncementModal()" 
                     class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-cyan-50 transition-all duration-200 cursor-pointer"
                     aria-label="Post city health announcement"
                     data-label="Announcement">
@@ -1759,10 +1895,10 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
             <?php if (hasPermission(Permissions::REPORTS_VIEW)): ?>
             <div class="w-px h-6 bg-slate-200/60 mx-0.5"></div>
             
-            <!-- Action 6: More (Dropdown RBAC Guarded) -->
+            <!-- Action 7: More (Dropdown RBAC Guarded) -->
             <div class="relative">
-                <button onclick="toggleDesktopMenu()" 
-                        class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-slate-100 transition-all duration-200"
+                <button type="button" onclick="toggleDesktopMenu()" 
+                        class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-slate-100 transition-all duration-200 cursor-pointer"
                         aria-label="More actions"
                         id="desktopMoreBtn"
                         data-label="More">
@@ -1780,21 +1916,21 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
                      class="absolute bottom-full right-0 mb-2 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 min-w-[180px] hidden opacity-0 scale-95 transition-all duration-200"
                      style="transform-origin: bottom right;">
                     <div class="space-y-0.5">
-                        <button onclick="openPostAnnouncementModal(); toggleDesktopMenu();" 
+                        <button type="button" onclick="openPostAnnouncementModal(); toggleDesktopMenu();" 
                                 class="w-full text-left px-3 py-2 hover:bg-cyan-50 rounded-lg text-xs flex items-center gap-2.5 transition-colors cursor-pointer">
                             <i class="fas fa-bullhorn text-cyan-500 w-4 text-center" aria-hidden="true"></i>
                             <span class="text-slate-700">Post Announcement</span>
                         </button>
-                        <button onclick="openModal('report'); toggleDesktopMenu();" 
-                                class="w-full text-left px-3 py-2 hover:bg-indigo-50 rounded-lg text-xs flex items-center gap-2.5 transition-colors">
+                        <a href="<?= site_url('pages/custom_report.php') ?>" 
+                           class="w-full text-left px-3 py-2 hover:bg-indigo-50 rounded-lg text-xs flex items-center gap-2.5 transition-colors">
                             <i class="fas fa-file-pdf text-indigo-500 w-4 text-center" aria-hidden="true"></i>
                             <span class="text-slate-700">Generate Report</span>
-                        </button>
-                        <button onclick="openModal('export-data'); toggleDesktopMenu();" 
-                                class="w-full text-left px-3 py-2 hover:bg-emerald-50 rounded-lg text-xs flex items-center gap-2.5 transition-colors">
+                        </a>
+                        <a href="<?= site_url('pages/export.php') ?>" 
+                           class="w-full text-left px-3 py-2 hover:bg-emerald-50 rounded-lg text-xs flex items-center gap-2.5 transition-colors">
                             <i class="fas fa-download text-emerald-500 w-4 text-center" aria-hidden="true"></i>
                             <span class="text-slate-700">Export Data</span>
-                        </button>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -1804,41 +1940,306 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
 </div>
 <?php endif; ?>
 
-<!-- QUICK ACTION MODAL OVERLAY -->
-<div id="quickActionModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
-    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden transform transition-all duration-300 scale-95 opacity-0" id="quickActionModalBox">
-        
-        <!-- Modal Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-            <div class="flex items-center space-x-3">
-                <div id="quickActionModalIconContainer" class="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-100 text-emerald-600">
-                    <i id="quickActionModalIcon" class="fas fa-plus text-sm"></i>
+<!-- ============================================================ -->
+<!-- 1. QUICK ACTION MODAL: REGISTER NEW PATIENT                 -->
+<!-- ============================================================ -->
+<div id="quickModalNewPatient" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col animate-scaleUp">
+        <div class="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                    <i class="fas fa-user-plus text-sm"></i>
                 </div>
                 <div>
-                    <h3 id="quickActionModalTitle" class="text-base font-bold text-slate-800">Quick Action</h3>
-                    <p id="quickActionModalSubtitle" class="text-xs text-slate-500">Fill in the required information to proceed</p>
+                    <h3 class="text-sm font-bold text-slate-800">Register New Patient</h3>
+                    <p class="text-[11px] text-slate-500">Quickly register a patient profile</p>
                 </div>
             </div>
-            <button type="button" onclick="closeQuickActionModal()" class="w-8 h-8 rounded-lg hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 flex items-center justify-center transition">
-                <i class="fas fa-xmark text-sm"></i>
+            <button type="button" onclick="closeQuickModal('quickModalNewPatient')" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center transition cursor-pointer">
+                <i class="fas fa-times text-sm"></i>
             </button>
         </div>
-
-        <!-- Modal Body (Dynamic Form) -->
-        <form id="quickActionForm" onsubmit="handleQuickActionSubmit(event)" class="p-6 space-y-4">
-            <input type="hidden" id="quickActionType" name="action_type" value="" />
-            
-            <div id="quickActionDynamicFields" class="space-y-4">
-                <!-- Dynamic form fields injected here -->
+        <form id="quickPatientForm" onsubmit="handleQuickPatientSubmit(event)" class="p-5 space-y-3.5">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">First Name <span class="text-rose-500">*</span></label>
+                    <input type="text" name="first_name" required placeholder="e.g. Maria Clara" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Last Name <span class="text-rose-500">*</span></label>
+                    <input type="text" name="last_name" required placeholder="e.g. Santos" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                </div>
             </div>
-
-            <!-- Modal Footer Buttons -->
-            <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-100">
-                <button type="button" onclick="closeQuickActionModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
-                    Cancel
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Birth Date <span class="text-rose-500">*</span></label>
+                    <input type="date" name="birth_date" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Gender <span class="text-rose-500">*</span></label>
+                    <select name="gender" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none bg-white">
+                        <option value="Female">Female</option>
+                        <option value="Male">Male</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Contact Number <span class="text-rose-500">*</span></label>
+                    <input type="text" name="contact" required placeholder="0917-123-4567" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Barangay <span class="text-rose-500">*</span></label>
+                    <input type="text" name="barangay" required placeholder="Barangay 1, Caloocan" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                </div>
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Allergies / Medical Notes</label>
+                <input type="text" name="allergies" placeholder="e.g. Penicillin allergy, Hypertension" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none" />
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" onclick="closeQuickModal('quickModalNewPatient')" class="px-4 py-2 bg-slate-100 text-slate-600 font-semibold rounded-xl text-xs hover:bg-slate-200 transition">Cancel</button>
+                <button type="submit" id="btnQuickPatient" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5">
+                    <i class="fas fa-check text-xs"></i> Save Patient Profile
                 </button>
-                <button type="submit" id="quickActionSubmitBtn" class="px-5 py-2 text-xs font-semibold text-white bg-brand-medium hover:bg-brand-dark rounded-xl shadow-md transition flex items-center space-x-2">
-                    <span id="quickActionSubmitText">Submit Request</span>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 2. QUICK ACTION MODAL: NEW SANITATION PERMIT                 -->
+<!-- ============================================================ -->
+<div id="quickModalNewPermit" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col animate-scaleUp">
+        <div class="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                    <i class="fas fa-file-circle-plus text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">Issue Sanitation Permit</h3>
+                    <p class="text-[11px] text-slate-500">Create a sanitation permit application</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeQuickModal('quickModalNewPermit')" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center transition cursor-pointer">
+                <i class="fas fa-times text-sm"></i>
+            </button>
+        </div>
+        <form id="quickPermitForm" onsubmit="handleQuickPermitSubmit(event)" class="p-5 space-y-3.5">
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Establishment / Business Name <span class="text-rose-500">*</span></label>
+                <input type="text" name="establishment_name" required placeholder="e.g. Caloocan City Health Diner" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Owner / Applicant <span class="text-rose-500">*</span></label>
+                    <input type="text" name="owner_name" required placeholder="Juan Dela Cruz" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Business Category <span class="text-rose-500">*</span></label>
+                    <select name="business_type" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none bg-white">
+                        <option value="Food Establishment">Food Establishment</option>
+                        <option value="Service Industry">Service Industry</option>
+                        <option value="Industrial / Water">Industrial / Water</option>
+                        <option value="Commercial Facility">Commercial Facility</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Contact Number <span class="text-rose-500">*</span></label>
+                    <input type="text" name="contact" required placeholder="0917-123-4567" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Barangay Location <span class="text-rose-500">*</span></label>
+                    <input type="text" name="barangay" required placeholder="Barangay 5, Caloocan" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-amber-500 outline-none" />
+                </div>
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" onclick="closeQuickModal('quickModalNewPermit')" class="px-4 py-2 bg-slate-100 text-slate-600 font-semibold rounded-xl text-xs hover:bg-slate-200 transition">Cancel</button>
+                <button type="submit" id="btnQuickPermit" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5">
+                    <i class="fas fa-paper-plane text-xs"></i> Submit Application
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 3. QUICK ACTION MODAL: RECORD VACCINATION                    -->
+<!-- ============================================================ -->
+<div id="quickModalVaccinate" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col animate-scaleUp">
+        <div class="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <i class="fas fa-syringe text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">Record Vaccination</h3>
+                    <p class="text-[11px] text-slate-500">Log an immunization dose for child/adult</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeQuickModal('quickModalVaccinate')" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center transition cursor-pointer">
+                <i class="fas fa-times text-sm"></i>
+            </button>
+        </div>
+        <form id="quickVaccineForm" onsubmit="handleQuickVaccinateSubmit(event)" class="p-5 space-y-3.5">
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Patient Full Name / Child Name <span class="text-rose-500">*</span></label>
+                <input type="text" name="patient_name" required placeholder="Patient Name or ID Code" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Vaccine Type <span class="text-rose-500">*</span></label>
+                    <select name="vaccine_type" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                        <option value="BCG">BCG Vaccine</option>
+                        <option value="Hepatitis B">Hepatitis B</option>
+                        <option value="Pentavalent">Pentavalent (DPT-HepB-Hib)</option>
+                        <option value="OPV/IPV">Polio (OPV / IPV)</option>
+                        <option value="MMR">Measles, Mumps, Rubella (MMR)</option>
+                        <option value="Influenza">Influenza (Flu)</option>
+                        <option value="COVID-19">COVID-19 Booster</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Dose Number <span class="text-rose-500">*</span></label>
+                    <select name="dose_number" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                        <option value="Dose 1">Dose 1 (Primary)</option>
+                        <option value="Dose 2">Dose 2</option>
+                        <option value="Dose 3">Dose 3</option>
+                        <option value="Booster 1">Booster 1</option>
+                        <option value="Booster 2">Booster 2</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Administration Date <span class="text-rose-500">*</span></label>
+                    <input type="date" name="administered_date" value="<?= date('Y-m-d') ?>" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Health Center / Administered By</label>
+                    <input type="text" name="health_center" value="Caloocan Main Health Center" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" onclick="closeQuickModal('quickModalVaccinate')" class="px-4 py-2 bg-slate-100 text-slate-600 font-semibold rounded-xl text-xs hover:bg-slate-200 transition">Cancel</button>
+                <button type="submit" id="btnQuickVaccine" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5">
+                    <i class="fas fa-check text-xs"></i> Record Vaccination
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 4. QUICK ACTION MODAL: FLAG HEALTH CASE / OUTBREAK           -->
+<!-- ============================================================ -->
+<div id="quickModalReportCase" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col animate-scaleUp">
+        <div class="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                    <i class="fas fa-flag text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">Flag Health Case</h3>
+                    <p class="text-[11px] text-slate-500">Report disease surveillance case or outbreak trigger</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeQuickModal('quickModalReportCase')" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center transition cursor-pointer">
+                <i class="fas fa-times text-sm"></i>
+            </button>
+        </div>
+        <form id="quickCaseForm" onsubmit="handleQuickCaseSubmit(event)" class="p-5 space-y-3.5">
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Disease / Condition <span class="text-rose-500">*</span></label>
+                <input type="text" name="disease_name" required placeholder="e.g. Dengue Fever, Acute Gastroenteritis, Measles" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-rose-500 outline-none" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Barangay Location <span class="text-rose-500">*</span></label>
+                    <input type="text" name="location" required placeholder="e.g. Barangay 8" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-rose-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Severity / Outbreak Risk <span class="text-rose-500">*</span></label>
+                    <select name="severity" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-rose-500 outline-none bg-white">
+                        <option value="Low">Low Risk (Isolated)</option>
+                        <option value="Moderate">Moderate Alert</option>
+                        <option value="High">High Outbreak Alert</option>
+                        <option value="Critical">Critical Emergency</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Observed Symptoms / Case Details</label>
+                <textarea name="symptoms" rows="2" placeholder="High fever, rashes, dehydration, clusters observed..." class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-rose-500 outline-none"></textarea>
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" onclick="closeQuickModal('quickModalReportCase')" class="px-4 py-2 bg-slate-100 text-slate-600 font-semibold rounded-xl text-xs hover:bg-slate-200 transition">Cancel</button>
+                <button type="submit" id="btnQuickCase" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5">
+                    <i class="fas fa-bullhorn text-xs"></i> File Case Report
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 5. QUICK ACTION MODAL: SCHEDULE INSPECTION                   -->
+<!-- ============================================================ -->
+<div id="quickModalSchedule" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col animate-scaleUp">
+        <div class="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
+                    <i class="fas fa-calendar-plus text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">Schedule Sanitation Inspection</h3>
+                    <p class="text-[11px] text-slate-500">Book field inspection for sanitation compliance</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeQuickModal('quickModalSchedule')" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center transition cursor-pointer">
+                <i class="fas fa-times text-sm"></i>
+            </button>
+        </div>
+        <form id="quickScheduleForm" onsubmit="handleQuickScheduleSubmit(event)" class="p-5 space-y-3.5">
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Establishment / Facility Name <span class="text-rose-500">*</span></label>
+                <input type="text" name="business_name" required placeholder="Facility Name or Establishment" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Inspection Date <span class="text-rose-500">*</span></label>
+                    <input type="date" name="scheduled_date" value="<?= date('Y-m-d', strtotime('+1 day')) ?>" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Inspection Type <span class="text-rose-500">*</span></label>
+                    <select name="inspection_type" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white">
+                        <option value="Routine Sanitation Audit">Routine Sanitation Audit</option>
+                        <option value="Permit Compliance Check">Permit Compliance Check</option>
+                        <option value="Re-inspection">Re-inspection</option>
+                        <option value="Citizen Complaint Investigation">Citizen Complaint Investigation</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Inspector Assigned</label>
+                    <input type="text" name="inspector_name" placeholder="Sanitation Inspector Name" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Barangay Location <span class="text-rose-500">*</span></label>
+                    <input type="text" name="barangay" required placeholder="Barangay 12, Caloocan" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none" />
+                </div>
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" onclick="closeQuickModal('quickModalSchedule')" class="px-4 py-2 bg-slate-100 text-slate-600 font-semibold rounded-xl text-xs hover:bg-slate-200 transition">Cancel</button>
+                <button type="submit" id="btnQuickSchedule" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5">
+                    <i class="fas fa-calendar-check text-xs"></i> Confirm Schedule
                 </button>
             </div>
         </form>

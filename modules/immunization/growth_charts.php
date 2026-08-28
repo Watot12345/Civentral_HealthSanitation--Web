@@ -40,51 +40,231 @@ try {
             $today = new DateTime();
             $diff = $today->diff($birth);
             $ageStr = $diff->y > 0 ? "{$diff->y} yrs {$diff->m} mos" : "{$diff->m} mos";
+            $firstName = $c['first_name'] ?? '';
+            $lastName  = $c['last_name']  ?? '';
 
             $children[] = [
-                'id' => $cId,
-                'child_id' => $c['child_id'] ?? ('CH-' . sprintf('%03d', $cId)),
-                'name' => trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')),
-                'gender' => !empty($c['gender']) ? ucfirst(strtolower($c['gender'])) : 'Female',
+                'id'         => $cId,
+                'child_id'   => $c['child_id'] ?? ('CH-' . sprintf('%03d', $cId)),
+                'name'       => trim($firstName . ' ' . $lastName),
+                'gender'     => !empty($c['gender']) ? ucfirst(strtolower($c['gender'])) : 'Female',
                 'birth_date' => $birthDate,
-                'age' => $ageStr
+                'age'        => $ageStr
             ];
-
-            if (isset($c['birth_weight']) || isset($c['birth_height'])) {
-                $growthData[] = [
-                    'child_id' => $cId,
-                    'date' => $birthDate,
-                    'weight' => (float)($c['birth_weight'] ?? 3.2),
-                    'height' => (float)($c['birth_height'] ?? 50),
-                    'head_circumference' => 35,
-                    'notes' => 'Birth Record'
-                ];
-            }
         }
     }
 
+    // Load recorded growth measurements
     if (!empty($dbGrowth) && is_array($dbGrowth)) {
         foreach ($dbGrowth as $g) {
             $growthData[] = [
-                'id' => (int)$g['id'],
-                'child_id' => (int)$g['child_id'],
-                'date' => $g['measurement_date'],
-                'weight' => (float)$g['weight'],
-                'height' => (float)$g['height'],
+                'id'                => (int)$g['id'],
+                'child_id'          => (int)$g['child_id'],
+                'date'              => $g['measurement_date'],
+                'weight'            => (float)$g['weight'],
+                'height'            => (float)$g['height'],
                 'head_circumference' => !empty($g['head_circumference']) ? (float)$g['head_circumference'] : null,
-                'notes' => $g['notes'] ?? 'Routine Checkup'
+                'notes'             => $g['notes'] ?? 'Routine Checkup'
             ];
         }
     }
+
+    // ============================================================
+    // TRIAGE ASSESSMENT BRIDGE
+    // For each child, pull their latest triage assessment vitals
+    // via the patients table (matched by first+last name) and
+    // inject as a baseline "From Triage Assessment" entry so the
+    // chart starts with real data. Skipped if a growth_measurements
+    // record already exists for the same date (no duplicates).
+    // ============================================================
+    $existingDates = [];
+    foreach ($growthData as $gd) {
+        $existingDates[$gd['child_id']][] = substr($gd['date'], 0, 10);
+    }
+
+    foreach ($children as $child) {
+        $firstName = explode(' ', $child['name'])[0] ?? '';
+        $lastName  = trim(str_replace($firstName, '', $child['name']));
+
+        try {
+            // Find the matching patient by name
+            $patients = $db->select('patients', [
+                'first_name' => $firstName,
+                'last_name'  => $lastName
+            ], ['limit' => 1]);
+
+            if (empty($patients)) continue;
+            $patientId = (int)$patients[0]['id'];
+
+            // Get their latest assessment with weight & height
+            $assessments = $db->select('assessment', [
+                'patient_id' => $patientId
+            ], ['order' => 'created_at.desc', 'limit' => 5]);
+
+            foreach ($assessments as $a) {
+                if (empty($a['weight']) || empty($a['height'])) continue;
+
+                $assessDate = substr($a['created_at'] ?? date('Y-m-d'), 0, 10);
+                $childId    = $child['id'];
+
+                // Skip if we already have a growth_measurement on this date
+                if (in_array($assessDate, $existingDates[$childId] ?? [])) continue;
+                // Skip if assessment date = birth date (bad data)
+                if ($assessDate === substr($child['birth_date'], 0, 10)) continue;
+
+                $growthData[] = [
+                    'id'                => null, // read-only, not from growth_measurements
+                    'child_id'          => $childId,
+                    'date'              => $assessDate,
+                    'weight'            => (float)$a['weight'],
+                    'height'            => (float)$a['height'],
+                    'head_circumference' => null,
+                    'notes'             => 'From Triage Assessment'
+                ];
+                break; // only latest assessment per child
+            }
+        } catch (\Throwable $ex) {
+            // silently skip if assessment table can't be queried
+        }
+    }
+
+    // Sort all growth data by date ascending
+    usort($growthData, fn($a, $b) => strcmp($a['date'], $b['date']));
+
 } catch (\Throwable $e) {
     error_log('Supabase children/growth query exception: ' . $e->getMessage());
 }
 
-// Compute dynamic growth alerts from database records
+// ============================================================
+// REAL WHO-BASED GROWTH ALERTS
+// Checks each child's latest measurement against WHO P3/P15/P97
+// thresholds (weight-for-age). Also detects growth faltering.
+// ============================================================
+
+// Helper: get WHO P3/P15/P97 ref for a given gender + age in months
+function getWhoRef(array $percentileTable, string $gender, float $ageMonths): ?array {
+    $gKey = strtolower($gender) === 'male' ? 'male' : 'female';
+    if (!isset($percentileTable[$gKey])) return null;
+    $ref = null;
+    foreach ($percentileTable[$gKey] as $refAge => $values) {
+        if ($ageMonths >= (float)$refAge) $ref = $values;
+    }
+    return $ref;
+}
+
+// Group growth measurements by child_id, sorted by date ascending
+$growthByChild = [];
+foreach ($growthData as $g) {
+    $growthByChild[$g['child_id']][] = $g;
+}
+
 $growthAlerts = [];
+
 foreach ($children as $c) {
-    if (isset($c['birth_weight']) && (float)$c['birth_weight'] < 2.5) {
-        $growthAlerts[] = ['child' => $c['name'], 'type' => 'weight', 'message' => 'Low birth weight (< 2.5 kg)', 'severity' => 'high'];
+    $cId   = $c['id'];
+    $name  = $c['name'];
+    $birth = new DateTime($c['birth_date']);
+
+    $measurements = $growthByChild[$cId] ?? [];
+    if (empty($measurements)) continue;
+
+    // Sort by date ascending
+    usort($measurements, fn($a, $b) => strcmp($a['date'], $b['date']));
+    $latest   = end($measurements);
+    $previous = count($measurements) >= 2 ? $measurements[count($measurements) - 2] : null;
+
+    $measDate  = new DateTime($latest['date']);
+    $ageMonths = (float)(($measDate->getTimestamp() - $birth->getTimestamp()) / (86400 * 30.44));
+    $ageMonths = max(0, $ageMonths);
+
+    // Guard: skip if measurement date is the same as birth date
+    // (indicates a bad/synced record using birth date as measurement date)
+    if ($measDate->format('Y-m-d') === $birth->format('Y-m-d')) continue;
+
+    // Guard: skip physiologically impossible combinations
+    // (e.g. age < 1 month but weight > 6 kg = wrong date on file)
+    $weight = (float)$latest['weight'];
+    if ($ageMonths < 1 && $weight > 6.0) continue;
+
+    $gender = $c['gender'] ?? 'Female';
+
+    // We need $weightPercentiles defined below — forward-reference workaround:
+    // build a minimal inline copy for the alert check
+    $whoTable = [
+        'male' => [
+            0  => ['p3' => 2.5, 'p15' => 2.8, 'p50' => 3.3, 'p85' => 3.8, 'p97' => 4.2],
+            1  => ['p3' => 3.4, 'p15' => 3.8, 'p50' => 4.3, 'p85' => 4.9, 'p97' => 5.4],
+            3  => ['p3' => 4.8, 'p15' => 5.2, 'p50' => 5.8, 'p85' => 6.4, 'p97' => 7.0],
+            6  => ['p3' => 6.4, 'p15' => 6.9, 'p50' => 7.6, 'p85' => 8.4, 'p97' => 9.2],
+            9  => ['p3' => 7.2, 'p15' => 7.8, 'p50' => 8.6, 'p85' => 9.4, 'p97' => 10.2],
+            12 => ['p3' => 8.0, 'p15' => 8.6, 'p50' => 9.6, 'p85' => 10.5, 'p97' => 11.5],
+            18 => ['p3' => 9.2, 'p15' => 10.0, 'p50' => 11.0, 'p85' => 12.2, 'p97' => 13.2],
+            24 => ['p3' => 10.5, 'p15' => 11.2, 'p50' => 12.5, 'p85' => 13.8, 'p97' => 14.8],
+            36 => ['p3' => 12.5, 'p15' => 13.2, 'p50' => 14.5, 'p85' => 16.0, 'p97' => 17.5],
+        ],
+        'female' => [
+            0  => ['p3' => 2.4, 'p15' => 2.7, 'p50' => 3.2, 'p85' => 3.7, 'p97' => 4.1],
+            1  => ['p3' => 3.2, 'p15' => 3.6, 'p50' => 4.1, 'p85' => 4.6, 'p97' => 5.1],
+            3  => ['p3' => 4.5, 'p15' => 4.9, 'p50' => 5.5, 'p85' => 6.1, 'p97' => 6.7],
+            6  => ['p3' => 6.0, 'p15' => 6.5, 'p50' => 7.2, 'p85' => 7.9, 'p97' => 8.7],
+            9  => ['p3' => 6.8, 'p15' => 7.3, 'p50' => 8.0, 'p85' => 8.8, 'p97' => 9.6],
+            12 => ['p3' => 7.5, 'p15' => 8.1, 'p50' => 9.0, 'p85' => 9.8, 'p97' => 10.8],
+            18 => ['p3' => 8.8, 'p15' => 9.4, 'p50' => 10.5, 'p85' => 11.6, 'p97' => 12.6],
+            24 => ['p3' => 10.0, 'p15' => 10.8, 'p50' => 12.0, 'p85' => 13.2, 'p97' => 14.2],
+            36 => ['p3' => 12.0, 'p15' => 12.8, 'p50' => 14.0, 'p85' => 15.4, 'p97' => 16.8],
+        ],
+    ];
+
+    $ref = getWhoRef($whoTable, $gender, $ageMonths);
+
+    if ($ref) {
+        $ageLabel = $ageMonths < 12
+            ? round($ageMonths) . ' months'
+            : floor($ageMonths / 12) . ' yr ' . (round($ageMonths) % 12) . ' mos';
+
+        if ($weight <= $ref['p3']) {
+            $growthAlerts[] = [
+                'child'    => $name,
+                'child_id' => $c['child_id'],
+                'type'     => 'underweight',
+                'message'  => "Weight {$weight} kg is below the 3rd WHO percentile (P3: {$ref['p3']} kg) at {$ageLabel} — Severe Underweight",
+                'severity' => 'high',
+                'date'     => $latest['date'],
+            ];
+        } elseif ($weight <= $ref['p15']) {
+            $growthAlerts[] = [
+                'child'    => $name,
+                'child_id' => $c['child_id'],
+                'type'     => 'at_risk',
+                'message'  => "Weight {$weight} kg is between P3–P15 WHO percentiles at {$ageLabel} — At Risk of Underweight",
+                'severity' => 'medium',
+                'date'     => $latest['date'],
+            ];
+        } elseif ($weight >= $ref['p97']) {
+            $growthAlerts[] = [
+                'child'    => $name,
+                'child_id' => $c['child_id'],
+                'type'     => 'overweight',
+                'message'  => "Weight {$weight} kg exceeds the 97th WHO percentile (P97: {$ref['p97']} kg) at {$ageLabel} — Overweight Risk",
+                'severity' => 'medium',
+                'date'     => $latest['date'],
+            ];
+        }
+    }
+
+    // Growth faltering: latest weight ≤ previous weight (no gain between visits)
+    if ($previous !== null && (float)$latest['weight'] <= (float)$previous['weight']) {
+        $alreadyFlagged = array_filter($growthAlerts, fn($a) => $a['child'] === $name && $a['type'] === 'faltering');
+        if (empty($alreadyFlagged)) {
+            $growthAlerts[] = [
+                'child'    => $name,
+                'child_id' => $c['child_id'],
+                'type'     => 'faltering',
+                'message'  => 'No weight gain between last two visits (' . $previous['date'] . ' → ' . $latest['date'] . ') — Growth Faltering',
+                'severity' => 'medium',
+                'date'     => $latest['date'],
+            ];
+        }
     }
 }
 
@@ -256,33 +436,39 @@ $title = 'Growth Charts';
             </div>
             
             <!-- Filters -->
-            <div class="flex gap-2 flex-wrap">
+            <div class="flex gap-2 flex-wrap items-center">
                 <select id="filterGenderGrowth" onchange="filterChildrenList()" 
-                        class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                        class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Genders</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                 </select>
                 <select id="filterAgeGroup" onchange="filterChildrenList()" 
-                        class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                        class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Ages</option>
-                    <option value="0-1">0-1 yr</option>
-                    <option value="1-2">1-2 yrs</option>
-                    <option value="2-3">2-3 yrs</option>
-                    <option value="3-5">3-5 yrs</option>
+                    <option value="0-1">0–1 yr</option>
+                    <option value="1-2">1–2 yrs</option>
+                    <option value="2-3">2–3 yrs</option>
+                    <option value="3-5">3–5 yrs</option>
                 </select>
                 <select id="filterAlertStatus" onchange="filterChildrenList()" 
-                        class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                        class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Status</option>
                     <option value="alert">With Alerts</option>
                     <option value="normal">Normal</option>
                 </select>
-                      <input type="date" id="filterDateFrom" aria-label="Measurement date from"
-                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"
-                          onchange="updateCharts()">
-                      <input type="date" id="filterDateTo" aria-label="Measurement date to"
-                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"
-                          onchange="updateCharts()">
+                <div class="flex items-center gap-1.5">
+                    <label class="text-xs font-semibold text-slate-500">From</label>
+                    <input type="date" id="filterDateFrom" aria-label="Measurement date from"
+                        class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"
+                        onchange="updateCharts()">
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <label class="text-xs font-semibold text-slate-500">To</label>
+                    <input type="date" id="filterDateTo" aria-label="Measurement date to"
+                        class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white"
+                        onchange="updateCharts()">
+                </div>
                 <button onclick="resetChildFilters()" title="Reset filters"
                         class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
                     <i class="fa-solid fa-rotate-right"></i>
@@ -290,16 +476,16 @@ $title = 'Growth Charts';
             </div>
         </div>
         
-        <!-- Child List Results -->
+        <!-- Child Card Grid Results -->
         <div class="mt-3 pt-3 border-t border-slate-100">
             <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Profile Selector</span>
-                <span id="childCountInfo" class="text-xs font-semibold text-slate-400">Showing top 12 children</span>
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Child Profile</span>
+                <span id="childCountInfo" class="text-xs font-semibold text-slate-400"></span>
             </div>
-            <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1.5 border border-slate-100 rounded-xl bg-slate-50/50" id="childListContainer">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-52 overflow-y-auto pr-1" id="childListContainer">
                 <!-- Populated by JavaScript -->
             </div>
-            <div id="noChildrenFound" class="hidden text-center py-4 text-sm text-slate-400">
+            <div id="noChildrenFound" class="hidden text-center py-6 text-sm text-slate-400">
                 <i class="fa-solid fa-child text-2xl block mb-2 opacity-30"></i>
                 No children found matching your criteria
             </div>
@@ -336,22 +522,35 @@ $title = 'Growth Charts';
 
     <!-- Chart Type Buttons -->
     <div class="flex items-center justify-between gap-2 mb-4">
-        <div class="flex gap-2">
-            <button onclick="setChartType('weight')" id="btnWeight" class="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-dark text-white hover:bg-brand-medium transition">Weight for Age (kg)</button>
-            <button onclick="setChartType('height')" id="btnHeight" class="px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition">Height for Age (cm)</button>
+        <div class="flex gap-2 flex-wrap">
+            <button onclick="setChartType('weight')" id="btnWeight"
+                class="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-dark text-white hover:bg-brand-medium transition flex items-center gap-1.5">
+                <i class="fa-solid fa-weight-scale text-xs"></i> Weight
+            </button>
+            <button onclick="setChartType('height')" id="btnHeight"
+                class="px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-ruler-vertical text-xs"></i> Height
+            </button>
+            <button onclick="setChartType('bmi')" id="btnBmi"
+                class="px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-chart-pie text-xs"></i> BMI
+            </button>
         </div>
-        <span class="text-xs font-semibold text-slate-400">WHO 2006 Child Growth Standards</span>
+        <span class="text-xs font-semibold text-slate-400 hidden sm:block">WHO 2006 Child Growth Standards</span>
     </div>
 
     <!-- Chart Container -->
-    <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-4 mb-6">
+    <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-4 mb-6 relative">
         <div id="growthChart" style="height: 400px;"></div>
     </div>
 
     <!-- Growth Data Table -->
     <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden mb-6">
-        <div class="px-4 py-3 bg-slate-50 border-b border-slate-200">
+        <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
             <h4 class="text-sm font-bold text-slate-700">Measurement History</h4>
+            <button onclick="openAddGrowthForSelected()" class="text-xs font-semibold text-brand-medium hover:text-brand-dark flex items-center gap-1 transition">
+                <i class="fa-solid fa-plus"></i> Add Measurement
+            </button>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -361,8 +560,8 @@ $title = 'Growth Charts';
                         <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Age</th>
                         <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Weight (kg)</th>
                         <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Height (cm)</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Head (cm)</th>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Percentile</th>
+                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">BMI</th>
+                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">WHO Percentile</th>
                         <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Notes</th>
                         <th class="px-4 py-2 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -375,25 +574,62 @@ $title = 'Growth Charts';
     </div>
 
     <!-- Growth Alerts Section -->
-    <div id="growthAlertsSection" class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-        <div class="px-4 py-3 bg-rose-50 border-b border-rose-200">
+    <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden mb-6">
+        <div class="px-4 py-3 bg-rose-50 border-b border-rose-200 flex items-center justify-between">
             <h4 class="text-sm font-bold text-rose-700 flex items-center gap-2">
                 <i class="fa-solid fa-triangle-exclamation"></i> Growth Alerts
+                <?php if (count($growthAlerts) > 0): ?>
+                <span class="px-2 py-0.5 bg-rose-600 text-white rounded-full text-[10px] font-bold"><?php echo count($growthAlerts); ?></span>
+                <?php endif; ?>
             </h4>
+            <span class="text-[10px] text-rose-500 font-semibold">Based on WHO 2006 weight-for-age percentiles</span>
         </div>
+
+        <?php if (empty($growthAlerts)): ?>
+        <div class="flex flex-col items-center justify-center py-10 px-4 text-center">
+            <div class="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
+                <i class="fa-solid fa-shield-heart text-emerald-400 text-2xl"></i>
+            </div>
+            <p class="text-sm font-semibold text-slate-600">No growth alerts detected</p>
+            <p class="text-xs text-slate-400 mt-1">All children with recorded measurements are within normal WHO weight-for-age ranges.</p>
+        </div>
+        <?php else: ?>
         <div class="divide-y divide-slate-100">
             <?php foreach ($growthAlerts as $alert): ?>
-            <div class="px-4 py-3 flex items-center justify-between">
-                <div>
-                    <p class="font-semibold text-slate-800 text-sm"><?php echo $alert['child']; ?></p>
-                    <p class="text-xs text-slate-600"><?php echo $alert['message']; ?></p>
+            <?php
+                $severityStyles = [
+                    'high'   => ['bg' => 'bg-rose-50',   'badge' => 'bg-rose-100 text-rose-700',   'icon' => 'text-rose-500',   'label' => 'High'],
+                    'medium' => ['bg' => 'bg-amber-50',  'badge' => 'bg-amber-100 text-amber-700', 'icon' => 'text-amber-500', 'label' => 'Medium'],
+                    'low'    => ['bg' => 'bg-blue-50',   'badge' => 'bg-blue-100 text-blue-700',   'icon' => 'text-blue-500',  'label' => 'Low'],
+                ];
+                $sev = $severityStyles[$alert['severity']] ?? $severityStyles['low'];
+                $typeIcons = [
+                    'underweight' => 'fa-arrow-trend-down',
+                    'at_risk'     => 'fa-circle-exclamation',
+                    'overweight'  => 'fa-arrow-trend-up',
+                    'faltering'   => 'fa-ban',
+                ];
+                $icon = $typeIcons[$alert['type']] ?? 'fa-triangle-exclamation';
+            ?>
+            <div class="px-4 py-3 flex items-start gap-3 <?php echo $sev['bg']; ?>">
+                <div class="mt-0.5 w-7 h-7 rounded-lg bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <i class="fa-solid <?php echo $icon; ?> text-xs <?php echo $sev['icon']; ?>"></i>
                 </div>
-                <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo $alert['severity'] === 'high' ? 'bg-rose-100 text-rose-700' : ($alert['severity'] === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'); ?>">
-                    <?php echo ucfirst($alert['severity']); ?>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <p class="font-bold text-slate-800 text-sm"><?php echo htmlspecialchars($alert['child']); ?></p>
+                        <span class="text-[10px] text-slate-400"><?php echo $alert['child_id'] ?? ''; ?></span>
+                        <span class="text-[10px] text-slate-400">· <?php echo $alert['date'] ?? ''; ?></span>
+                    </div>
+                    <p class="text-xs text-slate-600 mt-0.5"><?php echo htmlspecialchars($alert['message']); ?></p>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 <?php echo $sev['badge']; ?>">
+                    <?php echo $sev['label']; ?>
                 </span>
             </div>
             <?php endforeach; ?>
         </div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -636,13 +872,28 @@ $title = 'Growth Charts';
         container.innerHTML = visibleList.map(child => {
             const hasAlert = GROWTH_ALERTS.some(a => a.child === child.name);
             const isSelected = selectedChildId == child.id;
+            const initials = child.name.split(' ').map(p => p[0]).join('').slice(0,2).toUpperCase();
+            const genderColor = child.gender === 'Male'
+                ? 'from-blue-500 to-blue-600 shadow-blue-200'
+                : 'from-pink-500 to-pink-600 shadow-pink-200';
             return `
-                <button onclick="selectChild(${child.id})" 
-                        class="child-chip px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${isSelected ? 'bg-brand-dark text-white border-brand-dark' : 'bg-white border-slate-200 text-slate-600 hover:border-brand-medium hover:bg-brand-light/40'} ${hasAlert ? 'ring-2 ring-rose-300' : ''}">
-                    ${child.name}
-                    <span class="text-[10px] opacity-60">${child.child_id}</span>
-                    ${hasAlert ? '<i class="fa-solid fa-triangle-exclamation text-rose-500 ml-1 text-[10px]"></i>' : ''}
-                    ${isSelected ? ' ✓' : ''}
+                <button onclick="selectChild(${child.id})"
+                    class="child-card group flex items-center gap-3 p-3 rounded-xl border text-left transition-all w-full
+                    ${isSelected
+                        ? 'bg-brand-light border-brand-medium shadow-md shadow-brand-medium/10'
+                        : 'bg-white border-slate-200 hover:border-brand-medium hover:bg-brand-light/40 hover:shadow-sm'}
+                    ${hasAlert ? 'ring-2 ring-rose-300' : ''}">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br ${genderColor} flex items-center justify-center text-white font-black text-sm flex-shrink-0 shadow-lg">
+                        ${initials}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-slate-900 truncate flex items-center gap-1">
+                            ${child.name}
+                            ${isSelected ? '<i class="fa-solid fa-check-circle text-brand-medium text-xs"></i>' : ''}
+                            ${hasAlert ? '<i class="fa-solid fa-triangle-exclamation text-rose-500 text-xs"></i>' : ''}
+                        </p>
+                        <p class="text-[10px] text-slate-500">${child.child_id} &bull; ${child.age}</p>
+                    </div>
                 </button>
             `;
         }).join('');
@@ -678,6 +929,85 @@ $title = 'Growth Charts';
     // ============================================================
     // CHART FUNCTIONS
     // ============================================================
+    const WHO_STANDARDS = {
+        weight: {
+            male: [
+                { age: 0, label: '0m', p3: 2.5, p15: 2.8, p50: 3.3, p85: 3.8, p97: 4.2 },
+                { age: 1, label: '1m', p3: 3.4, p15: 3.8, p50: 4.3, p85: 4.9, p97: 5.4 },
+                { age: 3, label: '3m', p3: 4.8, p15: 5.2, p50: 5.8, p85: 6.4, p97: 7.0 },
+                { age: 6, label: '6m', p3: 6.4, p15: 6.9, p50: 7.6, p85: 8.4, p97: 9.2 },
+                { age: 9, label: '9m', p3: 7.2, p15: 7.8, p50: 8.6, p85: 9.4, p97: 10.2 },
+                { age: 12, label: '12m', p3: 8.0, p15: 8.6, p50: 9.6, p85: 10.5, p97: 11.5 },
+                { age: 18, label: '18m', p3: 9.2, p15: 10.0, p50: 11.0, p85: 12.2, p97: 13.2 },
+                { age: 24, label: '24m', p3: 10.5, p15: 11.2, p50: 12.5, p85: 13.8, p97: 14.8 },
+                { age: 36, label: '36m', p3: 12.5, p15: 13.2, p50: 14.5, p85: 16.0, p97: 17.5 },
+                { age: 48, label: '48m', p3: 14.2, p15: 15.1, p50: 16.5, p85: 18.2, p97: 20.0 },
+                { age: 60, label: '60m', p3: 16.0, p15: 17.1, p50: 18.7, p85: 20.7, p97: 22.8 }
+            ],
+            female: [
+                { age: 0, label: '0m', p3: 2.4, p15: 2.7, p50: 3.2, p85: 3.7, p97: 4.1 },
+                { age: 1, label: '1m', p3: 3.2, p15: 3.6, p50: 4.1, p85: 4.6, p97: 5.1 },
+                { age: 3, label: '3m', p3: 4.5, p15: 4.9, p50: 5.5, p85: 6.1, p97: 6.7 },
+                { age: 6, label: '6m', p3: 6.0, p15: 6.5, p50: 7.2, p85: 7.9, p97: 8.7 },
+                { age: 9, label: '9m', p3: 6.8, p15: 7.3, p50: 8.0, p85: 8.8, p97: 9.6 },
+                { age: 12, label: '12m', p3: 7.5, p15: 8.1, p50: 9.0, p85: 9.8, p97: 10.8 },
+                { age: 18, label: '18m', p3: 8.8, p15: 9.4, p50: 10.5, p85: 11.6, p97: 12.6 },
+                { age: 24, label: '24m', p3: 10.0, p15: 10.8, p50: 12.0, p85: 13.2, p97: 14.2 },
+                { age: 36, label: '36m', p3: 12.0, p15: 12.8, p50: 14.0, p85: 15.4, p97: 16.8 },
+                { age: 48, label: '48m', p3: 13.8, p15: 14.8, p50: 16.1, p85: 17.8, p97: 19.6 },
+                { age: 60, label: '60m', p3: 15.5, p15: 16.7, p50: 18.2, p85: 20.3, p97: 22.4 }
+            ]
+        },
+        height: {
+            male: [
+                { age: 0, label: '0m', p3: 46.1, p15: 48.0, p50: 49.9, p85: 51.8, p97: 53.7 },
+                { age: 1, label: '1m', p3: 50.8, p15: 52.8, p50: 54.7, p85: 56.7, p97: 58.6 },
+                { age: 3, label: '3m', p3: 57.3, p15: 59.4, p50: 61.4, p85: 63.5, p97: 65.5 },
+                { age: 6, label: '6m', p3: 63.3, p15: 65.5, p50: 67.6, p85: 69.8, p97: 71.9 },
+                { age: 9, label: '9m', p3: 67.7, p15: 69.7, p50: 72.0, p85: 74.2, p97: 76.5 },
+                { age: 12, label: '12m', p3: 71.0, p15: 73.4, p50: 75.7, p85: 78.1, p97: 80.5 },
+                { age: 18, label: '18m', p3: 76.9, p15: 79.6, p50: 82.3, p85: 85.0, p97: 87.7 },
+                { age: 24, label: '24m', p3: 82.1, p15: 85.0, p50: 87.8, p85: 90.7, p97: 93.6 },
+                { age: 36, label: '36m', p3: 90.4, p15: 93.2, p50: 96.1, p85: 99.2, p97: 102.3 },
+                { age: 48, label: '48m', p3: 97.4, p15: 100.4, p50: 103.3, p85: 106.6, p97: 109.8 },
+                { age: 60, label: '60m', p3: 104.1, p15: 107.0, p50: 110.0, p85: 113.6, p97: 117.0 }
+            ],
+            female: [
+                { age: 0, label: '0m', p3: 45.4, p15: 47.2, p50: 49.1, p85: 51.0, p97: 52.9 },
+                { age: 1, label: '1m', p3: 49.8, p15: 51.7, p50: 53.7, p85: 55.6, p97: 57.6 },
+                { age: 3, label: '3m', p3: 55.6, p15: 57.7, p50: 59.8, p85: 61.9, p97: 64.0 },
+                { age: 6, label: '6m', p3: 61.2, p15: 63.5, p50: 65.7, p85: 68.0, p97: 70.3 },
+                { age: 9, label: '9m', p3: 65.3, p15: 67.7, p50: 70.1, p85: 72.6, p97: 75.0 },
+                { age: 12, label: '12m', p3: 68.9, p15: 71.4, p50: 74.0, p85: 76.6, p97: 79.2 },
+                { age: 18, label: '18m', p3: 74.9, p15: 77.8, p50: 80.7, p85: 83.6, p97: 86.5 },
+                { age: 24, label: '24m', p3: 80.8, p15: 83.6, p50: 86.4, p85: 89.5, p97: 92.5 },
+                { age: 36, label: '36m', p3: 89.3, p15: 92.2, p50: 95.1, p85: 98.3, p97: 101.4 },
+                { age: 48, label: '48m', p3: 96.2, p15: 99.4, p50: 102.7, p85: 106.0, p97: 109.3 },
+                { age: 60, label: '60m', p3: 102.7, p15: 106.0, p50: 109.4, p85: 113.0, p97: 116.6 }
+            ]
+        },
+        bmi: {
+            male: [
+                { age: 0, label: '0m', p3: 11.2, p15: 12.2, p50: 13.4, p85: 14.8, p97: 16.0 },
+                { age: 6, label: '6m', p3: 14.8, p15: 15.8, p50: 17.2, p85: 18.7, p97: 19.8 },
+                { age: 12, label: '12m', p3: 14.6, p15: 15.6, p50: 16.8, p85: 18.2, p97: 19.4 },
+                { age: 24, label: '24m', p3: 14.1, p15: 14.9, p50: 16.0, p85: 17.3, p97: 18.4 },
+                { age: 36, label: '36m', p3: 13.7, p15: 14.5, p50: 15.6, p85: 16.8, p97: 17.8 },
+                { age: 48, label: '48m', p3: 13.5, p15: 14.2, p50: 15.3, p85: 16.5, p97: 17.6 },
+                { age: 60, label: '60m', p3: 13.3, p15: 14.0, p50: 15.3, p85: 16.6, p97: 17.9 }
+            ],
+            female: [
+                { age: 0, label: '0m', p3: 11.0, p15: 12.0, p50: 13.3, p85: 14.6, p97: 15.8 },
+                { age: 6, label: '6m', p3: 14.4, p15: 15.4, p50: 16.8, p85: 18.3, p97: 19.5 },
+                { age: 12, label: '12m', p3: 14.2, p15: 15.1, p50: 16.4, p85: 17.8, p97: 19.0 },
+                { age: 24, label: '24m', p3: 13.7, p15: 14.6, p50: 15.7, p85: 17.0, p97: 18.1 },
+                { age: 36, label: '36m', p3: 13.4, p15: 14.2, p50: 15.3, p85: 16.6, p97: 17.6 },
+                { age: 48, label: '48m', p3: 13.2, p15: 13.9, p50: 15.1, p85: 16.4, p97: 17.5 },
+                { age: 60, label: '60m', p3: 13.1, p15: 13.8, p50: 15.2, p85: 16.7, p97: 18.0 }
+            ]
+        }
+    };
+
     function updateCharts() {
         const childId = document.getElementById('childSelector').value;
         const child = getChildById(childId);
@@ -694,6 +1024,8 @@ $title = 'Growth Charts';
             (!dateFrom || measurement.date >= dateFrom) &&
             (!dateTo || measurement.date <= dateTo)
         );
+
+        // Update header summary
         if (child) {
             const nameEl = document.getElementById('childSelectedName');
             const badgeEl = document.getElementById('childSelectedBadge');
@@ -713,82 +1045,108 @@ $title = 'Growth Charts';
         }
 
         if (data.length === 0) {
-            document.getElementById('growthChart').innerHTML = '<div class="flex items-center justify-center h-full text-slate-400">No growth data available for this child.</div>';
+            document.getElementById('growthChart').innerHTML = '<div class="flex flex-col items-center justify-center h-full text-slate-400 gap-2"><i class="fa-solid fa-chart-line text-3xl opacity-30"></i><p>No growth measurements recorded yet for this child.</p></div>';
+            updateGrowthTable([], child);
             return;
         }
 
-        const dates = data.map(d => new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
-        const weightData = data.map(d => parseFloat(d.weight));
-        const heightData = data.map(d => parseFloat(d.height));
-        const headData = data.map(d => parseFloat(d.head_circumference || 0));
+        const metricMeta = {
+            weight: { name: 'Weight (kg)', unit: 'kg', color: '#0B4F4A', fillColor: '#14807A' },
+            height: { name: 'Height (cm)', unit: 'cm', color: '#2563EB', fillColor: '#3B82F6' },
+            bmi:    { name: 'BMI (kg/m²)', unit: 'kg/m²', color: '#7C3AED', fillColor: '#8B5CF6' }
+        };
+        const meta = metricMeta[currentChartType] || metricMeta.weight;
 
-        const series = currentChartType === 'weight' 
-            ? [{ name: 'Weight (kg)', data: weightData }]
-            : currentChartType === 'height'
-            ? [{ name: 'Height (cm)', data: heightData }]
-            : [{ name: 'Head Circumference (cm)', data: headData }];
+        const categories = [];
+        const seriesData = [];
 
-        const gender = (child.gender && typeof child.gender === 'string') ? child.gender.toLowerCase() : 'female';
-        const ageMonths = data.map(d => getAgeInMonths(child.birth_date, d.date));
-        const percentileData = (WEIGHT_PERCENTILES && WEIGHT_PERCENTILES[gender]) ? WEIGHT_PERCENTILES[gender] : DEFAULT_WEIGHT_PERCENTILES.female;
-        const p3Data = [], p50Data = [], p97Data = [];
+        data.forEach(d => {
+            const dateFormatted = new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const ageMonths = getAgeInMonths(child.birth_date, d.date);
+            const ageLabel = ageMonths < 12 ? Math.round(ageMonths) + 'm' : Math.floor(ageMonths / 12) + 'y ' + Math.round(ageMonths % 12) + 'm';
+            categories.push(`${dateFormatted} (${ageLabel})`);
 
-        ageMonths.forEach(months => {
-            let closestAge = '0';
-            for (const age in percentileData) {
-                if (months >= parseInt(age)) {
-                    closestAge = age;
-                }
+            let val = null;
+            if (currentChartType === 'weight') val = parseFloat(d.weight);
+            else if (currentChartType === 'height') val = parseFloat(d.height);
+            else if (currentChartType === 'bmi') {
+                val = (d.weight && d.height) ? parseFloat((parseFloat(d.weight) / Math.pow(parseFloat(d.height) / 100, 2)).toFixed(1)) : null;
             }
-            const ref = percentileData[closestAge];
-            p3Data.push(ref ? ref.p3 : null);
-            p50Data.push(ref ? ref.p50 : null);
-            p97Data.push(ref ? ref.p97 : null);
+            seriesData.push(val);
         });
 
-        if (currentChartType === 'weight') {
-            series.push({ name: '3rd Percentile', data: p3Data, type: 'line', dashArray: 5, color: '#94A3B8' });
-            series.push({ name: '50th Percentile', data: p50Data, type: 'line', dashArray: 5, color: '#14807A' });
-            series.push({ name: '97th Percentile', data: p97Data, type: 'line', dashArray: 5, color: '#94A3B8' });
-        }
+        const series = [
+            {
+                name: `${child.name} — ${meta.name}`,
+                data: seriesData
+            }
+        ];
 
         const options = {
             series: series,
             chart: {
-                type: 'line',
+                type: 'area',
                 height: 400,
-                toolbar: { show: true },
-                zoom: { enabled: true }
+                toolbar: {
+                    show: true,
+                    tools: { download: true, zoom: true, zoomin: true, zoomout: true, reset: true }
+                },
+                animations: { enabled: true, speed: 450 }
             },
             title: {
-                text: `${child.name} - ${currentChartType === 'weight' ? 'Weight' : currentChartType === 'height' ? 'Height' : 'Head Circumference'} Growth Chart`,
+                text: `${child.name} — ${meta.name} Growth Timeline`,
                 align: 'center',
-                style: { fontSize: '16px', fontWeight: 'bold' }
+                style: { fontSize: '15px', fontWeight: '700', color: '#0f172a' }
+            },
+            subtitle: {
+                text: `Birth Date: ${child.birth_date} • Gender: ${child.gender} • Total Visits: ${data.length}`,
+                align: 'center',
+                style: { fontSize: '11px', color: '#64748b' }
             },
             xaxis: {
-                categories: dates,
-                title: { text: 'Date' }
+                categories: categories,
+                title: { text: 'Visit Date & Age', style: { fontSize: '11px', fontWeight: '600', color: '#475569' } },
+                labels: { style: { fontSize: '11px', fontWeight: '500' } }
             },
             yaxis: {
-                title: { text: currentChartType === 'weight' ? 'Weight (kg)' : currentChartType === 'height' ? 'Height (cm)' : 'Head Circumference (cm)' }
+                title: { text: meta.name, style: { fontSize: '11px', fontWeight: '600', color: '#475569' } },
+                labels: {
+                    formatter: val => val !== null && val !== undefined ? `${val.toFixed(1)} ${meta.unit}` : ''
+                }
             },
             stroke: {
                 curve: 'smooth',
-                width: 3
+                width: 3.5
+            },
+            fill: {
+                type: 'gradient',
+                gradient: {
+                    shadeIntensity: 1,
+                    opacityFrom: 0.35,
+                    opacityTo: 0.05,
+                    stops: [0, 95, 100]
+                }
             },
             markers: {
-                size: 5
+                size: 7,
+                strokeColors: meta.color,
+                strokeWidth: 3,
+                fillColors: ['#ffffff'],
+                hover: { size: 10 }
             },
-            legend: {
-                position: 'top'
-            },
-            colors: ['#0B4F4A', '#14807A', '#94A3B8', '#94A3B8'],
+            colors: [meta.color],
             tooltip: {
                 y: {
-                    formatter: function(val) {
-                        return val.toFixed(1);
+                    formatter: (val, opts) => {
+                        const d = data[opts.dataPointIndex];
+                        const noteStr = (d && d.notes) ? ` (${d.notes})` : '';
+                        return `${val.toFixed(1)} ${meta.unit}${noteStr}`;
                     }
                 }
+            },
+            grid: {
+                borderColor: '#f1f5f9',
+                strokeDashArray: 3
             }
         };
 
@@ -805,14 +1163,18 @@ $title = 'Growth Charts';
 
     function setChartType(type) {
         currentChartType = type;
-        document.getElementById('btnWeight').className = type === 'weight' 
-            ? 'px-4 py-2 text-sm font-semibold rounded-lg bg-brand-dark text-white hover:bg-brand-medium transition'
-            : 'px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition';
-        document.getElementById('btnHeight').className = type === 'height'
-            ? 'px-4 py-2 text-sm font-semibold rounded-lg bg-brand-dark text-white hover:bg-brand-medium transition'
-            : 'px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition';
+        const btnIds = ['btnWeight', 'btnHeight', 'btnBmi'];
+        const activeClass = 'px-4 py-2 text-sm font-semibold rounded-lg bg-brand-dark text-white hover:bg-brand-medium transition flex items-center gap-1.5 shadow-xs';
+        const inactiveClass = 'px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition flex items-center gap-1.5';
+        const typeMap = { weight: 'btnWeight', height: 'btnHeight', bmi: 'btnBmi' };
+        btnIds.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.className = (typeMap[type] === id) ? activeClass : inactiveClass;
+        });
+
         updateCharts();
     }
+
 
     // ============================================================
     // GROWTH TABLE UPDATE
@@ -820,7 +1182,21 @@ $title = 'Growth Charts';
     function updateGrowthTable(data, child) {
         const tbody = document.getElementById('growthTableBody');
         if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">No measurements recorded</td></tr>';
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="px-4 py-10 text-center">
+                        <div class="flex flex-col items-center gap-3">
+                            <div class="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center">
+                                <i class="fa-solid fa-chart-line text-slate-300 text-2xl"></i>
+                            </div>
+                            <p class="text-sm font-semibold text-slate-500">No measurements recorded yet for <span class="text-brand-dark">${child.name}</span></p>
+                            <p class="text-xs text-slate-400">Start tracking their growth by logging the first measurement.</p>
+                            <button onclick="openAddGrowthForSelected()" class="mt-1 px-4 py-2 bg-brand-dark text-white rounded-lg text-sm font-semibold hover:bg-brand-medium transition flex items-center gap-2">
+                                <i class="fa-solid fa-plus text-xs"></i> Log First Measurement
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
             return;
         }
 
@@ -828,18 +1204,19 @@ $title = 'Growth Charts';
             const ageMonths = getAgeInMonths(child.birth_date, d.date);
             const percentile = getWeightPercentile(parseFloat(d.weight), child.gender, ageMonths);
             const ageDisplay = ageMonths < 12 ? Math.round(ageMonths) + ' months' : (Math.round(ageMonths / 12) + ' yrs ' + Math.round(ageMonths % 12) + ' mos');
+            const bmi = (d.weight && d.height) ? (parseFloat(d.weight) / Math.pow(parseFloat(d.height) / 100, 2)).toFixed(1) : '—';
+            const bmiColor = bmi !== '—' ? (bmi < 14 ? 'text-rose-600 font-bold' : bmi > 18 ? 'text-blue-600 font-bold' : 'text-emerald-600') : '';
+            const percentileColor = percentile.includes('Below') ? 'bg-rose-100 text-rose-700' : percentile.includes('Above') ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700';
             const deleteBtn = d.id ? `<button onclick="deleteGrowthMeasurement(${d.id})" class="p-1 text-rose-500 hover:bg-rose-50 rounded transition" title="Delete"><i class="fa-solid fa-trash text-xs"></i></button>` : '';
             return `
                 <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors">
                     <td class="px-4 py-2 text-slate-600 text-xs">${new Date(d.date).toLocaleDateString()}</td>
                     <td class="px-4 py-2 text-slate-600 text-xs">${ageDisplay}</td>
-                    <td class="px-4 py-2 text-slate-600 text-xs font-medium">${d.weight}</td>
-                    <td class="px-4 py-2 text-slate-600 text-xs">${d.height}</td>
-                    <td class="px-4 py-2 text-slate-600 text-xs">${d.head_circumference || '—'}</td>
+                    <td class="px-4 py-2 text-slate-700 text-xs font-semibold">${d.weight} kg</td>
+                    <td class="px-4 py-2 text-slate-600 text-xs">${d.height} cm</td>
+                    <td class="px-4 py-2 text-xs ${bmiColor}">${bmi}</td>
                     <td class="px-4 py-2">
-                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${percentile.includes('Below') || percentile.includes('Above') ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
-                            ${percentile}
-                        </span>
+                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${percentileColor}">${percentile}</span>
                     </td>
                     <td class="px-4 py-2 text-slate-400 text-xs">${d.notes || '—'}</td>
                     <td class="px-4 py-2 text-center">${deleteBtn}</td>
@@ -875,6 +1252,15 @@ $title = 'Growth Charts';
         const whole = parts[0].replace(/\D/g, '').slice(0, 3);
         const fraction = parts[1] ? parts[1].replace(/\D/g, '').slice(0, 2) : '';
         input.value = parts.length > 1 ? `${whole}.${fraction}` : whole;
+    }
+
+    // Pre-fill current child when modal is opened from the table header
+    function openAddGrowthForSelected() {
+        if (selectedChildId) {
+            const sel = document.getElementById('growth_child');
+            if (sel) sel.value = selectedChildId;
+        }
+        openModal('addGrowthModal');
     }
 
     async function saveGrowthMeasurement(event) {
@@ -971,6 +1357,12 @@ $title = 'Growth Charts';
             dateInput.value = new Date().toISOString().split('T')[0];
         }
         filterChildrenList();
+
+        // Pre-fill child selector when main Add Measurement button is clicked
+        const addBtn = document.querySelector('[onclick="openModal(\'addGrowthModal\')"]');
+        if (addBtn) {
+            addBtn.setAttribute('onclick', 'openAddGrowthForSelected()');
+        }
     });
 
     // ESC to close modals

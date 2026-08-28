@@ -47,6 +47,26 @@ $nutritionColors = [
 // Initialize model
 $childModel = new Child();
 
+// Fetch staff who can administer vaccines (Immunization, Nutrition, Health Center)
+$immunizationStaff = [];
+try {
+    $db = Database::getInstance();
+    $allEmployees = $db->select('employees', ['status' => 'Active'], ['limit' => 200, 'order' => 'department.asc,full_name.asc']);
+    $staffDepts = ['immunization', 'nutrition', 'health center', 'health center services'];
+    foreach ($allEmployees as $emp) {
+        $dept = strtolower($emp['department'] ?? '');
+        if (in_array($dept, $staffDepts)) {
+            $immunizationStaff[] = [
+                'name'       => $emp['full_name'] ?? 'Unknown',
+                'role'       => $emp['role'] ?? '',
+                'department' => $emp['department'] ?? ''
+            ];
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Error fetching immunization staff: ' . $e->getMessage());
+}
+
 // Get statistics from model
 $stats = $childModel->getStats();
 
@@ -399,10 +419,6 @@ $title = 'Child Records';
                                 <button onclick="archiveChild(<?php echo (int)($child['id'] ?? 0); ?>)"
                                         class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Archive">
                                     <i class="fa-solid fa-archive text-sm"></i>
-                                </button>
-                                <button onclick="deleteChild(<?php echo (int)($child['id'] ?? 0); ?>)"
-                                        class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Delete">
-                                    <i class="fa-solid fa-trash text-sm"></i>
                                 </button>
                             </div>
                         </td>
@@ -854,7 +870,23 @@ $title = 'Child Records';
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Administered By</label>
-                    <input type="text" id="add_vacc_by" placeholder="e.g. Nurse Grace Mendoza" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <select id="add_vacc_by" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <option value="">-- Select Staff --</option>
+                        <?php
+                        $staffGrouped = [];
+                        foreach ($immunizationStaff as $s) {
+                            $staffGrouped[$s['department']][] = $s;
+                        }
+                        foreach ($staffGrouped as $dept => $staffList): ?>
+                        <optgroup label="<?php echo htmlspecialchars($dept); ?>">
+                            <?php foreach ($staffList as $s): ?>
+                            <option value="<?php echo htmlspecialchars($s['name']); ?>">
+                                <?php echo htmlspecialchars($s['name']); ?> &mdash; <?php echo htmlspecialchars($s['role']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </optgroup>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Batch / Lot Number</label>
@@ -915,23 +947,6 @@ $title = 'Child Records';
             <div class="flex justify-end gap-2 mt-6">
                 <button type="button" onclick="resolveConfirmation(false)" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button>
                 <button type="button" onclick="resolveConfirmation(true)" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-semibold">Archive</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- DELETE CONFIRMATION MODAL -->
-<div id="deleteChildModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
-        <div class="p-6 text-center">
-            <div class="w-14 h-14 mx-auto mb-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center">
-                <i class="fa-solid fa-trash text-xl"></i>
-            </div>
-            <h3 class="font-bold text-slate-900 text-lg">Delete Child Record?</h3>
-            <p class="text-sm text-slate-500 mt-2">This action cannot be undone.</p>
-            <div class="flex justify-end gap-2 mt-6">
-                <button type="button" onclick="resolveConfirmation(false)" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button>
-                <button type="button" onclick="resolveConfirmation(true)" class="px-4 py-2 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition text-sm font-semibold">Delete</button>
             </div>
         </div>
     </div>
@@ -1106,12 +1121,12 @@ $title = 'Child Records';
                         <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.birth_date))}</p>
                     </div>
                     <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Birth Weight</p>
-                        <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.birth_weight))} ${c.birth_weight ? 'kg' : ''}</p>
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Current Weight</p>
+                        <p class="text-sm font-semibold text-slate-800">${c.birth_weight ? escHtml(c.birth_weight) + ' kg' : '<span class="text-slate-400 text-xs">Not recorded</span>'}</p>
                     </div>
                     <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Birth Height</p>
-                        <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.birth_height))} ${c.birth_height ? 'cm' : ''}</p>
+                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Current Height</p>
+                        <p class="text-sm font-semibold text-slate-800">${c.birth_height ? escHtml(c.birth_height) + ' cm' : '<span class="text-slate-400 text-xs">Not recorded</span>'}</p>
                     </div>
                     <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
                         <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Blood Type</p>
@@ -1123,9 +1138,10 @@ $title = 'Child Records';
                 <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
                     <div class="flex items-center justify-between mb-1">
                         <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Vaccine Compliance</p>
-                        <p class="text-xs font-semibold text-slate-700">${escHtml(val(c.vaccine_compliance, 0))}%</p>
+                        <p class="text-xs font-semibold ${(c.vaccine_compliance ?? 0) >= 80 ? 'text-emerald-600' : (c.vaccine_compliance ?? 0) >= 50 ? 'text-amber-600' : 'text-rose-500'}">${escHtml(String(c.vaccine_compliance ?? 0))}%</p>
                     </div>
-                    ${complianceBar(c.vaccine_compliance)}
+                    ${complianceBar(c.vaccine_compliance ?? 0)}
+                    ${(c.vaccine_compliance ?? 0) === 0 ? '<p class="text-[10px] text-slate-400 mt-1"><i class="fa-solid fa-circle-info mr-1"></i>No vaccine doses recorded yet. Administer vaccines to update compliance.</p>' : ''}
                 </div>
 
                 <!-- Address -->
@@ -1283,22 +1299,26 @@ $title = 'Child Records';
     // ============================================================
     async function saveVaccinationRecord(event) {
         event.preventDefault();
-        const childId = document.getElementById('add_vacc_child_id').value;
+        const childId = document.getElementById('add_vacc_child_id')?.value || '';
+        const vaccineName = document.getElementById('add_vacc_name')?.value || '';
         const payload = {
-            name: document.getElementById('add_vacc_name').value,
-            dose: document.getElementById('add_vacc_dose').value,
-            date_administered: document.getElementById('add_vacc_date').value,
-            next_due_date: document.getElementById('add_vacc_next_due').value || null,
-            administered_by: document.getElementById('add_vacc_by').value || null,
-            batch_number: document.getElementById('add_vacc_batch').value || null,
-            facility: document.getElementById('add_vacc_facility').value || null,
-            notes: document.getElementById('add_vacc_notes').value || null,
+            child_id: childId,
+            vaccine: vaccineName,
+            name: vaccineName,
+            dose: document.getElementById('add_vacc_dose')?.value || 1,
+            date_administered: document.getElementById('add_vacc_date')?.value || new Date().toISOString().split('T')[0],
+            next_due_date: document.getElementById('add_vacc_next_due')?.value || null,
+            administered_by: document.getElementById('add_vacc_by')?.value || null,
+            batch_number: document.getElementById('add_vacc_batch')?.value || null,
+            health_center: document.getElementById('add_vacc_facility')?.value || 'Caloocan Main Health Center',
+            facility: document.getElementById('add_vacc_facility')?.value || 'Caloocan Main Health Center',
+            notes: document.getElementById('add_vacc_notes')?.value || null,
         };
 
         const submitBtn = event.target.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
+        if (submitBtn) submitBtn.disabled = true;
         try {
-            const response = await fetch(`${API_BASE}?id=${childId}&action=vaccination`, {
+            const response = await fetch(`${API_BASE}?id=${encodeURIComponent(childId)}&action=record`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -1313,32 +1333,64 @@ $title = 'Child Records';
         } catch (err) {
             toast.error(err.message || 'Failed to save vaccination record');
         } finally {
-            submitBtn.disabled = false;
+            if (submitBtn) submitBtn.disabled = false;
         }
     }
 
     // ============================================================
-    // VIEW HEALTH / MEDICAL RECORDS
+    // VIEW HEALTH & NUTRITION RECORDS
     // ============================================================
     async function viewHealthRecord(id) {
         const content = document.getElementById('healthRecordContent');
         openModal('healthRecordModal');
         content.innerHTML = `
             <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
-                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading health & nutrition records...
             </div>
         `;
 
-        const c = await fetchChild(id);
+        const [c, nutritionRes] = await Promise.all([
+            fetchChild(id),
+            fetch(`<?php echo site_url('api/nutrition.php'); ?>?child_id=${id}`).then(r => r.json()).catch(() => ({ data: [] }))
+        ]);
+
         if (!c) {
             content.innerHTML = `
                 <div class="text-center py-10 text-rose-500">
                     <i class="fa-solid fa-exclamation-circle text-2xl mb-2"></i>
-                    <p>Failed to load health records</p>
+                    <p>Failed to load child health records</p>
                 </div>
             `;
             return;
         }
+
+        const assessments = Array.isArray(nutritionRes.data) ? nutritionRes.data : [];
+        const nutritionHtml = assessments.length
+            ? assessments.map(a => `
+                <div class="p-3 bg-white rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${getNutritionClass(capitalize(a.nutrition_status || 'Normal'))}">
+                                ${escHtml(capitalize(a.nutrition_status || 'Normal'))}
+                            </span>
+                            <span class="text-xs text-slate-400 font-medium">${a.assessment_date || 'Recent'}</span>
+                        </div>
+                        <span class="text-xs px-2 py-0.5 rounded-full font-medium ${a.risk_level === 'high' ? 'bg-rose-100 text-rose-700' : (a.risk_level === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700')}">
+                            ${capitalize(a.risk_level || 'Low')} Risk
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-xs bg-slate-50 p-2 rounded-lg">
+                        <div><span class="text-slate-400">Weight:</span> <strong class="text-slate-700">${Number(a.weight || 0).toFixed(1)} kg</strong></div>
+                        <div><span class="text-slate-400">Height:</span> <strong class="text-slate-700">${Number(a.height || 0).toFixed(1)} cm</strong></div>
+                        <div><span class="text-slate-400">BMI:</span> <strong class="text-slate-700">${Number(a.bmi || 0).toFixed(1)}</strong></div>
+                    </div>
+                    ${a.assessment_notes ? `<p class="text-xs text-slate-600 italic">“${escHtml(a.assessment_notes)}”</p>` : ''}
+                    ${a.plan_of_action ? `<p class="text-xs text-brand-dark font-medium">📋 Plan: ${escHtml(a.plan_of_action)}</p>` : ''}
+                </div>
+            `).join('')
+            : `<div class="text-center py-5 text-slate-400 text-xs bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <p>No nutrition assessment records logged yet.</p>
+               </div>`;
 
         const records = Array.isArray(c.health_records) ? c.health_records : [];
         const recordsHtml = records.length
@@ -1355,27 +1407,53 @@ $title = 'Child Records';
                     </div>
                 </div>
             `).join('')
-            : `<p class="text-sm text-slate-500 text-center py-6">No health records yet.</p>`;
+            : `<p class="text-xs text-slate-400 text-center py-3">No additional clinical consultation notes.</p>`;
 
         content.innerHTML = `
-            <div class="space-y-4">
-                <div class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
-                    <div class="w-10 h-10 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-sm flex-shrink-0">
-                        ${initials(c.first_name, c.last_name)}
+            <div class="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+                <div class="flex items-center justify-between p-3 bg-brand-light/40 rounded-xl border border-brand-border">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-sm flex-shrink-0">
+                            ${initials(c.first_name, c.last_name)}
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-800 text-sm">${escHtml(c.first_name || '')} ${escHtml(c.last_name || '')}</p>
+                            <p class="text-xs text-slate-400">${escHtml(c.child_id || '')} &bull; ${escHtml(c.age || calculateAge(c.birth_date))}</p>
+                        </div>
                     </div>
-                    <div>
-                        <p class="font-semibold text-slate-800 text-sm">${escHtml(c.first_name || '')} ${escHtml(c.last_name || '')}</p>
-                        <p class="text-xs text-slate-400">${escHtml(c.child_id || '')} &bull; ${escHtml(c.age || calculateAge(c.birth_date))}</p>
+                    <span class="px-2.5 py-1 rounded-full text-xs font-bold ${getNutritionClass(c.nutrition_status || 'Normal')}">
+                        ${escHtml(c.nutrition_status || 'Normal')}
+                    </span>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-apple-whole text-emerald-600"></i> Nutrition Assessment History
+                        </h4>
+                        <a href="<?php echo site_url('modules/immunization/nutrition_assessment.php'); ?>" class="text-xs text-brand-medium font-semibold hover:underline">
+                            + Assess Nutrition
+                        </a>
+                    </div>
+                    <div class="space-y-2">
+                        ${nutritionHtml}
                     </div>
                 </div>
-                <div class="space-y-2">
-                    ${recordsHtml}
+
+                <div>
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-stethoscope text-blue-600"></i> Clinical Notes
+                    </h4>
+                    <div class="space-y-2">
+                        ${recordsHtml}
+                    </div>
                 </div>
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
                     <button onclick="closeModal('healthRecordModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                    <button class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                        <i class="fa-solid fa-plus mr-1.5"></i> Add Record
-                    </button>
+                    <a href="<?php echo site_url('modules/immunization/nutrition_assessment.php'); ?>" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus text-xs"></i> New Nutrition Assessment
+                    </a>
                 </div>
             </div>
         `;
@@ -1529,7 +1607,6 @@ $title = 'Child Records';
             ['printChild', 'fa-print', 'text-slate-500 hover:bg-slate-100 hover:text-slate-700', 'Print'],
             ['exportChild', 'fa-download', 'text-slate-500 hover:bg-slate-100 hover:text-slate-700', 'Export'],
             ['archiveChild', 'fa-archive', 'text-amber-600 hover:bg-amber-50', 'Archive'],
-            ['deleteChild', 'fa-trash', 'text-rose-500 hover:bg-rose-50', 'Delete'],
         ];
         return actions.map(([fn, icon, cls, title]) => `
             <button onclick="${fn}(${id})" class="p-1.5 ${cls} rounded-lg transition" title="${title}">
@@ -1802,12 +1879,11 @@ $title = 'Child Records';
         const resolve = pendingConfirmation;
         pendingConfirmation = null;
         closeModal('archiveChildModal');
-        closeModal('deleteChildModal');
         if (resolve) resolve(confirmed);
     }
 
     async function confirmAndSend(id, { confirmMsg, method, body, successMsg, failMsg }) {
-        const modalId = method === 'DELETE' ? 'deleteChildModal' : 'archiveChildModal';
+        const modalId = 'archiveChildModal';
         if (!await requestConfirmation(modalId)) return;
         try {
             const response = await fetch(`${API_BASE}?id=${id}`, {
@@ -1835,16 +1911,6 @@ $title = 'Child Records';
             body: { status: 'inactive' },
             successMsg: 'Child record archived successfully',
             failMsg: 'Archive failed'
-        });
-    }
-
-    function deleteChild(id) {
-        return confirmAndSend(id, {
-            confirmMsg: 'Are you sure you want to delete this child record? This action cannot be undone.',
-            method: 'DELETE',
-            body: null,
-            successMsg: 'Child record deleted successfully',
-            failMsg: 'Delete failed'
         });
     }
 </script>

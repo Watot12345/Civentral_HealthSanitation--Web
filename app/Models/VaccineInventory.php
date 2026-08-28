@@ -128,12 +128,30 @@ class VaccineInventory
     }
 
     /**
-     * Write a record to the inventory_log table.
+     * Write a record to the activity_logs table.
      */
     public function logAdjustment(array $data): void
     {
         try {
-            $this->db->insert($this->logTable, $data);
+            $user   = $_SESSION['user_name'] ?? $_SESSION['username'] ?? 'Staff';
+            $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+            $role   = $_SESSION['role'] ?? 'Staff';
+
+            $invId  = $data['inventory_id'] ?? null;
+            $type   = $data['adjustment_type'] ?? 'adjust';
+            $qty    = $data['quantity'] ?? 0;
+            $reason = $data['reason'] ?? '';
+
+            $this->db->insert('activity_logs', [
+                'user_id'    => $userId,
+                'user_name'  => $user,
+                'action'     => 'Stock Adjusted (' . strtoupper($type) . ')',
+                'module'     => 'Vaccine Inventory',
+                'details'    => "Adjusted stock: {$type} {$qty} units (ID: {$invId}). Reason: {$reason}",
+                'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
+                'status'     => 'success',
+                'role'       => $role
+            ]);
         } catch (Throwable $e) {
             error_log('VaccineInventory::logAdjustment error: ' . $e->getMessage());
         }

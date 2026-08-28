@@ -325,7 +325,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user = $employees[0];
                 $resetToken = bin2hex(random_bytes(32));
                 $otpCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-                $otpExpiresAt = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+                $otpExpiresAt = date('Y-m-d H:i:s', strtotime('+3 minutes'));
 
                 // Store in user_sessions
                 $db->query('user_sessions', 'POST', [
@@ -344,7 +344,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $name = $user['full_name'] ?? ($user['username'] ?? 'Employee');
 
                 if (!empty($email)) {
-                    $mailService->sendOtpEmail($email, $name, $otpCode, 15);
+                    $mailService->sendOtpEmail($email, $name, $otpCode, 3);
                 }
 
                 $parts = explode('@', $email ?: 'staff@health.gov.ph');
@@ -389,14 +389,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $session = $sessions[0];
-                if (strtotime($session['otp_expires_at']) < time()) {
-                    echo json_encode(['success' => false, 'message' => 'Verification code has expired. Please request a new code.']);
+                if (strtotime($session['otp_expires_at']) < time() || empty($session['otp_code'])) {
+                    echo json_encode(['success' => false, 'message' => 'Verification code has expired (3-minute limit). Please request a new code.']);
+                    exit;
+                }
+
+                // Brute force tracking for password reset (Max 5 attempts)
+                $cacheDir = __DIR__ . '/storage/cache';
+                if (!is_dir($cacheDir)) {
+                    @mkdir($cacheDir, 0755, true);
+                }
+                $attemptFile = $cacheDir . '/reset_attempts_' . md5($resetToken) . '.json';
+                $attemptData = ['attempts' => 0, 'created_at' => time()];
+                if (file_exists($attemptFile)) {
+                    $raw = @file_get_contents($attemptFile);
+                    $attemptData = json_decode($raw, true) ?: $attemptData;
+                }
+
+                if (($attemptData['attempts'] ?? 0) >= 5) {
+                    try {
+                        $db->update('user_sessions', [
+                            'otp_code' => null,
+                            'otp_expires_at' => date('Y-m-d H:i:s', time() - 10)
+                        ], ['id' => $session['id']], true);
+                    } catch (\Throwable $ignored) {}
+
+                    echo json_encode([
+                        'success' => false,
+                        'locked' => true,
+                        'message' => 'Maximum verification attempts exceeded (5/5). This code is locked. Please request a new code.'
+                    ]);
                     exit;
                 }
 
                 if (trim($session['otp_code']) !== trim($otpCode)) {
-                    echo json_encode(['success' => false, 'message' => 'Incorrect 6-digit verification code. Please check your email and try again.']);
+                    $attemptData['attempts'] = ($attemptData['attempts'] ?? 0) + 1;
+                    @file_put_contents($attemptFile, json_encode($attemptData));
+                    $rem = max(0, 5 - $attemptData['attempts']);
+
+                    if ($rem === 0) {
+                        try {
+                            $db->update('user_sessions', [
+                                'otp_code' => null,
+                                'otp_expires_at' => date('Y-m-d H:i:s', time() - 10)
+                            ], ['id' => $session['id']], true);
+                        } catch (\Throwable $ignored) {}
+
+                        echo json_encode([
+                            'success' => false,
+                            'locked' => true,
+                            'message' => 'Maximum verification attempts exceeded (5/5). Code locked. Please request a new code.'
+                        ]);
+                        exit;
+                    }
+
+                    echo json_encode([
+                        'success' => false,
+                        'message' => "Incorrect 6-digit verification code. ({$rem} attempt" . ($rem === 1 ? '' : 's') . " remaining before code is locked)"
+                    ]);
                     exit;
+                }
+
+                if (file_exists($attemptFile)) {
+                    @unlink($attemptFile);
                 }
 
                 // Code is correct! Generate verified token for setting password
@@ -735,7 +790,7 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
                     </div>
 
                     <div class="flex items-center justify-between text-xs text-gray-500 pt-1">
-                        <span>Code expires in <strong id="otpTimer" class="text-gray-800">5:00</strong></span>
+                        <span>Code expires in <strong id="otpTimer" class="text-gray-800">3:00</strong></span>
                         <button type="button" onclick="resendOtp()" class="text-brand-medium font-bold hover:underline cursor-pointer">Resend Code</button>
                     </div>
 
@@ -1350,7 +1405,7 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
 
     let timerInterval = null;
 
-    function startOtpTimer(durationSeconds = 300) {
+    function startOtpTimer(durationSeconds = 180) {
         clearInterval(timerInterval);
         let timer = durationSeconds;
         const timerEl = document.getElementById('otpTimer');
@@ -1427,7 +1482,7 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
 
                     document.getElementById('otpModal').classList.remove('hidden');
                     document.getElementById('otpModal').classList.add('flex');
-                    startOtpTimer(300); // 5 minutes
+                    startOtpTimer(180); // 3 minutes
 
                     toast.success(data.message, { title: 'OTP Code Sent' });
                     setTimeout(() => document.getElementById('otpCodeInput').focus(), 200);
@@ -1520,9 +1575,16 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
                     otpMsg.textContent = data.message || 'Incorrect security code. Please try again.';
                     otpBanner.classList.remove('hidden');
                 }
-                toast.error(data.message || 'Invalid security code. Please try again.', { title: 'Verification Failed' });
+                toast.error(data.message || 'Invalid security code. Please try again.', { title: data.locked ? 'Code Locked' : 'Verification Failed' });
                 document.getElementById('otpCodeInput').value = '';
-                document.getElementById('otpCodeInput').focus();
+                
+                if (data.locked) {
+                    document.getElementById('otpCodeInput').disabled = true;
+                    document.getElementById('otpSubmitBtn').disabled = true;
+                    document.getElementById('otpSubmitBtn').classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    document.getElementById('otpCodeInput').focus();
+                }
             }
         } catch (error) {
             console.error('OTP Error:', error);
