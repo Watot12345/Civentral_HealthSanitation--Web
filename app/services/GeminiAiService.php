@@ -376,7 +376,7 @@ EOT;
 
 MANDATORY RULES:
 1. Account for Philippine seasonality (Monsoon rainfall July-October increasing Dengue/Gastroenteritis, January-February annual business permit renewal spikes, Q4 seasonal flu).
-2. Generate realistic non-linear predictive integer numbers for each metric starting with the current baseline (index 0) followed by the next {$horizonMonths} months (total {$horizonMonths} + 1 values per series).
+2. Generate realistic non-linear predictive integer numbers for each metric starting with the current baseline (index 0) followed by the next {$horizonMonths} months (total {$horizonMonths} + 1 values per series). Ensure projections are proportional and realistic to the baseline (e.g. baseline of 5 should stay within 5 to 12 unless extreme outbreak conditions apply; avoid unrealistic 10x jumps).
 3. Compute an AI confidence certainty percentage (between 75% and 98%) and estimated R-squared fit (0.75 to 0.99).
 4. Output STRICT raw JSON only with no markdown formatting, matching this exact schema:
 {

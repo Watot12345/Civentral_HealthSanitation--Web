@@ -32,24 +32,58 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-// Get user data from session
-$fullName = $_SESSION['full_name'] ?? 'User';
-$employeeId = $_SESSION['employee_id'] ?? '';
-$role = $_SESSION['role'] ?? 'Employee';
+// Get user data from session with real-time employee lookup fallback
+$currentUserId   = (int)($_SESSION['user_id'] ?? 0);
+$fullName        = $_SESSION['full_name'] ?? 'User';
+$employeeId      = $_SESSION['employee_id'] ?? '';
+$email           = $_SESSION['email'] ?? '';
+$contact         = $_SESSION['contact'] ?? ($_SESSION['phone'] ?? '');
+$department      = $_SESSION['department'] ?? $_SESSION['user_department'] ?? 'City Health Department';
+$role            = $_SESSION['role'] ?? 'Employee';
 $roleDescription = $_SESSION['role_description'] ?? 'employee';
+$displayRole     = !empty($_SESSION['role']) ? $_SESSION['role'] : (!empty($_SESSION['role_description']) ? $_SESSION['role_description'] : 'Employee');
+$userStatus      = $_SESSION['status'] ?? 'Active';
 
-// Display actual user role dynamically
-$displayRole = !empty($_SESSION['role']) ? $_SESSION['role'] : (!empty($_SESSION['role_description']) ? $_SESSION['role_description'] : 'Employee');
+if ($currentUserId > 0) {
+    try {
+        require_once __DIR__ . '/../app/Models/Employee.php';
+        $empModel = new Employee();
+        $liveUser = $empModel->find($currentUserId);
+        if ($liveUser) {
+            $fullName    = $liveUser['full_name'] ?? $fullName;
+            $employeeId  = $liveUser['employee_id'] ?? ($liveUser['username'] ?? $employeeId);
+            $email       = !empty($liveUser['email']) ? $liveUser['email'] : $email;
+            $contact     = !empty($liveUser['contact']) ? $liveUser['contact'] : (!empty($liveUser['phone']) ? $liveUser['phone'] : $contact);
+            $department  = !empty($liveUser['department']) ? $liveUser['department'] : $department;
+            $userStatus  = !empty($liveUser['status']) ? $liveUser['status'] : $userStatus;
+            $displayRole = !empty($liveUser['role_description']) ? $liveUser['role_description'] : (!empty($liveUser['role']) ? $liveUser['role'] : $displayRole);
+        }
+    } catch (\Throwable $e) {}
+}
+
+if (empty($email)) {
+    $email = strtolower(preg_replace('/[^a-zA-Z0-9]/', '.', $fullName)) . '@caloocan.gov.ph';
+}
 
 // Generate initials from full name (e.g., "Joshua Sierra" -> "JS")
 $initials = '';
-$nameParts = explode(' ', $fullName);
+$nameParts = explode(' ', trim($fullName));
 foreach ($nameParts as $part) {
     if (!empty($part)) {
         $initials .= strtoupper($part[0]);
     }
 }
 $initials = substr($initials, 0, 2); // Get first 2 initials
+
+// Dynamic Assigned Station based on Department
+$assignedStation = 'Main Health HQ (Caloocan)';
+$dLower = strtolower($department);
+if (str_contains($dLower, 'health center') || str_contains($dLower, 'medical')) $assignedStation = 'District 1 Health Center';
+elseif (str_contains($dLower, 'sanitation')) $assignedStation = 'Sanitation & Environmental Inspection Unit';
+elseif (str_contains($dLower, 'immunization') || str_contains($dLower, 'nutrition')) $assignedStation = 'Maternal & Child Health Center';
+elseif (str_contains($dLower, 'waste')) $assignedStation = 'Wastewater Treatment & Septic Services';
+elseif (str_contains($dLower, 'surveillance')) $assignedStation = 'Epidemiological Surveillance Unit (CESU)';
+elseif (str_contains($dLower, 'admin')) $assignedStation = 'City Administration HQ';
 
 // ------------------------------------------------------------
 // Minimal header flag.
@@ -424,7 +458,7 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
             </div>
             <div class="min-w-0 flex-1">
               <p id="dropdownUserFullName" class="text-xs font-bold text-slate-800 truncate"><?php echo htmlspecialchars($fullName); ?></p>
-              <p class="text-[10px] font-medium text-slate-500 truncate"><?php echo htmlspecialchars($user['email'] ?? ($user['username'] ?? 'Staff User')); ?></p>
+              <p class="text-[10px] font-medium text-slate-500 truncate"><?php echo htmlspecialchars($email); ?></p>
               <span class="inline-block mt-1 px-2 py-0.5 bg-c3/10 text-c3 rounded-md text-[8px] font-extrabold uppercase tracking-wide">
                 <?php echo htmlspecialchars($displayRole); ?>
               </span>
@@ -483,7 +517,7 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
           <div class="min-w-0 flex-1">
             <h3 class="text-sm font-bold text-slate-800 truncate"><?php echo htmlspecialchars($fullName); ?></h3>
             <p class="text-xs font-semibold text-c3"><?php echo htmlspecialchars($displayRole); ?></p>
-            <p class="text-[10px] text-slate-500 mt-0.5">Emp ID: <span class="font-mono font-bold text-slate-700">EMP-2026-<?php echo rand(100, 999); ?></span></p>
+            <p class="text-[10px] text-slate-500 mt-0.5">Emp ID: <span class="font-mono font-bold text-slate-700"><?php echo htmlspecialchars($employeeId ?: ('EMP-' . str_pad((string)$currentUserId, 4, '0', STR_PAD_LEFT))); ?></span></p>
           </div>
         </div>
 
@@ -493,28 +527,35 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
             <span class="text-slate-500 font-semibold flex items-center gap-2">
               <i class="fas fa-envelope text-slate-400"></i> Email Address
             </span>
-            <span class="font-bold text-slate-800"><?php echo htmlspecialchars($user['email'] ?? 'staff@caloocan.gov.ph'); ?></span>
+            <span class="font-bold text-slate-800"><?php echo htmlspecialchars($email); ?></span>
           </div>
 
           <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
             <span class="text-slate-500 font-semibold flex items-center gap-2">
               <i class="fas fa-building text-slate-400"></i> Department / Division
             </span>
-            <span class="font-bold text-slate-800">City Health Department</span>
+            <span class="font-bold text-slate-800"><?php echo htmlspecialchars(!empty($department) ? $department : 'City Health Department'); ?></span>
           </div>
 
           <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
             <span class="text-slate-500 font-semibold flex items-center gap-2">
               <i class="fas fa-location-dot text-slate-400"></i> Assigned Station
             </span>
-            <span class="font-bold text-slate-800">Main Portal HQ (Caloocan)</span>
+            <span class="font-bold text-slate-800"><?php echo htmlspecialchars($assignedStation); ?></span>
+          </div>
+
+          <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
+            <span class="text-slate-500 font-semibold flex items-center gap-2">
+              <i class="fas fa-phone text-slate-400"></i> Contact Phone
+            </span>
+            <span class="font-bold text-slate-800"><?php echo htmlspecialchars(!empty($contact) ? $contact : 'Not specified'); ?></span>
           </div>
 
           <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
             <span class="text-slate-500 font-semibold flex items-center gap-2">
               <i class="fas fa-shield-check text-slate-400"></i> Security Clearance
             </span>
-            <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[9px] font-extrabold">Active Staff</span>
+            <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md text-[9px] font-extrabold"><?php echo htmlspecialchars($userStatus === 'Active' ? 'Active ' . $displayRole : $userStatus); ?></span>
           </div>
         </div>
       </div>
@@ -565,16 +606,19 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
             </div>
             <div>
               <label for="settingsContact" class="block font-bold text-slate-700 mb-1">Contact Phone</label>
-              <input type="text" id="settingsContact" value="+63 917 892 4012"
+              <input type="text" id="settingsContact" value="<?php echo htmlspecialchars($contact ?: '+63 917 000 0000'); ?>"
                      class="w-full border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-c3 outline-none transition" />
             </div>
           </div>
           <div class="flex items-center gap-2 pt-1">
             <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold">
-              ID: <?php echo htmlspecialchars($employeeId); ?>
+              ID: <?php echo htmlspecialchars($employeeId ?: ('EMP-' . $currentUserId)); ?>
             </span>
             <span class="px-2.5 py-1 bg-c3/10 text-c3 rounded-lg text-[10px] font-bold">
               Role: <?php echo htmlspecialchars($displayRole); ?>
+            </span>
+            <span class="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold">
+              Dept: <?php echo htmlspecialchars($department); ?>
             </span>
           </div>
         </div>

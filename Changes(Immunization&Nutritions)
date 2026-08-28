@@ -51,3 +51,166 @@
 ## Phase 6 – Verification & Quality Assurance
 - [x] Run `php -l` syntax checks on all 14 files (0 syntax errors detected)
 - [x] Verify API payload formats and response structures match `Response::success` / `Response::error` contract
+
+
+# Fix Plan: Vaccination Records Not Showing in Child Records Modal
+
+**Bug:** When opening "Vaccination Records" from the Child Records modal (MR Mateo Reyes, CHD-2026-001), it shows "No vaccination records yet." even though `vaccination_tracking.php` already shows his doses as `status: completed`.
+
+**Root Cause Identified:** The disconnect is a **missing JOIN** in the API layer.
+
+---
+
+## Root Cause Analysis
+
+### The Data Flow (Current — Broken)
+
+```
+vaccination_tracking.php
+  → PHP reads: immunizations table (child_id FK)
+  → Displays: Mateo's completed doses ✅
+
+child_records.php
+  → JS calls: fetchChild(id)
+              → GET /api/immunization.php?id=<id>
+              → ChildController::show($id)            ← THE PROBLEM IS HERE
+              → Child::find($id)
+              → SELECT * FROM children WHERE id = $id ← Returns ONE row, NO vaccinations
+  → Returns: { id, first_name, last_name, ... }       ← No "vaccinations" key
+  → JS: c.vaccinations → undefined → coerced to []
+  → Renders: "No vaccination records yet." ❌
+```
+
+### The Three Files Involved
+
+| Layer | File | Issue |
+|---|---|---|
+| **API Controller** | [`app/Controllers/ChildController.php`](file:///opt/lampp/htdocs/capstone/app/Controllers/ChildController.php#L87-L96) | `show()` calls `Child::find()` which only returns the `children` row — no vaccination sub-query |
+| **Child Model** | [`app/Models/Child.php`](file:///opt/lampp/htdocs/capstone/app/Models/Child.php#L30-L39) | `find()` has no method to also fetch linked `immunizations` rows |
+| **Frontend JS** | [`child_records.php:L1237`](file:///opt/lampp/htdocs/capstone/modules/immunization/child_records.php#L1237-L1252) | `const vaccinations = Array.isArray(c.vaccinations) ? c.vaccinations : []` — expects `.vaccinations` key in API response |
+
+---
+
+## The Fix — 3 Steps
+
+### Step 1 — Add `findWithVaccinations()` to Child Model
+
+**File:** [`app/Models/Child.php`](file:///opt/lampp/htdocs/capstone/app/Models/Child.php)
+
+Add a new method after the existing `find()` method:
+
+```php
+/**
+ * Returns a child record with their full vaccination history
+ * from the `immunizations` table joined via child_id.
+ */
+public function findWithVaccinations(string|int $id): ?array
+{
+    try {
+        $child = $this->find($id);
+        if (!$child) return null;
+
+        // Fetch all immunization records for this child
+        $vaccinations = $this->db->select('immunizations', ['child_id' => (int)$id], [
+            'order' => 'date_administered.asc'
+        ]);
+
+        $child['vaccinations'] = is_array($vaccinations) ? $vaccinations : [];
+        return $child;
+    } catch (Throwable $e) {
+        error_log('Child Model Error (findWithVaccinations): ' . $e->getMessage());
+        return null;
+    }
+}
+```
+
+**Why:** The `immunizations` table stores records keyed by `child_id`. `vaccination_tracking.php` already reads from it (line 155: `$db->query('immunizations', 'GET')`). This method fetches the same data and attaches it to the child object.
+
+---
+
+### Step 2 — Update `ChildController::show()` to Use the New Method
+
+**File:** [`app/Controllers/ChildController.php`](file:///opt/lampp/htdocs/capstone/app/Controllers/ChildController.php#L87-L96)
+
+```diff
+ public function show(string $id): void
+ {
+-    $child = $this->childModel->find($id);
++    $child = $this->childModel->findWithVaccinations($id);
+
+     if (!$child) {
+         Response::error('Child not found', 404);
+     }
+
+     Response::success('Child retrieved successfully', $child);
+ }
+```
+
+**Why:** `GET /api/immunization.php?id=<id>` is the endpoint called by `fetchChild()` in the JS. Now it will return a payload like:
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 5,
+    "first_name": "Mateo",
+    "last_name": "Reyes",
+    "child_id": "CHD-2026-001",
+    "vaccinations": [
+      {
+        "id": 12,
+        "child_id": 5,
+        "vaccine": "BCG",
+        "dose": 1,
+        "date_administered": "2024-03-01",
+        "administered_by": "Nurse Santos",
+        "next_due_date": "2024-04-12"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Step 3 — Fix Vaccine Name Field Mapping in JS
+
+**File:** [`child_records.php:L1242`](file:///opt/lampp/htdocs/capstone/modules/immunization/child_records.php#L1242)
+
+The `immunizations` table column is `vaccine`, but the JS only checks for `v.name` and `v.vaccine_name`:
+
+```diff
+- `${escHtml(v.name || v.vaccine_name || 'Vaccine')} • Dose ${escHtml(val(v.dose, '1'))}`
++ `${escHtml(v.vaccine || v.name || v.vaccine_name || 'Vaccine')} • Dose ${escHtml(val(v.dose, '1'))}`
+```
+
+---
+
+## What Happens to the "Add Record" Button?
+
+The "Add Record" button stays and is still valid for recording additional doses. The POST flow to `api/immunization.php?action=record` is already correctly wired — it inserts into `immunizations` and updates `vaccine_compliance` in `children`. No change needed there.
+
+---
+
+## Summary of Changes
+
+| # | File | Change | Size |
+|---|---|---|---|
+| 1 | [`app/Models/Child.php`](file:///opt/lampp/htdocs/capstone/app/Models/Child.php) | Add `findWithVaccinations()` method | +15 lines |
+| 2 | [`app/Controllers/ChildController.php`](file:///opt/lampp/htdocs/capstone/app/Controllers/ChildController.php#L87) | `find()` → `findWithVaccinations()` in `show()` | 1-line change |
+| 3 | [`child_records.php:L1242`](file:///opt/lampp/htdocs/capstone/modules/immunization/child_records.php#L1242) | Add `v.vaccine` to the name fallback chain | 1-line change |
+
+---
+
+## Verification Steps
+
+After applying fixes:
+
+1. Open **Child Records** → click the vaccination icon for Mateo Reyes (CHD-2026-001)
+2. Modal should now display all his completed doses
+3. Confirm in DevTools → Network → `GET /api/immunization.php?id=<id>` → response `data.vaccinations` is a non-empty array
+4. Click **Add Record** → fill form → submit → reopen modal → new record appears alongside old ones
+
+---
+
+*Plan written: August 28, 2026*
