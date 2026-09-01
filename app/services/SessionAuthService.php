@@ -74,6 +74,7 @@ class SessionAuthService
             }
 
             $session = $sessions[0];
+            $rememberMe = ($overrideRememberMe !== null) ? (bool)$overrideRememberMe : (!empty($session['remember_me']));
 
             // 1. Check if token/code has expired or already been invalidated/locked
             if (strtotime($session['otp_expires_at']) < time() || empty($session['otp_code'])) {
