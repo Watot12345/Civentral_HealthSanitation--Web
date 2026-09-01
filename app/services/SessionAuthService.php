@@ -16,15 +16,14 @@ class SessionAuthService
     /**
      * Generates a 6-digit OTP code with 3-minute TTL, stores it in DB, and emails it to the employee.
      */
-    public function generateAndSendOtp(array $employee, bool $rememberMe = false): array
+    public function generateAndSendOtp(array $employee, bool $rememberMe = true): array
     {
         $otpCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $otpExpiresAt = date('Y-m-d H:i:s', strtotime('+3 minutes'));
         $sessionToken = bin2hex(random_bytes(32));
 
-        // Calculate final session expiration post-OTP verification
-        $shiftHours = $rememberMe ? '+7 days' : '+12 hours';
-        $finalExpiresAt = date('Y-m-d H:i:s', strtotime($shiftHours));
+        // Session expiration post-OTP verification (10 Days limit for Remembered Device)
+        $finalExpiresAt = date('Y-m-d H:i:s', strtotime('+10 days'));
 
         $email = $employee['email'] ?? '';
         $name  = $employee['full_name'] ?? ($employee['username'] ?? 'Employee');
@@ -38,7 +37,7 @@ class SessionAuthService
                 'session_token'  => $sessionToken,
                 'otp_code'       => $otpCode,
                 'otp_expires_at' => $otpExpiresAt,
-                'remember_me'    => $rememberMe ? 1 : 0,
+                'remember_me'    => 1,
                 'expires_at'     => $finalExpiresAt,
             ]);
         } catch (\Throwable $e) {
@@ -64,7 +63,7 @@ class SessionAuthService
     /**
      * Verifies the 6-digit OTP code (Enforces max 5 attempts before locking code).
      */
-    public function verifyOtp(string $sessionToken, string $enteredCode): array
+    public function verifyOtp(string $sessionToken, string $enteredCode, ?bool $overrideRememberMe = null): array
     {
         try {
             $db = Database::getInstance();
@@ -177,16 +176,47 @@ class SessionAuthService
             $_SESSION['role_description'] = $functionalRole;
             $_SESSION['user_role']        = $functionalRole;
             $_SESSION['session_token']    = $sessionToken;
-            $_SESSION['session_expires']  = $session['expires_at'];
-            $_SESSION['logged_in']        = true;
+            
+            // Set session expiration & cookies based on Remember this device toggle
+            if ($rememberMe) {
+                $newExpiresAt = date('Y-m-d H:i:s', strtotime('+10 days'));
+                $cookieDuration = 10 * 86400; // 10 days
+                try {
+                    $db->update('user_sessions', [
+                        'remember_me' => 1,
+                        'expires_at'  => $newExpiresAt
+                    ], ['session_token' => $sessionToken], true);
+                    $session['remember_me'] = 1;
+                    $session['expires_at']  = $newExpiresAt;
+                } catch (\Throwable $ignored) {}
 
-            // Set browser cookie (both global active session & account-specific device trust token)
-            $cookieDuration = !empty($session['remember_me']) ? (7 * 86400) : (12 * 3600);
-            setcookie('civentral_session', $sessionToken, time() + $cookieDuration, '/', '', false, true);
-            setcookie('civentral_session_' . $employee['id'], $sessionToken, time() + $cookieDuration, '/', '', false, true);
+                $_SESSION['session_expires']  = $session['expires_at'];
+                $_SESSION['logged_in']        = true;
 
-            if (!empty($session['remember_me']) && class_exists('App\Services\RememberMeService')) {
-                \App\Services\RememberMeService::createToken($employee);
+                // Set 10-day persistent device cookies
+                setcookie('civentral_session', $sessionToken, time() + $cookieDuration, '/', '', false, true);
+                setcookie('civentral_session_' . $employee['id'], $sessionToken, time() + $cookieDuration, '/', '', false, true);
+
+                if (class_exists('App\Services\RememberMeService')) {
+                    \App\Services\RememberMeService::createToken($employee);
+                }
+            } else {
+                $newExpiresAt = date('Y-m-d H:i:s', strtotime('+1 day'));
+                try {
+                    $db->update('user_sessions', [
+                        'remember_me' => 0,
+                        'expires_at'  => $newExpiresAt
+                    ], ['session_token' => $sessionToken], true);
+                    $session['remember_me'] = 0;
+                    $session['expires_at']  = $newExpiresAt;
+                } catch (\Throwable $ignored) {}
+
+                $_SESSION['session_expires']  = $session['expires_at'];
+                $_SESSION['logged_in']        = true;
+
+                // Session-only cookies (cleared on browser close)
+                setcookie('civentral_session', $sessionToken, 0, '/', '', false, true);
+                setcookie('civentral_session_' . $employee['id'], $sessionToken, 0, '/', '', false, true);
             }
 
             return [
@@ -206,7 +236,7 @@ class SessionAuthService
     }
 
     /**
-     * Auto-validates an active 12-hour / 7-day session token from browser cookie.
+     * Auto-validates an active 10-day session token from browser cookie.
      * Returns true if valid and activates session without requiring a new OTP code.
      */
     public function validateActiveToken(string $sessionToken): bool
@@ -260,7 +290,7 @@ class SessionAuthService
     }
 
     /**
-     * Checks if this specific device/cookie has an active verified 12h/7d session token.
+     * Checks if this specific device/cookie has an active verified 10-day session token.
      * Strictly requires matching cookieToken and valid expires_at timestamp.
      */
     public function hasActiveVerifiedSession(int $employeeId, string $cookieToken = ''): bool
@@ -283,7 +313,7 @@ class SessionAuthService
             $session = $sessions[0];
             $expiresTimestamp = strtotime($session['expires_at']);
 
-            // Strictly check if 12-hour / 7-day token is still active
+            // Strictly check if 10-day token is still active
             if ($expiresTimestamp > time()) {
                 return true; // Token still valid -> Skip OTP code!
             }

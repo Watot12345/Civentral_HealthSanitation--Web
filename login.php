@@ -111,13 +111,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['logged_in']        = true;
                     $_SESSION['last_activity']    = time();
 
-                    // Refresh/set active session cookie (1 week if remember_me, 12h otherwise)
-                    $cookieDuration = $rememberMe ? (7 * 86400) : (12 * 3600);
+                    // Refresh/set active session cookie (10 days for remembered device)
+                    $cookieDuration = 10 * 86400;
                     $sessionToken = !empty($userCookieToken) ? $userCookieToken : bin2hex(random_bytes(32));
                     setcookie('civentral_session', $sessionToken, time() + $cookieDuration, '/', '', false, true);
                     setcookie('civentral_session_' . $user['id'], $sessionToken, time() + $cookieDuration, '/', '', false, true);
 
-                    if ($rememberMe && class_exists('App\Services\RememberMeService')) {
+                    if (class_exists('App\Services\RememberMeService')) {
                         \App\Services\RememberMeService::createToken($user);
                     }
 
@@ -197,6 +197,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'verify_otp') {
             $sessionToken = trim($_POST['session_token'] ?? '');
             $otpCode      = trim($_POST['otp_code'] ?? '');
+            $rememberMe   = isset($_POST['remember_me']) 
+                ? (!empty($_POST['remember_me']) && ($_POST['remember_me'] === 'true' || $_POST['remember_me'] === '1' || $_POST['remember_me'] === 'on' || $_POST['remember_me'] === true))
+                : true;
 
             if (empty($sessionToken) || empty($otpCode)) {
                 echo json_encode(['success' => false, 'message' => 'Security code and session token are required.']);
@@ -205,7 +208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             try {
                 $authService = new SessionAuthService();
-                $verifyResult = $authService->verifyOtp($sessionToken, $otpCode);
+                $verifyResult = $authService->verifyOtp($sessionToken, $otpCode, $rememberMe);
 
                 if ($verifyResult['success']) {
                     $user = $verifyResult['employee'];
@@ -616,6 +619,44 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
     .input-field:focus {
         box-shadow: 0 0 0 3px rgba(134, 182, 246, 0.2);
     }
+
+    /* Simple Toggle Switch */
+    .toggle-switch-input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+        pointer-events: none;
+    }
+    .toggle-switch-track {
+        display: inline-block;
+        width: 38px;
+        height: 22px;
+        background-color: #176B87;
+        border-radius: 9999px;
+        position: relative;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        flex-shrink: 0;
+    }
+    .toggle-switch-thumb {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        background-color: #ffffff;
+        border-radius: 9999px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        transform: translateX(16px);
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .toggle-switch-input:not(:checked) + .toggle-switch-track {
+        background-color: #cbd5e1;
+    }
+    .toggle-switch-input:not(:checked) + .toggle-switch-track .toggle-switch-thumb {
+        transform: translateX(0px);
+    }
     </style>
 </head>
 <body class="bg-white min-h-screen font-sans antialiased selection:bg-brand-medium selection:text-white">
@@ -704,7 +745,7 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
 
                     <div class="flex items-center justify-between pt-1">
                         <label class="flex items-center space-x-2 cursor-pointer select-none">
-                            <input type="checkbox" id="rememberMe" name="remember_me" class="w-4 h-4 text-brand-medium border-gray-300 rounded focus:ring-brand-medium accent-brand-medium" />
+                            <input type="checkbox" id="rememberMe" name="remember_me" checked class="w-4 h-4 text-brand-medium border-gray-300 rounded focus:ring-brand-medium accent-brand-medium cursor-pointer" />
                             <span class="text-xs text-gray-500">Keep me signed in</span>
                         </label>
                         <a href="javascript:void(0)" onclick="openForgotPasswordModal()" class="text-xs font-semibold text-brand-medium hover:underline cursor-pointer">Forgot password?</a>
@@ -781,6 +822,23 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
                             autocomplete="one-time-code"
                             class="w-full py-3 text-center text-2xl font-black tracking-[0.5em] font-mono border-2 border-brand-border rounded-xl focus:border-brand-medium focus:ring-2 focus:ring-brand-medium/20 outline-none text-brand-dark bg-gray-50"
                         />
+                    </div>
+
+                    <!-- Remember This Device Toggle (Default Toggled ON) -->
+                    <div class="flex items-center pt-1 pb-1">
+                        <label class="flex items-center space-x-2.5 cursor-pointer select-none">
+                            <input
+                                type="checkbox"
+                                id="otpRememberDevice"
+                                name="remember_device"
+                                checked
+                                class="toggle-switch-input"
+                            />
+                            <span class="toggle-switch-track">
+                                <span class="toggle-switch-thumb"></span>
+                            </span>
+                            <span class="text-xs font-semibold text-gray-700">Remember this device</span>
+                        </label>
                     </div>
 
                     <!-- Inline Error Banner -->
@@ -1480,6 +1538,12 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
                         devOtpBox.classList.remove('flex');
                     }
 
+                    // Auto-check Remember this device in OTP container when OTP is sent
+                    const otpRemember = document.getElementById('otpRememberDevice');
+                    if (otpRemember) {
+                        otpRemember.checked = true;
+                    }
+
                     document.getElementById('otpModal').classList.remove('hidden');
                     document.getElementById('otpModal').classList.add('flex');
                     startOtpTimer(180); // 3 minutes
@@ -1535,6 +1599,7 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
         event.preventDefault();
         const sessionToken = document.getElementById('otpSessionToken').value;
         const otpCode = document.getElementById('otpCodeInput').value.trim();
+        const rememberMe = document.getElementById('otpRememberDevice') ? document.getElementById('otpRememberDevice').checked : true;
         const otpBtn = document.getElementById('otpSubmitBtn');
         const otpBtnText = document.getElementById('otpBtnText');
 
@@ -1551,6 +1616,7 @@ if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_G
             formData.append('action', 'verify_otp');
             formData.append('session_token', sessionToken);
             formData.append('otp_code', otpCode);
+            formData.append('remember_me', rememberMe);
 
             const response = await fetch('login.php', {
                 method: 'POST',

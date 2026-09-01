@@ -85,8 +85,8 @@ Here is the complete, straightforward list of every security mechanism built int
    * `HttpOnly = true` prevents JavaScript (`document.cookie`) from accessing session tokens, defeating XSS cookie theft.
 4. **SameSite Cookie Attribute:**
    * `SameSite = Lax` protects cookies from being sent in malicious third-party cross-site requests (CSRF).
-5. **Dual Shift Lifecycles:**
-   * Standard sessions automatically expire after **12 hours** (1 shift), while trusted devices last **7 days**.
+5. **10-Day Trusted Device Lifecycle:**
+   * Remembered device sessions last **10 days** (`864,000` seconds / `+10 days`), eliminating legacy 12-hour session resets.
 
 ---
 

@@ -10,7 +10,7 @@ use Throwable;
 class RememberMeService
 {
     private static string $cookieName = 'civentral_remember';
-    private static int $cookieLifetime = 604800; // 1 Week (7 * 24 * 60 * 60 = 604,800 seconds)
+    private static int $cookieLifetime = 864000; // 10 Days (10 * 24 * 60 * 60 = 864,000 seconds)
     private static string $secretKey = 'Civentral_LGU_Secure_Remember_HMAC_Secret_2026';
 
     /**
