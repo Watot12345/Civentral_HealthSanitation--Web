@@ -13,6 +13,14 @@ class RememberMeService
     private static int $cookieLifetime = 864000; // 10 Days (10 * 24 * 60 * 60 = 864,000 seconds)
     private static string $secretKey = 'Civentral_LGU_Secure_Remember_HMAC_Secret_2026';
 
+    public static function getLifetime(): int
+    {
+        if (class_exists('SessionAuthService')) {
+            return \SessionAuthService::getRememberDurationSeconds();
+        }
+        return self::$cookieLifetime;
+    }
+
     /**
      * Create long-lived Remember Me token & set secure HTTP cookie.
      */
@@ -22,9 +30,11 @@ class RememberMeService
             @session_start();
         }
 
+        $lifetime = self::getLifetime();
+
         if (!headers_sent()) {
             @session_set_cookie_params([
-                'lifetime' => self::$cookieLifetime,
+                'lifetime' => $lifetime,
                 'path'     => '/',
                 'httponly' => true,
                 'samesite' => 'Lax'
@@ -34,25 +44,26 @@ class RememberMeService
         $userId     = (int)($user['id'] ?? 0);
         $employeeId = trim($user['employee_id'] ?? '');
         $pwdHash    = substr($user['password'] ?? '', 0, 16); // Hash slice
+        $expiresAt  = time() + $lifetime;
 
         if ($userId <= 0 || empty($employeeId)) {
             return;
         }
 
-        $payload   = "{$userId}:{$employeeId}:{$pwdHash}";
+        $payload   = "{$userId}:{$employeeId}:{$pwdHash}:{$expiresAt}";
         $signature = hash_hmac('sha256', $payload, self::$secretKey);
         $token     = base64_encode("{$payload}:{$signature}");
 
         // Populate $_COOKIE for CLI / test environment
         $_COOKIE[self::$cookieName] = $token;
 
-        // Set HTTP cookie for 30 days
+        // Set HTTP cookie
         if (!headers_sent()) {
             @setcookie(
                 self::$cookieName,
                 $token,
                 [
-                    'expires'  => time() + self::$cookieLifetime,
+                    'expires'  => $expiresAt,
                     'path'     => '/',
                     'httponly' => true,
                     'samesite' => 'Lax',
@@ -89,13 +100,26 @@ class RememberMeService
             }
 
             $parts = explode(':', $rawToken);
-            if (count($parts) !== 4) {
+            $expiresAt = null;
+
+            if (count($parts) === 5) {
+                [$userId, $employeeId, $pwdHash, $expiresAt, $signature] = $parts;
+                $payload = "{$userId}:{$employeeId}:{$pwdHash}:{$expiresAt}";
+
+                // Server-side strict expiration validation!
+                if ((int)$expiresAt <= time()) {
+                    self::clearToken();
+                    return false;
+                }
+            } elseif (count($parts) === 4) {
+                // Legacy 4-part token backward compatibility
+                [$userId, $employeeId, $pwdHash, $signature] = $parts;
+                $payload = "{$userId}:{$employeeId}:{$pwdHash}";
+            } else {
                 self::clearToken();
                 return false;
             }
 
-            [$userId, $employeeId, $pwdHash, $signature] = $parts;
-            $payload = "{$userId}:{$employeeId}:{$pwdHash}";
             $expectedSignature = hash_hmac('sha256', $payload, self::$secretKey);
 
             if (!hash_equals($expectedSignature, $signature)) {

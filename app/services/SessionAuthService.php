@@ -14,22 +14,49 @@ class SessionAuthService
     }
 
     /**
+     * Resolves the device remembrance duration in seconds.
+     * Defaults to 10 days (864,000s), but respects 'security.remember_device_days' setting or REMEMBER_DEVICE_DAYS env.
+     */
+    public static function getRememberDurationSeconds(): int
+    {
+        // 1. Check environment variable override (e.g. for fast-forward testing/simulation)
+        $envDays = getenv('REMEMBER_DEVICE_DAYS');
+        if ($envDays !== false && is_numeric($envDays)) {
+            return (int)round(((float)$envDays) * 86400);
+        }
+
+        // 2. Check Settings if available
+        if (class_exists('Settings')) {
+            $settingDays = Settings::get('security.remember_device_days', null);
+            if ($settingDays !== null && is_numeric($settingDays)) {
+                return (int)round(((float)$settingDays) * 86400);
+            }
+        }
+
+        // Default: 10 Days = 864,000 seconds
+        return 10 * 86400;
+    }
+
+    /**
      * Generates a 6-digit OTP code with 3-minute TTL, stores it in DB, and emails it to the employee.
      */
     public function generateAndSendOtp(array $employee, bool $rememberMe = true): array
     {
         $otpCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        $otpExpiresAt = date('Y-m-d H:i:s', strtotime('+3 minutes'));
+        $otpExpiresAt = gmdate('Y-m-d H:i:sP', time() + (3 * 60));
         $sessionToken = bin2hex(random_bytes(32));
 
-        // Session expiration post-OTP verification (10 Days limit for Remembered Device)
-        $finalExpiresAt = date('Y-m-d H:i:s', strtotime('+10 days'));
+        // Session expiration after OTP verification (configurable 10-day TTL).
+        $rememberDuration = self::getRememberDurationSeconds();
+        $finalExpiresAt = $rememberMe
+            ? gmdate('Y-m-d H:i:sP', time() + $rememberDuration)
+            : gmdate('Y-m-d H:i:sP', time() + 86400);
 
         $email = $employee['email'] ?? '';
         $name  = $employee['full_name'] ?? ($employee['username'] ?? 'Employee');
         $empId = (int)$employee['id'];
 
-        // Save session/OTP record to database
+        // Save session/OTP record to database (using service key to guarantee RLS bypass)
         try {
             $db = Database::getInstance();
             $db->query('user_sessions', 'POST', [
@@ -37,9 +64,9 @@ class SessionAuthService
                 'session_token'  => $sessionToken,
                 'otp_code'       => $otpCode,
                 'otp_expires_at' => $otpExpiresAt,
-                'remember_me'    => 1,
+                'remember_me'    => $rememberMe ? 1 : 0,
                 'expires_at'     => $finalExpiresAt,
-            ]);
+            ], [], [], true);
         } catch (\Throwable $e) {
             error_log('SessionAuthService DB error: ' . $e->getMessage());
         }
@@ -67,7 +94,7 @@ class SessionAuthService
     {
         try {
             $db = Database::getInstance();
-            $sessions = $db->select('user_sessions', ['session_token' => $sessionToken]);
+            $sessions = $db->select('user_sessions', ['session_token' => $sessionToken], [], true);
 
             if (empty($sessions)) {
                 return ['success' => false, 'error_type' => 'token_invalid', 'message' => 'Session expired. Please re-enter your credentials.'];
@@ -102,7 +129,7 @@ class SessionAuthService
                 try {
                     $db->update('user_sessions', [
                         'otp_code' => null,
-                        'otp_expires_at' => date('Y-m-d H:i:s', time() - 10)
+                        'otp_expires_at' => gmdate('Y-m-d H:i:sP', time() - 10)
                     ], ['session_token' => $sessionToken], true);
                 } catch (\Throwable $ignored) {}
 
@@ -125,7 +152,7 @@ class SessionAuthService
                     try {
                         $db->update('user_sessions', [
                             'otp_code' => null,
-                            'otp_expires_at' => date('Y-m-d H:i:s', time() - 10)
+                            'otp_expires_at' => gmdate('Y-m-d H:i:sP', time() - 10)
                         ], ['session_token' => $sessionToken], true);
                     } catch (\Throwable $ignored) {}
 
@@ -180,8 +207,8 @@ class SessionAuthService
             
             // Set session expiration & cookies based on Remember this device toggle
             if ($rememberMe) {
-                $newExpiresAt = date('Y-m-d H:i:s', strtotime('+10 days'));
-                $cookieDuration = 10 * 86400; // 10 days
+                $cookieDuration = self::getRememberDurationSeconds();
+                $newExpiresAt = gmdate('Y-m-d H:i:sP', time() + $cookieDuration);
                 try {
                     $db->update('user_sessions', [
                         'remember_me' => 1,
@@ -202,7 +229,7 @@ class SessionAuthService
                     \App\Services\RememberMeService::createToken($employee);
                 }
             } else {
-                $newExpiresAt = date('Y-m-d H:i:s', strtotime('+1 day'));
+                $newExpiresAt = gmdate('Y-m-d H:i:sP', time() + 86400);
                 try {
                     $db->update('user_sessions', [
                         'remember_me' => 0,
@@ -246,7 +273,7 @@ class SessionAuthService
 
         try {
             $db = Database::getInstance();
-            $sessions = $db->select('user_sessions', ['session_token' => $sessionToken]);
+            $sessions = $db->select('user_sessions', ['session_token' => $sessionToken], [], true);
 
             if (empty($sessions)) return false;
 
@@ -305,7 +332,7 @@ class SessionAuthService
             $sessions = $db->select('user_sessions', [
                 'session_token' => $cookieToken,
                 'employee_id'   => $employeeId
-            ]);
+            ], [], true);
 
             if (empty($sessions)) {
                 return false; // Token not found -> Require OTP code!
@@ -313,9 +340,10 @@ class SessionAuthService
 
             $session = $sessions[0];
             $expiresTimestamp = strtotime($session['expires_at']);
+            $isRemembered = filter_var($session['remember_me'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
-            // Strictly check if 10-day token is still active
-            if ($expiresTimestamp > time()) {
+            // Only a remembered verified device can skip OTP within the validity window.
+            if ($isRemembered && $expiresTimestamp > time()) {
                 return true; // Token still valid -> Skip OTP code!
             }
 

@@ -112,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['last_activity']    = time();
 
                     // Refresh/set active session cookie (10 days for remembered device)
-                    $cookieDuration = 10 * 86400;
+                    $cookieDuration = class_exists('SessionAuthService') ? SessionAuthService::getRememberDurationSeconds() : 10 * 86400;
                     $sessionToken = !empty($userCookieToken) ? $userCookieToken : bin2hex(random_bytes(32));
                     setcookie('civentral_session', $sessionToken, time() + $cookieDuration, '/', '', false, true);
                     setcookie('civentral_session_' . $user['id'], $sessionToken, time() + $cookieDuration, '/', '', false, true);

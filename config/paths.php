@@ -309,9 +309,6 @@ if (file_exists(__DIR__ . '/../app/helpers/Settings.php')) {
                     @session_destroy();
                 }
                 setcookie('civentral_session', '', time() - 3600, '/');
-                if ($expiredUserId) {
-                    setcookie('civentral_session_' . $expiredUserId, '', time() - 3600, '/');
-                }
                 $currentUri = $_SERVER['REQUEST_URI'] ?? '';
                 if (!str_contains($currentUri, 'login.php')) {
                     if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
