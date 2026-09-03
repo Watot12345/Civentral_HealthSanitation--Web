@@ -38,13 +38,12 @@ class Database
      * Executes a request against PostgREST.
      */
     public function query(
-        
         string $table,
         string $method = 'GET',
         ?array $data = null,
         array $filters = [],
         array $options = [],
-        bool $useServiceKey = false
+        ?bool $useServiceKey = null
     ): array {
         $endpoint = "{$this->url}/rest/v1/{$table}";
 
@@ -94,7 +93,10 @@ class Database
             $endpoint .= '?' . implode('&', $queryParams);
         }
 
-        $key = $useServiceKey ? $this->serviceKey : $this->anonKey;
+        // Server-side backend operations use serviceKey by default (if set) to bypass RLS; fallback to anonKey
+        $key = ($useServiceKey === false)
+            ? $this->anonKey
+            : (!empty($this->serviceKey) ? $this->serviceKey : $this->anonKey);
 
         $headers = [
             'apikey: ' . $key,
@@ -161,7 +163,7 @@ class Database
         return $decoded ?? [];
     }
 
-    public function select(string $table, array $filters = [], array $options = [], bool $useServiceKey = false): array
+    public function select(string $table, array $filters = [], array $options = [], ?bool $useServiceKey = null): array
     {
         return $this->query($table, 'GET', null, $filters, $options, $useServiceKey);
     }
@@ -171,12 +173,14 @@ class Database
      * Supports both indexed arrays of table names: ['patients', 'consultations']
      * and associative configs: ['patients' => ['select' => 'id,created_at', 'limit' => 1000]]
      */
-    public function multiSelect(array $tables): array
+    public function multiSelect(array $tables, ?bool $useServiceKey = null): array
     {
         if (empty($tables)) return [];
         $mh = curl_multi_init();
         $handles = [];
-        $key = $this->anonKey;
+        $key = ($useServiceKey === false)
+            ? $this->anonKey
+            : (!empty($this->serviceKey) ? $this->serviceKey : $this->anonKey);
         $headers = [
             'apikey: ' . $key,
             'Authorization: Bearer ' . $key,
@@ -260,17 +264,17 @@ class Database
         return $results;
     }
 
-    public function insert(string $table, array $data, bool $useServiceKey = false): array
+    public function insert(string $table, array $data, ?bool $useServiceKey = null): array
     {
         return $this->query($table, 'POST', $data, [], [], $useServiceKey);
     }
 
-    public function update(string $table, array $data, array $filters, bool $useServiceKey = false): array
+    public function update(string $table, array $data, array $filters, ?bool $useServiceKey = null): array
     {
         return $this->query($table, 'PATCH', $data, $filters, [], $useServiceKey);
     }
 
-    public function delete(string $table, array $filters, bool $useServiceKey = false): array
+    public function delete(string $table, array $filters, ?bool $useServiceKey = null): array
     {
         return $this->query($table, 'DELETE', null, $filters, [], $useServiceKey);
     }
