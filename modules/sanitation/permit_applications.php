@@ -903,6 +903,12 @@ function renderTable(permits) {
                             <i class="fa-solid fa-ban text-sm"></i>
                         </button>
                     ` : ''}
+                    ${p.status === 'rejected' ? `
+                        <button onclick="reapplyPermit(${p.id})"
+                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Re-apply">
+                            <i class="fa-solid fa-file-circle-plus text-sm"></i>
+                        </button>
+                    ` : ''}
                 </div>
             </td>
         </tr>`;
@@ -1200,6 +1206,11 @@ async function viewPermit(id) {
                         <a href="inspections.php" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold flex items-center gap-1.5">
                             <i class="fa-solid fa-clipboard-list text-xs"></i> View in Inspections
                         </a>
+                    ` : ''}
+                    ${p.status === 'rejected' ? `
+                        <button onclick="ModalSystem.close('viewPermitModal'); reapplyPermit(${p.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-circle-plus text-xs"></i> Re-apply
+                        </button>
                     ` : ''}
                 </div>
             </div>
@@ -1506,6 +1517,37 @@ function cancelPermit(id) {
 
 // Backward-compatibility alias
 window.deletePermit = cancelPermit;
+
+// ============================================================
+// RE-APPLY REJECTED PERMIT
+// ============================================================
+async function reapplyPermit(id) {
+    try {
+        const result = await apiRequest(API_BASE + '?id=' + id);
+        const p = result.data;
+
+        document.getElementById('newPermitForm').reset();
+        document.getElementById('permit_applicant').value = p.applicant || '';
+        document.getElementById('permit_owner').value = p.owner_name || '';
+        document.getElementById('permit_type').value = p.business_type || '';
+        document.getElementById('permit_address').value = p.address || '';
+        document.getElementById('permit_contact').value = p.contact || '';
+        document.getElementById('permit_email').value = p.email || '';
+        document.getElementById('permit_payment').value = p.payment_method || '';
+        document.getElementById('permit_notes').value = p.rejection_reason
+            ? 'Re-application after rejection. Previous reason: ' + p.rejection_reason
+            : 'Re-application after rejection.';
+
+        updateFeeFromStructure('permit_type', 'permit_fee', 'permit_fee_breakdown', 'permit_fee_category', 'permit_fee_math');
+        if (!document.getElementById('permit_fee').value && p.fee) {
+            document.getElementById('permit_fee').value = p.fee;
+        }
+
+        ModalSystem.open('newPermitModal');
+    } catch (err) {
+        ModalSystem.toast.error('Failed to prepare re-application: ' + err.message);
+    }
+}
 
 // ============================================================
 // INITIALIZATION

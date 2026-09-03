@@ -43,10 +43,10 @@ try {
                 $controller->stats();
             } elseif ($inspectionId) {
                 $controller->show($inspectionId);
-            } elseif (isset($_GET['q'])) {
-                $controller->search();
             } elseif (isset($_GET['page'])) {
                 $controller->paginated();
+            } elseif (isset($_GET['q'])) {
+                $controller->search();
             } else {
                 $controller->index();
             }

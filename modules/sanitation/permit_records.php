@@ -15,10 +15,13 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('sanitation permits');
 require_once __DIR__ . '/../../includes/data-mask.php';
+require_once __DIR__ . '/../../app/Models/Barangay.php';
 
 $title = 'Permit Records';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 5;
+$barangayModel = new Barangay();
+$barangayOptions = $barangayModel->allForSurveillance();
 ?>
 
 <!-- ============================================================ -->
@@ -226,7 +229,7 @@ $limit = 5;
             <div class="flex gap-2 flex-wrap">
                 <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Status</option>
-                    <option value="active">Active</option>
+                    <option value="approved">Active</option>
                     <option value="pending">Pending</option>
                     <option value="under_review">Under Review</option>
                     <option value="expired">Expired</option>
@@ -244,25 +247,17 @@ $limit = 5;
                     <option value="Office/Commercial">Office/Commercial</option>
                     <option value="Hotel/Lodging">Hotel/Lodging</option>
                 </select>
-                <select id="filterBarangay" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                    <option value="">All Barangays</option>
-                    <option value="Barangay San Jose">San Jose</option>
-                    <option value="Barangay Poblacion">Poblacion</option>
-                    <option value="Barangay Riverside">Riverside</option>
-                    <option value="Barangay San Roque">San Roque</option>
-                    <option value="Barangay Sta. Cruz">Sta. Cruz</option>
-                </select>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span>From</span>
-                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                </label>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span>To</span>
-                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                </label>
-                <button onclick="resetFilters()" title="Reset filters"
-                    class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
-                    <i class="fa-solid fa-rotate-right"></i>
+                <button type="button" onclick="openBarangayFilterModal()" id="barangayFilterBtn"
+                    class="px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 hover:bg-slate-50 transition flex items-center gap-2">
+                    <i class="fa-solid fa-location-dot text-slate-400"></i>
+                    <span id="barangayFilterLabel">Barangay</span>
+                    <span id="barangayFilterBadge" class="hidden px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-brand-light text-brand-dark border border-brand-border">Active</span>
+                </button>
+                <button type="button" onclick="openSpecificDateModal()" id="specificDateBtn"
+                    class="px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 hover:bg-slate-50 transition flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days text-slate-400"></i>
+                    <span id="specificDateLabel">Specific Date</span>
+                    <span id="dateFilterBadge" class="hidden px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-brand-light text-brand-dark border border-brand-border">Active</span>
                 </button>
             </div>
         </div>
@@ -272,19 +267,19 @@ $limit = 5;
             <button onclick="quickFilter('all')" class="quick-filter-btn px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all active:bg-brand-dark active:text-white active:border-brand-dark">
                 All
             </button>
-            <button onclick="quickFilter('active')" class="quick-filter-btn px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all">
+            <button onclick="quickFilter('approved')" class="quick-filter-btn px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all" data-status="approved">
                 <i class="fa-solid fa-circle-check mr-1"></i>Active
             </button>
-            <button onclick="quickFilter('expired')" class="quick-filter-btn px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all">
+            <button onclick="quickFilter('expired')" class="quick-filter-btn px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all" data-status="expired">
                 <i class="fa-solid fa-clock-rotate-left mr-1"></i>Expired
             </button>
-            <button onclick="quickFilter('pending')" class="quick-filter-btn px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all">
+            <button onclick="quickFilter('pending')" class="quick-filter-btn px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all" data-status="pending">
                 <i class="fa-solid fa-hourglass-half mr-1"></i>Pending
             </button>
-            <button onclick="quickFilter('under_review')" class="quick-filter-btn px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all">
+            <button onclick="quickFilter('under_review')" class="quick-filter-btn px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all" data-status="under_review">
                 <i class="fa-solid fa-clipboard-list mr-1"></i>Under Review
             </button>
-            <button onclick="quickFilter('rejected')" class="quick-filter-btn px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all">
+            <button onclick="quickFilter('rejected')" class="quick-filter-btn px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-brand-light/40 hover:border-brand-medium transition-all" data-status="rejected">
                 <i class="fa-solid fa-circle-xmark mr-1"></i>Rejected
             </button>
         </div>
@@ -325,8 +320,7 @@ $limit = 5;
                 <i class="fa-solid fa-file-circle-xmark text-slate-400"></i>
             </div>
             <p class="text-sm font-semibold text-slate-600">No permits match your filters</p>
-            <p class="text-xs text-slate-400 mt-1">Try adjusting your search or clearing filters</p>
-            <button onclick="resetFilters()" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear all filters</button>
+            <p class="text-xs text-slate-400 mt-1">Try adjusting your search or filter choices</p>
         </div>
 
         <!-- Pagination -->
@@ -336,6 +330,82 @@ $limit = 5;
             </p>
             <div class="flex gap-1" id="paginationButtons">
                 <!-- Generated dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SPECIFIC DATE FILTER MODAL -->
+<div id="specificDateModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-calendar-days text-brand-medium"></i> Specific Date
+            </h3>
+            <button onclick="closeModal('specificDateModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date Name</label>
+                <select id="modalDateFieldName" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="created_at">Date Applied</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">From</label>
+                <input type="date" id="modalFilterDateFrom" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">To</label>
+                <input type="date" id="modalFilterDateTo" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            </div>
+            <div id="modalDateError" class="hidden p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-600 flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span>The start date cannot be after the end date.</span>
+            </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 px-6 pb-6 pt-2 border-t border-slate-100">
+            <button type="button" onclick="clearSpecificDateFilter()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition text-sm font-semibold">Clear</button>
+            <div class="flex gap-2">
+                <button type="button" onclick="closeModal('specificDateModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button>
+                <button type="button" onclick="applySpecificDateFilter()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">Apply Filter</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- BARANGAY FILTER MODAL -->
+<div id="barangayFilterModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-location-dot text-brand-medium"></i> Barangay Filter
+            </h3>
+            <button onclick="closeModal('barangayFilterModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Zone</label>
+                <select id="modalFilterZone" onchange="populateModalBarangays()" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="">Select Zone</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label>
+                <select id="modalFilterBarangay" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" disabled>
+                    <option value="">Select a zone first</option>
+                </select>
+            </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 px-6 pb-6 pt-2 border-t border-slate-100">
+            <button type="button" onclick="clearBarangayFilter()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition text-sm font-semibold">Clear</button>
+            <div class="flex gap-2">
+                <button type="button" onclick="closeModal('barangayFilterModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button>
+                <button type="button" onclick="applyBarangayFilter()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">Apply Filter</button>
             </div>
         </div>
     </div>
@@ -451,6 +521,11 @@ $limit = 5;
     // PERMIT API CLIENT
     // ============================================================
     const API_BASE = '../../api/permits.php';
+    const BARANGAYS = <?php echo json_encode($barangayOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+    let activeDateFrom = '';
+    let activeDateTo = '';
+    let activeBarangay = '';
+    let activeZone = '';
 
     async function apiRequest(url, options = {}) {
         try {
@@ -486,12 +561,12 @@ $limit = 5;
         return apiRequest(API_BASE + '?id=' + id);
     }
 
-    async function renewPermit(id, data) {
+    async function apiRenewPermit(id, data) {
         return apiRequest(API_BASE + '?id=' + id + '&action=update', {
             method: 'POST',
             body: JSON.stringify({
                 ...data,
-                status: 'active'
+                status: 'approved'
             }),
         });
     }
@@ -520,10 +595,10 @@ $limit = 5;
                 limit: currentLimit,
                 status: document.getElementById('filterStatus').value,
                 type: document.getElementById('filterType').value,
-                barangay: document.getElementById('filterBarangay').value,
+                barangay: activeBarangay,
                 search: document.getElementById('searchPermitRecord').value,
-                dateFrom: document.getElementById('filterDateFrom').value,
-                dateTo: document.getElementById('filterDateTo').value,
+                dateFrom: activeDateFrom,
+                dateTo: activeDateTo,
             };
 
             if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
@@ -561,9 +636,12 @@ $limit = 5;
             const result = await getStats();
             const stats = result.data;
 
-            document.getElementById('statTotal').textContent = stats.total || 0;
-            document.getElementById('statActive').textContent = stats.active || 0;
-            document.getElementById('statActiveMini').textContent = stats.active || 0;
+            const total = Number(stats.total) || 0;
+            const active = Number(stats.active ?? stats.approved) || 0;
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statActive').textContent = active;
+            document.getElementById('statActiveMini').textContent = active;
             document.getElementById('statPending').textContent = stats.pending || 0;
             document.getElementById('statUnderReview').textContent = stats.under_review || 0;
             document.getElementById('statExpired').textContent = stats.expired || 0;
@@ -580,7 +658,7 @@ $limit = 5;
             document.getElementById('statRenewals').textContent = stats.total_renewals || 0;
 
             // Active Rate
-            const activeRate = stats.total > 0 ? Math.round((stats.active / stats.total) * 100) : 0;
+            const activeRate = total > 0 ? Math.round((active / total) * 100) : 0;
             document.getElementById('statActiveRate').textContent = activeRate + '%';
 
         } catch (error) {
@@ -606,6 +684,7 @@ $limit = 5;
 
         const statusColors = {
             active: 'bg-emerald-100 text-emerald-700',
+            approved: 'bg-emerald-100 text-emerald-700',
             pending: 'bg-amber-100 text-amber-700',
             under_review: 'bg-blue-100 text-blue-700',
             expired: 'bg-slate-100 text-slate-500',
@@ -654,7 +733,7 @@ $limit = 5;
                             <i class="fa-solid fa-rotate text-sm"></i>
                         </button>
                     ` : ''}
-                    ${permit.status === 'active' || permit.status === 'under_review' ? `
+                    ${permit.status === 'approved' || permit.status === 'under_review' ? `
                         <button onclick="editPermitRecord(${permit.id})"
                                 class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
                             <i class="fa-solid fa-pen text-sm"></i>
@@ -763,6 +842,7 @@ $limit = 5;
 
             const statusColors = {
                 active: 'bg-emerald-100 text-emerald-700',
+                approved: 'bg-emerald-100 text-emerald-700',
                 pending: 'bg-amber-100 text-amber-700',
                 under_review: 'bg-blue-100 text-blue-700',
                 expired: 'bg-slate-100 text-slate-500',
@@ -842,7 +922,7 @@ $limit = 5;
         };
 
         try {
-            await renewPermit(renewPermitId, data);
+            await apiRenewPermit(renewPermitId, data);
             closeModal('renewPermitModal');
             showToast('Permit renewed successfully!', 'success');
             loadPermits(currentPage);
@@ -869,7 +949,7 @@ $limit = 5;
         });
         if (status !== 'all') {
             document.querySelectorAll('.quick-filter-btn').forEach(btn => {
-                if (btn.textContent.trim().toLowerCase().includes(status.replace('_', ' '))) {
+                if (btn.dataset.status === status) {
                     btn.classList.add('bg-brand-dark', 'text-white', 'border-brand-dark');
                 }
             });
@@ -887,10 +967,10 @@ $limit = 5;
                 limit: 100,
                 status: document.getElementById('filterStatus').value,
                 type: document.getElementById('filterType').value,
-                barangay: document.getElementById('filterBarangay').value,
+                barangay: activeBarangay,
                 search: document.getElementById('searchPermitRecord').value,
-                dateFrom: document.getElementById('filterDateFrom').value,
-                dateTo: document.getElementById('filterDateTo').value
+                dateFrom: activeDateFrom,
+                dateTo: activeDateTo
             };
             if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
                 showToast('The start date cannot be after the end date', 'warning');
@@ -1016,17 +1096,155 @@ $limit = 5;
 
     document.getElementById('filterStatus').addEventListener('change', () => loadPermits(1));
     document.getElementById('filterType').addEventListener('change', () => loadPermits(1));
-    document.getElementById('filterBarangay').addEventListener('change', () => loadPermits(1));
-    document.getElementById('filterDateFrom').addEventListener('change', () => loadPermits(1));
-    document.getElementById('filterDateTo').addEventListener('change', () => loadPermits(1));
+
+    function openSpecificDateModal() {
+        document.getElementById('modalFilterDateFrom').value = activeDateFrom;
+        document.getElementById('modalFilterDateTo').value = activeDateTo;
+        document.getElementById('modalDateError').classList.add('hidden');
+        openModal('specificDateModal');
+    }
+
+    function applySpecificDateFilter() {
+        const fromVal = document.getElementById('modalFilterDateFrom').value;
+        const toVal = document.getElementById('modalFilterDateTo').value;
+        const errorEl = document.getElementById('modalDateError');
+
+        if (fromVal && toVal && fromVal > toVal) {
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        errorEl.classList.add('hidden');
+        activeDateFrom = fromVal;
+        activeDateTo = toVal;
+        updateSpecificDateButtonState();
+        closeModal('specificDateModal');
+        loadPermits(1);
+    }
+
+    function clearSpecificDateFilter() {
+        activeDateFrom = '';
+        activeDateTo = '';
+        document.getElementById('modalFilterDateFrom').value = '';
+        document.getElementById('modalFilterDateTo').value = '';
+        document.getElementById('modalDateError').classList.add('hidden');
+        updateSpecificDateButtonState();
+        closeModal('specificDateModal');
+        loadPermits(1);
+    }
+
+    function updateSpecificDateButtonState() {
+        const label = document.getElementById('specificDateLabel');
+        const badge = document.getElementById('dateFilterBadge');
+        const btn = document.getElementById('specificDateBtn');
+
+        if (activeDateFrom || activeDateTo) {
+            label.textContent = activeDateFrom && activeDateTo ? `${activeDateFrom} - ${activeDateTo}` : (activeDateFrom ? `From ${activeDateFrom}` : `Until ${activeDateTo}`);
+            badge.classList.remove('hidden');
+            btn.classList.add('border-brand-medium', 'text-brand-dark', 'bg-brand-light/30');
+            btn.classList.remove('border-slate-200');
+        } else {
+            label.textContent = 'Specific Date';
+            badge.classList.add('hidden');
+            btn.classList.remove('border-brand-medium', 'text-brand-dark', 'bg-brand-light/30');
+            btn.classList.add('border-slate-200');
+        }
+    }
+
+    function setupBarangayModal() {
+        const zoneSelect = document.getElementById('modalFilterZone');
+        const zones = [...new Set(BARANGAYS.map(item => item.zone).filter(Boolean))].sort((a, b) => {
+            const aNum = parseInt(String(a).replace(/\D/g, ''), 10) || 0;
+            const bNum = parseInt(String(b).replace(/\D/g, ''), 10) || 0;
+            return aNum - bNum;
+        });
+
+        zoneSelect.innerHTML = '<option value="">Select Zone</option>' + zones.map(zone => `<option value="${escapeExportHtml(zone)}">${escapeExportHtml(zone)}</option>`).join('');
+    }
+
+    function openBarangayFilterModal() {
+        document.getElementById('modalFilterZone').value = activeZone;
+        populateModalBarangays(activeBarangay);
+        openModal('barangayFilterModal');
+    }
+
+    function populateModalBarangays(selectedBarangay = '') {
+        const zone = document.getElementById('modalFilterZone').value;
+        const barangaySelect = document.getElementById('modalFilterBarangay');
+
+        if (!zone) {
+            barangaySelect.innerHTML = '<option value="">Select a zone first</option>';
+            barangaySelect.disabled = true;
+            return;
+        }
+
+        const barangays = BARANGAYS.filter(item => item.zone === zone);
+        barangaySelect.disabled = false;
+        barangaySelect.innerHTML = '<option value="">All barangays in this zone</option>' + barangays.map(item => {
+            const selected = item.name === selectedBarangay ? 'selected' : '';
+            return `<option value="${escapeExportHtml(item.name)}" ${selected}>${escapeExportHtml(item.name)}</option>`;
+        }).join('');
+    }
+
+    function applyBarangayFilter() {
+        const selectedZone = document.getElementById('modalFilterZone').value;
+        const selectedBarangay = document.getElementById('modalFilterBarangay').value;
+
+        if (selectedZone && !selectedBarangay) {
+            showToast('Please select a barangay after choosing a zone.', 'warning');
+            return;
+        }
+
+        activeZone = selectedZone;
+        activeBarangay = selectedBarangay;
+        updateBarangayButtonState();
+        closeModal('barangayFilterModal');
+        loadPermits(1);
+    }
+
+    function clearBarangayFilter() {
+        activeZone = '';
+        activeBarangay = '';
+        document.getElementById('modalFilterZone').value = '';
+        populateModalBarangays();
+        updateBarangayButtonState();
+        closeModal('barangayFilterModal');
+        loadPermits(1);
+    }
+
+    function updateBarangayButtonState() {
+        const label = document.getElementById('barangayFilterLabel');
+        const badge = document.getElementById('barangayFilterBadge');
+        const btn = document.getElementById('barangayFilterBtn');
+
+        if (activeBarangay || activeZone) {
+            label.textContent = activeBarangay || activeZone;
+            badge.classList.remove('hidden');
+            btn.classList.add('border-brand-medium', 'text-brand-dark', 'bg-brand-light/30');
+            btn.classList.remove('border-slate-200');
+        } else {
+            label.textContent = 'Barangay';
+            badge.classList.add('hidden');
+            btn.classList.remove('border-brand-medium', 'text-brand-dark', 'bg-brand-light/30');
+            btn.classList.add('border-slate-200');
+        }
+    }
 
     function resetFilters() {
         document.getElementById('searchPermitRecord').value = '';
         document.getElementById('filterStatus').value = '';
         document.getElementById('filterType').value = '';
-        document.getElementById('filterBarangay').value = '';
-        document.getElementById('filterDateFrom').value = '';
-        document.getElementById('filterDateTo').value = '';
+        activeBarangay = '';
+        activeZone = '';
+        activeDateFrom = '';
+        activeDateTo = '';
+        document.getElementById('modalFilterZone').value = '';
+        populateModalBarangays();
+        document.getElementById('modalFilterDateFrom').value = '';
+        document.getElementById('modalFilterDateTo').value = '';
+        document.getElementById('modalDateError').classList.add('hidden');
+        updateBarangayButtonState();
+        updateSpecificDateButtonState();
         document.querySelectorAll('.quick-filter-btn').forEach(btn => {
             btn.classList.remove('bg-brand-dark', 'text-white', 'border-brand-dark');
         });
@@ -1053,6 +1271,7 @@ $limit = 5;
     // INITIALIZE
     // ============================================================
     document.addEventListener('DOMContentLoaded', () => {
+        setupBarangayModal();
         loadStats();
         loadPermits(currentPage);
     });

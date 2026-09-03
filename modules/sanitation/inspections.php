@@ -19,6 +19,11 @@ require_once __DIR__ . '/../../app/Models/Permit.php';
 require_once __DIR__ . '/../../app/Models/Employee.php';
 
 $title = 'Inspections';
+$inspectionRoleText = strtolower(trim(($roleDescription ?? '') . ' ' . ($role ?? '') . ' ' . ($displayRole ?? '')));
+$canViewAllInspectionRows = str_contains($inspectionRoleText, 'admin')
+    || str_contains($inspectionRoleText, 'administrator')
+    || str_contains($inspectionRoleText, 'sanitation director');
+$isInspectorOnly = !$canViewAllInspectionRows && str_contains($inspectionRoleText, 'inspector');
 
 $permits = [];
 try {
@@ -62,12 +67,14 @@ try {
             <h2 class="text-2xl font-black text-slate-900 tracking-tight">Inspections</h2>
             <p class="text-sm text-slate-500 mt-0.5">Schedule, conduct, and manage inspections</p>
         </div>
+        <?php if (!$isInspectorOnly): ?>
         <div class="flex gap-3">
             <button onclick="openModal('scheduleInspectionModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-calendar-plus text-xs"></i> Schedule Inspection
             </button>
         </div>
+        <?php endif; ?>
     </div>
 
     <!-- KPI CARDS -->
@@ -192,6 +199,7 @@ try {
                     <option value="partially_compliant">Partially Compliant</option>
                     <option value="non_compliant">Non-Compliant</option>
                 </select>
+                <?php if ($canViewAllInspectionRows): ?>
                 <select id="filterInspector" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Inspectors</option>
                     <?php foreach ($inspectors as $i): ?>
@@ -200,17 +208,12 @@ try {
                         </option>
                     <?php endforeach; ?>
                 </select>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span>From</span>
-                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                </label>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span>To</span>
-                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                </label>
-                <button onclick="resetFilters()" title="Reset filters"
-                        class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
-                    <i class="fa-solid fa-rotate-right"></i>
+                <?php endif; ?>
+                <button type="button" onclick="openSpecificDateModal()" id="specificDateBtn"
+                        class="px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 hover:bg-slate-50 transition flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days text-slate-400"></i>
+                    <span id="specificDateLabel">Specific Date</span>
+                    <span id="dateFilterBadge" class="hidden px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-brand-light text-brand-dark border border-brand-border">Active</span>
                 </button>
             </div>
         </div>
@@ -247,14 +250,55 @@ try {
                 <i class="fa-solid fa-clipboard-list text-slate-400"></i>
             </div>
             <p class="text-sm font-semibold text-slate-600" id="emptyStateTitle">No inspections match your filters</p>
-            <p class="text-xs text-slate-400 mt-1" id="emptyStateSubtitle">Try adjusting your search or clearing filters</p>
-            <button onclick="resetFilters()" id="emptyStateClearBtn" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear all filters</button>
+            <p class="text-xs text-slate-400 mt-1" id="emptyStateSubtitle">Try adjusting your search or filter choices</p>
         </div>
 
         <!-- Pagination -->
         <div class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
             <p class="text-xs text-slate-500" id="paginationSummary">Loading…</p>
             <div class="flex gap-1" id="paginationControls"></div>
+        </div>
+    </div>
+</div>
+
+<!-- SPECIFIC DATE FILTER MODAL -->
+<div id="specificDateModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-calendar-days text-brand-medium"></i>
+                Specific Date
+            </h3>
+            <button onclick="closeModal('specificDateModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date Name</label>
+                <select id="modalDateFieldName" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="scheduled_date">Scheduled Date</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">From</label>
+                <input type="date" id="modalFilterDateFrom" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">To</label>
+                <input type="date" id="modalFilterDateTo" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            </div>
+            <div id="modalDateError" class="hidden p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-600 flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span>The start date cannot be after the end date.</span>
+            </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 px-6 pb-6 pt-2 border-t border-slate-100">
+            <button type="button" onclick="clearSpecificDateFilter()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition text-sm font-semibold">Clear</button>
+            <div class="flex gap-2">
+                <button type="button" onclick="closeModal('specificDateModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button>
+                <button type="button" onclick="applySpecificDateFilter()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">Apply Filter</button>
+            </div>
         </div>
     </div>
 </div>
@@ -650,11 +694,14 @@ try {
 <script>
 const API_URL = '../../api/inspections.php';
 const PAGE_LIMIT = 5;
+const CAN_VIEW_ALL_INSPECTIONS = <?php echo $canViewAllInspectionRows ? 'true' : 'false'; ?>;
 
 let currentPage = 1;
 let lastTotalPages = 1;
 let conductInspectionId = null;
 let searchDebounceTimer = null;
+let activeDateFrom = '';
+let activeDateTo = '';
 
 function openModal(id) { ModalSystem.open(id); }
 function closeModal(id) { ModalSystem.close(id); }
@@ -681,9 +728,9 @@ function buildQueryParams(page) {
     const q = document.getElementById('searchInspection').value.trim();
     const status = document.getElementById('filterStatus').value;
     const result = document.getElementById('filterResult').value;
-    const inspector = document.getElementById('filterInspector').value;
-    const dateFrom = document.getElementById('filterDateFrom').value;
-    const dateTo = document.getElementById('filterDateTo').value;
+    const inspector = CAN_VIEW_ALL_INSPECTIONS ? (document.getElementById('filterInspector')?.value || '') : '';
+    const dateFrom = activeDateFrom;
+    const dateTo = activeDateTo;
     if (dateFrom && dateTo && dateFrom > dateTo) {
         showToast('The start date cannot be after the end date', 'danger');
         return null;
@@ -701,9 +748,9 @@ function hasActiveFilters() {
     return !!(document.getElementById('searchInspection').value.trim() ||
         document.getElementById('filterStatus').value ||
         document.getElementById('filterResult').value ||
-        document.getElementById('filterInspector').value ||
-        document.getElementById('filterDateFrom').value ||
-        document.getElementById('filterDateTo').value);
+        (CAN_VIEW_ALL_INSPECTIONS && (document.getElementById('filterInspector')?.value || '')) ||
+        activeDateFrom ||
+        activeDateTo);
 }
 
 async function loadInspections(page = 1) {
@@ -748,18 +795,15 @@ function renderTable(rows, filtersActive = false) {
     const emptyState = document.getElementById('emptyState');
     const emptyTitle = document.getElementById('emptyStateTitle');
     const emptySubtitle = document.getElementById('emptyStateSubtitle');
-    const emptyClearBtn = document.getElementById('emptyStateClearBtn');
 
     if (!rows || rows.length === 0) {
         tbody.innerHTML = '';
         if (filtersActive) {
             emptyTitle.textContent = 'No inspections match your filters';
-            emptySubtitle.textContent = 'Try adjusting your search or clearing filters';
-            emptyClearBtn.style.display = 'inline-block';
+            emptySubtitle.textContent = 'Try adjusting your search or filter choices';
         } else {
             emptyTitle.textContent = 'No inspections yet';
             emptySubtitle.textContent = 'Schedule your first inspection to get started';
-            emptyClearBtn.style.display = 'none';
         }
         emptyState.style.display = 'flex';
         return;
@@ -767,8 +811,7 @@ function renderTable(rows, filtersActive = false) {
     emptyState.style.display = 'none';
 
     tbody.innerHTML = rows.map(i => {
-        const needsFollowUp = i.status === 'completed' &&
-            (i.overall_status === 'non_compliant' || i.overall_status === 'partially_compliant');
+        const needsFollowUp = i.status === 'completed' && i.overall_status === 'partially_compliant';
 
         return `
         <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors">
@@ -809,9 +852,10 @@ function renderTable(rows, filtersActive = false) {
                     <button onclick="scheduleFollowUp(${i.id})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Follow-up">
                         <i class="fa-solid fa-arrow-rotate-right text-sm"></i>
                     </button>` : ''}
+                    ${CAN_VIEW_ALL_INSPECTIONS ? `
                     <button onclick="editInspection(${i.id})" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
                         <i class="fa-solid fa-pen text-sm"></i>
-                    </button>
+                    </button>` : ''}
                 </div>
             </td>
         </tr>`;
@@ -850,20 +894,78 @@ document.getElementById('searchInspection').addEventListener('input', () => {
     searchDebounceTimer = setTimeout(() => loadInspections(1), 350);
 });
 ['filterStatus', 'filterResult', 'filterInspector'].forEach(id => {
-    document.getElementById(id).addEventListener('change', () => loadInspections(1));
-});
-['filterDateFrom', 'filterDateTo'].forEach(id => {
-    document.getElementById(id).addEventListener('change', () => loadInspections(1));
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', () => loadInspections(1));
 });
 
 function resetFilters() {
     document.getElementById('searchInspection').value = '';
     document.getElementById('filterStatus').value = '';
     document.getElementById('filterResult').value = '';
-    document.getElementById('filterInspector').value = '';
-    document.getElementById('filterDateFrom').value = '';
-    document.getElementById('filterDateTo').value = '';
+    if (document.getElementById('filterInspector')) {
+        document.getElementById('filterInspector').value = '';
+    }
+    activeDateFrom = '';
+    activeDateTo = '';
+    document.getElementById('modalFilterDateFrom').value = '';
+    document.getElementById('modalFilterDateTo').value = '';
+    document.getElementById('modalDateError').classList.add('hidden');
+    updateSpecificDateButtonState();
     loadInspections(1);
+}
+
+function openSpecificDateModal() {
+    document.getElementById('modalFilterDateFrom').value = activeDateFrom;
+    document.getElementById('modalFilterDateTo').value = activeDateTo;
+    document.getElementById('modalDateError').classList.add('hidden');
+    openModal('specificDateModal');
+}
+
+function applySpecificDateFilter() {
+    const fromVal = document.getElementById('modalFilterDateFrom').value;
+    const toVal = document.getElementById('modalFilterDateTo').value;
+    const errorEl = document.getElementById('modalDateError');
+
+    if (fromVal && toVal && fromVal > toVal) {
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    errorEl.classList.add('hidden');
+    activeDateFrom = fromVal;
+    activeDateTo = toVal;
+    updateSpecificDateButtonState();
+    closeModal('specificDateModal');
+    loadInspections(1);
+}
+
+function clearSpecificDateFilter() {
+    activeDateFrom = '';
+    activeDateTo = '';
+    document.getElementById('modalFilterDateFrom').value = '';
+    document.getElementById('modalFilterDateTo').value = '';
+    document.getElementById('modalDateError').classList.add('hidden');
+    updateSpecificDateButtonState();
+    closeModal('specificDateModal');
+    loadInspections(1);
+}
+
+function updateSpecificDateButtonState() {
+    const label = document.getElementById('specificDateLabel');
+    const badge = document.getElementById('dateFilterBadge');
+    const btn = document.getElementById('specificDateBtn');
+
+    if (activeDateFrom || activeDateTo) {
+        label.textContent = activeDateFrom && activeDateTo ? `${activeDateFrom} - ${activeDateTo}` : (activeDateFrom ? `From ${activeDateFrom}` : `Until ${activeDateTo}`);
+        badge.classList.remove('hidden');
+        btn.classList.add('border-brand-medium', 'text-brand-dark', 'bg-brand-light/30');
+        btn.classList.remove('border-slate-200');
+    } else {
+        label.textContent = 'Specific Date';
+        badge.classList.add('hidden');
+        btn.classList.remove('border-brand-medium', 'text-brand-dark', 'bg-brand-light/30');
+        btn.classList.add('border-slate-200');
+    }
 }
 
 // ============================================================
@@ -1334,8 +1436,7 @@ function renderInspectionDetails(i) {
         }
     }
 
-    const needsFollowUp = i.status === 'completed' &&
-        (i.overall_status === 'non_compliant' || i.overall_status === 'partially_compliant');
+    const needsFollowUp = i.status === 'completed' && i.overall_status === 'partially_compliant';
 
     document.getElementById('inspectionDetailsContent').innerHTML = `
         <div class="space-y-5">
@@ -1373,7 +1474,7 @@ function renderInspectionDetails(i) {
                 <div><p class="text-[10px] text-slate-400 font-semibold uppercase">Inspector</p><p class="font-bold text-slate-800 mt-0.5">${escapeHtml(i.inspector_name)}</p></div>
                 <div><p class="text-[10px] text-slate-400 font-semibold uppercase">Scheduled Date</p><p class="font-semibold text-slate-800 mt-0.5">${formatDate(i.scheduled_date)} ${escapeHtml(i.scheduled_time || '')}</p></div>
                 <div><p class="text-[10px] text-slate-400 font-semibold uppercase">Conducted Date</p><p class="font-semibold text-slate-800 mt-0.5">${formatDateTime(i.conducted_date)}</p></div>
-                <div><p class="text-[10px] text-slate-400 font-semibold uppercase">Follow-up Date</p><p class="font-semibold ${i.follow_up_date ? 'text-amber-700 font-bold' : 'text-slate-800'} mt-0.5">${formatDate(i.follow_up_date)}</p></div>
+                <div><p class="text-[10px] text-slate-400 font-semibold uppercase">Follow-up Date</p><p class="font-semibold ${i.follow_up_date ? 'text-amber-700 font-bold' : 'text-slate-800'} mt-0.5">${i.overall_status === 'non_compliant' ? 'Not needed - rejected' : formatDate(i.follow_up_date)}</p></div>
             </div>
 
             <!-- Criteria Assessment Checklist Breakdown -->
@@ -1523,6 +1624,7 @@ async function saveConductedInspection(event) {
 
     // If non-compliant, validate and attach rejection reason
     if (overallStatus === 'non_compliant') {
+        followUpDate = null;
         const rejectionSelect = document.getElementById('conduct_rejection_criteria');
         const customRejection = document.getElementById('conduct_custom_rejection')?.value.trim() || '';
         let primaryReason = rejectionSelect ? rejectionSelect.value : '';
@@ -1686,10 +1788,6 @@ async function saveEditedInspection(event, helpers) {
     } finally {
         btn.disabled = false;
     }
-}
-
-function scheduleFollowUp(id) {
-    showToast('Follow-up scheduling UI coming soon (inspection #' + id + ')', 'info');
 }
 
 function showToast(message, type = 'success') {

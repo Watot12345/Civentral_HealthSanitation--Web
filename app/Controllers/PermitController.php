@@ -240,7 +240,7 @@ class PermitController extends BaseController
             }
 
             $status = strtolower(trim($data['status'] ?? ''));
-            $validStatuses = ['pending', 'under_review', 'approved', 'rejected', 'expired'];
+            $validStatuses = ['pending', 'under_review', 'approved', 'completed', 'rejected', 'expired'];
             if (!in_array($status, $validStatuses)) {
                 return [
                     'success' => false,
@@ -258,7 +258,7 @@ class PermitController extends BaseController
             if ($status === 'under_review' && empty($permit['inspection_date'])) {
                 $updateData['inspection_date'] = date('Y-m-d');
             }
-            if ($status === 'approved') {
+            if ($status === 'approved' || $status === 'completed') {
                 $updateData['approved_date'] = date('Y-m-d');
                 $validityDays = class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365;
                 $updateData['expiry_date'] = date('Y-m-d', strtotime("+{$validityDays} days"));
@@ -328,7 +328,7 @@ class PermitController extends BaseController
             }
 
             $status = strtolower(trim($data['status'] ?? $permit['status']));
-            $validStatuses = ['pending', 'under_review', 'approved', 'rejected', 'expired'];
+            $validStatuses = ['pending', 'under_review', 'approved', 'completed', 'rejected', 'expired'];
             if (!in_array($status, $validStatuses)) {
                 return [
                     'success' => false,
@@ -352,7 +352,7 @@ class PermitController extends BaseController
                 $updateData['rejection_reason'] = null;
             }
 
-            if ($status === 'approved') {
+            if ($status === 'approved' || $status === 'completed') {
                 $updateData['approved_date'] = date('Y-m-d');
                 $validityDays = class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365;
                 $updateData['expiry_date'] = date('Y-m-d', strtotime("+{$validityDays} days"));
@@ -516,20 +516,25 @@ class PermitController extends BaseController
             $pending = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'pending'));
             $underReview = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'under_review'));
             $approved = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'approved'));
+            $completed = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'completed'));
             $rejected = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'rejected'));
             $expired = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'expired'));
             $totalRevenue = array_sum(array_column($rawPermits, 'fee'));
+            $totalRenewals = array_sum(array_map(fn($p) => (int)($p['renewal_count'] ?? 0), $rawPermits));
 
             return [
                 'success' => true,
                 'data' => [
                     'total' => $total,
+                    'active' => $approved + $completed,
                     'pending' => $pending,
                     'under_review' => $underReview,
                     'approved' => $approved,
+                    'completed' => $completed,
                     'rejected' => $rejected,
                     'expired' => $expired,
-                    'total_revenue' => $totalRevenue
+                    'total_revenue' => $totalRevenue,
+                    'total_renewals' => $totalRenewals
                 ]
             ];
         });
@@ -593,7 +598,7 @@ class PermitController extends BaseController
 
         if (isset($data['status'])) {
             $status = strtolower(trim($data['status']));
-            $validStatuses = ['pending', 'under_review', 'approved', 'rejected', 'expired'];
+            $validStatuses = ['pending', 'under_review', 'approved', 'completed', 'rejected', 'expired'];
             $dbData['status'] = in_array($status, $validStatuses) ? $status : 'pending';
         } elseif (!$isUpdate) {
             $dbData['status'] = 'pending';

@@ -22,7 +22,7 @@ class InspectionController extends BaseController
     public function index(): void
     {
         $this->handle(function() {
-            $rawInspections = $this->inspectionModel->all(['order' => 'created_at.desc']);
+            $rawInspections = $this->visibleInspections($this->inspectionModel->all(['order' => 'created_at.desc']));
 
             $inspections = array_map(function ($i) {
                 return $this->enrichInspection($i);
@@ -49,7 +49,7 @@ class InspectionController extends BaseController
         $dateTo = trim($_GET['date_to'] ?? '');
 
         $this->handle(function() use ($page, $limit, $offset, $search, $status, $result, $inspector, $dateFrom, $dateTo) {
-            $allInspections = $this->inspectionModel->all(['order' => 'created_at.desc']);
+            $allInspections = $this->visibleInspections($this->inspectionModel->all(['order' => 'created_at.desc']));
             $filtered = [];
 
             // Need permit data for filtering by applicant
@@ -76,9 +76,15 @@ class InspectionController extends BaseController
                     $needle = strtolower($search);
                     $applicant = $permit ? strtolower($permit['applicant'] ?? '') : '';
                     $inspectorName = strtolower($this->getInspectorName($i['inspector_id'] ?? null));
+                    $permitNumber = $permit ? strtolower($permit['permit_id'] ?? '') : '';
+                    $businessType = $permit ? strtolower($permit['business_type'] ?? '') : '';
+                    $address = $permit ? strtolower($permit['address'] ?? '') : '';
                     $haystack = $applicant . ' ' .
                         strtolower($i['inspection_id'] ?? '') . ' ' .
-                        strtolower($permit['permit_id'] ?? '') . ' ' .
+                        $permitNumber . ' ' .
+                        $businessType . ' ' .
+                        $address . ' ' .
+                        strtolower($i['scheduled_date'] ?? '') . ' ' .
                         $inspectorName;
                     $passesSearch = str_contains($haystack, $needle);
                 }
@@ -119,6 +125,14 @@ class InspectionController extends BaseController
                 ];
             }
 
+            if (!$this->canAccessInspection($inspection)) {
+                return [
+                    'success' => false,
+                    'message' => 'You can only view inspections assigned to you',
+                    'code' => 403
+                ];
+            }
+
             return [
                 'success' => true,
                 'data' => $this->enrichInspection($inspection)
@@ -131,6 +145,14 @@ class InspectionController extends BaseController
         $data = $this->input();
 
         $this->handle(function() use ($data) {
+            if (!$this->canViewAllInspections()) {
+                return [
+                    'success' => false,
+                    'message' => 'Only administrators and sanitation directors can schedule inspections',
+                    'code' => 403
+                ];
+            }
+
             // Validate required fields
             $required = ['permit_id', 'inspector_id', 'scheduled_date', 'scheduled_time'];
             $missing = [];
@@ -193,12 +215,28 @@ class InspectionController extends BaseController
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
+            if (!$this->canViewAllInspections()) {
+                return [
+                    'success' => false,
+                    'message' => 'Only administrators and sanitation directors can edit inspections',
+                    'code' => 403
+                ];
+            }
+
             $inspection = $this->inspectionModel->find($id);
             if (!$inspection) {
                 return [
                     'success' => false,
                     'message' => 'Inspection not found',
                     'code' => 404
+                ];
+            }
+
+            if (!$this->canAccessInspection($inspection)) {
+                return [
+                    'success' => false,
+                    'message' => 'You can only update inspections assigned to you',
+                    'code' => 403
                 ];
             }
 
@@ -224,6 +262,14 @@ class InspectionController extends BaseController
                     'success' => false,
                     'message' => 'Inspection not found',
                     'code' => 404
+                ];
+            }
+
+            if (!$this->canAccessInspection($inspection)) {
+                return [
+                    'success' => false,
+                    'message' => 'You can only conduct inspections assigned to you',
+                    'code' => 403
                 ];
             }
 
@@ -270,6 +316,10 @@ class InspectionController extends BaseController
                 $updateData['follow_up_date'] = !empty($data['follow_up_date']) ? $data['follow_up_date'] : null;
             }
 
+            if (($updateData['overall_status'] ?? '') === 'non_compliant') {
+                $updateData['follow_up_date'] = null;
+            }
+
             $result = $this->inspectionModel->updateById($id, $updateData);
 
             // Sync associated permit status in real-time
@@ -285,8 +335,6 @@ class InspectionController extends BaseController
                     if ($overall === 'compliant') {
                         $permitUpdate['status'] = 'approved';
                         $permitUpdate['approved_date'] = date('Y-m-d');
-                        $validityDays = class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365;
-                        $permitUpdate['expiry_date'] = date('Y-m-d', strtotime("+{$validityDays} days"));
                         $permitUpdate['rejection_reason'] = null;
                     } elseif ($overall === 'non_compliant') {
                         $permitUpdate['status'] = 'rejected';
@@ -335,6 +383,14 @@ class InspectionController extends BaseController
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
+            if (!$this->canViewAllInspections()) {
+                return [
+                    'success' => false,
+                    'message' => 'Only administrators and sanitation directors can change inspection status',
+                    'code' => 403
+                ];
+            }
+
             $inspection = $this->inspectionModel->find($id);
             if (!$inspection) {
                 return [
@@ -376,6 +432,14 @@ class InspectionController extends BaseController
     public function destroy(string $id): void
     {
         $this->handle(function() use ($id) {
+            if (!$this->canViewAllInspections()) {
+                return [
+                    'success' => false,
+                    'message' => 'Only administrators and sanitation directors can delete inspections',
+                    'code' => 403
+                ];
+            }
+
             $inspection = $this->inspectionModel->find($id);
             if (!$inspection) {
                 return [
@@ -407,16 +471,23 @@ class InspectionController extends BaseController
                 ];
             }
 
-            $rawInspections = $this->inspectionModel->all();
+            $rawInspections = $this->visibleInspections($this->inspectionModel->all());
             $permitsMap = $this->getPermitsMap();
 
             $results = array_values(array_filter($rawInspections, function($i) use ($query, $permitsMap) {
                 $permit = $permitsMap[$i['permit_id'] ?? 0] ?? null;
                 $inspectorName = strtolower($this->getInspectorName($i['inspector_id'] ?? null));
+                $permitNumber = $permit ? strtolower($permit['permit_id'] ?? '') : '';
+                $applicant = $permit ? strtolower($permit['applicant'] ?? '') : '';
+                $businessType = $permit ? strtolower($permit['business_type'] ?? '') : '';
+                $address = $permit ? strtolower($permit['address'] ?? '') : '';
 
                 return str_contains(strtolower($i['inspection_id'] ?? ''), $query) ||
-                       str_contains(strtolower($permit['permit_id'] ?? ''), $query) ||
-                       str_contains(strtolower($permit['applicant'] ?? ''), $query) ||
+                       str_contains($permitNumber, $query) ||
+                       str_contains($applicant, $query) ||
+                       str_contains($businessType, $query) ||
+                       str_contains($address, $query) ||
+                       str_contains(strtolower($i['scheduled_date'] ?? ''), $query) ||
                        str_contains($inspectorName, $query);
             }));
 
@@ -435,7 +506,7 @@ class InspectionController extends BaseController
     public function stats(): void
     {
         $this->handle(function() {
-            $rawInspections = $this->inspectionModel->all();
+            $rawInspections = $this->visibleInspections($this->inspectionModel->all());
 
             $total = count($rawInspections);
             $scheduled = count(array_filter($rawInspections, fn($i) => ($i['status'] ?? '') === 'scheduled'));
@@ -445,10 +516,10 @@ class InspectionController extends BaseController
             $partialCompliant = count(array_filter($rawInspections, fn($i) => ($i['overall_status'] ?? '') === 'partially_compliant'));
             $nonCompliant = count(array_filter($rawInspections, fn($i) => ($i['overall_status'] ?? '') === 'non_compliant'));
 
-            // Follow-ups: inspections with follow_up recommendations or that need re-inspection
+            // Follow-ups are only for conditional inspections. Non-compliant inspections reject the permit,
+            // so the next step is re-application instead of re-inspection on the same record.
             $followUps = count(array_filter($rawInspections, function($i) {
-                return ($i['overall_status'] ?? '') === 'non_compliant' ||
-                       ($i['overall_status'] ?? '') === 'partially_compliant';
+                return ($i['overall_status'] ?? '') === 'partially_compliant';
             }));
 
             return [
@@ -589,6 +660,66 @@ class InspectionController extends BaseController
             return $employee ? ($employee['full_name'] ?? 'Inspector #' . $inspectorId) : 'Inspector #' . $inspectorId;
         } catch (\Exception $e) {
             return 'Inspector #' . $inspectorId;
+        }
+    }
+
+    private function visibleInspections(array $inspections): array
+    {
+        if ($this->canViewAllInspections()) {
+            return $inspections;
+        }
+
+        $currentUserId = $this->currentUserId();
+        if ($currentUserId <= 0 || !$this->isInspectorUser()) {
+            return [];
+        }
+
+        return array_values(array_filter($inspections, function ($inspection) use ($currentUserId) {
+            return (int)($inspection['inspector_id'] ?? 0) === $currentUserId
+                && ($inspection['status'] ?? '') === 'scheduled';
+        }));
+    }
+
+    private function canAccessInspection(array $inspection): bool
+    {
+        if ($this->canViewAllInspections()) {
+            return true;
+        }
+
+        return $this->isInspectorUser()
+            && (int)($inspection['inspector_id'] ?? 0) === $this->currentUserId()
+            && ($inspection['status'] ?? '') === 'scheduled';
+    }
+
+    private function canViewAllInspections(): bool
+    {
+        $roleText = $this->currentRoleText();
+        return str_contains($roleText, 'admin')
+            || str_contains($roleText, 'administrator')
+            || str_contains($roleText, 'sanitation director');
+    }
+
+    private function isInspectorUser(): bool
+    {
+        return str_contains($this->currentRoleText(), 'inspector');
+    }
+
+    private function currentRoleText(): string
+    {
+        $this->startSession();
+        return strtolower(trim(($_SESSION['role_description'] ?? '') . ' ' . ($_SESSION['role'] ?? '')));
+    }
+
+    private function currentUserId(): int
+    {
+        $this->startSession();
+        return (int)($_SESSION['user_id'] ?? 0);
+    }
+
+    private function startSession(): void
+    {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            @session_start();
         }
     }
 
