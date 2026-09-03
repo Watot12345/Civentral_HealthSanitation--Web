@@ -666,7 +666,7 @@ $title = 'Wastewater Billing';
                     </div>
                 </div>
                 <div class="relative">
-                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Septic Tank <span class="text-rose-500">*</span></label>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tank ID <span class="text-rose-500">*</span></label>
                     <div class="relative">
                         <select id="quote_tank" required onchange="onQuoteTankChange(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none appearance-none pr-8">
                             <option value="">Select Septic Tank</option>
@@ -676,7 +676,7 @@ $title = 'Wastewater Billing';
                                 <option value="<?php echo htmlspecialchars($tid, ENT_QUOTES, 'UTF-8'); ?>"
                                         data-owner="<?php echo htmlspecialchars($tank['owner_name'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-address="<?php echo htmlspecialchars($tank['address'] . (isset($tank['barangay']) ? ', ' . $tank['barangay'] : ''), ENT_QUOTES, 'UTF-8'); ?>">
-                                    <?php echo htmlspecialchars($tank['owner_name'], ENT_QUOTES, 'UTF-8'); ?>
+                                    <?php echo htmlspecialchars(!empty($tid) ? $tid : ($tank['id'] ?? 'Septic Tank'), ENT_QUOTES, 'UTF-8'); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
