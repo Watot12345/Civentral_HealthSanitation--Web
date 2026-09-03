@@ -75,7 +75,8 @@ class PermitController extends BaseController
                         ($p['applicant'] ?? '') . ' ' .
                         ($p['permit_id'] ?? '') . ' ' .
                         ($p['business_type'] ?? '') . ' ' .
-                        ($p['owner_name'] ?? '')
+                        ($p['owner_name'] ?? '') . ' ' .
+                        ($p['address'] ?? '')
                     );
                     $passesSearch = str_contains($haystack, $needle);
                 }
@@ -376,6 +377,80 @@ class PermitController extends BaseController
         });
     }
 
+    public function assignInspector(string $id): void
+    {
+        $data = $this->input();
+
+        $this->handle(function() use ($id, $data) {
+            $permit = $this->permitModel->find($id);
+            if (!$permit) {
+                return [
+                    'success' => false,
+                    'message' => 'Permit not found',
+                    'code' => 404
+                ];
+            }
+
+            if (empty($data['inspector_id'])) {
+                return [
+                    'success' => false,
+                    'message' => 'Please select an inspector',
+                    'code' => 400
+                ];
+            }
+
+            $inspectorId = (int)$data['inspector_id'];
+            $scheduledDate = !empty($data['scheduled_date']) ? trim($data['scheduled_date']) : date('Y-m-d');
+            $scheduledTime = !empty($data['scheduled_time']) ? trim($data['scheduled_time']) : '09:00:00';
+            if (strlen($scheduledTime) === 5) {
+                $scheduledTime .= ':00';
+            }
+            $notes = isset($data['notes']) ? trim($data['notes']) : ($permit['notes'] ?? '');
+
+            $updateData = [
+                'status' => 'under_review',
+                'inspector_id' => $inspectorId,
+                'inspection_date' => $scheduledDate,
+                'notes' => $notes,
+                'updated_at' => date('Y-m-d H:i:sP')
+            ];
+
+            $result = $this->permitModel->updateById($id, $updateData);
+
+            // Create or update inspection in Inspections module
+            $inspection = $this->ensureInspectionScheduled(
+                $id,
+                $inspectorId,
+                $notes,
+                $scheduledDate,
+                $scheduledTime
+            );
+
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $pCode = $permit['permit_id'] ?? 'Permit';
+                    $applicant = $permit['applicant'] ?? 'Establishment';
+                    $logger->log("Assigned Inspector to Permit ({$pCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Establishment: {$applicant} | Inspector ID: #{$inspectorId} | Date: {$scheduledDate}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {}
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Inspector assigned successfully! Inspection scheduled in Inspections module.',
+                'data' => [
+                    'permit' => $result,
+                    'inspection' => $inspection
+                ]
+            ];
+        });
+    }
+
     public function destroy(string $id): void
     {
         $this->handle(function() use ($id) {
@@ -392,7 +467,7 @@ class PermitController extends BaseController
 
             return [
                 'success' => $success,
-                'message' => $success ? 'Permit deleted successfully' : 'Failed to delete permit'
+                'message' => $success ? 'Permit application cancelled successfully' : 'Failed to cancel permit application'
             ];
         });
     }
@@ -583,10 +658,15 @@ class PermitController extends BaseController
     }
 
     /**
-     * Auto-schedules an inspection in real-time when permit moves to Under Review
+     * Auto-schedules or updates an inspection in real-time when inspector is assigned or permit moves to Under Review
      */
-    private function ensureInspectionScheduled(int|string $permitId, ?int $inspectorId = null, string $notes = ''): ?array
-    {
+    private function ensureInspectionScheduled(
+        int|string $permitId,
+        ?int $inspectorId = null,
+        string $notes = '',
+        ?string $scheduledDate = null,
+        ?string $scheduledTime = null
+    ): ?array {
         try {
             require_once __DIR__ . '/../Models/Inspection.php';
             require_once __DIR__ . '/../Models/Employee.php';
@@ -594,30 +674,47 @@ class PermitController extends BaseController
             $inspectionModel = new Inspection();
             $allInspections = $inspectionModel->all();
 
+            // Determine inspector ID if not provided based on role_description = 'Inspector'
+            if (!$inspectorId) {
+                $employeeModel = new Employee();
+                $allEmps = $employeeModel->all();
+                $sanitationInspectors = array_filter($allEmps, function($e) {
+                    $roleDesc = strtolower(trim($e['role_description'] ?? ''));
+                    $status = strtolower(trim($e['status'] ?? 'active'));
+                    return str_contains($roleDesc, 'inspector') && ($status === '' || $status === 'active');
+                });
+                $inspectorId = !empty($sanitationInspectors) ? (int)(reset($sanitationInspectors)['id'] ?? 10) : 10;
+            }
+
+            if (empty($scheduledDate)) {
+                $scheduledDate = date('Y-m-d');
+                if ((int)date('H') >= 17) {
+                    $scheduledDate = date('Y-m-d', strtotime('+1 day'));
+                }
+            }
+
+            if (empty($scheduledTime)) {
+                $scheduledTime = '09:00:00';
+            }
+
             // Check if there is already an active/scheduled inspection for this permit
             $existing = array_filter($allInspections, function($i) use ($permitId) {
                 return (int)($i['permit_id'] ?? 0) === (int)$permitId && ($i['status'] ?? '') === 'scheduled';
             });
 
             if (!empty($existing)) {
-                return reset($existing);
-            }
-
-            // Determine inspector ID if not provided
-            if (!$inspectorId) {
-                $employeeModel = new Employee();
-                $allEmps = $employeeModel->all();
-                $sanitationInspectors = array_filter($allEmps, function($e) {
-                    $role = strtolower($e['role'] ?? '');
-                    $roleDesc = strtolower($e['role_description'] ?? '');
-                    return str_contains($role, 'inspector') || str_contains($role, 'officer') || str_contains($roleDesc, 'inspector');
-                });
-                $inspectorId = !empty($sanitationInspectors) ? (int)(reset($sanitationInspectors)['id'] ?? 1) : 1;
-            }
-
-            $scheduledDate = date('Y-m-d');
-            if ((int)date('H') >= 17) {
-                $scheduledDate = date('Y-m-d', strtotime('+1 day'));
+                $target = reset($existing);
+                $updateFields = [
+                    'inspector_id'   => $inspectorId,
+                    'scheduled_date' => $scheduledDate,
+                    'scheduled_time' => $scheduledTime,
+                    'updated_at'     => date('Y-m-d H:i:sP')
+                ];
+                if (!empty($notes)) {
+                    $updateFields['notes'] = $notes;
+                }
+                $updated = $inspectionModel->updateById($target['id'], $updateFields);
+                return $updated;
             }
 
             $inspData = [
@@ -625,9 +722,9 @@ class PermitController extends BaseController
                 'permit_id'     => (int)$permitId,
                 'inspector_id'  => (int)$inspectorId,
                 'scheduled_date'=> $scheduledDate,
-                'scheduled_time'=> '09:00:00',
+                'scheduled_time'=> $scheduledTime,
                 'status'        => 'scheduled',
-                'notes'         => !empty($notes) ? $notes : 'Auto-scheduled inspection for application under review.'
+                'notes'         => !empty($notes) ? $notes : 'Scheduled inspection assigned from permit application.'
             ];
 
             $created = $inspectionModel->create($inspData);
@@ -637,9 +734,9 @@ class PermitController extends BaseController
                 try {
                     $logger = new ActivityLog();
                     $code = $inspData['inspection_id'];
-                    $logger->log("Auto-Scheduled Sanitation Inspection ({$code})", [
+                    $logger->log("Scheduled Sanitation Inspection ({$code})", [
                         'module'  => 'Sanitation Permits',
-                        'details' => "Permit ID: #{$permitId} | Inspector ID: #{$inspectorId}",
+                        'details' => "Permit ID: #{$permitId} | Inspector ID: #{$inspectorId} | Date: {$scheduledDate}",
                         'status'  => 'Success'
                     ]);
                 } catch (\Throwable $e) {}
@@ -647,7 +744,7 @@ class PermitController extends BaseController
 
             return $created;
         } catch (\Throwable $e) {
-            error_log('Failed to auto-schedule inspection: ' . $e->getMessage());
+            error_log('Failed to schedule inspection: ' . $e->getMessage());
             return null;
         }
     }

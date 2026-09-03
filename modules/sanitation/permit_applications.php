@@ -48,20 +48,6 @@ $title = 'Permit Applications';
         </div>
     </div>
 
-    <!-- Revenue Card - Modern -->
-    <div id="revenueCard" class="relative overflow-hidden bg-gradient-to-r from-brand-dark to-brand-medium rounded-2xl p-5 mb-6 text-white shadow-sm">
-        <div class="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full"></div>
-        <div class="relative flex items-center justify-between">
-            <div>
-                <span class="text-sm font-medium opacity-80">💰 Total Revenue Collected</span>
-                <p id="totalRevenue" class="text-2xl font-bold mt-1">₱0.00</p>
-            </div>
-            <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                <i class="fa-solid fa-coins text-2xl text-white/80"></i>
-            </div>
-        </div>
-    </div>
-
     <!-- Search & Filter -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
         <div class="flex flex-col sm:flex-row gap-3">
@@ -72,7 +58,7 @@ $title = 'Permit Applications';
                        placeholder="Search by applicant, ID, or business type..."
                        class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
             </div>
-            <div class="flex gap-2 flex-wrap">
+            <div class="flex gap-2 flex-wrap items-center">
                 <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Status</option>
                     <option value="pending">Pending</option>
@@ -91,18 +77,13 @@ $title = 'Permit Applications';
                     <option value="Pharmacy">Pharmacy</option>
                     <option value="Agricultural">Agricultural</option>
                     <option value="Office/Commercial">Office/Commercial</option>
+                    <option value="Hotel/Lodging">Hotel/Lodging</option>
                 </select>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span>From</span>
-                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                </label>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span>To</span>
-                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                </label>
-                <button onclick="resetFilters()" title="Reset filters"
-                        class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
-                    <i class="fa-solid fa-rotate-right"></i>
+                <button type="button" onclick="openSpecificDateModal()" id="specificDateBtn"
+                        class="px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 hover:bg-slate-50 transition flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days text-slate-400"></i>
+                    <span id="specificDateLabel">Specific Date</span>
+                    <span id="dateFilterBadge" class="hidden px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-brand-light text-brand-dark border border-brand-border">Active</span>
                 </button>
             </div>
         </div>
@@ -190,6 +171,7 @@ $title = 'Permit Applications';
                     <option value="Pharmacy">Pharmacy</option>
                     <option value="Agricultural">Agricultural</option>
                     <option value="Office/Commercial">Office/Commercial</option>
+                    <option value="Hotel/Lodging">Hotel/Lodging</option>
                 </select>
             </div>
             <div>
@@ -207,8 +189,25 @@ $title = 'Permit Applications';
                 </div>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Fee (₱)</label>
-                <input type="number" id="permit_fee" required step="0.01" min="0" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 flex items-center justify-between">
+                    <span>Fee (₱)</span>
+                    <span class="text-[10px] text-brand-medium font-medium lowercase flex items-center gap-1">
+                        <i class="fa-solid fa-scale-balanced"></i> from fee structure
+                    </span>
+                </label>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">₱</span>
+                    <input type="number" id="permit_fee" required step="0.01" min="0" readonly
+                           placeholder="Select Business Type to calculate fee"
+                           class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-800 font-bold focus:outline-none cursor-not-allowed">
+                </div>
+                <div id="permit_fee_breakdown" class="hidden mt-2 p-2.5 bg-brand-light/70 rounded-xl border border-brand-border/70 text-xs text-brand-dark flex items-start gap-2">
+                    <i class="fa-solid fa-circle-info mt-0.5 text-brand-medium"></i>
+                    <div>
+                        <span class="font-semibold" id="permit_fee_category">Food Establishment</span>
+                        <div class="text-[11px] text-slate-600 mt-0.5" id="permit_fee_math">Base Fee: ₱1,500.00 + Inspection Fee: ₱500.00 = <strong>Total: ₱2,000.00</strong></div>
+                    </div>
+                </div>
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Method</label>
@@ -259,76 +258,84 @@ $title = 'Permit Applications';
 </div>
 
 <!-- ============================================================ -->
-<!-- REVIEW PERMIT MODAL – with rejection criteria dropdown       -->
+<!-- ASSIGN TO INSPECTOR MODAL                                    -->
 <!-- ============================================================ -->
-<div id="reviewPermitModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+<div id="assignInspectorModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
             <h3 class="font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-clipboard-list text-brand-medium"></i>
-                Review Application
+                <i class="fa-solid fa-user-check text-brand-medium"></i>
+                <span id="assignModalTitle">Assign to Inspector</span>
             </h3>
-            <button onclick="ModalSystem.close('reviewPermitModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+            <button onclick="ModalSystem.close('assignInspectorModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <div class="p-6 space-y-4">
-            <div class="flex items-center gap-3 p-3 bg-brand-light/40 rounded-xl border border-brand-border">
+        <form id="assignInspectorForm" class="p-6 space-y-4">
+            <input type="hidden" id="assign_permit_id">
+            
+            <div class="p-3.5 bg-brand-light/50 rounded-xl border border-brand-border/70 flex items-start gap-3">
+                <div class="w-10 h-10 rounded-lg bg-white border border-brand-border flex items-center justify-center text-brand-dark flex-shrink-0">
+                    <i class="fa-solid fa-building text-base"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <p id="assignApplicant" class="font-bold text-slate-900 text-sm truncate">Loading...</p>
+                    <div class="flex items-center gap-2 mt-0.5 text-xs text-slate-500 flex-wrap">
+                        <span id="assignPermitCode" class="font-mono text-brand-dark font-semibold">Loading...</span>
+                        <span>•</span>
+                        <span id="assignBusinessType" class="text-slate-600">Business Type</span>
+                    </div>
+                    <p id="assignAddress" class="text-xs text-slate-500 mt-1 truncate"></p>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    Select Inspector <span class="text-rose-500">*</span>
+                </label>
+                <select id="assign_inspector_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="">Loading inspectors...</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <p id="reviewApplicant" class="font-semibold text-slate-800 text-sm">Loading...</p>
-                    <p id="reviewPermitId" class="text-xs text-slate-400">Loading...</p>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                        Inspection Date <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="date" id="assign_inspection_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                        Scheduled Time
+                    </label>
+                    <input type="time" id="assign_inspection_time" value="09:00" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
             </div>
+
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Review Status</label>
-                <select id="review_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="under_review">Under Review</option>
-                    <option value="approved">Approve</option>
-                    <option value="rejected">Reject</option>
-                </select>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes / Instructions for Inspector</label>
+                <textarea id="assign_notes" rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Special instructions, hazard notes, specific sanitation areas to inspect..."></textarea>
             </div>
-            <!-- Rejection criteria section -->
-            <div id="rejectionCriteriaContainer" class="hidden">
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Rejection Reason <span class="text-rose-500">*</span></label>
-                <select id="review_rejection_criteria" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 outline-none">
-                    <option value="">Select a reason...</option>
-                    <option value="Incomplete Requirements">Incomplete Requirements</option>
-                    <option value="Non-Compliant with Sanitation Standards">Non‑Compliant with Sanitation Standards</option>
-                    <option value="Failure to Pass Inspection">Failure to Pass Inspection</option>
-                    <option value="Incorrect or Misleading Information">Incorrect or Misleading Information</option>
-                    <option value="Outstanding Fees or Penalties">Outstanding Fees or Penalties</option>
-                    <option value="Violation of Local Ordinances">Violation of Local Ordinances</option>
-                    <option value="Zoning or Land-Use Conflict">Zoning or Land‑Use Conflict</option>
-                    <option value="Other">Other (specify below)</option>
-                </select>
-                <!-- Custom reason input (shown when "Other" selected) -->
-                <div id="customReasonContainer" class="mt-2 hidden">
-                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Custom Reason <span class="text-rose-500">*</span></label>
-                    <textarea id="review_custom_reason" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 outline-none" placeholder="Please provide a detailed reason..."></textarea>
+
+            <div class="p-3 rounded-xl bg-blue-50/70 border border-blue-100 text-xs text-blue-800 flex items-start gap-2.5">
+                <i class="fa-solid fa-circle-info mt-0.5 text-blue-500 flex-shrink-0"></i>
+                <div>
+                    <span>Assigning an inspector moves this permit to <strong class="text-blue-900">Under Review</strong> and automatically schedules the inspection in the <a href="inspections.php" target="_blank" class="underline font-semibold hover:text-blue-950">Inspections sub-feature</a>.</span>
                 </div>
-                <p class="text-xs text-slate-400 mt-1">This reason will be visible to the applicant.</p>
             </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Inspector</label>
-                <select id="review_inspector" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">Select Inspector</option>
-                </select>
+
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onclick="ModalSystem.close('assignInspectorModal')"
+                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                    Cancel
+                </button>
+                <button type="submit" id="btnSubmitAssign"
+                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-calendar-check text-xs"></i> <span>Assign & Schedule</span>
+                </button>
             </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Review Notes</label>
-                <textarea id="review_notes" rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Inspection findings, recommendations..."></textarea>
-            </div>
-        </div>
-        <div class="flex justify-end gap-2 px-6 pb-6">
-            <button type="button" onclick="ModalSystem.close('reviewPermitModal')"
-                    class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
-                Cancel
-            </button>
-            <button type="button" onclick="submitReview()"
-                    class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                <i class="fa-solid fa-check mr-1.5"></i> Submit Review
-            </button>
-        </div>
+        </form>
     </div>
 </div>
 
@@ -370,6 +377,7 @@ $title = 'Permit Applications';
                     <option value="Pharmacy">Pharmacy</option>
                     <option value="Agricultural">Agricultural</option>
                     <option value="Office/Commercial">Office/Commercial</option>
+                    <option value="Hotel/Lodging">Hotel/Lodging</option>
                 </select>
             </div>
             <div>
@@ -387,8 +395,25 @@ $title = 'Permit Applications';
                 </div>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Fee (₱)</label>
-                <input type="number" id="edit_fee" required step="0.01" min="0" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1 flex items-center justify-between">
+                    <span>Fee (₱)</span>
+                    <span class="text-[10px] text-brand-medium font-medium lowercase flex items-center gap-1">
+                        <i class="fa-solid fa-scale-balanced"></i> from fee structure
+                    </span>
+                </label>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-semibold">₱</span>
+                    <input type="number" id="edit_fee" required step="0.01" min="0" readonly
+                           placeholder="Select Business Type to calculate fee"
+                           class="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-slate-800 font-bold focus:outline-none cursor-not-allowed">
+                </div>
+                <div id="edit_fee_breakdown" class="hidden mt-2 p-2.5 bg-brand-light/70 rounded-xl border border-brand-border/70 text-xs text-brand-dark flex items-start gap-2">
+                    <i class="fa-solid fa-circle-info mt-0.5 text-brand-medium"></i>
+                    <div>
+                        <span class="font-semibold" id="edit_fee_category">Food Establishment</span>
+                        <div class="text-[11px] text-slate-600 mt-0.5" id="edit_fee_math">Base Fee: ₱1,500.00 + Inspection Fee: ₱500.00 = <strong>Total: ₱2,000.00</strong></div>
+                    </div>
+                </div>
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Method</label>
@@ -420,6 +445,53 @@ $title = 'Permit Applications';
 </div>
 
 <!-- ============================================================ -->
+<!-- SPECIFIC DATE MODAL                                          -->
+<!-- ============================================================ -->
+<div id="specificDateModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-calendar-days text-brand-medium"></i>
+                Specific Date
+            </h3>
+            <button onclick="ModalSystem.close('specificDateModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">From</label>
+                <input type="date" id="modalFilterDateFrom" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">To</label>
+                <input type="date" id="modalFilterDateTo" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            </div>
+            <div id="modalDateError" class="hidden p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-600 flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span>The start date cannot be after the end date.</span>
+            </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 px-6 pb-6 pt-2 border-t border-slate-100">
+            <button type="button" onclick="clearSpecificDateFilter()"
+                    class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition text-sm font-semibold">
+                Clear
+            </button>
+            <div class="flex gap-2">
+                <button type="button" onclick="ModalSystem.close('specificDateModal')"
+                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                    Cancel
+                </button>
+                <button type="button" onclick="applySpecificDateFilter()"
+                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
+                    Apply Filter
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- TOAST SYSTEM                                                 -->
 <!-- ============================================================ -->
 <?php include_once __DIR__ . '/../../includes/toast.php'; ?>
@@ -437,6 +509,68 @@ const PAGE_LIMIT = 5;
 let totalPages = 1;
 let totalRecords = 0;
 let permitsCache = {};
+let activeDateFrom = '';
+let activeDateTo = '';
+
+// ============================================================
+// FEE STRUCTURE (Official Schedule & Helpers)
+// ============================================================
+const FEE_STRUCTURE = {
+    'Food Establishment': { base_fee: 1500, inspection_fee: 500, total: 2000 },
+    'Market Vendor': { base_fee: 800, inspection_fee: 300, total: 1100 },
+    'Bakery': { base_fee: 1200, inspection_fee: 400, total: 1600 },
+    'Recreational Facility': { base_fee: 2000, inspection_fee: 600, total: 2600 },
+    'Retail Store': { base_fee: 1000, inspection_fee: 350, total: 1350 },
+    'Pharmacy': { base_fee: 1800, inspection_fee: 500, total: 2300 },
+    'Agricultural': { base_fee: 900, inspection_fee: 300, total: 1200 },
+    'Office/Commercial': { base_fee: 2500, inspection_fee: 700, total: 3200 },
+    'Hotel/Lodging': { base_fee: 3000, inspection_fee: 800, total: 3800 }
+};
+
+async function initFeeStructure() {
+    try {
+        const res = await fetch('../../api/payments.php?fee_structure=true');
+        const json = await res.json();
+        if (json && json.success && Array.isArray(json.data)) {
+            json.data.forEach(item => {
+                FEE_STRUCTURE[item.category] = {
+                    base_fee: parseFloat(item.base_fee) || 0,
+                    inspection_fee: parseFloat(item.inspection_fee) || 0,
+                    total: parseFloat(item.total) || 0
+                };
+            });
+        }
+    } catch (e) {
+        // Fallback to built-in fee schedule
+    }
+}
+
+function updateFeeFromStructure(typeSelectId, feeInputId, breakdownContainerId, categorySpanId, mathDivId) {
+    const typeSelect = document.getElementById(typeSelectId);
+    const feeInput = document.getElementById(feeInputId);
+    const breakdown = document.getElementById(breakdownContainerId);
+    const catSpan = document.getElementById(categorySpanId);
+    const mathDiv = document.getElementById(mathDivId);
+
+    if (!typeSelect || !feeInput) return;
+
+    const selectedType = typeSelect.value;
+    const feeData = FEE_STRUCTURE[selectedType];
+
+    if (feeData) {
+        feeInput.value = feeData.total.toFixed(2);
+        if (breakdown && catSpan && mathDiv) {
+            catSpan.textContent = selectedType;
+            mathDiv.innerHTML = `Base Fee: ₱${feeData.base_fee.toLocaleString('en-US', {minimumFractionDigits: 2})} + Inspection Fee: ₱${feeData.inspection_fee.toLocaleString('en-US', {minimumFractionDigits: 2})} = <strong>Total: ₱${feeData.total.toLocaleString('en-US', {minimumFractionDigits: 2})}</strong>`;
+            breakdown.classList.remove('hidden');
+        }
+    } else {
+        feeInput.value = '';
+        if (breakdown) {
+            breakdown.classList.add('hidden');
+        }
+    }
+}
 
 // ============================================================
 // STATUS COLOR MAP
@@ -610,7 +744,10 @@ async function loadStats() {
             </div>
         `;
 
-        document.getElementById('totalRevenue').textContent = '₱' + Number(stats.total_revenue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const totalRevEl = document.getElementById('totalRevenue');
+        if (totalRevEl && stats.total_revenue !== undefined) {
+            totalRevEl.textContent = '₱' + Number(stats.total_revenue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
     } catch (err) {
         document.getElementById('statsContainer').innerHTML = `
             <div class="col-span-full flex items-center justify-center py-8 text-rose-500">
@@ -625,11 +762,11 @@ async function loadStats() {
 // ============================================================
 async function loadPermits(page = 1) {
     currentPage = page;
-    const search = document.getElementById('searchPermit').value;
+    const search = document.getElementById('searchPermit').value.trim();
     const status = document.getElementById('filterStatus').value;
     const type = document.getElementById('filterType').value;
-    const dateFrom = document.getElementById('filterDateFrom').value;
-    const dateTo = document.getElementById('filterDateTo').value;
+    const dateFrom = activeDateFrom;
+    const dateTo = activeDateTo;
 
     if (dateFrom && dateTo && dateFrom > dateTo) {
         ModalSystem.toast.error('The start date cannot be after the end date');
@@ -675,13 +812,13 @@ function renderTable(permits) {
     const emptyTitle = document.getElementById('emptyTitle');
     const emptySubtitle = document.getElementById('emptySubtitle');
     const emptyResetBtn = document.getElementById('emptyResetBtn');
-    const search = document.getElementById('searchPermit').value;
+    const search = document.getElementById('searchPermit').value.trim();
     const status = document.getElementById('filterStatus').value;
     const type = document.getElementById('filterType').value;
-    const dateFrom = document.getElementById('filterDateFrom').value;
-    const dateTo = document.getElementById('filterDateTo').value;
+    const dateFrom = activeDateFrom;
+    const dateTo = activeDateTo;
 
-    const hasActiveFilters = search || status || type || dateFrom || dateTo;
+    const hasActiveFilters = Boolean(search || status || type || dateFrom || dateTo);
 
     if (permits.length === 0) {
         tbody.innerHTML = '';
@@ -738,32 +875,34 @@ function renderTable(permits) {
             <td class="px-4 py-3 text-slate-500 text-xs">${dateApplied}</td>
             <td class="px-4 py-3">
                 <div class="flex items-center justify-center gap-1">
+                    <!-- View Details -->
                     <button onclick="viewPermit(${p.id})"
-                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details">
                         <i class="fa-solid fa-eye text-sm"></i>
                     </button>
+
+                    <!-- Assign / Reassign Inspector -->
                     ${p.status === 'pending' || p.status === 'under_review' ? `
-                        <button onclick="reviewPermit(${p.id})"
-                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Review">
-                            <i class="fa-solid fa-clipboard-list text-sm"></i>
-                        </button>
-                        <button onclick="quickStatusUpdate(${p.id}, 'approved')"
-                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Approve">
-                            <i class="fa-solid fa-check text-sm"></i>
-                        </button>
-                        <button onclick="quickStatusUpdate(${p.id}, 'rejected')"
-                                class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Reject">
-                            <i class="fa-solid fa-times text-sm"></i>
+                        <button onclick="openAssignInspectorModal(${p.id})"
+                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                title="${p.status === 'under_review' ? 'Reassign Inspector' : 'Assign to Inspector'}">
+                            <i class="fa-solid fa-user-check text-sm"></i>
                         </button>
                     ` : ''}
+
+                    <!-- Edit Application -->
                     <button onclick="editPermit(${p.id})"
-                            class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
+                            class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit Application">
                         <i class="fa-solid fa-pen text-sm"></i>
                     </button>
-                    <button onclick="deletePermit(${p.id})"
-                            class="p-1.5 text-rose-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition" title="Delete">
-                        <i class="fa-solid fa-trash-can text-sm"></i>
-                    </button>
+
+                    <!-- Cancel Application (Pending only) -->
+                    ${p.status === 'pending' ? `
+                        <button onclick="cancelPermit(${p.id})"
+                                class="p-1.5 text-rose-400 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition" title="Cancel Application">
+                            <i class="fa-solid fa-ban text-sm"></i>
+                        </button>
+                    ` : ''}
                 </div>
             </td>
         </tr>`;
@@ -821,8 +960,82 @@ function changePage(page) {
 document.getElementById('searchPermit').addEventListener('input', debounce(() => loadPermits(1), 300));
 document.getElementById('filterStatus').addEventListener('change', () => loadPermits(1));
 document.getElementById('filterType').addEventListener('change', () => loadPermits(1));
-document.getElementById('filterDateFrom').addEventListener('change', () => loadPermits(1));
-document.getElementById('filterDateTo').addEventListener('change', () => loadPermits(1));
+
+// Business Type to Fee Structure Listeners
+document.getElementById('permit_type').addEventListener('change', function() {
+    updateFeeFromStructure('permit_type', 'permit_fee', 'permit_fee_breakdown', 'permit_fee_category', 'permit_fee_math');
+});
+
+document.getElementById('edit_type').addEventListener('change', function() {
+    updateFeeFromStructure('edit_type', 'edit_fee', 'edit_fee_breakdown', 'edit_fee_category', 'edit_fee_math');
+});
+
+// Specific Date Modal Functions
+function openSpecificDateModal() {
+    const errorEl = document.getElementById('modalDateError');
+    if (errorEl) errorEl.classList.add('hidden');
+    document.getElementById('modalFilterDateFrom').value = activeDateFrom;
+    document.getElementById('modalFilterDateTo').value = activeDateTo;
+    ModalSystem.open('specificDateModal');
+}
+
+function applySpecificDateFilter() {
+    const fromVal = document.getElementById('modalFilterDateFrom').value;
+    const toVal = document.getElementById('modalFilterDateTo').value;
+    const errorEl = document.getElementById('modalDateError');
+
+    if (fromVal && toVal && fromVal > toVal) {
+        if (errorEl) errorEl.classList.remove('hidden');
+        return;
+    }
+    if (errorEl) errorEl.classList.add('hidden');
+
+    activeDateFrom = fromVal;
+    activeDateTo = toVal;
+    updateSpecificDateButtonState();
+    ModalSystem.close('specificDateModal');
+    loadPermits(1);
+}
+
+function clearSpecificDateFilter() {
+    document.getElementById('modalFilterDateFrom').value = '';
+    document.getElementById('modalFilterDateTo').value = '';
+    activeDateFrom = '';
+    activeDateTo = '';
+    const errorEl = document.getElementById('modalDateError');
+    if (errorEl) errorEl.classList.add('hidden');
+    updateSpecificDateButtonState();
+    ModalSystem.close('specificDateModal');
+    loadPermits(1);
+}
+
+function updateSpecificDateButtonState() {
+    const label = document.getElementById('specificDateLabel');
+    const badge = document.getElementById('dateFilterBadge');
+    const btn = document.getElementById('specificDateBtn');
+
+    if (activeDateFrom || activeDateTo) {
+        if (activeDateFrom && activeDateTo) {
+            label.textContent = `${activeDateFrom} - ${activeDateTo}`;
+        } else if (activeDateFrom) {
+            label.textContent = `From ${activeDateFrom}`;
+        } else {
+            label.textContent = `Until ${activeDateTo}`;
+        }
+        if (badge) badge.classList.remove('hidden');
+        if (btn) {
+            btn.classList.add('border-brand-medium', 'text-brand-dark', 'bg-brand-light/30');
+            btn.classList.remove('border-slate-200');
+        }
+    } else {
+        label.textContent = 'Specific Date';
+        if (badge) badge.classList.add('hidden');
+        if (btn) {
+            btn.classList.remove('border-brand-medium', 'text-brand-dark', 'bg-brand-light/30');
+            btn.classList.add('border-slate-200');
+        }
+    }
+}
 
 document.addEventListener('input', event => {
     if (event.target.matches('.permit-contact')) {
@@ -834,8 +1047,13 @@ function resetFilters() {
     document.getElementById('searchPermit').value = '';
     document.getElementById('filterStatus').value = '';
     document.getElementById('filterType').value = '';
-    document.getElementById('filterDateFrom').value = '';
-    document.getElementById('filterDateTo').value = '';
+    activeDateFrom = '';
+    activeDateTo = '';
+    document.getElementById('modalFilterDateFrom').value = '';
+    document.getElementById('modalFilterDateTo').value = '';
+    const errorEl = document.getElementById('modalDateError');
+    if (errorEl) errorEl.classList.add('hidden');
+    updateSpecificDateButtonState();
     loadPermits(1);
 }
 
@@ -974,9 +1192,14 @@ async function viewPermit(id) {
                 <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                     <button onclick="ModalSystem.close('viewPermitModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
                     ${p.status === 'pending' ? `
-                        <button onclick="ModalSystem.close('viewPermitModal'); reviewPermit(${p.id})" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold">
-                            <i class="fa-solid fa-clipboard-list mr-1.5"></i> Review
+                        <button onclick="ModalSystem.close('viewPermitModal'); openAssignInspectorModal(${p.id})" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-user-check text-xs"></i> Assign to Inspector
                         </button>
+                    ` : ''}
+                    ${p.status === 'under_review' ? `
+                        <a href="inspections.php" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold flex items-center gap-1.5">
+                            <i class="fa-solid fa-clipboard-list text-xs"></i> View in Inspections
+                        </a>
                     ` : ''}
                 </div>
             </div>
@@ -991,175 +1214,152 @@ async function viewPermit(id) {
 }
 
 // ============================================================
-// REVIEW PERMIT – with rejection criteria dropdown
+// ASSIGN TO INSPECTOR
 // ============================================================
-let reviewPermitId = null;
+let assignPermitId = null;
 
-// Toggle rejection criteria visibility when status changes
-document.getElementById('review_status').addEventListener('change', function() {
-    const container = document.getElementById('rejectionCriteriaContainer');
-    if (this.value === 'rejected') {
-        container.classList.remove('hidden');
-        document.getElementById('review_rejection_criteria').required = true;
-        // Ensure custom reason visibility is toggled based on selection
-        toggleCustomReason();
-    } else {
-        container.classList.add('hidden');
-        document.getElementById('review_rejection_criteria').required = false;
-        document.getElementById('review_custom_reason').required = false;
-        document.getElementById('customReasonContainer').classList.add('hidden');
-    }
-});
-
-// Toggle custom reason field when "Other" is selected
-document.getElementById('review_rejection_criteria').addEventListener('change', toggleCustomReason);
-
-function toggleCustomReason() {
-    const select = document.getElementById('review_rejection_criteria');
-    const customContainer = document.getElementById('customReasonContainer');
-    const customInput = document.getElementById('review_custom_reason');
-    if (select.value === 'Other') {
-        customContainer.classList.remove('hidden');
-        customInput.required = true;
-    } else {
-        customContainer.classList.add('hidden');
-        customInput.required = false;
-        customInput.value = '';
-    }
-}
-
-async function reviewPermit(id) {
-    reviewPermitId = id;
+async function openAssignInspectorModal(id) {
+    assignPermitId = id;
     
     try {
         const result = await apiRequest(API_BASE + '?id=' + id);
         const p = result.data;
         permitsCache[p.id] = p;
 
-        document.getElementById('reviewApplicant').textContent = p.applicant;
-        document.getElementById('reviewPermitId').textContent = p.permit_id;
-        document.getElementById('review_status').value = p.status === 'pending' ? 'under_review' : p.status;
-        document.getElementById('review_notes').value = p.notes || '';
-        document.getElementById('review_rejection_criteria').value = '';
-        document.getElementById('review_custom_reason').value = '';
-        document.getElementById('rejectionCriteriaContainer').classList.add('hidden');
-        document.getElementById('customReasonContainer').classList.add('hidden');
+        document.getElementById('assign_permit_id').value = p.id;
+        document.getElementById('assignApplicant').textContent = p.applicant || 'N/A';
+        document.getElementById('assignPermitCode').textContent = p.permit_id || 'N/A';
+        document.getElementById('assignBusinessType').textContent = p.business_type || 'General';
+        document.getElementById('assignAddress').textContent = p.address ? '📍 ' + p.address : '';
+        document.getElementById('assign_notes').value = p.notes || '';
+
+        // Modal title and button based on status
+        const isReassign = p.status === 'under_review';
+        document.getElementById('assignModalTitle').textContent = isReassign ? 'Reassign Inspector' : 'Assign to Inspector';
+        const submitBtn = document.getElementById('btnSubmitAssign');
+        if (submitBtn) {
+            submitBtn.innerHTML = isReassign
+                ? '<i class="fa-solid fa-calendar-check text-xs"></i> <span>Update Assignment</span>'
+                : '<i class="fa-solid fa-calendar-check text-xs"></i> <span>Assign & Schedule</span>';
+        }
+
+        // Set default inspection date (today, or tomorrow if after 5 PM)
+        const dateInput = document.getElementById('assign_inspection_date');
+        const now = new Date();
+        const minDate = now.toISOString().split('T')[0];
+        dateInput.min = minDate;
         
+        if (p.inspection_date) {
+            dateInput.value = p.inspection_date;
+        } else {
+            const defaultDate = new Date();
+            if (now.getHours() >= 17) {
+                defaultDate.setDate(defaultDate.getDate() + 1);
+            }
+            dateInput.value = defaultDate.toISOString().split('T')[0];
+        }
+
         await loadInspectors(p.inspector_id);
-        
-        ModalSystem.open('reviewPermitModal');
+        ModalSystem.open('assignInspectorModal');
     } catch (err) {
-        ModalSystem.toast.error('Failed to load permit: ' + err.message);
+        ModalSystem.toast.error('Failed to load permit details: ' + err.message);
     }
 }
 
 async function loadInspectors(selectedId) {
+    const select = document.getElementById('assign_inspector_id');
     try {
         const result = await apiRequest('../../api/employees.php');
         const employees = result.data || [];
-        const select = document.getElementById('review_inspector');
         select.innerHTML = '<option value="">Select Inspector</option>';
         
-        employees.forEach(emp => {
+        // Filter strictly based on role_description column = 'Inspector'
+        const inspectors = employees.filter(emp => {
+            const roleDesc = (emp.role_description || '').trim().toLowerCase();
+            const isActive = !emp.status || emp.status.toLowerCase() === 'active';
+            return roleDesc.includes('inspector') && isActive;
+        });
+
+        // Fallback to any employee with role_description containing 'inspector'
+        const list = inspectors.length > 0 ? inspectors : employees.filter(emp => {
+            const roleDesc = (emp.role_description || '').trim().toLowerCase();
+            return roleDesc.includes('inspector');
+        });
+
+        if (list.length === 0) {
+            select.innerHTML = '<option value="">No inspectors found</option>';
+            return;
+        }
+
+        list.forEach(emp => {
             const name = emp.full_name || emp.name || 'Employee #' + emp.id;
+            const roleDesc = emp.role_description ? ` (${emp.role_description})` : ' (Inspector)';
             const isSelected = emp.id == selectedId ? 'selected' : '';
-            select.innerHTML += `<option value="${emp.id}" ${isSelected}>${escapeHtml(name)}</option>`;
+            select.innerHTML += `<option value="${emp.id}" ${isSelected}>${escapeHtml(name)}${escapeHtml(roleDesc)}</option>`;
         });
     } catch (err) {
-        const select = document.getElementById('review_inspector');
         select.innerHTML = `
             <option value="">Select Inspector</option>
-            <option value="1">Inspector 1</option>
-            <option value="2">Inspector 2</option>
-            <option value="3">Inspector 3</option>
+            <option value="10">Liza Cruz (Inspector)</option>
         `;
     }
 }
 
-async function submitReview() {
-    const id = reviewPermitId;
+document.getElementById('assignInspectorForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const id = document.getElementById('assign_permit_id').value || assignPermitId;
     if (!id) return;
 
-    const status = document.getElementById('review_status').value;
-    const inspectorId = document.getElementById('review_inspector').value;
-    const notes = document.getElementById('review_notes').value;
-    let rejectionReason = null;
+    const inspectorId = document.getElementById('assign_inspector_id').value;
+    const scheduledDate = document.getElementById('assign_inspection_date').value;
+    const scheduledTime = document.getElementById('assign_inspection_time').value;
+    const notes = document.getElementById('assign_notes').value.trim();
 
-    if (status === 'rejected') {
-        const criteria = document.getElementById('review_rejection_criteria').value;
-        const customReason = document.getElementById('review_custom_reason').value.trim();
-        // Build the final rejection reason: if "Other", use custom; otherwise use selected criteria
-        if (criteria === 'Other') {
-            if (!customReason) {
-                ModalSystem.toast.error('Please provide a custom rejection reason.');
-                return;
-            }
-            rejectionReason = customReason;
-        } else if (criteria) {
-            rejectionReason = criteria;
-        } else {
-            ModalSystem.toast.error('Please select a rejection reason.');
-            return;
-        }
-    }
-
-    try {
-        const result = await apiRequest(API_BASE + '?id=' + id + '&action=review', {
-            method: 'POST',
-            body: JSON.stringify({
-                status: status,
-                inspector_id: inspectorId || null,
-                notes: notes,
-                rejection_reason: rejectionReason
-            })
-        });
-
-        ModalSystem.close('reviewPermitModal');
-        ModalSystem.toast.success(result.message || 'Permit reviewed successfully!');
-        loadPermits(currentPage);
-        loadStats();
-    } catch (err) {
-        ModalSystem.toast.error('Failed to review permit: ' + err.message);
-    }
-}
-
-// ============================================================
-// QUICK STATUS UPDATE – with reason for reject
-// ============================================================
-function quickStatusUpdate(id, status) {
-    const label = status.charAt(0).toUpperCase() + status.slice(1);
-    if (status === 'rejected') {
-        reviewPermit(id);
-        setTimeout(() => {
-            document.getElementById('review_status').value = 'rejected';
-            document.getElementById('review_status').dispatchEvent(new Event('change'));
-        }, 300);
+    if (!inspectorId) {
+        ModalSystem.toast.error('Please select an inspector.');
         return;
     }
 
-    ModalSystem.confirm(
-        'Mark this permit as ' + label + '?',
-        async function() {
-            try {
-                const result = await apiRequest(API_BASE + '?id=' + id + '&action=status', {
-                    method: 'POST',
-                    body: JSON.stringify({ status: status })
-                });
+    if (!scheduledDate) {
+        ModalSystem.toast.error('Please choose a scheduled inspection date.');
+        return;
+    }
 
-                ModalSystem.toast.success(result.message || 'Permit marked as ' + label);
-                loadPermits(currentPage);
-                loadStats();
-            } catch (err) {
-                ModalSystem.toast.error('Failed to update status: ' + err.message);
-            }
-        },
-        {
-            title: 'Update Status',
-            confirmText: 'Yes, ' + label,
-            type: status === 'approved' ? 'info' : 'warning'
+    const submitBtn = document.getElementById('btnSubmitAssign');
+    const origHtml = submitBtn ? submitBtn.innerHTML : '';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saving...';
+    }
+
+    try {
+        const result = await apiRequest(API_BASE + '?id=' + id + '&action=assign-inspector', {
+            method: 'POST',
+            body: JSON.stringify({
+                inspector_id: inspectorId,
+                scheduled_date: scheduledDate,
+                scheduled_time: scheduledTime,
+                notes: notes
+            })
+        });
+
+        ModalSystem.close('assignInspectorModal');
+        ModalSystem.toast.success(result.message || 'Inspector assigned and scheduled in Inspections module!');
+        loadPermits(currentPage);
+        loadStats();
+    } catch (err) {
+        ModalSystem.toast.error('Failed to assign inspector: ' + err.message);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = origHtml;
         }
-    );
-}
+    }
+});
+
+// Backward-compatibility alias
+window.reviewPermit = openAssignInspectorModal;
 
 // ============================================================
 // SAVE PERMIT (New Application)
@@ -1196,6 +1396,8 @@ document.getElementById('newPermitForm').addEventListener('submit', async functi
 
         ModalSystem.close('newPermitModal');
         document.getElementById('newPermitForm').reset();
+        const newBreakdown = document.getElementById('permit_fee_breakdown');
+        if (newBreakdown) newBreakdown.classList.add('hidden');
         ModalSystem.toast.success(result.message || 'Permit application submitted successfully!');
         loadPermits(1);
         loadStats();
@@ -1220,9 +1422,14 @@ async function editPermit(id) {
         document.getElementById('edit_address').value = p.address;
         document.getElementById('edit_contact').value = p.contact;
         document.getElementById('edit_email').value = p.email || '';
-        document.getElementById('edit_fee').value = p.fee;
         document.getElementById('edit_payment').value = p.payment_method || '';
         document.getElementById('edit_notes').value = p.notes || '';
+
+        // Calculate and reflect fee based on fee structure
+        updateFeeFromStructure('edit_type', 'edit_fee', 'edit_fee_breakdown', 'edit_fee_category', 'edit_fee_math');
+        if (!document.getElementById('edit_fee').value && p.fee) {
+            document.getElementById('edit_fee').value = p.fee;
+        }
 
         ModalSystem.open('editPermitModal');
     } catch (err) {
@@ -1271,36 +1478,40 @@ document.getElementById('editPermitForm').addEventListener('submit', async funct
 });
 
 // ============================================================
-// DELETE PERMIT
+// CANCEL PERMIT
 // ============================================================
-function deletePermit(id) {
+function cancelPermit(id) {
     ModalSystem.confirm(
-        'Are you sure you want to delete this permit? This action cannot be undone.',
+        'Are you sure you want to cancel this permit application? This action cannot be undone.',
         async function() {
             try {
-                const result = await apiRequest(API_BASE + '?id=' + id + '&action=delete', {
+                const result = await apiRequest(API_BASE + '?id=' + id + '&action=cancel', {
                     method: 'POST'
                 });
 
-                ModalSystem.toast.success(result.message || 'Permit deleted successfully');
+                ModalSystem.toast.success(result.message || 'Permit application cancelled successfully');
                 loadPermits(currentPage);
                 loadStats();
             } catch (err) {
-                ModalSystem.toast.error('Failed to delete permit: ' + err.message);
+                ModalSystem.toast.error('Failed to cancel permit: ' + err.message);
             }
         },
         {
-            title: 'Delete Permit',
-            confirmText: 'Delete',
+            title: 'Cancel Permit Application',
+            confirmText: 'Yes, Cancel Permit',
             type: 'danger'
         }
     );
 }
 
+// Backward-compatibility alias
+window.deletePermit = cancelPermit;
+
 // ============================================================
 // INITIALIZATION
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
+    initFeeStructure();
     loadStats();
     loadPermits(1);
 });

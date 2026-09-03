@@ -43,23 +43,25 @@ try {
                 $controller->stats();
             } elseif ($permitId) {
                 $controller->show($permitId);
-            } elseif (isset($_GET['q'])) {
-                $controller->search();
             } elseif (isset($_GET['page'])) {
                 $controller->paginated();
+            } elseif (isset($_GET['q'])) {
+                $controller->search();
             } else {
                 $controller->index();
             }
             break;
 
         case 'POST':
-            if ($action === 'review' && $permitId) {
+            if (($action === 'assign-inspector' || $action === 'assign_inspector') && $permitId) {
+                $controller->assignInspector($permitId);
+            } elseif ($action === 'review' && $permitId) {
                 $controller->review($permitId);
             } elseif ($action === 'status' && $permitId) {
                 $controller->updateStatus($permitId);
             } elseif ($action === 'update' && $permitId) {
                 $controller->update($permitId);
-            } elseif ($action === 'delete' && $permitId) {
+            } elseif (($action === 'delete' || $action === 'cancel') && $permitId) {
                 $controller->destroy($permitId);
             } else {
                 $controller->store();

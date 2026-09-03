@@ -33,12 +33,16 @@ try {
     $employeeModel = new Employee();
     $allEmps = $employeeModel->all();
     $inspectors = array_values(array_filter($allEmps, function($e) {
-        $primaryRole = $e['role'] ?? '';
-        $roleDesc = strtolower($e['role_description'] ?? '');
-        $dept = strtolower(trim($e['department'] ?? ''));
-        return (in_array($primaryRole, ['Sanitation Officer', 'Sanitation Director', 'Wastewater Lead']) || str_contains($roleDesc, 'inspector') || str_contains($roleDesc, 'officer'))
-            && ($dept === '' || str_contains($dept, 'sanitation') || str_contains($dept, 'permits'));
+        $roleDesc = strtolower(trim($e['role_description'] ?? ''));
+        $status = strtolower(trim($e['status'] ?? ''));
+        return str_contains($roleDesc, 'inspector') && ($status === '' || $status === 'active');
     }));
+    if (empty($inspectors)) {
+        $inspectors = array_values(array_filter($allEmps, function($e) {
+            $roleDesc = strtolower(trim($e['role_description'] ?? ''));
+            return str_contains($roleDesc, 'inspector');
+        }));
+    }
     if (empty($inspectors)) {
         $inspectors = $allEmps;
     }
