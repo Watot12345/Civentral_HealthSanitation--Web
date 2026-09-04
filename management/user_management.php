@@ -370,6 +370,7 @@ $title = 'User Management';
                     ?>
                     <tr class="border-b border-slate-100 hover:bg-slate-50 transition user-row"
                         data-id="<?php echo (int) $user['id']; ?>"
+                        data-roleid="<?php echo (int) ($user['role_id'] ?? 0); ?>"
                         data-employeeid="<?php echo htmlspecialchars($user['employee_id'] ?? '', ENT_QUOTES); ?>"
                         data-role="<?php echo htmlspecialchars($user['role'] ?? '', ENT_QUOTES); ?>"
                         data-status="<?php echo htmlspecialchars($user['status'] ?? 'Active', ENT_QUOTES); ?>"
@@ -609,6 +610,11 @@ $title = 'User Management';
 
 <!-- DEDICATED MANAGE PERMISSIONS MODAL -->
 <div id="manageUserPermissionsModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <select id="permissionRoleSelect" class="hidden" aria-hidden="true" tabindex="-1">
+        <?php foreach ($allRoles as $roleOpt): ?>
+        <option value="<?php echo (int) $roleOpt['id']; ?>"><?php echo htmlspecialchars($roleOpt['name'], ENT_QUOTES); ?></option>
+        <?php endforeach; ?>
+    </select>
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         <!-- Modal Header -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
@@ -635,7 +641,7 @@ $title = 'User Management';
 
         <!-- Modal Footer -->
         <div class="px-6 py-4 bg-slate-50/90 border-t border-slate-100 flex items-center justify-between">
-            <span class="text-xs text-slate-400 font-medium">Toggle permissions and click Save Changes</span>
+            <span class="text-xs text-slate-400 font-medium"><?php echo $isSystemAdmin ? 'Toggle permissions and click Save Changes' : 'Configure department and main controls permissions, then click Save Permissions'; ?></span>
             <div class="flex gap-2">
                 <button type="button" onclick="closeModal('manageUserPermissionsModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold">
                     Cancel
@@ -1341,23 +1347,47 @@ $title = 'User Management';
         const titleEl = document.getElementById('permModalTitle');
         const subEl = document.getElementById('permModalSub');
         if (titleEl) titleEl.textContent = `Permissions: ${fullName}`;
-        if (subEl) subEl.textContent = `Role: ${targetRole} • Employee ID: ${empId}`;
+        if (subEl) {
+            if (!IS_SYSTEM_ADMIN) {
+                subEl.textContent = `Role: ${targetRole} • Scope: ${CURRENT_USER_DEPT || 'Department'} & Main Controls`;
+            } else {
+                subEl.textContent = `Role: ${targetRole} • Employee ID: ${empId}`;
+            }
+        }
 
-        // Resolve matching role_id from permissionRoleSelect
+        // Resolve matching role_id from user row data or permissionRoleSelect
         let matchedRoleId = null;
+        const rowRoleId = parseInt(row.dataset.roleid || '0', 10);
+        if (rowRoleId > 0 && rowRoleId <= 19) {
+            matchedRoleId = rowRoleId;
+        }
+
         const roleSelect = document.getElementById('permissionRoleSelect');
-        if (roleSelect) {
+        if (!matchedRoleId && roleSelect) {
+            const normRole = (r) => {
+                const s = (r || '').trim().toLowerCase();
+                if (s === 'system admin') return 'system administrator';
+                if (s === 'immunization lead') return 'immunization coordinator';
+                if (s === 'wastewater lead') return 'wastewater officer';
+                if (s === 'surveillance lead') return 'surveillance coordinator';
+                return s;
+            };
+
+            const rNameLower = roleName.trim().toLowerCase();
+            const rDescLower = roleDesc.trim().toLowerCase();
+            const rNameNorm = normRole(roleName);
+            const rDescNorm = normRole(roleDesc);
+
             for (let opt of roleSelect.options) {
                 const optText = opt.text.trim().toLowerCase();
-                const rNameLower = roleName.trim().toLowerCase();
-                const rDescLower = roleDesc.trim().toLowerCase();
-                if (optText === rDescLower || optText === rNameLower || (rDescLower && optText.includes(rDescLower))) {
+                const optNorm = normRole(opt.text);
+                if (optText === rDescLower || optText === rNameLower
+                    || optNorm === rDescNorm || optNorm === rNameNorm
+                    || (rDescLower && optText.includes(rDescLower))
+                    || (rDescNorm && optNorm.includes(rDescNorm))) {
                     matchedRoleId = opt.value;
                     break;
                 }
-            }
-            if (!matchedRoleId && roleSelect.options.length > 0) {
-                matchedRoleId = roleSelect.options[0].value;
             }
         }
 
@@ -1406,6 +1436,12 @@ $title = 'User Management';
                 let html = '';
 
                 for (let moduleName in grouped) {
+                    if (!IS_SYSTEM_ADMIN) {
+                        const modLower = (moduleName || '').trim().toLowerCase();
+                        if (modLower === 'system management' || modLower === 'administration' || modLower === 'admin') {
+                            continue;
+                        }
+                    }
                     const perms = grouped[moduleName];
                     html += `
                         <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4">
@@ -1629,18 +1665,25 @@ $title = 'User Management';
 
     function loadRolePermissions(roleId) {
         const grid = document.getElementById('permissionGrid');
+        if (!grid) return;
         grid.innerHTML = renderPermissionSkeletonJS();
 
         fetch(`user_management_api.php?action=get_role_permissions&role_id=${roleId}`)
         .then(res => res.json())
         .then(res => {
             if (!res.success || !res.data) {
-                grid.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No permissions found for this role.</p>';
+                if (grid) grid.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No permissions found for this role.</p>';
                 return;
             }
 
             let html = '';
             for (const [module, perms] of Object.entries(res.data)) {
+                if (!IS_SYSTEM_ADMIN) {
+                    const modLower = (module || '').trim().toLowerCase();
+                    if (modLower === 'system management' || modLower === 'administration' || modLower === 'admin') {
+                        continue;
+                    }
+                }
                 html += `
                     <div class="border border-slate-200 rounded-lg p-3">
                         <h4 class="font-semibold text-slate-700 text-sm flex items-center gap-2 mb-2">
@@ -1675,10 +1718,10 @@ $title = 'User Management';
                     </div>
                 `;
             }
-            grid.innerHTML = html || '<p class="text-xs text-slate-400 text-center py-6">No permissions defined.</p>';
+            if (grid) grid.innerHTML = html || '<p class="text-xs text-slate-400 text-center py-6">No permissions defined.</p>';
         })
         .catch(err => {
-            grid.innerHTML = '<p class="text-xs text-rose-500 text-center py-6">Failed to load permissions.</p>';
+            if (grid) grid.innerHTML = '<p class="text-xs text-rose-500 text-center py-6">Failed to load permissions.</p>';
             showToast('Failed to load permissions', 'danger', 'Permission Error');
             console.error(err);
         });
@@ -1749,7 +1792,8 @@ $title = 'User Management';
     // Load permissions for initial role on page load
     document.addEventListener('DOMContentLoaded', () => {
         const roleSelect = document.getElementById('permissionRoleSelect');
-        if (roleSelect && roleSelect.value) {
+        const grid = document.getElementById('permissionGrid');
+        if (grid && roleSelect && roleSelect.value) {
             loadRolePermissions(roleSelect.value);
         }
     });
@@ -1877,7 +1921,8 @@ $title = 'User Management';
             roleSelect.value = roleId;
             loadRolePermissions(roleId);
             showToast('✏️ Loaded permissions for role ID: ' + roleId, 'info');
-            document.getElementById('permissionGrid').scrollIntoView({ behavior: 'smooth' });
+            const grid = document.getElementById('permissionGrid');
+            if (grid) grid.scrollIntoView({ behavior: 'smooth' });
         }
     }
 

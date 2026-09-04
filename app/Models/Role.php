@@ -358,21 +358,31 @@ class Role
             }
         } catch (Throwable $e) {}
 
+        $isSystemAdminRole = ($roleId === 1 || strcasecmp($roleName, 'System Administrator') === 0 || strcasecmp($roleName, 'System Admin') === 0);
+
+        if (empty($roleName) && !$isSystemAdminRole) {
+            error_log("Role ID {$roleId} not found in roles table — permission matrix skipped.");
+        }
+
         $defaultMatrix = class_exists('\App\Services\PermissionService') 
             ? \App\Services\PermissionService::defaultRolePermissionMatrix() 
             : [];
 
         $defaultSlugs = [];
         if (!$hasDbCustom && !empty($roleName)) {
+            $normRoleName = class_exists('\App\Services\PermissionService') 
+                ? \App\Services\PermissionService::normalizeRoleTitle($roleName) 
+                : $roleName;
             foreach ($defaultMatrix as $mName => $mSlugs) {
-                if (strcasecmp(trim($mName), $roleName) === 0) {
+                $normMName = class_exists('\App\Services\PermissionService') 
+                    ? \App\Services\PermissionService::normalizeRoleTitle($mName) 
+                    : $mName;
+                if (strcasecmp(trim($mName), $roleName) === 0 || strcasecmp(trim($normMName), $normRoleName) === 0) {
                     $defaultSlugs = $mSlugs;
                     break;
                 }
             }
         }
-
-        $isSystemAdminRole = ($roleId === 1 || strcasecmp($roleName, 'System Administrator') === 0 || strcasecmp($roleName, 'System Admin') === 0);
 
         // Merge granted flag
         foreach ($allPermissions as &$perm) {

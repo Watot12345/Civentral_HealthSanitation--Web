@@ -13,7 +13,9 @@ class PermissionService
     private static ?PermissionService $instance = null;
     private array $allSlugs = [
         'dashboard.view', 'dashboard.system_admin', 'dashboard.health_center', 'dashboard.sanitation', 'dashboard.immunization', 'dashboard.wastewater', 'dashboard.surveillance',
-        'analytics.view', 'reports.view', 'compliance.view',
+        'analytics.view', 'analytics.health_center', 'analytics.sanitation', 'analytics.immunization', 'analytics.wastewater', 'analytics.surveillance',
+        'reports.view', 'reports.health_center', 'reports.sanitation', 'reports.immunization', 'reports.wastewater', 'reports.surveillance',
+        'compliance.view', 'compliance.admin_only',
         'patients.view', 'patients.create', 'patients.edit', 'patients.delete',
         'consultations.view', 'consultations.create', 'triage.view', 'triage.create',
         'prescriptions.view', 'prescriptions.create',
@@ -35,10 +37,309 @@ class PermissionService
     public static function normalizeRoleTitle(string $role): string
     {
         $role = trim($role);
-        if (strcasecmp($role, 'Immunization Lead') === 0) return 'Immunization Coordinator';
-        if (strcasecmp($role, 'Wastewater Lead') === 0) return 'Wastewater Officer';
-        if (strcasecmp($role, 'Surveillance Lead') === 0) return 'Surveillance Coordinator';
+        if (strcasecmp($role, 'System Admin') === 0 || strcasecmp($role, 'HSA') === 0) return 'System Administrator';
+        if (strcasecmp($role, 'HCD') === 0 || strcasecmp($role, 'Health Center Director') === 0) return 'Health Center Director';
+        if (strcasecmp($role, 'SD') === 0 || strcasecmp($role, 'Sanitation Director') === 0) return 'Sanitation Director';
+        if (strcasecmp($role, 'Immunization Lead') === 0 || strcasecmp($role, 'IL') === 0) return 'Immunization Coordinator';
+        if (strcasecmp($role, 'Wastewater Lead') === 0 || strcasecmp($role, 'WL') === 0) return 'Wastewater Officer';
+        if (strcasecmp($role, 'Surveillance Lead') === 0 || strcasecmp($role, 'SL') === 0) return 'Surveillance Coordinator';
         return $role;
+    }
+
+    /**
+     * Explicit 19-position department matrix with all fields written out.
+     */
+    public static function departmentMatrix(): array
+    {
+        return [
+            'System Administrator' => [
+                'position'           => 'System Administrator',
+                'department_scope'   => null,
+                'dashboard_slug'     => 'dashboard.system_admin',
+                'analytics_slug'     => 'analytics.view',
+                'reports_slug'       => 'reports.view',
+                'compliance_allowed' => true,
+                'modules'            => ['patients', 'consultations', 'triage', 'prescriptions', 'permits', 'inspections', 'immunization', 'nutrition', 'wastewater', 'surveillance', 'users', 'roles', 'settings', 'logs']
+            ],
+            'System Admin' => [
+                'position'           => 'System Administrator',
+                'department_scope'   => null,
+                'dashboard_slug'     => 'dashboard.system_admin',
+                'analytics_slug'     => 'analytics.view',
+                'reports_slug'       => 'reports.view',
+                'compliance_allowed' => true,
+                'modules'            => ['patients', 'consultations', 'triage', 'prescriptions', 'permits', 'inspections', 'immunization', 'nutrition', 'wastewater', 'surveillance', 'users', 'roles', 'settings', 'logs']
+            ],
+            'HCD' => [
+                'position'           => 'Health Center Director',
+                'department_scope'   => 'Health Center',
+                'department_slug'    => 'health_center',
+                'dashboard_slug'     => 'dashboard.health_center',
+                'analytics_slug'     => 'analytics.health_center',
+                'reports_slug'       => 'reports.health_center',
+                'compliance_allowed' => false,
+                'modules'            => ['patients', 'consultations', 'triage', 'prescriptions', 'users']
+            ],
+            'Health Center Director' => [
+                'position'           => 'Health Center Director',
+                'department_scope'   => 'Health Center',
+                'department_slug'    => 'health_center',
+                'dashboard_slug'     => 'dashboard.health_center',
+                'analytics_slug'     => 'analytics.health_center',
+                'reports_slug'       => 'reports.health_center',
+                'compliance_allowed' => false,
+                'modules'            => ['patients', 'consultations', 'triage', 'prescriptions', 'users']
+            ],
+            'Doctor' => [
+                'position'           => 'Doctor',
+                'department_scope'   => 'Health Center',
+                'department_slug'    => 'health_center',
+                'dashboard_slug'     => 'dashboard.health_center',
+                'analytics_slug'     => 'analytics.health_center',
+                'reports_slug'       => 'reports.health_center',
+                'compliance_allowed' => false,
+                'modules'            => ['patients', 'consultations', 'triage', 'prescriptions']
+            ],
+            'Nurse' => [
+                'position'           => 'Nurse',
+                'department_scope'   => 'Health Center',
+                'department_slug'    => 'health_center',
+                'dashboard_slug'     => 'dashboard.health_center',
+                'analytics_slug'     => 'analytics.health_center',
+                'reports_slug'       => 'reports.health_center',
+                'compliance_allowed' => false,
+                'modules'            => ['patients', 'consultations', 'triage', 'prescriptions']
+            ],
+            'Dentist' => [
+                'position'           => 'Dentist',
+                'department_scope'   => 'Health Center',
+                'department_slug'    => 'health_center',
+                'dashboard_slug'     => 'dashboard.health_center',
+                'analytics_slug'     => 'analytics.health_center',
+                'reports_slug'       => 'reports.health_center',
+                'compliance_allowed' => false,
+                'modules'            => ['patients', 'consultations', 'prescriptions']
+            ],
+            'Laboratory Technician' => [
+                'position'           => 'Laboratory Technician',
+                'department_scope'   => 'Health Center',
+                'department_slug'    => 'health_center',
+                'dashboard_slug'     => 'dashboard.health_center',
+                'analytics_slug'     => 'analytics.health_center',
+                'reports_slug'       => 'reports.health_center',
+                'compliance_allowed' => false,
+                'modules'            => ['patients', 'consultations', 'prescriptions']
+            ],
+            'Medical Records Clerk' => [
+                'position'           => 'Medical Records Clerk',
+                'department_scope'   => 'Health Center',
+                'department_slug'    => 'health_center',
+                'dashboard_slug'     => 'dashboard.health_center',
+                'analytics_slug'     => 'analytics.health_center',
+                'reports_slug'       => 'reports.health_center',
+                'compliance_allowed' => false,
+                'modules'            => ['patients']
+            ],
+            'Appointment Clerk' => [
+                'position'           => 'Appointment Clerk',
+                'department_scope'   => 'Health Center',
+                'department_slug'    => 'health_center',
+                'dashboard_slug'     => 'dashboard.health_center',
+                'analytics_slug'     => 'analytics.health_center',
+                'reports_slug'       => 'reports.health_center',
+                'compliance_allowed' => false,
+                'modules'            => ['patients', 'triage']
+            ],
+            'Sanitation Director' => [
+                'position'           => 'Sanitation Director',
+                'department_scope'   => 'Sanitation',
+                'department_slug'    => 'sanitation',
+                'dashboard_slug'     => 'dashboard.sanitation',
+                'analytics_slug'     => 'analytics.sanitation',
+                'reports_slug'       => 'reports.sanitation',
+                'compliance_allowed' => true,
+                'modules'            => ['permits', 'inspections', 'users']
+            ],
+            'Inspector' => [
+                'position'           => 'Inspector',
+                'department_scope'   => 'Sanitation',
+                'department_slug'    => 'sanitation',
+                'dashboard_slug'     => 'dashboard.sanitation',
+                'analytics_slug'     => 'analytics.sanitation',
+                'reports_slug'       => 'reports.sanitation',
+                'compliance_allowed' => false,
+                'modules'            => ['permits', 'inspections']
+            ],
+            'Permit Clerk' => [
+                'position'           => 'Permit Clerk',
+                'department_scope'   => 'Sanitation',
+                'department_slug'    => 'sanitation',
+                'dashboard_slug'     => 'dashboard.sanitation',
+                'analytics_slug'     => 'analytics.sanitation',
+                'reports_slug'       => 'reports.sanitation',
+                'compliance_allowed' => false,
+                'modules'            => ['permits', 'inspections']
+            ],
+            'Cashier' => [
+                'position'           => 'Cashier',
+                'department_scope'   => 'Sanitation',
+                'department_slug'    => 'sanitation',
+                'dashboard_slug'     => 'dashboard.sanitation',
+                'analytics_slug'     => 'analytics.sanitation',
+                'reports_slug'       => 'reports.sanitation',
+                'compliance_allowed' => false,
+                'modules'            => ['permits']
+            ],
+            'Immunization Coordinator' => [
+                'position'           => 'Immunization Coordinator',
+                'department_scope'   => 'Immunization',
+                'department_slug'    => 'immunization',
+                'dashboard_slug'     => 'dashboard.immunization',
+                'analytics_slug'     => 'analytics.immunization',
+                'reports_slug'       => 'reports.immunization',
+                'compliance_allowed' => false,
+                'modules'            => ['immunization', 'nutrition', 'users']
+            ],
+            'Midwife' => [
+                'position'           => 'Midwife',
+                'department_scope'   => 'Immunization',
+                'department_slug'    => 'immunization',
+                'dashboard_slug'     => 'dashboard.immunization',
+                'analytics_slug'     => 'analytics.immunization',
+                'reports_slug'       => 'reports.immunization',
+                'compliance_allowed' => false,
+                'modules'            => ['immunization', 'nutrition']
+            ],
+            'Nutritionist' => [
+                'position'           => 'Nutritionist',
+                'department_scope'   => 'Immunization',
+                'department_slug'    => 'immunization',
+                'dashboard_slug'     => 'dashboard.immunization',
+                'analytics_slug'     => 'analytics.immunization',
+                'reports_slug'       => 'reports.immunization',
+                'compliance_allowed' => false,
+                'modules'            => ['nutrition']
+            ],
+            'Nutrition Educator' => [
+                'position'           => 'Nutrition Educator',
+                'department_scope'   => 'Immunization',
+                'department_slug'    => 'immunization',
+                'dashboard_slug'     => 'dashboard.immunization',
+                'analytics_slug'     => 'analytics.immunization',
+                'reports_slug'       => 'reports.immunization',
+                'compliance_allowed' => false,
+                'modules'            => ['nutrition']
+            ],
+            'Wastewater Officer' => [
+                'position'           => 'Wastewater Officer',
+                'department_scope'   => 'Wastewater',
+                'department_slug'    => 'wastewater',
+                'dashboard_slug'     => 'dashboard.wastewater',
+                'analytics_slug'     => 'analytics.wastewater',
+                'reports_slug'       => 'reports.wastewater',
+                'compliance_allowed' => false,
+                'modules'            => ['wastewater', 'users']
+            ],
+            'Wastewater Lead' => [
+                'position'           => 'Wastewater Officer',
+                'department_scope'   => 'Wastewater',
+                'department_slug'    => 'wastewater',
+                'dashboard_slug'     => 'dashboard.wastewater',
+                'analytics_slug'     => 'analytics.wastewater',
+                'reports_slug'       => 'reports.wastewater',
+                'compliance_allowed' => false,
+                'modules'            => ['wastewater', 'users']
+            ],
+            'Surveillance Officer' => [
+                'position'           => 'Surveillance Officer',
+                'department_scope'   => 'Health Surveillance',
+                'department_slug'    => 'surveillance',
+                'dashboard_slug'     => 'dashboard.surveillance',
+                'analytics_slug'     => 'analytics.surveillance',
+                'reports_slug'       => 'reports.surveillance',
+                'compliance_allowed' => false,
+                'modules'            => ['surveillance']
+            ],
+            'Surveillance Coordinator' => [
+                'position'           => 'Surveillance Coordinator',
+                'department_scope'   => 'Health Surveillance',
+                'department_slug'    => 'surveillance',
+                'dashboard_slug'     => 'dashboard.surveillance',
+                'analytics_slug'     => 'analytics.surveillance',
+                'reports_slug'       => 'reports.surveillance',
+                'compliance_allowed' => false,
+                'modules'            => ['surveillance', 'users']
+            ],
+        ];
+    }
+
+    /**
+     * Single source of truth helper returning department scope, admin flag, allowed modules, and compliance eligibility.
+     */
+    public function getUserScope(?int $employeeId = null): array
+    {
+        if ($employeeId === null) {
+            if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+                @session_start();
+            }
+            $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? '');
+            $userRole = trim($_SESSION['role'] ?? $_SESSION['user']['role'] ?? $_SESSION['user_role'] ?? '');
+        } else {
+            try {
+                $db = \Database::getInstance();
+                $rows = $db->select('employees', ['id' => 'eq.' . $employeeId], ['select' => 'role,role_description']);
+                $userRoleDesc = trim($rows[0]['role_description'] ?? '');
+                $userRole = trim($rows[0]['role'] ?? '');
+            } catch (\Throwable $e) {
+                $userRoleDesc = '';
+                $userRole = '';
+            }
+        }
+
+        $pos = self::normalizeRoleTitle(!empty($userRoleDesc) ? $userRoleDesc : $userRole);
+        $isAdmin = $this->isAdminRole($userRoleDesc) || $this->isAdminRole($userRole) || strcasecmp($pos, 'System Administrator') === 0;
+
+        $matrix = self::departmentMatrix();
+        $matched = null;
+        foreach ($matrix as $mPos => $row) {
+            if (strcasecmp($mPos, $pos) === 0 || strcasecmp($mPos, $userRoleDesc) === 0 || strcasecmp($mPos, $userRole) === 0) {
+                $matched = $row;
+                break;
+            }
+        }
+
+        if ($isAdmin) {
+            return [
+                'department'      => null,
+                'department_slug' => null,
+                'department_name' => null,
+                'is_admin'        => true,
+                'modules'         => $matched['modules'] ?? ['patients', 'consultations', 'triage', 'prescriptions', 'permits', 'inspections', 'immunization', 'nutrition', 'wastewater', 'surveillance', 'users', 'roles', 'settings', 'logs'],
+                'compliance'      => true,
+            ];
+        }
+
+        if ($matched) {
+            $slug = $matched['department_slug'] ?? strtolower(str_replace([' ', '&'], ['_', 'and'], $matched['department_scope'] ?? ''));
+            $name = $matched['department_name'] ?? $matched['department_scope'] ?? 'Health Center';
+            return [
+                'department'      => $slug,
+                'department_slug' => $slug,
+                'department_name' => $name,
+                'is_admin'        => false,
+                'modules'         => $matched['modules'],
+                'compliance'      => (bool)$matched['compliance_allowed'],
+            ];
+        }
+
+        return [
+            'department'      => null,
+            'department_slug' => null,
+            'department_name' => null,
+            'is_admin'        => false,
+            'modules'         => [],
+            'compliance'      => false,
+        ];
     }
 
     /**
@@ -150,7 +451,19 @@ class PermissionService
         return [
             'System Administrator' => [
                 'dashboard.view', 'dashboard.system_admin',
-                'analytics.view', 'reports.view', 'compliance.view',
+                'analytics.view', 'reports.view', 'compliance.view', 'compliance.admin_only',
+                'patients.view', 'patients.create', 'patients.edit', 'patients.delete',
+                'consultations.view', 'consultations.create', 'triage.view', 'triage.create',
+                'prescriptions.view', 'prescriptions.create',
+                'permits.view', 'permits.create', 'permits.approve', 'inspections.view', 'inspections.conduct',
+                'immunization.view', 'immunization.create', 'immunization.edit',
+                'wastewater.view', 'wastewater.create', 'wastewater.edit', 'wastewater.manage',
+                'surveillance.view', 'surveillance.create', 'surveillance.edit', 'surveillance.manage',
+                'users.view', 'users.create', 'users.edit', 'users.delete', 'roles.manage', 'settings.manage', 'logs.view'
+            ],
+            'System Admin' => [
+                'dashboard.view', 'dashboard.system_admin',
+                'analytics.view', 'reports.view', 'compliance.view', 'compliance.admin_only',
                 'patients.view', 'patients.create', 'patients.edit', 'patients.delete',
                 'consultations.view', 'consultations.create', 'triage.view', 'triage.create',
                 'prescriptions.view', 'prescriptions.create',
@@ -162,26 +475,26 @@ class PermissionService
             ],
             'Health Center Director' => [
                 'dashboard.view', 'dashboard.health_center',
-                'analytics.view', 'reports.view', 'compliance.view',
+                'analytics.view', 'analytics.health_center', 'reports.view', 'reports.health_center',
                 'patients.view', 'patients.create', 'patients.edit', 'patients.delete',
                 'consultations.view', 'consultations.create', 'triage.view', 'triage.create',
                 'prescriptions.view', 'prescriptions.create',
                 'users.view', 'users.create', 'users.edit'
             ],
             'Doctor' => [
-                'dashboard.view', 'dashboard.health_center', 'reports.view',
+                'dashboard.view', 'dashboard.health_center', 'reports.view', 'reports.health_center',
                 'patients.view',
                 'consultations.view', 'consultations.create', 'triage.view',
                 'prescriptions.view', 'prescriptions.create'
             ],
             'Nurse' => [
-                'dashboard.view', 'dashboard.health_center', 'reports.view',
+                'dashboard.view', 'dashboard.health_center', 'reports.view', 'reports.health_center',
                 'patients.view', 'patients.create', 'patients.edit',
                 'triage.view', 'triage.create', 'consultations.view',
                 'prescriptions.view'
             ],
             'Dentist' => [
-                'dashboard.view', 'dashboard.health_center', 'reports.view',
+                'dashboard.view', 'dashboard.health_center', 'reports.view', 'reports.health_center',
                 'patients.view',
                 'consultations.view', 'consultations.create',
                 'prescriptions.view', 'prescriptions.create'
@@ -200,7 +513,7 @@ class PermissionService
             ],
             'Sanitation Director' => [
                 'dashboard.view', 'dashboard.sanitation',
-                'analytics.view', 'reports.view', 'compliance.view',
+                'analytics.view', 'analytics.sanitation', 'reports.view', 'reports.sanitation', 'compliance.view',
                 'permits.view', 'permits.create', 'permits.approve',
                 'inspections.view', 'inspections.conduct',
                 'wastewater.view', 'wastewater.create', 'wastewater.edit',
@@ -208,7 +521,7 @@ class PermissionService
             ],
             'Inspector' => [
                 'dashboard.view', 'dashboard.sanitation',
-                'reports.view', 'permits.view', 'inspections.view', 'inspections.conduct', 'wastewater.view'
+                'reports.view', 'reports.sanitation', 'permits.view', 'inspections.view', 'inspections.conduct', 'wastewater.view'
             ],
             'Permit Clerk' => [
                 'dashboard.view', 'dashboard.sanitation',
@@ -219,60 +532,61 @@ class PermissionService
             ],
             'Immunization Coordinator' => [
                 'dashboard.view', 'dashboard.immunization',
-                'analytics.view', 'reports.view',
+                'analytics.view', 'analytics.immunization', 'reports.view', 'reports.immunization',
                 'immunization.view', 'immunization.create', 'immunization.edit', 'patients.view',
                 'users.view', 'users.create', 'users.edit'
             ],
             'Midwife' => [
-                'dashboard.view', 'dashboard.immunization', 'reports.view',
+                'dashboard.view', 'dashboard.immunization', 'reports.view', 'reports.immunization',
                 'immunization.view', 'immunization.create',
                 'patients.view', 'patients.create', 'triage.create'
             ],
             'Nutritionist' => [
                 'dashboard.view', 'dashboard.immunization',
-                'analytics.view', 'reports.view',
+                'analytics.view', 'analytics.immunization', 'reports.view', 'reports.immunization',
                 'immunization.view', 'immunization.create', 'immunization.edit', 'patients.view'
             ],
             'Nutrition Educator' => [
                 'dashboard.view', 'dashboard.immunization',
-                'reports.view', 'immunization.view', 'immunization.create'
+                'reports.view', 'reports.immunization', 'immunization.view', 'immunization.create'
             ],
             'Wastewater Officer' => [
-                'dashboard.view', 'dashboard.sanitation',
-                'analytics.view', 'reports.view',
+                'dashboard.view', 'dashboard.wastewater',
+                'analytics.view', 'analytics.wastewater', 'reports.view', 'reports.wastewater',
                 'wastewater.view', 'wastewater.create', 'wastewater.edit', 'wastewater.manage',
-                'inspections.view', 'inspections.conduct', 'permits.view'
+                'inspections.view', 'inspections.conduct', 'permits.view',
+                'users.view', 'users.create', 'users.edit'
             ],
             'Wastewater Lead' => [
-                'dashboard.view', 'dashboard.sanitation',
-                'analytics.view', 'reports.view',
+                'dashboard.view', 'dashboard.wastewater',
+                'analytics.view', 'analytics.wastewater', 'reports.view', 'reports.wastewater',
                 'wastewater.view', 'wastewater.create', 'wastewater.edit', 'wastewater.manage',
                 'inspections.view', 'inspections.conduct', 'permits.view',
                 'users.view', 'users.create', 'users.edit'
             ],
             'Surveillance Officer' => [
                 'dashboard.view', 'dashboard.surveillance',
-                'analytics.view', 'reports.view', 'compliance.view',
+                'analytics.view', 'analytics.surveillance', 'reports.view', 'reports.surveillance',
                 'surveillance.view', 'surveillance.create', 'surveillance.edit', 'surveillance.manage',
                 'patients.view', 'consultations.view', 'inspections.view'
             ],
             'Surveillance Coordinator' => [
                 'dashboard.view', 'dashboard.surveillance',
-                'analytics.view', 'reports.view', 'compliance.view',
+                'analytics.view', 'analytics.surveillance', 'reports.view', 'reports.surveillance',
                 'surveillance.view', 'surveillance.create', 'surveillance.edit', 'surveillance.manage',
                 'patients.view', 'consultations.view', 'inspections.view',
                 'users.view', 'users.create', 'users.edit'
             ],
             'Surveillance Lead' => [
                 'dashboard.view', 'dashboard.surveillance',
-                'analytics.view', 'reports.view', 'compliance.view',
+                'analytics.view', 'analytics.surveillance', 'reports.view', 'reports.surveillance',
                 'surveillance.view', 'surveillance.create', 'surveillance.edit', 'surveillance.manage',
                 'patients.view', 'consultations.view', 'inspections.view',
                 'users.view', 'users.create', 'users.edit'
             ],
             'Epidemiologist' => [
                 'dashboard.view', 'dashboard.surveillance',
-                'analytics.view', 'reports.view', 'compliance.view',
+                'analytics.view', 'analytics.surveillance', 'reports.view', 'reports.surveillance',
                 'surveillance.view', 'surveillance.create', 'surveillance.edit', 'surveillance.manage',
                 'patients.view', 'consultations.view', 'inspections.view'
             ]

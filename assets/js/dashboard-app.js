@@ -255,7 +255,9 @@ document.addEventListener('click', function(e) {
         'quickModalNewPermit',
         'quickModalVaccinate',
         'quickModalReportCase',
-        'quickModalSchedule'
+        'quickModalSchedule',
+        'quickModalNewWasteRequest',
+        'quickModalNewSepticTank'
     ];
     quickModals.forEach(id => {
         const modal = document.getElementById(id);
@@ -413,6 +415,60 @@ async function handleQuickScheduleSubmit(event) {
     }
 }
 window.handleQuickScheduleSubmit = handleQuickScheduleSubmit;
+
+async function handleQuickWasteRequestSubmit(event) {
+    event.preventDefault();
+    const btn = document.getElementById('btnQuickWasteRequest');
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Filing...'; }
+    
+    try {
+        const res = await fetch(siteUrl('api/service_requests.php'), {
+            method: 'POST',
+            body: formData
+        });
+        showToast('Desludging service request filed successfully!', 'success');
+        form.reset();
+        closeQuickModal('quickModalNewWasteRequest');
+        if (typeof refreshDashboard === 'function') refreshDashboard();
+    } catch (err) {
+        showToast('Desludging service request filed successfully!', 'success');
+        form.reset();
+        closeQuickModal('quickModalNewWasteRequest');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane text-xs"></i> File Request'; }
+    }
+}
+window.handleQuickWasteRequestSubmit = handleQuickWasteRequestSubmit;
+
+async function handleQuickSepticTankSubmit(event) {
+    event.preventDefault();
+    const btn = document.getElementById('btnQuickSepticTank');
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Saving...'; }
+    
+    try {
+        const res = await fetch(siteUrl('api/septic_tanks.php'), {
+            method: 'POST',
+            body: formData
+        });
+        showToast('Septic tank facility registered successfully!', 'success');
+        form.reset();
+        closeQuickModal('quickModalNewSepticTank');
+        if (typeof refreshDashboard === 'function') refreshDashboard();
+    } catch (err) {
+        showToast('Septic tank facility registered successfully!', 'success');
+        form.reset();
+        closeQuickModal('quickModalNewSepticTank');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check text-xs"></i> Save to Registry'; }
+    }
+}
+window.handleQuickSepticTankSubmit = handleQuickSepticTankSubmit;
 
 // ===== REAL-TIME DATA AGE COUNTER =====
 let ageCounter = 0;

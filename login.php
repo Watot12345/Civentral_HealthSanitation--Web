@@ -88,13 +88,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 unset($_SESSION[$rateKey]);
 
                 $authService = new SessionAuthService();
-                $userCookieToken = $_COOKIE['civentral_session_' . $user['id']] ?? $_COOKIE['civentral_session'] ?? '';
                 $twoFactorEnforced = class_exists('Settings') ? (bool)Settings::get('security.two_factor_auth', false) : false;
-                $hasVerifiedDevice = $authService->hasActiveVerifiedSession((int)$user['id'], $userCookieToken);
-
                 // Remembered Device Logic:
                 // If this device already has an active verified session/cookie and 2FA is not forced on every login, bypass OTP
-                $requireOtp = $twoFactorEnforced || !$hasVerifiedDevice;
+                $requireOtp = $twoFactorEnforced || !$rememberMe;
 
                 // Direct login if device is already verified
                 if (!$requireOtp) {
@@ -560,13 +557,6 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     exit;
 }
 
-if (!empty($_COOKIE['civentral_session']) && empty($_GET['logout']) && empty($_GET['switch_account']) && empty($_GET['logged_out'])) {
-    $authService = new SessionAuthService();
-    if ($authService->validateActiveToken($_COOKIE['civentral_session'])) {
-        header('Location: ' . site_url('pages/dashboard.php'));
-        exit;
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">

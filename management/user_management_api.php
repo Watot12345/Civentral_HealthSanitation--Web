@@ -315,8 +315,8 @@ try {
                 break;
             }
 
-            // Departmental Scoping & Escalation Protection Guard
-            if (!$isSystemAdmin && !empty($userDept)) {
+            // Departmental Scoping & Escalation Protection Guard for Heads / Directors / Leads
+            if (!$isSystemAdmin) {
                 $rolesList = $roleModel->all();
                 $targetRoleObj = null;
                 foreach ($rolesList as $r) {
@@ -331,7 +331,7 @@ try {
                     $actorRole = trim($_SESSION['role_description'] ?? $_SESSION['role'] ?? '');
 
                     // 1. Department Boundary Check
-                    if (!getDepartmentResolver()->isRoleInDepartment($targetRoleName, $userDept)) {
+                    if (!empty($userDept) && !getDepartmentResolver()->isRoleInDepartment($targetRoleName, $userDept)) {
                         $response = ['success' => false, 'message' => "Access Denied: You can only modify permission matrices for position roles within your department ({$userDept})."];
                         break;
                     }
@@ -343,24 +343,43 @@ try {
                     }
                 }
 
-                // 3. Strip Administrative Escalation Slugs from non-admin grant attempts
-                $forbiddenSlugs = [
-                    \App\Constants\Permissions::ROLES_MANAGE,
-                    \App\Constants\Permissions::USERS_DELETE,
-                    \App\Constants\Permissions::SETTINGS_MANAGE,
-                    \App\Constants\Permissions::LOGS_VIEW,
-                    \App\Constants\Permissions::SYSTEM_ADMIN_DASHBOARD
-                ];
+                // 3. Department heads/directors/leads can ONLY set permissions on their department and Main Controls.
+                // System Management, Administration, and other departments cannot be exposed or modified by them.
                 $allDbPerms = $roleModel->getPermissionsForRole($roleId);
-                $forbiddenIds = [];
+                $resolver = getDepartmentResolver();
+
+                $allowedScopePermIds = [];
+                $disallowedScopeGrantedIds = [];
+
                 foreach ($allDbPerms as $p) {
-                    if (in_array($p['slug'] ?? '', $forbiddenSlugs, true)) {
-                        $forbiddenIds[] = (int) $p['id'];
+                    $pId = (int) $p['id'];
+                    $modLower = strtolower(trim($p['module'] ?? ''));
+                    $isSystem = ($modLower === 'system management' || $modLower === 'administration' || $modLower === 'admin');
+                    $isMain = ($modLower === 'main controls');
+                    $isDept = !empty($userDept) && ($resolver->normalizeDepartmentName($p['module'] ?? '') === $resolver->normalizeDepartmentName($userDept));
+
+                    if (!$isSystem && ($isMain || $isDept)) {
+                        $allowedScopePermIds[$pId] = true;
+                    } else {
+                        // Preserve existing granted state for out-of-scope permissions so non-admins cannot tamper or grant them
+                        if (!empty($p['granted'])) {
+                            $disallowedScopeGrantedIds[] = $pId;
+                        }
                     }
                 }
-                $permissionIds = array_values(array_diff(array_map('intval', $permissionIds), $forbiddenIds));
-            }
 
+                // Filter submitted permissions: non-admin heads can only set permissions within their allowed scope
+                $filteredSubmittedIds = [];
+                foreach ($permissionIds as $pId) {
+                    $pIdInt = (int) $pId;
+                    if (isset($allowedScopePermIds[$pIdInt])) {
+                        $filteredSubmittedIds[] = $pIdInt;
+                    }
+                }
+
+                // Final permissions: preserved out-of-scope permissions + allowed submitted permissions
+                $permissionIds = array_values(array_unique(array_merge($disallowedScopeGrantedIds, $filteredSubmittedIds)));
+            }
 
             $roleModel->syncPermissions($roleId, $permissionIds);
 
@@ -404,20 +423,25 @@ try {
 
             $permissions = $roleModel->getPermissionsForRole($roleId);
 
-            // Group by module & filter sections for non-admin Department Heads
+            // Group by module & filter sections for non-admin Department Heads / Leads / Directors
             $grouped = [];
             $resolver = getDepartmentResolver();
 
             foreach ($permissions as $perm) {
                 $module = $perm['module'] ?? 'Other';
 
-                if (!$isSystemAdmin && !empty($userDept)) {
+                if (!$isSystemAdmin) {
                     $modLower = strtolower(trim($module));
-                    $isMainControls = ($modLower === 'main controls');
-                    $isSystemManagement = ($modLower === 'system management');
-                    $isOwnDept = ($resolver->normalizeDepartmentName($module) === $resolver->normalizeDepartmentName($userDept));
+                    // Never expose System Management to heads, directors, or leads
+                    if ($modLower === 'system management' || $modLower === 'administration' || $modLower === 'admin') {
+                        continue;
+                    }
 
-                    if (!$isMainControls && !$isSystemManagement && !$isOwnDept) {
+                    $isMainControls = ($modLower === 'main controls');
+                    $isOwnDept = !empty($userDept) && ($resolver->normalizeDepartmentName($module) === $resolver->normalizeDepartmentName($userDept));
+
+                    // Only expose Main Controls and their department, nothing else
+                    if (!$isMainControls && !$isOwnDept) {
                         continue;
                     }
                 }

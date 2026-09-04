@@ -270,6 +270,12 @@ if (!function_exists('requireDepartmentAccess')) {
     }
 }
 
+if (!function_exists('getUserScope')) {
+    function getUserScope(?int $employeeId = null): array {
+        return PermissionService::getInstance()->getUserScope($employeeId);
+    }
+}
+
 
 
 // ============================================================

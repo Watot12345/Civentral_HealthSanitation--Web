@@ -706,10 +706,6 @@ $title = 'Settings';
                                 Live Sync Active
                             </span>
                         </div>
-                        <p class="text-xs text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
-                            <i class="fa-solid fa-server text-[10px] text-slate-400"></i>
-                            <span id="sbProjectHost"><?= htmlspecialchars($supabaseStorageMetrics['project_url'] ?? 'https://fenezpgytgeriefzbtal.supabase.co'); ?></span>
-                        </p>
                     </div>
                 </div>
                 <div class="flex items-center gap-2.5">

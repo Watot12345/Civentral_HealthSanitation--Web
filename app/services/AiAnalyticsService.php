@@ -478,6 +478,61 @@ class AiAnalyticsService
      */
     private function generatePredictiveForecast(string $range, array $snap, string $scope = 'admin'): array
     {
+        $raw = $this->calculateRawPredictiveForecast($range, $snap, $scope);
+        return $this->formatPredictiveResponse($raw, $scope);
+    }
+
+    private function formatPredictiveResponse(array $payload, string $scope): array
+    {
+        $scopeConfig = match($scope) {
+            'health_center' => [
+                'colors'   => ['#14b8a6', '#3b82f6', '#10b981'],
+                'subtitle' => 'Health Center 6-Month Forward Horizon · Departmental Service Forecast'
+            ],
+            'sanitation' => [
+                'colors'   => ['#d97706', '#f59e0b', '#3b82f6'],
+                'subtitle' => 'Sanitation 6-Month Forward Horizon · Permits & Inspections Forecast'
+            ],
+            'immunization' => [
+                'colors'   => ['#2563eb', '#3b82f6', '#10b981'],
+                'subtitle' => 'Immunization 6-Month Forward Horizon · Vaccine Demand Forecast'
+            ],
+            'surveillance' => [
+                'colors'   => ['#ef4444', '#f59e0b', '#8b5cf6'],
+                'subtitle' => 'Epidemiological 6-Month Forward Horizon · Outbreak Projections'
+            ],
+            'wastewater' => [
+                'colors'   => ['#9333ea', '#a855f7', '#f59e0b'],
+                'subtitle' => 'Wastewater 6-Month Forward Horizon · Facility & Septic Forecast'
+            ],
+            default => [
+                'colors'   => ['#ef4444', '#14b8a6', '#f59e0b', '#3b82f6', '#9333ea'],
+                'subtitle' => 'City-Wide Multi-Module 6-Month Forward Horizon · Statistical Projection'
+            ]
+        };
+
+        $palette = $scopeConfig['colors'];
+        $payload['scope'] = $scope;
+        $payload['colors'] = $scopeConfig['colors'];
+        $payload['subtitle'] = $scopeConfig['subtitle'];
+
+        $legend = [];
+        if (!empty($payload['series']) && is_array($payload['series'])) {
+            foreach ($payload['series'] as $idx => $s) {
+                $c = $palette[$idx % count($palette)];
+                $legend[] = [
+                    'label' => $s['name'] ?? 'Metric',
+                    'color' => $c
+                ];
+            }
+        }
+        $payload['legend'] = $legend;
+
+        return $payload;
+    }
+
+    private function calculateRawPredictiveForecast(string $range, array $snap, string $scope = 'admin'): array
+    {
         // 1. Fetch 6-month historical baseline data
         $dateInfo = $this->getDynamicDateBuckets('6m');
         $buckets  = $dateInfo['buckets'];
@@ -1548,9 +1603,20 @@ class AiAnalyticsService
 
     private function getStaffPerformance(array $snap, string $scope = 'admin'): array
     {
+        $deptMap = [
+            'health_center' => 'Health Center',
+            'sanitation'    => 'Sanitation',
+            'immunization'  => 'Immunization',
+            'wastewater'    => 'Wastewater',
+            'surveillance'  => 'Health Surveillance'
+        ];
+        $isAdmin = ($scope === 'admin');
+        $mappedDept = $deptMap[$scope] ?? null;
+
         $employees = $snap['employees'] ?? [];
         if (empty($employees)) {
-            $employees = $this->safeSelect('employees');
+            $empFilters = (!$isAdmin && !empty($mappedDept)) ? ['department' => 'ilike.%' . $mappedDept . '%'] : [];
+            $employees = $this->safeSelect('employees', $empFilters);
         }
 
         $consultations  = $snap['consultations'] ?? [];
@@ -1718,12 +1784,24 @@ class AiAnalyticsService
             ];
         }
 
-        if ($scope === 'admin') {
+        // Admin bypass: sees all staff across all 5 municipal departments (unchanged)
+        if ($isAdmin) {
             return $allStaff;
         }
 
-        // Strictly scoped to department: only staff members working under this department
-        return array_values(array_filter($allStaff, fn($s) => ($s['dept_key'] ?? '') === $scope));
+        // Dept-head / staff roles: strictly filter to same-department staff only
+        return array_values(array_filter($allStaff, function($s) use ($scope, $mappedDept) {
+            if (($s['dept_key'] ?? '') === $scope) {
+                return true;
+            }
+            if (!empty($mappedDept) && stripos($s['department'] ?? '', $mappedDept) !== false) {
+                return true;
+            }
+            if ($scope === 'immunization' && stripos($s['department'] ?? '', 'nutrition') !== false) {
+                return true;
+            }
+            return false;
+        }));
     }
 
     private function predictLinearWithConfidence(array $data, string $metricLabel = 'Metric'): array
@@ -1817,10 +1895,10 @@ class AiAnalyticsService
         return (float)$res['prediction'];
     }
 
-    private function safeSelect(string $table): array
+    private function safeSelect(string $table, array $filters = []): array
     {
         try {
-            $rows = $this->db->select($table);
+            $rows = $this->db->select($table, $filters);
             return is_array($rows) ? $rows : [];
         } catch (Throwable $e) {
             return [];

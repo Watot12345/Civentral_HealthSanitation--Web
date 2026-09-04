@@ -11,11 +11,12 @@ class Permissions
     public const REPORTS_VIEW     = 'reports.view';
     public const COMPLIANCE_VIEW  = 'compliance.view';
 
-    // Role-specific Dashboard Views (5)
+    // Role-specific Dashboard Views (6)
     public const HEALTH_CENTER_DASHBOARD  = 'dashboard.health_center';
     public const SANITATION_DASHBOARD     = 'dashboard.sanitation';
     public const IMMUNIZATION_DASHBOARD   = 'dashboard.immunization';
     public const SURVEILLANCE_DASHBOARD   = 'dashboard.surveillance';
+    public const WASTEWATER_DASHBOARD     = 'dashboard.wastewater';
     public const SYSTEM_ADMIN_DASHBOARD   = 'dashboard.system_admin';
 
     // Health Center Services (10)

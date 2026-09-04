@@ -88,26 +88,26 @@ class DepartmentResolver
     {
         return [
             'Health Center Services' => [
-                'Health Center Director', 'Doctor', 'Nurse', 'Dentist',
+                'Health Center Director', 'HCD', 'Doctor', 'Nurse', 'Dentist',
                 'Laboratory Technician', 'Medical Records Clerk', 'Appointment Clerk',
                 'Medical Practitioner', 'Health Center Staff'
             ],
             'Sanitation Permits' => [
-                'Sanitation Director', 'Inspector', 'Permit Clerk', 'Cashier',
+                'Sanitation Director', 'SD', 'Inspector', 'Permit Clerk', 'Cashier',
                 'Sanitation Officer'
             ],
             'Immunization & Nutrition' => [
-                'Immunization Coordinator', 'Midwife', 'Nutritionist', 'Nutrition Educator',
+                'Immunization Coordinator', 'IL', 'Midwife', 'Nutritionist', 'Nutrition Educator',
                 'Immunization Lead', 'Nutrition Staff'
             ],
             'Wastewater Services' => [
-                'Wastewater Officer', 'Wastewater Lead'
+                'Wastewater Officer', 'WL', 'Wastewater Lead'
             ],
             'Health Surveillance' => [
-                'Surveillance Officer', 'Surveillance Coordinator', 'Surveillance Lead', 'Surveillance Staff'
+                'Surveillance Officer', 'SL', 'Surveillance Coordinator', 'Surveillance Lead', 'Surveillance Staff'
             ],
             'Administration' => [
-                'System Administrator', 'System Admin'
+                'System Administrator', 'System Admin', 'HSA'
             ]
         ];
     }

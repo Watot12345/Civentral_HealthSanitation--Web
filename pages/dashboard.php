@@ -246,6 +246,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 $dashTitle = 'Immunization & Nutrition Dashboard';
                 $dashSubtitle = 'Child vaccination tracking, growth charts & nutrition assessment analytics';
                 $dashBadge = 'Immunization Coordinator';
+            } elseif (hasPermission('dashboard.wastewater') || str_contains(strtolower($currentRole), 'wastewater') || (isset($_SESSION['department']) && (strcasecmp($_SESSION['department'], 'wastewater') === 0 || strcasecmp($_SESSION['department'], 'wastewater services') === 0))) {
+                $dashTitle = 'Wastewater Management Dashboard';
+                $dashSubtitle = 'Septic tank registry, desludging operations, service requests & environmental billing';
+                $dashBadge = 'Wastewater Officer';
             } else {
                 $dashTitle = htmlspecialchars($currentRole) . ' Dashboard';
                 $dashSubtitle = 'Role-specific operational activity & module metrics';
@@ -310,6 +314,11 @@ $_isSurvRole = !$isSysAdmin && (
 $_isHcRole   = !$isSysAdmin && !$_isSurvRole && hasPermission('dashboard.health_center');
 $_isSanRole  = !$isSysAdmin && !$_isSurvRole && hasPermission('dashboard.sanitation');
 $_isImmRole  = !$isSysAdmin && !$_isSurvRole && hasPermission('dashboard.immunization');
+$_isWasteRole = !$isSysAdmin && !$_isSurvRole && (
+    hasPermission('dashboard.wastewater')
+    || str_contains(strtolower($currentRole), 'wastewater')
+    || (isset($_SESSION['department']) && (strcasecmp($_SESSION['department'], 'wastewater') === 0 || strcasecmp($_SESSION['department'], 'wastewater services') === 0))
+);
 
 // ============================================================
 // SUPABASE BACKEND DATA QUERIES (Optimized with Session Cache)
@@ -330,6 +339,11 @@ $_inspectionsDbRecords   = $_metricsData['raw']['inspections'] ?? [];
 $_triageDbRecords        = $_metricsData['raw']['triage'] ?? [];
 $_childDbRecords         = $_metricsData['raw']['child_records'] ?? [];
 $_wastewaterDbRecords    = $_metricsData['raw']['wastewater'] ?? [];
+$_septicDbRecords        = $_metricsData['raw']['septic_tanks'] ?? $_wastewaterDbRecords;
+$_serviceReqDbRecords    = $_metricsData['raw']['service_requests'] ?? [];
+$_maintenanceDbRecords   = $_metricsData['raw']['maintenance_records'] ?? [];
+$_invoicesDbRecords      = $_metricsData['raw']['wastewater_invoices'] ?? [];
+$_providersDbRecords     = $_metricsData['raw']['service_providers'] ?? [];
 $_survCasesDbRecords     = $_metricsData['raw']['surveillance'] ?? [];
 
 // Dynamic Counts & Metrics strictly from Real Database
@@ -342,6 +356,15 @@ $_inspectionCountTotal    = count($_inspectionsDbRecords);
 $_triageCountTotal        = count($_triageDbRecords);
 $_childCountTotal         = count($_childDbRecords);
 $_wasteCountTotal         = count($_wastewaterDbRecords);
+$_septicCountTotal        = count($_septicDbRecords);
+$_serviceReqCountTotal    = count($_serviceReqDbRecords);
+$_pendingWasteReqs        = count(array_filter($_serviceReqDbRecords, fn($r) => in_array(strtolower($r['status'] ?? ''), ['pending', 'open'])));
+$_maintCountTotal         = count($_maintenanceDbRecords);
+$_invoicesCountTotal      = count($_invoicesDbRecords);
+$_pendingInvoicesCount    = count(array_filter($_invoicesDbRecords, fn($inv) => in_array(strtolower($inv['status'] ?? ''), ['pending', 'unpaid', 'due'])));
+$_providersCountTotal     = count($_providersDbRecords);
+$_activeProvidersCount    = count(array_filter($_providersDbRecords, fn($p) => strcasecmp($p['status'] ?? '', 'active') === 0));
+$_criticalTanksCount      = count(array_filter($_septicDbRecords, fn($t) => in_array(strtolower($t['status'] ?? ''), ['critical', 'needs_maintenance'])));
 $_survCountTotal          = count($_survCasesDbRecords);
 $_outbreakCountTotal      = count(array_filter($_survCasesDbRecords, fn($c) => in_array(strtolower($c['status'] ?? ''), ['outbreak', 'critical', 'alert'])));
 
@@ -755,6 +778,99 @@ if ($_isHcRole) {
             'pct' => $_survResData['pct']
         ],
     ];
+} elseif ($_isWasteRole) {
+    $_septicRingData    = $_calcRingPctData($_septicDbRecords, fn($t) => in_array(strtolower($t['status'] ?? ''), ['good', 'active', 'inspected']));
+    $_serviceReqRingData= $_calcRingPctData($_serviceReqDbRecords, fn($r) => in_array(strtolower($r['status'] ?? ''), ['completed', 'approved', 'in_progress']));
+    $_maintRingData     = $_calcRingPctData($_maintenanceDbRecords, fn($m) => in_array(strtolower($m['status'] ?? ''), ['completed']));
+    $_invoiceRingData   = $_calcRingPctData($_invoicesDbRecords, fn($i) => in_array(strtolower($i['status'] ?? ''), ['paid']));
+    $_providerRingData  = $_calcRingPctData($_providersDbRecords, fn($p) => strcasecmp($p['status'] ?? '', 'active') === 0);
+
+    $kpiCards = [
+        [
+            'title' => 'Septic Registry',
+            'value' => number_format($_septicCountTotal),
+            'label' => 'Registered Septic Tanks',
+            'badge' => $_calcGrowthBadge($_septicDbRecords),
+            'badge_bg' => 'bg-purple-100 text-purple-700',
+            'sub' => 'active registry',
+            'url' => site_url('modules/services/septic_tanks.php'),
+            'icon' => 'fa-water',
+            'color' => 'purple-600',
+            'border_color' => 'from-purple-400 to-purple-600',
+            'offset' => $_septicRingData['offset'],
+            'pct' => $_septicRingData['pct']
+        ],
+        [
+            'title' => 'Service Requests',
+            'value' => number_format($_serviceReqCountTotal),
+            'label' => 'Desludging Requests',
+            'badge' => $_pendingWasteReqs > 0 ? ($_pendingWasteReqs . ' pending') : 'No pending',
+            'badge_bg' => $_pendingWasteReqs > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700',
+            'sub' => $_serviceReqRingData['pct'] . ' fulfillment',
+            'url' => site_url('modules/services/service_requests.php'),
+            'icon' => 'fa-tools',
+            'color' => 'sky-600',
+            'border_color' => 'from-sky-400 to-sky-600',
+            'offset' => $_serviceReqRingData['offset'],
+            'pct' => $_serviceReqRingData['pct']
+        ],
+        [
+            'title' => 'Desludging Ops',
+            'value' => number_format($_maintCountTotal),
+            'label' => 'Maintenance Operations',
+            'badge' => $_calcGrowthBadge($_maintenanceDbRecords),
+            'badge_bg' => 'bg-emerald-100 text-emerald-700',
+            'sub' => 'trips logged',
+            'url' => site_url('modules/services/maintenance.php'),
+            'icon' => 'fa-truck-droplet',
+            'color' => 'emerald-600',
+            'border_color' => 'from-emerald-400 to-emerald-600',
+            'offset' => $_maintRingData['offset'],
+            'pct' => $_maintRingData['pct']
+        ],
+        [
+            'title' => 'Wastewater Billing',
+            'value' => number_format($_invoicesCountTotal),
+            'label' => 'Invoices & Surcharges',
+            'badge' => $_pendingInvoicesCount > 0 ? ($_pendingInvoicesCount . ' unpaid') : 'All Paid',
+            'badge_bg' => $_pendingInvoicesCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700',
+            'sub' => $_invoiceRingData['pct'] . ' collected',
+            'url' => site_url('modules/services/wastewater_billing.php'),
+            'icon' => 'fa-file-invoice-dollar',
+            'color' => 'blue-600',
+            'border_color' => 'from-blue-400 to-blue-600',
+            'offset' => $_invoiceRingData['offset'],
+            'pct' => $_invoiceRingData['pct']
+        ],
+        [
+            'title' => 'Service Providers',
+            'value' => number_format($_providersCountTotal),
+            'label' => 'Accredited Contractors',
+            'badge' => $_activeProvidersCount . ' Active',
+            'badge_bg' => 'bg-teal-100 text-teal-700',
+            'sub' => 'fleet compliance',
+            'url' => site_url('modules/services/providers.php'),
+            'icon' => 'fa-handshake',
+            'color' => 'teal-600',
+            'border_color' => 'from-teal-400 to-teal-600',
+            'offset' => $_providerRingData['offset'],
+            'pct' => $_providerRingData['pct']
+        ],
+        [
+            'title' => 'Critical Attention',
+            'value' => (string)$_criticalTanksCount,
+            'label' => 'Tanks Needing Action',
+            'badge' => $_criticalTanksCount > 0 ? ($_criticalTanksCount . ' Urgent') : 'All Normal',
+            'badge_bg' => $_criticalTanksCount > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700',
+            'sub' => 'spill prevention',
+            'url' => site_url('modules/services/septic_tanks.php'),
+            'icon' => 'fa-triangle-exclamation',
+            'color' => 'rose-600',
+            'border_color' => 'from-rose-400 to-rose-600',
+            'offset' => $_criticalTanksCount > 0 ? '10' : '100',
+            'pct' => $_criticalTanksCount > 0 ? '100%' : '0%'
+        ],
+    ];
 } else {
     $hcValFormatted = number_format($_patientCountTotal);
     $sanValFormatted = number_format($_permitCountTotal);
@@ -1058,6 +1174,84 @@ if ($_isHcRole) {
                         'stat1' => $_wasteCountTotal . ' total requests',
                         'stat2' => $_wasteCountTotal . ' serviced',
                         'bar_width' => ($_wasteCountTotal > 0 ? '100' : '0') . '%'
+                    ]
+                ];
+            } elseif ($_isWasteRole) {
+                $moduleSummaryCards = [
+                    [
+                        'name' => 'Septic Tank Registry',
+                        'icon' => 'fa-water',
+                        'color' => 'purple-600',
+                        'bg' => 'bg-purple-50',
+                        'total' => number_format($_septicCountTotal) . ' registered',
+                        'today' => count(array_filter($_septicDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_septicCountTotal > 0 ? '100' : '0') . '%',
+                        'bar' => 'bg-purple-500',
+                        'badge' => $_criticalTanksCount > 0 ? ($_criticalTanksCount . ' Critical') : 'Normal',
+                        'badge_bg' => $_criticalTanksCount > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700',
+                        'stat1' => $_septicCountTotal . ' total tanks',
+                        'stat2' => $_criticalTanksCount . ' attention needed',
+                        'bar_width' => ($_septicCountTotal > 0 ? '100' : '0') . '%'
+                    ],
+                    [
+                        'name' => 'Desludging Requests',
+                        'icon' => 'fa-tools',
+                        'color' => 'sky-600',
+                        'bg' => 'bg-sky-50',
+                        'total' => number_format($_serviceReqCountTotal) . ' requests',
+                        'today' => count(array_filter($_serviceReqDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_serviceReqCountTotal > 0 ? '100' : '0') . '%',
+                        'bar' => 'bg-sky-500',
+                        'badge' => $_pendingWasteReqs > 0 ? ($_pendingWasteReqs . ' Pending') : 'Clear Queue',
+                        'badge_bg' => $_pendingWasteReqs > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700',
+                        'stat1' => $_pendingWasteReqs . ' pending dispatch',
+                        'stat2' => ($_serviceReqCountTotal - $_pendingWasteReqs) . ' fulfilled',
+                        'bar_width' => ($_serviceReqCountTotal > 0 ? '100' : '0') . '%'
+                    ],
+                    [
+                        'name' => 'Maintenance Operations',
+                        'icon' => 'fa-truck-droplet',
+                        'color' => 'emerald-600',
+                        'bg' => 'bg-emerald-50',
+                        'total' => number_format($_maintCountTotal) . ' completed',
+                        'today' => count(array_filter($_maintenanceDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_maintCountTotal > 0 ? '100' : '0') . '%',
+                        'bar' => 'bg-emerald-500',
+                        'badge' => $_maintCountTotal > 0 ? 'Active Fleet' : 'Scheduled',
+                        'badge_bg' => $_maintCountTotal > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600',
+                        'stat1' => $_maintCountTotal . ' total trips',
+                        'stat2' => '100% compliant',
+                        'bar_width' => ($_maintCountTotal > 0 ? '100' : '0') . '%'
+                    ],
+                    [
+                        'name' => 'Wastewater Billing',
+                        'icon' => 'fa-file-invoice-dollar',
+                        'color' => 'blue-600',
+                        'bg' => 'bg-blue-50',
+                        'total' => number_format($_invoicesCountTotal) . ' invoices',
+                        'today' => count(array_filter($_invoicesDbRecords, fn($r) => !empty($r['created_at']) && strtotime($r['created_at']) >= strtotime('today midnight'))) . ' today',
+                        'pct' => ($_invoicesCountTotal > 0 ? '100' : '0') . '%',
+                        'bar' => 'bg-blue-500',
+                        'badge' => $_pendingInvoicesCount > 0 ? ($_pendingInvoicesCount . ' Unpaid') : 'Settled',
+                        'badge_bg' => $_pendingInvoicesCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700',
+                        'stat1' => $_pendingInvoicesCount . ' pending fees',
+                        'stat2' => ($_invoicesCountTotal - $_pendingInvoicesCount) . ' paid',
+                        'bar_width' => ($_invoicesCountTotal > 0 ? '100' : '0') . '%'
+                    ],
+                    [
+                        'name' => 'Accredited Providers',
+                        'icon' => 'fa-handshake',
+                        'color' => 'teal-600',
+                        'bg' => 'bg-teal-50',
+                        'total' => number_format($_providersCountTotal) . ' contractors',
+                        'today' => $_activeProvidersCount . ' active',
+                        'pct' => ($_providersCountTotal > 0 ? '100' : '0') . '%',
+                        'bar' => 'bg-teal-500',
+                        'badge' => $_activeProvidersCount > 0 ? 'Accredited' : 'Reviewing',
+                        'badge_bg' => $_activeProvidersCount > 0 ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-600',
+                        'stat1' => $_activeProvidersCount . ' active providers',
+                        'stat2' => 'DENR licensed',
+                        'bar_width' => ($_providersCountTotal > 0 ? '100' : '0') . '%'
                     ]
                 ];
             } else {
@@ -1555,6 +1749,109 @@ if ($_isHcRole) {
 
                 </div>
             </div>
+            <?php elseif ($_isWasteRole): ?>
+            <!-- WASTEWATER: Operations & Compliance Status Panel -->
+            <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
+                <div class="flex items-center justify-between mb-3 flex-shrink-0">
+                    <div class="flex items-center gap-1.5 text-xs font-semibold text-c3">
+                        <i class="fas fa-droplet text-purple-600" aria-hidden="true"></i> Wastewater &amp; Desludging Status
+                        <span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[9px] font-bold flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse2" aria-hidden="true"></span>
+                            Live Ops
+                        </span>
+                    </div>
+                    <a href="<?= site_url('modules/services/maintenance.php') ?>" class="text-[10px] text-c2 font-semibold hover:underline">
+                        View Trips <i class="fas fa-arrow-right text-[8px] ml-0.5"></i>
+                    </a>
+                </div>
+                <div class="flex-1 overflow-y-auto space-y-3 pr-1 custom-scroll">
+
+                    <!-- Critical Attention Tanks -->
+                    <div class="p-3 bg-rose-50 rounded-xl border border-rose-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center flex-shrink-0 font-black text-xs">
+                                    <i class="fas fa-triangle-exclamation text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-rose-900">Urgent Desludging Queue</p>
+                                    <p class="text-[10px] text-rose-700"><?= $_criticalTanksCount; ?> tanks requiring immediate action</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-rose-600 text-white font-black text-xs rounded-lg shadow-sm"><?= $_criticalTanksCount > 0 ? ($_criticalTanksCount . ' Urgent') : 'Clear'; ?></span>
+                        </div>
+                        <div class="mt-2 text-[9px] text-rose-800 flex items-center justify-between border-t border-rose-200/60 pt-1.5">
+                            <span><i class="fas fa-clock mr-1"></i>Avg. response: &lt; 24h</span>
+                            <span class="font-bold text-rose-900"><?= $_pendingWasteReqs; ?> pending requests</span>
+                        </div>
+                    </div>
+
+                    <!-- Active Maintenance & Desludging Dispatches -->
+                    <div class="p-3 bg-purple-50 rounded-xl border border-purple-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center flex-shrink-0 font-black text-xs">
+                                    <i class="fas fa-truck-droplet text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-purple-900">Field Desludging Trips</p>
+                                    <p class="text-[10px] text-purple-700"><?= number_format($_maintCountTotal); ?> operations completed</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-purple-600 text-white font-black text-xs rounded-lg shadow-sm"><?= $_maintRingData['pct']; ?></span>
+                        </div>
+                        <div class="mt-2">
+                            <div class="w-full bg-purple-200 h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-purple-600 h-full rounded-full" style="width: <?= $_maintRingData['pct']; ?>"></div>
+                            </div>
+                            <p class="text-[9px] text-purple-700 mt-1"><i class="fas fa-route mr-1"></i>Active fleet routes in Caloocan North &amp; South</p>
+                        </div>
+                    </div>
+
+                    <!-- Service Providers & Contractors -->
+                    <div class="p-3 bg-teal-50 rounded-xl border border-teal-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-teal-600 text-white flex items-center justify-center flex-shrink-0 font-black text-xs">
+                                    <i class="fas fa-handshake text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-teal-900">Accredited Providers</p>
+                                    <p class="text-[10px] text-teal-700"><?= $_activeProvidersCount; ?> active licensed contractors</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-teal-600 text-white font-black text-xs rounded-lg shadow-sm">Certified</span>
+                        </div>
+                        <div class="mt-1.5 text-[9px] text-teal-800 flex items-center justify-between border-t border-teal-200/60 pt-1.5">
+                            <span><i class="fas fa-award mr-1"></i>DENR / LLDA Compliant</span>
+                            <span class="font-bold text-teal-900">100% Quality Audited</span>
+                        </div>
+                    </div>
+
+                    <!-- Environmental & Surcharge Invoices -->
+                    <div class="p-3 bg-blue-50 rounded-xl border border-blue-200">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center flex-shrink-0 font-black text-xs">
+                                    <i class="fas fa-file-invoice-dollar text-xs"></i>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-bold text-blue-900">Environmental Invoices</p>
+                                    <p class="text-[10px] text-blue-700"><?= number_format($_invoicesCountTotal); ?> total &bull; <?= $_pendingInvoicesCount; ?> pending collection</p>
+                                </div>
+                            </div>
+                            <span class="px-2.5 py-1 bg-blue-600 text-white font-black text-xs rounded-lg shadow-sm"><?= $_invoiceRingData['pct']; ?></span>
+                        </div>
+                        <div class="mt-2">
+                            <div class="w-full bg-blue-200 h-1.5 rounded-full overflow-hidden">
+                                <div class="bg-blue-600 h-full rounded-full" style="width: <?= $_invoiceRingData['pct']; ?>"></div>
+                            </div>
+                            <p class="text-[9px] text-blue-700 mt-1"><i class="fas fa-receipt mr-1"></i><?= $_invoiceRingData['pct']; ?> fee settlement efficiency</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
             <?php elseif (hasPermission('dashboard.system_admin')): ?>
             <!-- DEFAULT: System Health Status (Admin ONLY) -->
             <div class="bg-white rounded-2xl p-4 border border-c1/25 shadow-sm flex flex-col h-[400px] lg:h-[420px]">
@@ -1781,7 +2078,10 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
     || hasPermission(Permissions::IMMUNIZATION_CREATE)
     || hasPermission(Permissions::COMPLIANCE_VIEW)
     || hasPermission(Permissions::INSPECTIONS_CONDUCT)
-    || hasPermission(Permissions::REPORTS_VIEW);
+    || hasPermission(Permissions::REPORTS_VIEW)
+    || $_isWasteRole
+    || hasPermission(Permissions::WASTEWATER_CREATE)
+    || hasPermission(Permissions::WASTEWATER_MANAGE);
 ?>
 
 <?php if ($hasAnyQuickAction): ?>
@@ -1875,6 +2175,34 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
                 </div>
                 <span class="action-label text-[9px] font-medium text-slate-700 group-hover:text-purple-700 transition-all duration-300 max-w-0 opacity-0 group-hover:max-w-[70px] group-hover:opacity-100 overflow-hidden whitespace-nowrap">
                    New Schedule
+                </span>
+            </button>
+            <?php endif; ?>
+
+            <!-- Action Wastewater 1: Desludging Request -->
+            <?php if ($_isWasteRole || hasPermission(Permissions::WASTEWATER_CREATE) || hasPermission(Permissions::WASTEWATER_MANAGE)): ?>
+            <button type="button" onclick="openQuickModal('quickModalNewWasteRequest')" 
+                    class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-sky-50 transition-all duration-200 cursor-pointer"
+                    aria-label="New desludging request"
+                    data-label="Desludge">
+                <div class="w-7 h-7 rounded-lg bg-sky-50 group-hover:bg-sky-100 flex items-center justify-center transition-all duration-200 group-hover:scale-105">
+                    <i class="fas fa-truck-droplet text-sky-600 text-xs" aria-hidden="true"></i>
+                </div>
+                <span class="action-label text-[9px] font-medium text-slate-700 group-hover:text-sky-700 transition-all duration-300 max-w-0 opacity-0 group-hover:max-w-[75px] group-hover:opacity-100 overflow-hidden whitespace-nowrap">
+                   Desludge Req
+                </span>
+            </button>
+
+            <!-- Action Wastewater 2: Register Septic Tank -->
+            <button type="button" onclick="openQuickModal('quickModalNewSepticTank')" 
+                    class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-purple-50 transition-all duration-200 cursor-pointer"
+                    aria-label="Register septic tank"
+                    data-label="Septic">
+                <div class="w-7 h-7 rounded-lg bg-purple-50 group-hover:bg-purple-100 flex items-center justify-center transition-all duration-200 group-hover:scale-105">
+                    <i class="fas fa-water text-purple-600 text-xs" aria-hidden="true"></i>
+                </div>
+                <span class="action-label text-[9px] font-medium text-slate-700 group-hover:text-purple-700 transition-all duration-300 max-w-0 opacity-0 group-hover:max-w-[65px] group-hover:opacity-100 overflow-hidden whitespace-nowrap">
+                   New Tank
                 </span>
             </button>
             <?php endif; ?>
@@ -2244,7 +2572,151 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
             </div>
         </form>
     </div>
-</div>     
+</div>
+
+<!-- ============================================================ -->
+<!-- 6. QUICK ACTION MODAL: NEW DESLUDGING / SERVICE REQUEST       -->
+<!-- ============================================================ -->
+<div id="quickModalNewWasteRequest" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col animate-scaleUp">
+        <div class="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center">
+                    <i class="fas fa-truck-droplet text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">New Desludging Request</h3>
+                    <p class="text-[11px] text-slate-500">Log a wastewater or septic desludging dispatch</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeQuickModal('quickModalNewWasteRequest')" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center transition cursor-pointer">
+                <i class="fas fa-times text-sm"></i>
+            </button>
+        </div>
+        <form id="quickWasteRequestForm" onsubmit="handleQuickWasteRequestSubmit(event)" class="p-5 space-y-3.5">
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Owner / Client Name <span class="text-rose-500">*</span></label>
+                <input type="text" name="owner_name" required placeholder="e.g. Roberto Cruz" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-sky-500 outline-none" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Service Type <span class="text-rose-500">*</span></label>
+                    <select name="service_type" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-sky-500 outline-none bg-white">
+                        <option value="desludging" selected>Desludging / Siphoning</option>
+                        <option value="maintenance">Preventive Maintenance</option>
+                        <option value="inspection">Septic Tank Inspection</option>
+                        <option value="emergency">Emergency Overflow</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Priority <span class="text-rose-500">*</span></label>
+                    <select name="priority" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-sky-500 outline-none bg-white">
+                        <option value="medium" selected>Medium Priority</option>
+                        <option value="low">Low Priority</option>
+                        <option value="high">High Priority</option>
+                        <option value="critical">Critical / Urgent</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Barangay Location <span class="text-rose-500">*</span></label>
+                    <input type="text" name="barangay" required placeholder="e.g. Barangay 8, Caloocan" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-sky-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Preferred Date <span class="text-rose-500">*</span></label>
+                    <input type="date" name="preferred_date" value="<?= date('Y-m-d') ?>" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-sky-500 outline-none" />
+                </div>
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Complete Address / Landmarks</label>
+                <input type="text" name="address" placeholder="House / Lot number, street name" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-sky-500 outline-none" />
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Notes / Instructions</label>
+                <textarea name="notes" rows="2" placeholder="e.g. Tank located at back alley, requires long suction hose" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-sky-500 outline-none"></textarea>
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" onclick="closeQuickModal('quickModalNewWasteRequest')" class="px-4 py-2 bg-slate-100 text-slate-600 font-semibold rounded-xl text-xs hover:bg-slate-200 transition">Cancel</button>
+                <button type="submit" id="btnQuickWasteRequest" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5">
+                    <i class="fas fa-paper-plane text-xs"></i> File Request
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- 7. QUICK ACTION MODAL: REGISTER SEPTIC TANK                  -->
+<!-- ============================================================ -->
+<div id="quickModalNewSepticTank" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg overflow-hidden flex flex-col animate-scaleUp">
+        <div class="px-5 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
+                    <i class="fas fa-water text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-slate-800">Register Septic Tank</h3>
+                    <p class="text-[11px] text-slate-500">Record a new septic facility into city registry</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeQuickModal('quickModalNewSepticTank')" class="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center transition cursor-pointer">
+                <i class="fas fa-times text-sm"></i>
+            </button>
+        </div>
+        <form id="quickSepticTankForm" onsubmit="handleQuickSepticTankSubmit(event)" class="p-5 space-y-3.5">
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Property / Owner Name <span class="text-rose-500">*</span></label>
+                <input type="text" name="owner_name" required placeholder="e.g. Caloocan Commercial Complex / Juan Cruz" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Capacity (Gallons/Liters) <span class="text-rose-500">*</span></label>
+                    <input type="text" name="capacity" required placeholder="e.g. 1000 Gallons" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Tank Material / Type <span class="text-rose-500">*</span></label>
+                    <select name="type" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white">
+                        <option value="Concrete" selected>Concrete</option>
+                        <option value="Plastic">Plastic / Polyethylene</option>
+                        <option value="Fiberglass">Fiberglass</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Barangay <span class="text-rose-500">*</span></label>
+                    <input type="text" name="barangay" required placeholder="Barangay 5, Caloocan" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none" />
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-slate-700 mb-1">Operational Status <span class="text-rose-500">*</span></label>
+                    <select name="status" required class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none bg-white">
+                        <option value="good" selected>Good Condition</option>
+                        <option value="needs_maintenance">Needs Maintenance</option>
+                        <option value="critical">Critical Attention</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Property Address <span class="text-rose-500">*</span></label>
+                <input type="text" name="address" required placeholder="Street address or block &amp; lot" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none" />
+            </div>
+            <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Installation Year / Notes</label>
+                <input type="number" name="installation_year" min="1950" max="<?= date('Y') ?>" value="<?= date('Y') ?>" class="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-purple-500 outline-none" />
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button type="button" onclick="closeQuickModal('quickModalNewSepticTank')" class="px-4 py-2 bg-slate-100 text-slate-600 font-semibold rounded-xl text-xs hover:bg-slate-200 transition">Cancel</button>
+                <button type="submit" id="btnQuickSepticTank" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-md transition flex items-center gap-1.5">
+                    <i class="fas fa-check text-xs"></i> Save to Registry
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+     
        
 <!-- Toast container -->
 <div id="toast-container" class="toast-container"></div>

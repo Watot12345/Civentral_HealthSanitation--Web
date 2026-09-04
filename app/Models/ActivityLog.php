@@ -27,6 +27,11 @@ class ActivityLog
         if (isset($options['department']) && !empty($options['department'])) {
             $targetDept = trim($options['department']);
             unset($options['department']);
+        } else {
+            $scope = getUserScope();
+            if (!empty($scope['department'])) {
+                $targetDept = $scope['department'];
+            }
         }
 
         try {

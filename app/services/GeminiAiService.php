@@ -70,7 +70,13 @@ class GeminiAiService
 
                 $response = curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlErrno = curl_errno($ch);
                 curl_close($ch);
+
+                if ($curlErrno === CURLE_OPERATION_TIMEDOUT || $curlErrno === CURLE_COULDNT_CONNECT || $curlErrno === CURLE_COULDNT_RESOLVE_HOST) {
+                    error_log("GeminiAiService: Network timeout or unreachable host on '{$attemptedModel}'. Breaking model queue.");
+                    break;
+                }
 
                 if ($httpCode === 200 && $response) {
                     $result = json_decode($response, true);
@@ -419,7 +425,7 @@ EOT;
                 ]
             ];
 
-            $apiResult = $this->makeApiCallWithFallback($payload, 6);
+            $apiResult = $this->makeApiCallWithFallback($payload, 2);
 
             if ($apiResult) {
                 $rawText = trim($apiResult['text']);

@@ -68,8 +68,8 @@ class NotificationService
                     'badge' => ucfirst($sa['severity'] ?? 'Alert'),
                     'badge_class' => $isCritical ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700',
                     'created_at' => date('Y-m-d H:i:s'),
-                    'allowed_departments' => ['Health Surveillance', 'Health Center Services', 'Immunization & Nutrition', 'Administration'],
-                    'required_permissions' => ['surveillance.view', 'dashboard.surveillance', 'dashboard.health_center', 'dashboard.immunization', 'patients.view']
+                    'allowed_departments' => ['Health Surveillance', 'Administration'],
+                    'required_permissions' => ['surveillance.view', 'dashboard.surveillance']
                 ];
 
                 if ($this->isNotificationAllowed($item)) {
@@ -207,38 +207,6 @@ class NotificationService
             }
         } catch (Throwable $e) {
             error_log("NotificationService Permit error: " . $e->getMessage());
-        }
-
-        // 6. Recent System Logs / Activity (Admins only)
-        try {
-            $logs = $this->db->select('activity_logs', [], ['limit' => 2, 'order' => 'id.desc']);
-            if (is_array($logs)) {
-                foreach ($logs as $l) {
-                    $item = [
-                        'id' => 'notif-log-' . $l['id'],
-                        'category' => 'audit',
-                        'title' => ($l['module'] ?? 'System') . ': ' . ($l['action'] ?? 'Activity Recorded'),
-                        'message' => ($l['user_name'] ?? 'System') . ' — ' . ($l['details'] ?? 'Operation executed'),
-                        'time' => $this->formatTimeAgo($l['created_at'] ?? 'now'),
-                        'url' => site_url('management/activity_log.php'),
-                        'icon' => 'fas fa-shield-alt',
-                        'icon_bg' => 'bg-slate-100',
-                        'icon_color' => 'text-slate-600',
-                        'title_color' => 'text-slate-700',
-                        'badge' => 'Audit',
-                        'badge_class' => 'bg-slate-100 text-slate-700',
-                        'created_at' => $l['created_at'] ?? date('Y-m-d H:i:s'),
-                        'allowed_departments' => ['Administration'],
-                        'required_permissions' => ['logs.view', 'settings.manage', 'roles.manage']
-                    ];
-
-                    if ($this->isNotificationAllowed($item)) {
-                        $notifications[] = $item;
-                    }
-                }
-            }
-        } catch (Throwable $e) {
-            error_log("NotificationService Log error: " . $e->getMessage());
         }
 
         $userId = (int)($_SESSION['user_id'] ?? 0);

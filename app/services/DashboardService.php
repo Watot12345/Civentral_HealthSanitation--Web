@@ -72,10 +72,12 @@ class DashboardService
         if (empty($childRecords)) {
             $childRecords = $fetchTable('immunization_assessments', [], ['select' => 'id,created_at', 'limit' => 100]);
         }
-        $wastewater    = $fetchTable('septic_tanks', [], ['select' => 'id,created_at', 'limit' => 100]);
-        if (empty($wastewater)) {
-            $wastewater = $fetchTable('permits', [], ['select' => 'id,created_at', 'limit' => 100]);
-        }
+        $septicTanks   = $fetchTable('septic_tanks', [], ['select' => 'id,tank_id,owner_name,status,created_at,type,barangay', 'limit' => 100]);
+        $serviceRequests = $fetchTable('service_requests', [], ['select' => 'id,request_id,service_type,status,priority,created_at,preferred_date', 'limit' => 100]);
+        $maintenanceRecords = $fetchTable('maintenance_records', [], ['select' => 'id,service_id,service_type,status,created_at,scheduled_date', 'limit' => 100]);
+        $wastewaterInvoices = $fetchTable('wastewater_invoices', [], ['select' => 'id,invoice_id,amount,total_amount,status,created_at', 'limit' => 100]);
+        $serviceProviders = $fetchTable('service_providers', [], ['select' => 'id,provider_id,name,status,specialization,created_at', 'limit' => 100]);
+        $wastewater    = !empty($septicTanks) ? $septicTanks : $fetchTable('permits', [], ['select' => 'id,created_at', 'limit' => 100]);
         $survCases     = $fetchTable('surveillance_cases', [], ['select' => 'id,disease,barangay,status,created_at', 'limit' => 100]);
 
         $calcGrowth = function(array $records): string {
@@ -120,6 +122,8 @@ class DashboardService
         $pendingPermits = count(array_filter($permits, fn($p) => strcasecmp($p['status'] ?? '', 'Pending') === 0));
         $approvedPermits = count(array_filter($permits, fn($p) => in_array(strtolower($p['status'] ?? ''), ['approved', 'issued', 'active'])));
         $outbreaks = count(array_filter($survCases, fn($c) => in_array(strtolower($c['status'] ?? ''), ['outbreak', 'critical', 'alert'])));
+        $pendingWasteRequests = count(array_filter($serviceRequests, fn($r) => in_array(strtolower($r['status'] ?? ''), ['pending', 'open'])));
+        $activeProviders = count(array_filter($serviceProviders, fn($p) => strcasecmp($p['status'] ?? '', 'active') === 0));
 
         $data = [
             'raw' => [
@@ -131,6 +135,11 @@ class DashboardService
                 'triage' => $triage,
                 'child_records' => $childRecords,
                 'wastewater' => $wastewater,
+                'septic_tanks' => $septicTanks,
+                'service_requests' => $serviceRequests,
+                'maintenance_records' => $maintenanceRecords,
+                'wastewater_invoices' => $wastewaterInvoices,
+                'service_providers' => $serviceProviders,
                 'surveillance' => $survCases,
             ],
             'counts' => [
@@ -144,6 +153,13 @@ class DashboardService
                 'triage' => count($triage),
                 'child_records' => count($childRecords),
                 'wastewater' => count($wastewater),
+                'septic_tanks' => count($septicTanks),
+                'service_requests' => count($serviceRequests),
+                'pending_service_requests' => $pendingWasteRequests,
+                'maintenance_records' => count($maintenanceRecords),
+                'wastewater_invoices' => count($wastewaterInvoices),
+                'service_providers' => count($serviceProviders),
+                'active_providers' => $activeProviders,
                 'surveillance' => count($survCases),
                 'outbreaks' => $outbreaks,
             ],
@@ -155,6 +171,10 @@ class DashboardService
                 'triage' => $calcGrowth($triage),
                 'child_records' => $calcGrowth($childRecords),
                 'wastewater' => $calcGrowth($wastewater),
+                'septic_tanks' => $calcGrowth($septicTanks),
+                'service_requests' => $calcGrowth($serviceRequests),
+                'maintenance_records' => $calcGrowth($maintenanceRecords),
+                'wastewater_invoices' => $calcGrowth($wastewaterInvoices),
                 'surveillance' => $calcGrowth($survCases),
             ],
             'rings' => [
@@ -166,6 +186,10 @@ class DashboardService
                 'triage' => $calcRing($triage),
                 'child_records' => $calcRing($childRecords),
                 'wastewater' => $calcRing($wastewater),
+                'septic_tanks' => $calcRing($septicTanks, fn($t) => in_array(strtolower($t['status'] ?? ''), ['good', 'active'])),
+                'service_requests' => $calcRing($serviceRequests, fn($r) => in_array(strtolower($r['status'] ?? ''), ['completed', 'approved'])),
+                'maintenance_records' => $calcRing($maintenanceRecords, fn($m) => in_array(strtolower($m['status'] ?? ''), ['completed'])),
+                'wastewater_invoices' => $calcRing($wastewaterInvoices, fn($i) => in_array(strtolower($i['status'] ?? ''), ['paid'])),
                 'surveillance' => $calcRing($survCases),
             ],
             'cached_at' => $now

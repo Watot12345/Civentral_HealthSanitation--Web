@@ -491,6 +491,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }).join('');
     }
 
+    function renderPredictiveLegend(items) {
+        const legendEl = document.getElementById('predictiveLegend');
+        if (!legendEl) return;
+        legendEl.innerHTML = (items || []).map(function(item) {
+            var color = item.color || '#14b8a6';
+            var dotStyle = (color.startsWith('#') || color.startsWith('rgb')) ? 'style="background:' + color + '"' : '';
+            var dotClass = (color.startsWith('#') || color.startsWith('rgb')) ? 'w-2 h-2 rounded-full inline-block' : 'w-2 h-2 rounded-full inline-block ' + color;
+            return '<span class="flex items-center gap-1.5"><span class="' + dotClass + '" ' + dotStyle + '></span> ' + (item.label || item.name) + '</span>';
+        }).join('');
+    }
+
     // =====================================================================
     // APEXCHARTS INITIALIZATIONS (EMPTY SKELETONS AWAITING LIVE DATA)
     // =====================================================================
@@ -682,12 +693,165 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     var isAutoRefreshEnabled = true;
+    var isFetchingAnalytics = false;
+    var pendingAnalyticsFetch = null;
+
+    function getStoredAnalyticsCache(range, filter, yoy) {
+        try {
+            var key = 'capstone_ai_analytics_' + range + '_' + filter + '_' + (yoy ? '1' : '0');
+            var raw = sessionStorage.getItem(key);
+            if (raw) {
+                var parsed = JSON.parse(raw);
+                // 10-minute client cache validity
+                if (parsed && parsed.data && (Date.now() - (parsed.timestamp || 0) < 600000)) {
+                    return parsed;
+                }
+            }
+        } catch (e) {}
+        return null;
+    }
+
+    function setStoredAnalyticsCache(range, filter, yoy, data) {
+        try {
+            var key = 'capstone_ai_analytics_' + range + '_' + filter + '_' + (yoy ? '1' : '0');
+            sessionStorage.setItem(key, JSON.stringify({ timestamp: Date.now(), data: data }));
+        } catch (e) {}
+    }
+
+    function renderAnalyticsPayload(data) {
+        if (!data || !data.success) return;
+
+        var now = new Date();
+        var syncText = 'Live (' + now.toLocaleTimeString() + ')';
+        if (document.getElementById('headerTimestamp')) document.getElementById('headerTimestamp').textContent = syncText;
+        if (document.getElementById('footerTimestamp')) document.getElementById('footerTimestamp').textContent = now.toLocaleString();
+
+        // Update Subtitle
+        if (data.trend && data.trend.subtitle && document.getElementById('trendSubtitle')) {
+            document.getElementById('trendSubtitle').textContent = data.trend.subtitle;
+        }
+
+        // Handle Trend Chart & Empty State
+        if (data.trend) {
+            var totalTrendPoints = (data.trend.series || []).reduce(function(acc, s) {
+                return acc + (s.data || []).reduce(function(a, b) { return a + Number(b || 0); }, 0);
+            }, 0);
+
+            if (totalTrendPoints === 0 || !data.trend.series || data.trend.series.length === 0) {
+                if (document.getElementById('trendEmptyState')) document.getElementById('trendEmptyState').classList.remove('hidden');
+                if (document.getElementById('trendChart')) document.getElementById('trendChart').style.opacity = '0';
+            } else {
+                if (document.getElementById('trendEmptyState')) document.getElementById('trendEmptyState').classList.add('hidden');
+                if (document.getElementById('trendChart')) document.getElementById('trendChart').style.opacity = '1';
+                trendChart.updateOptions({
+                    series: data.trend.series,
+                    colors: data.trend.colors,
+                    xaxis: { categories: data.trend.categories }
+                });
+            }
+            renderLegend(data.trend.legend);
+        }
+
+        // Handle Predictive Chart & Empty State
+        if (data.predictive) {
+            if (data.predictive.subtitle && document.getElementById('predictiveSubtitle')) {
+                document.getElementById('predictiveSubtitle').textContent = data.predictive.subtitle;
+            }
+
+            var totalPredPoints = (data.predictive.series || []).reduce(function(acc, s) {
+                return acc + (s.data || []).reduce(function(a, b) { return a + Number(b || 0); }, 0);
+            }, 0);
+
+            var seriesColors = (data.predictive.colors && data.predictive.colors.length > 0)
+                ? data.predictive.colors
+                : ['#14b8a6', '#3b82f6', '#10b981', '#f59e0b', '#9333ea'];
+
+            if (totalPredPoints === 0 || !data.predictive.series || data.predictive.series.length === 0) {
+                if (document.getElementById('predictiveEmptyState')) document.getElementById('predictiveEmptyState').classList.remove('hidden');
+                if (document.getElementById('predictiveLineChart')) document.getElementById('predictiveLineChart').style.opacity = '0';
+            } else {
+                if (document.getElementById('predictiveEmptyState')) document.getElementById('predictiveEmptyState').classList.add('hidden');
+                if (document.getElementById('predictiveLineChart')) document.getElementById('predictiveLineChart').style.opacity = '1';
+                predictiveChart.updateOptions({
+                    series: data.predictive.series,
+                    colors: seriesColors,
+                    xaxis: { categories: data.predictive.categories }
+                });
+            }
+
+            if (data.predictive.legend && data.predictive.legend.length > 0) {
+                renderPredictiveLegend(data.predictive.legend);
+            } else if (data.predictive.series && data.predictive.series.length > 0) {
+                renderPredictiveLegend(data.predictive.series.map(function(s, idx) {
+                    return { label: s.name, color: seriesColors[idx % seriesColors.length] };
+                }));
+            } else {
+                renderPredictiveLegend([]);
+            }
+
+            if (data.predictive.cards) {
+                renderPredictive(data.predictive.cards);
+            }
+        }
+        
+        // Update AI Insights Grid
+        if (data.insights) {
+            renderInsights(data.insights);
+        }
+        
+        // Update Operational Modules & Callout Insights
+        if (data.modules) {
+            renderModulesView(data.modules);
+        }
+        if (data.forecast_insight && document.getElementById('forecastInsightText')) {
+            document.getElementById('forecastInsightText').textContent = data.forecast_insight;
+        }
+        if (data.module_insight && document.getElementById('moduleInsightText')) {
+            document.getElementById('moduleInsightText').textContent = data.module_insight;
+        }
+        if (data.correlation_insight && document.getElementById('correlationInsightText')) {
+            document.getElementById('correlationInsightText').textContent = data.correlation_insight;
+        }
+        if (data.staff && typeof updateStaffData === 'function') {
+            updateStaffData(data.staff);
+        }
+        if (data.metrics && typeof renderMetrics === 'function') {
+            renderMetrics(data.metrics);
+        }
+        
+        // Update KPI summary numbers if elements exist
+        if (data.kpis && Array.isArray(data.kpis)) {
+            data.kpis.forEach(function(kpi) {
+                var el = document.getElementById('kpi-' + kpi.key);
+                if (el) el.textContent = kpi.value;
+            });
+        }
+    }
 
     async function fetchLiveAnalytics(forceRefresh = false, isSilent = false) {
         var range = document.getElementById('dateRangeSelect') ? document.getElementById('dateRangeSelect').value : '6m';
         var filterEl = document.getElementById('trendFilter');
         var filter = filterEl ? filterEl.value : 'combined';
         var yoy = document.getElementById('yoyToggle') ? document.getElementById('yoyToggle').checked : false;
+
+        // Concurrency Guard: prevent duplicate concurrent requests
+        if (isFetchingAnalytics) {
+            pendingAnalyticsFetch = {
+                forceRefresh: forceRefresh || (pendingAnalyticsFetch && pendingAnalyticsFetch.forceRefresh),
+                isSilent: isSilent && (pendingAnalyticsFetch ? pendingAnalyticsFetch.isSilent : true)
+            };
+            return;
+        }
+        isFetchingAnalytics = true;
+
+        // Stale-While-Revalidate: render cached state immediately if available
+        if (!forceRefresh) {
+            var cached = getStoredAnalyticsCache(range, filter, yoy);
+            if (cached && cached.data) {
+                renderAnalyticsPayload(cached.data);
+                isSilent = true; // Background refresh: no skeleton flash
+            }
+        }
 
         if (!isSilent) {
             showLoadingState();
@@ -698,98 +862,21 @@ document.addEventListener('DOMContentLoaded', function() {
             var res = await fetch(url);
             var data = await res.json();
             if (data && data.success) {
-                var now = new Date();
-                var syncText = 'Live (' + now.toLocaleTimeString() + ')';
-                if (document.getElementById('headerTimestamp')) document.getElementById('headerTimestamp').textContent = syncText;
-                if (document.getElementById('footerTimestamp')) document.getElementById('footerTimestamp').textContent = now.toLocaleString();
-
-                // Update Subtitle
-                if (data.trend && data.trend.subtitle && document.getElementById('trendSubtitle')) {
-                    document.getElementById('trendSubtitle').textContent = data.trend.subtitle;
-                }
-
-                // Handle Trend Chart & Empty State
-                if (data.trend) {
-                    var totalTrendPoints = (data.trend.series || []).reduce(function(acc, s) {
-                        return acc + (s.data || []).reduce(function(a, b) { return a + Number(b || 0); }, 0);
-                    }, 0);
-
-                    if (totalTrendPoints === 0 || !data.trend.series || data.trend.series.length === 0) {
-                        if (document.getElementById('trendEmptyState')) document.getElementById('trendEmptyState').classList.remove('hidden');
-                        if (document.getElementById('trendChart')) document.getElementById('trendChart').style.opacity = '0';
-                    } else {
-                        if (document.getElementById('trendEmptyState')) document.getElementById('trendEmptyState').classList.add('hidden');
-                        if (document.getElementById('trendChart')) document.getElementById('trendChart').style.opacity = '1';
-                        trendChart.updateOptions({
-                            series: data.trend.series,
-                            colors: data.trend.colors,
-                            xaxis: { categories: data.trend.categories }
-                        });
-                    }
-                    renderLegend(data.trend.legend);
-                }
-
-                // Handle Predictive Chart & Empty State
-                if (data.predictive) {
-                    var totalPredPoints = (data.predictive.series || []).reduce(function(acc, s) {
-                        return acc + (s.data || []).reduce(function(a, b) { return a + Number(b || 0); }, 0);
-                    }, 0);
-
-                    if (totalPredPoints === 0 || !data.predictive.series || data.predictive.series.length === 0) {
-                        if (document.getElementById('predictiveEmptyState')) document.getElementById('predictiveEmptyState').classList.remove('hidden');
-                        if (document.getElementById('predictiveLineChart')) document.getElementById('predictiveLineChart').style.opacity = '0';
-                    } else {
-                        if (document.getElementById('predictiveEmptyState')) document.getElementById('predictiveEmptyState').classList.add('hidden');
-                        if (document.getElementById('predictiveLineChart')) document.getElementById('predictiveLineChart').style.opacity = '1';
-                        predictiveChart.updateOptions({
-                            series: data.predictive.series,
-                            xaxis: { categories: data.predictive.categories }
-                        });
-                    }
-
-                    if (data.predictive.cards) {
-                        renderPredictive(data.predictive.cards);
-                    }
-                }
-                
-                // Update AI Insights Grid
-                if (data.insights) {
-                    renderInsights(data.insights);
-                }
-                
-                // Update Operational Modules & Callout Insights
-                if (data.modules) {
-                    renderModulesView(data.modules);
-                }
-                if (data.forecast_insight && document.getElementById('forecastInsightText')) {
-                    document.getElementById('forecastInsightText').textContent = data.forecast_insight;
-                }
-                if (data.module_insight && document.getElementById('moduleInsightText')) {
-                    document.getElementById('moduleInsightText').textContent = data.module_insight;
-                }
-                if (data.correlation_insight && document.getElementById('correlationInsightText')) {
-                    document.getElementById('correlationInsightText').textContent = data.correlation_insight;
-                }
-                if (data.staff && typeof updateStaffData === 'function') {
-                    updateStaffData(data.staff);
-                }
-                if (data.metrics && typeof renderMetrics === 'function') {
-                    renderMetrics(data.metrics);
-                }
-                
-                // Update KPI summary numbers if elements exist
-                if (data.kpis && Array.isArray(data.kpis)) {
-                    data.kpis.forEach(function(kpi) {
-                        var el = document.getElementById('kpi-' + kpi.key);
-                        if (el) el.textContent = kpi.value;
-                    });
-                }
+                setStoredAnalyticsCache(range, filter, yoy, data);
+                renderAnalyticsPayload(data);
             }
         } catch (err) {
             console.log('API Fetch Error:', err);
         } finally {
             if (!isSilent) {
                 hideLoadingState();
+            }
+            isFetchingAnalytics = false;
+            // Execute trailing pending request if queued during in-flight fetch
+            if (pendingAnalyticsFetch) {
+                var next = pendingAnalyticsFetch;
+                pendingAnalyticsFetch = null;
+                fetchLiveAnalytics(next.forceRefresh, next.isSilent);
             }
         }
     }
@@ -1022,21 +1109,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (SUPABASE_URL && SUPABASE_ANON_KEY && typeof supabase !== 'undefined') {
         try {
+            var realtimeDebounceTimer = null;
+            function debouncedRealtimeSync() {
+                clearTimeout(realtimeDebounceTimer);
+                realtimeDebounceTimer = setTimeout(function() {
+                    // forceRefresh = true (fetches latest DB records), isSilent = true (smooth background update, no skeleton flash)
+                    fetchLiveAnalytics(true, true);
+                }, 250);
+            }
+
             var supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             supabaseClient
                 .channel('realtime-ai-analytics')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'surveillance_cases' }, function() {
-                    fetchLiveAnalytics(true, true);
-                })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, function() {
-                    fetchLiveAnalytics(true, true);
-                })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'permits' }, function() {
-                    fetchLiveAnalytics(true, true);
-                })
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'surveillance_alerts' }, function() {
-                    fetchLiveAnalytics(true, true);
-                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'surveillance_cases' }, debouncedRealtimeSync)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'surveillance_alerts' }, debouncedRealtimeSync)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, debouncedRealtimeSync)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'consultations' }, debouncedRealtimeSync)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'permits' }, debouncedRealtimeSync)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'inspections' }, debouncedRealtimeSync)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'children' }, debouncedRealtimeSync)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'septic_tanks' }, debouncedRealtimeSync)
                 .subscribe();
         } catch (err) {
             console.log('Supabase Realtime subscription fallback:', err);

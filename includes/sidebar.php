@@ -23,6 +23,7 @@ if (strpos($currentPath, 'modules/healthservices') !== false) {
 
 $_sidebarRole = strtolower(trim($_SESSION['role_description'] ?? $_SESSION['role'] ?? ''));
 $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_sidebarRole, 'physician') || str_contains($_sidebarRole, 'dentist') || str_contains($_sidebarRole, 'medical practitioner'));
+$userScope = getUserScope();
 ?>
 <!-- admin/includes/sidebar.php -->
 <aside id="sidebar" class="bg-brand-light text-slate-600 w-72 min-h-[calc(100vh-5rem)] flex flex-col justify-between transition-all duration-300 border-r border-brand-border/60 sticky top-20 h-[calc(100vh-5rem)] z-30 shrink-0 shadow-sm">
@@ -88,7 +89,7 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
       <?php endif; ?>
 
       <!-- 4. COMPLIANCE & VIOLATIONS - Direct Link -->
-      <?php if (hasPermission('compliance.view')): ?>
+      <?php if ($userScope['compliance'] && hasPermission('compliance.view')): ?>
       <div class="space-y-1">
         <a href="<?= site_url('pages/compliance_monitoring.php') ?>"
            class="w-full flex items-center px-3 py-2.5 hover:bg-white/60 hover:text-brand-dark rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -108,7 +109,7 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
       <span class="sidebar-text text-[9px] font-bold tracking-widest text-slate-400 uppercase block px-3 mt-6 mb-2">Operational Modules</span>
 
       <!-- MODULE 1: HEALTH CENTER SERVICES -->
-      <?php if (canAccessDepartment('health center services') && (hasPermission('patients.view') || hasPermission('consultations.view') || hasPermission('triage.view') || hasPermission('prescriptions.view'))): ?>
+      <?php if (($userScope['is_admin'] || in_array($userScope['department'], ['health_center', 'Health Center'], true) || ($userScope['department_slug'] ?? '') === 'health_center') && (hasPermission('patients.view') || hasPermission('consultations.view') || hasPermission('triage.view') || hasPermission('prescriptions.view'))): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('healthCenterDropdown', 'healthCenterChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -177,7 +178,7 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
       <?php endif; ?>
 
       <!-- MODULE 2: SANITATION PERMITS -->
-      <?php if (canAccessDepartment('sanitation permits') && (hasPermission('permits.view') || hasPermission('inspections.view') || hasPermission('inspections.conduct'))): ?>
+      <?php if (($userScope['is_admin'] || in_array($userScope['department'], ['sanitation', 'Sanitation'], true) || ($userScope['department_slug'] ?? '') === 'sanitation') && (hasPermission('permits.view') || hasPermission('inspections.view') || hasPermission('inspections.conduct'))): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('sanitationDropdown', 'sanitationChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -233,7 +234,7 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
       <?php endif; ?>
 
       <!-- MODULE 3: IMMUNIZATION & NUTRITION -->
-      <?php if (canAccessDepartment('immunization & nutrition') && (hasPermission('immunization.view') || hasPermission('patients.view') || hasPermission('dashboard.view'))): ?>
+      <?php if (($userScope['is_admin'] || in_array($userScope['department'], ['immunization', 'Immunization'], true) || ($userScope['department_slug'] ?? '') === 'immunization') && (hasPermission('immunization.view') || hasPermission('patients.view') || hasPermission('dashboard.view'))): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('immunizationDropdown', 'immunizationChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -248,6 +249,7 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
         </button>
         <div id="immunizationDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
           
+          <?php if ($userScope['is_admin'] || in_array('immunization', $userScope['modules'], true)): ?>
           <a href="<?= site_url('modules/immunization/child_records.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'child_records.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-child text-[10px] opacity-50"></i> 
             <span>Child Records</span>
@@ -267,18 +269,21 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
             <i class="fa-solid fa-boxes text-[10px] opacity-50"></i> 
             <span>Vaccine Inventory</span>
           </a>
+          <?php endif; ?>
           
+          <?php if ($userScope['is_admin'] || in_array('nutrition', $userScope['modules'], true)): ?>
           <a href="<?= site_url('modules/immunization/nutrition_assessment.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'nutrition_assessment.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-apple-alt text-[10px] opacity-50"></i> 
             <span>Nutrition Assessment</span>
           </a>
+          <?php endif; ?>
 
         </div>
       </div>
       <?php endif; ?>
 
       <!-- MODULE 4: WASTEWATER SERVICES -->
-      <?php if (canAccessDepartment('wastewater services') && (hasPermission('permits.view') || hasPermission('inspections.view'))): ?>
+      <?php if (($userScope['is_admin'] || in_array($userScope['department'], ['wastewater', 'Wastewater'], true) || ($userScope['department_slug'] ?? '') === 'wastewater') && (hasPermission('permits.view') || hasPermission('inspections.view'))): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('wastewaterDropdown', 'wastewaterChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -330,7 +335,7 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
       <?php endif; ?>
 
       <!-- MODULE 5: HEALTH SURVEILLANCE -->
-      <?php if (canAccessDepartment('health surveillance') && (hasPermission('dashboard.view') || hasPermission('reports.view'))): ?>
+      <?php if (($userScope['is_admin'] || in_array($userScope['department'], ['surveillance', 'Health Surveillance'], true) || ($userScope['department_slug'] ?? '') === 'surveillance') && (hasPermission('dashboard.view') || hasPermission('reports.view'))): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('surveillanceDropdown', 'surveillanceChevron')" 
                 class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -368,11 +373,16 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
       <!-- SECTION 3: SYSTEM MANAGEMENT                                 -->
       <!-- ============================================================ -->
 
-      <?php if (hasPermission('users.view') || hasPermission('roles.manage') || hasPermission('logs.view') || hasPermission('settings.manage')): ?>
+      <?php 
+      $showUserMgmt = ($userScope['is_admin'] || in_array('users', $userScope['modules'], true)) && (hasPermission('users.view') || hasPermission('roles.manage'));
+      $showSystemLogs = $userScope['is_admin'] && hasPermission('logs.view');
+      $showSettings = $userScope['is_admin'] && hasPermission('settings.manage');
+      if ($showUserMgmt || $showSystemLogs || $showSettings): 
+      ?>
       <span class="sidebar-text text-[9px] font-bold tracking-widest text-slate-400 uppercase block px-3 mt-6 mb-2">System Management</span>
 
       <!-- User Management -->
-      <?php if (hasPermission('users.view') || hasPermission('roles.manage')): ?>
+      <?php if ($showUserMgmt): ?>
       <div class="space-y-1">
         <a href="<?= site_url('management/user_management.php') ?>"
            class="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -386,7 +396,7 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
       <?php endif; ?>
 
       <!-- System Logs -->
-      <?php if (hasPermission('logs.view')): ?>
+      <?php if ($showSystemLogs): ?>
       <div class="space-y-1">
         <a href="<?= site_url('management/system_logs.php') ?>"
            class="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
@@ -400,7 +410,7 @@ $isDoctorSidebar = (str_contains($_sidebarRole, 'doctor') || str_contains($_side
       <?php endif; ?>
 
       <!-- Settings -->
-      <?php if (hasPermission('settings.manage')): ?>
+      <?php if ($showSettings): ?>
       <div class="space-y-1">
         <a href="<?= site_url('management/settings.php') ?>"
            class="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 

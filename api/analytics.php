@@ -54,22 +54,23 @@ try {
         exit;
     }
 
-    $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? '');
-    $userRole     = trim($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '');
-
-    $isAdmin = $permService->isAdminRole($userRoleDesc) || $permService->isAdminRole($userRole);
-
-    if ($isAdmin) {
+    $userScope = $permService->getUserScope();
+    if (!empty($userScope['is_admin'])) {
+        // Admin Scope: sees all 5 municipal modules combined
         $scope = 'admin';
     } else {
-        $deptResolver = DepartmentResolver::getInstance();
-        $deptName = $deptResolver->resolveDepartmentName();
-        $scope = match(strtolower($deptName)) {
-            'health center', 'health center services' => 'health_center',
-            'sanitation', 'sanitation permits' => 'sanitation',
-            'immunization', 'nutrition', 'immunization & nutrition' => 'immunization',
-            'wastewater', 'wastewater services' => 'wastewater',
-            'surveillance', 'health surveillance' => 'surveillance',
+        // Department-scoped roles: HCD, SD, IL, WL, SL
+        $rawDept = $userScope['department_slug'] ?? $userScope['department'] ?? '';
+        if (empty($rawDept)) {
+            $deptResolver = DepartmentResolver::getInstance();
+            $rawDept = $deptResolver->resolveDepartmentName();
+        }
+        $scope = match(strtolower(trim($rawDept))) {
+            'health center', 'health center services', 'health_center' => 'health_center',
+            'sanitation', 'sanitation permits'                         => 'sanitation',
+            'immunization', 'nutrition', 'immunization & nutrition'    => 'immunization',
+            'wastewater', 'wastewater services'                        => 'wastewater',
+            'surveillance', 'health surveillance'                      => 'surveillance',
             default => 'health_center'
         };
     }
