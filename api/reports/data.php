@@ -10,7 +10,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
@@ -94,7 +94,8 @@ try {
                 'date' => substr($c['created_at'] ?? ($c['date'] ?? date('Y-m-d')), 0, 10),
                 'score' => $status === 'Compliant' ? 95 : ($status === 'Pending' ? 80 : 65),
                 'status' => $status,
-                'details' => 'Patient Consultation - ' . ($c['diagnosis'] ?? 'General Outpatient')
+                'details' => 'Patient Consultation - ' . ($c['diagnosis'] ?? 'General Outpatient'),
+                'report_type' => 'health_center'
             ];
         }
     } catch (Throwable $e) {}
@@ -115,7 +116,8 @@ try {
                 'date' => substr($p['created_at'] ?? ($p['issue_date'] ?? date('Y-m-d')), 0, 10),
                 'score' => $status === 'Compliant' ? 92 : ($status === 'Pending' ? 75 : 60),
                 'status' => $status,
-                'details' => 'Sanitation Permit Clearance #' . ($p['permit_number'] ?? ($p['id'] ?? ''))
+                'details' => 'Sanitation Permit Clearance #' . ($p['permit_number'] ?? ($p['id'] ?? '')),
+                'report_type' => 'sanitation'
             ];
         }
     } catch (Throwable $e) {}
@@ -135,12 +137,50 @@ try {
                 'date' => substr($insp['created_at'] ?? ($insp['scheduled_date'] ?? date('Y-m-d')), 0, 10),
                 'score' => $status === 'Compliant' ? 90 : ($status === 'Pending' ? 78 : 55),
                 'status' => $status,
-                'details' => 'Sanitation Establishment Inspection'
+                'details' => 'Sanitation Establishment Inspection',
+                'report_type' => 'sanitation'
             ];
         }
     } catch (Throwable $e) {}
 
-    // C. Disease Surveillance Cases
+    // C. Immunization & Nutrition
+    try {
+        $immunizations = $db->select('immunizations');
+        foreach ($immunizations as $imm) {
+            $status = 'Compliant';
+            $reportRows[] = [
+                'id' => 'IMM-' . ($imm['id'] ?? rand(100,999)),
+                'facility' => 'Immunization & Nutrition',
+                'inspector' => $imm['administered_by'] ?? 'Immunization Specialist',
+                'date' => substr($imm['date_administered'] ?? ($imm['created_at'] ?? date('Y-m-d')), 0, 10),
+                'score' => 96,
+                'status' => $status,
+                'details' => 'Immunization Dose: ' . ($imm['vaccine'] ?? 'Scheduled Vaccine'),
+                'report_type' => 'immunization'
+            ];
+        }
+    } catch (Throwable $e) {}
+
+    // D. Wastewater Management & Services
+    try {
+        $invoices = $db->select('wastewater_invoices');
+        foreach ($invoices as $inv) {
+            $statusRaw = strtolower($inv['status'] ?? 'paid');
+            $status = in_array($statusRaw, ['paid', 'completed', 'settled']) ? 'Compliant' : (in_array($statusRaw, ['pending', 'unpaid']) ? 'Pending' : 'Urgent');
+            $reportRows[] = [
+                'id' => 'WST-' . ($inv['id'] ?? rand(100,999)),
+                'facility' => 'Wastewater Services',
+                'inspector' => 'Wastewater Officer',
+                'date' => substr($inv['invoice_date'] ?? ($inv['created_at'] ?? date('Y-m-d')), 0, 10),
+                'score' => $status === 'Compliant' ? 94 : ($status === 'Pending' ? 76 : 50),
+                'status' => $status,
+                'details' => 'Wastewater Service Fee #' . ($inv['invoice_id'] ?? ($inv['id'] ?? '')),
+                'report_type' => 'wastewater'
+            ];
+        }
+    } catch (Throwable $e) {}
+
+    // E. Disease Surveillance Cases
     try {
         $cases = $db->select('surveillance_cases');
         foreach ($cases as $case) {
@@ -154,7 +194,8 @@ try {
                 'date' => substr($case['created_at'] ?? date('Y-m-d'), 0, 10),
                 'score' => $status === 'Compliant' ? 98 : ($status === 'Pending' ? 82 : 45),
                 'status' => $status,
-                'details' => 'Disease Surveillance Case: ' . ($case['disease'] ?? 'Epidemiologic Alert')
+                'details' => 'Disease Surveillance Case: ' . ($case['disease'] ?? 'Epidemiologic Alert'),
+                'report_type' => 'surveillance'
             ];
         }
     } catch (Throwable $e) {}
@@ -164,12 +205,22 @@ try {
         return strcmp($b['date'], $a['date']);
     });
 
-    // 3. Fetch Real Report Generation Activity Logs (Strictly Exclude Authentication Events)
+    // 3. Role & Department Scoping
     $userRoleDesc  = strtolower(trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? ''));
     $userRole      = strtolower(trim($_SESSION['role'] ?? $_SESSION['user']['role'] ?? ''));
     $currentUserId = (int)($_SESSION['user']['id'] ?? ($_SESSION['user_id'] ?? 0));
     $isAdmin       = $permService->isAdminRole($userRoleDesc) || $permService->isAdminRole($userRole);
-    $isHeadRole    = str_contains($userRoleDesc, 'head') || str_contains($userRoleDesc, 'director') || str_contains($userRoleDesc, 'coordinator') || str_contains($userRoleDesc, 'supervisor') || str_contains($userRoleDesc, 'officer');
+    $isHeadRole    = !$isAdmin && ($permService->isHeadOrAdminRole($userRoleDesc) || $permService->isHeadOrAdminRole($userRole));
+
+    require_once __DIR__ . '/../../app/services/DepartmentResolver.php';
+    $deptResolver = \App\Services\DepartmentResolver::getInstance();
+    $userDeptName = $deptResolver->resolveDepartmentName();
+
+    if (!$isAdmin) {
+        $reportRows = array_values(array_filter($reportRows, function($row) use ($isHeadRole, $userDeptName) {
+            return strcasecmp($row['facility'] ?? '', $userDeptName) === 0;
+        }));
+    }
 
     $recentActivity = [];
     try {
@@ -285,7 +336,13 @@ try {
         'report_rows' => $reportRows,
         'recent_reports' => $recentActivity,
         'total_count' => count($reportRows),
-        'timestamp' => date('Y-m-d H:i:s')
+        'timestamp' => date('Y-m-d H:i:s'),
+        'user_scope' => [
+            'is_admin' => $isAdmin,
+            'is_director' => $isHeadRole && !$isAdmin,
+            'is_staff' => !$isAdmin && !$isHeadRole,
+            'department' => $userDeptName ?? 'All Departments'
+        ]
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
 } catch (Throwable $e) {

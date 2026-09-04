@@ -133,11 +133,11 @@ class ExportService
         // Header Row
         $colIndex = 1;
         foreach ($headers as $h) {
-            $sheet->setCellValueByColumnAndRow($colIndex, 4, (string)$h);
+            $sheet->setCellValue([$colIndex, 4], (string)$h);
             $colIndex++;
         }
         $lastCol = $colIndex > 1 ? $colIndex - 1 : 1;
-        $sheet->getStyleByColumnAndRow(1, 4, $lastCol, 4)->applyFromArray([
+        $sheet->getStyle([1, 4, $lastCol, 4])->applyFromArray([
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '176B87']],
             'alignment' => ['vertical' => Alignment::VERTICAL_CENTER],
@@ -149,7 +149,7 @@ class ExportService
             $colIdx = 1;
             foreach ($row as $val) {
                 $sanitized = self::sanitizeCellValue($val);
-                $sheet->setCellValueByColumnAndRow($colIdx, $rowIndex, $sanitized);
+                $sheet->setCellValue([$colIdx, $rowIndex], $sanitized);
                 $colIdx++;
             }
             $rowIndex++;

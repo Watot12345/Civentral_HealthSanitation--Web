@@ -87,6 +87,7 @@ try {
                 'type'        => $input['type'] ?? 'inspection',
                 'status'      => $input['status'] ?? 'active',
                 'description' => trim($input['description'] ?? ''),
+                'config'      => $input['config'] ?? null,
                 'updated'     => date('Y-m-d')
             ];
 
@@ -114,6 +115,7 @@ try {
                     if (isset($input['type'])) $t['type'] = $input['type'];
                     if (isset($input['status'])) $t['status'] = $input['status'];
                     if (isset($input['description'])) $t['description'] = trim($input['description']);
+                    if (isset($input['config'])) $t['config'] = $input['config'];
                     $t['updated'] = date('Y-m-d');
                     $found = true;
                     break;

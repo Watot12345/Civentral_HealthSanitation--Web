@@ -15,6 +15,7 @@ class PermissionService
         'dashboard.view', 'dashboard.system_admin', 'dashboard.health_center', 'dashboard.sanitation', 'dashboard.immunization', 'dashboard.wastewater', 'dashboard.surveillance',
         'analytics.view', 'analytics.health_center', 'analytics.sanitation', 'analytics.immunization', 'analytics.wastewater', 'analytics.surveillance',
         'reports.view', 'reports.health_center', 'reports.sanitation', 'reports.immunization', 'reports.wastewater', 'reports.surveillance',
+        'reports.generate', 'reports.export', 'reports.template.use', 'reports.template.create', 'reports.template.edit', 'reports.template.delete', 'reports.all_departments', 'reports.all_facilities', 'reports.analytics',
         'compliance.view', 'compliance.admin_only',
         'patients.view', 'patients.create', 'patients.edit', 'patients.delete',
         'consultations.view', 'consultations.create', 'triage.view', 'triage.create',
@@ -398,8 +399,10 @@ class PermissionService
                         $grantedSlugs[] = $p['slug'];
                     }
                 }
-            } else {
-                // Baseline matrix defaults if role not found in database
+            }
+            
+            if (empty($grantedSlugs)) {
+                // Baseline matrix defaults if role not found in database or has no permissions configured
                 $matrix = self::defaultRolePermissionMatrix();
                 foreach ($matrix as $rName => $slugs) {
                     $rNorm = self::normalizeRoleTitle($rName);
@@ -504,7 +507,7 @@ class PermissionService
                 'patients.view', 'consultations.view', 'prescriptions.view'
             ],
             'Medical Records Clerk' => [
-                'dashboard.view', 'dashboard.health_center',
+                'dashboard.view', 'dashboard.health_center', 'reports.view', 'reports.health_center',
                 'patients.view', 'patients.create', 'patients.edit'
             ],
             'Appointment Clerk' => [
@@ -525,7 +528,7 @@ class PermissionService
             ],
             'Permit Clerk' => [
                 'dashboard.view', 'dashboard.sanitation',
-                'permits.view', 'permits.create', 'inspections.view'
+                'reports.view', 'reports.sanitation', 'permits.view', 'permits.create', 'inspections.view'
             ],
             'Cashier' => [
                 'dashboard.view', 'dashboard.sanitation', 'permits.view'
@@ -623,6 +626,24 @@ class PermissionService
         if ($slug === 'view_ai_analytics' && (in_array('analytics.view', $granted, true) || in_array('view_ai_analytics', $granted, true))) {
             return true;
         }
+
+        // Dynamic capability mappings for report permissions
+        if ($slug === 'reports.generate' || $slug === 'reports.export' || $slug === 'reports.template.use') {
+            return in_array('reports.view', $granted, true) || in_array($slug, $granted, true);
+        }
+        if ($slug === 'reports.all_departments' || $slug === 'reports.all_facilities') {
+            return in_array($slug, $granted, true); // Admin already bypassed above; non-admin only if explicit
+        }
+        if ($slug === 'reports.analytics') {
+            return in_array('analytics.view', $granted, true) || in_array('reports.analytics', $granted, true);
+        }
+        if ($slug === 'reports.template.create') {
+            return $this->isHeadOrAdminRole($userRoleDesc) || $this->isHeadOrAdminRole($userRole) || in_array('reports.template.create', $granted, true);
+        }
+        if ($slug === 'reports.template.edit' || $slug === 'reports.template.delete') {
+            return in_array($slug, $granted, true);
+        }
+
         return in_array($slug, $granted, true);
     }
 

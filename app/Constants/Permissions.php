@@ -9,6 +9,15 @@ class Permissions
     public const DASHBOARD_VIEW   = 'dashboard.view';
     public const ANALYTICS_VIEW   = 'analytics.view';
     public const REPORTS_VIEW     = 'reports.view';
+    public const REPORTS_GENERATE = 'reports.generate';
+    public const REPORTS_EXPORT   = 'reports.export';
+    public const REPORTS_TEMPLATE_USE    = 'reports.template.use';
+    public const REPORTS_TEMPLATE_CREATE = 'reports.template.create';
+    public const REPORTS_TEMPLATE_EDIT   = 'reports.template.edit';
+    public const REPORTS_TEMPLATE_DELETE = 'reports.template.delete';
+    public const REPORTS_ALL_DEPARTMENTS = 'reports.all_departments';
+    public const REPORTS_ALL_FACILITIES  = 'reports.all_facilities';
+    public const REPORTS_ANALYTICS       = 'reports.analytics';
     public const COMPLIANCE_VIEW  = 'compliance.view';
 
     // Role-specific Dashboard Views (6)
