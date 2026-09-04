@@ -110,10 +110,14 @@ class Database
 
         if (self::$curlHandle === null || (!is_resource(self::$curlHandle) && !(self::$curlHandle instanceof \CurlHandle))) {
             self::$curlHandle = curl_init();
+            $timeout = (int)(Env::get('DB_CONNECTION_TIMEOUT') ?: 15);
+            $idleTimeout = (int)(Env::get('DB_MAX_IDLE_TIMEOUT') ?: 120);
+
             curl_setopt(self::$curlHandle, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt(self::$curlHandle, CURLOPT_TIMEOUT, 15);
+            curl_setopt(self::$curlHandle, CURLOPT_TIMEOUT, $timeout);
+            curl_setopt(self::$curlHandle, CURLOPT_CONNECTTIMEOUT, min(5, $timeout));
             curl_setopt(self::$curlHandle, CURLOPT_TCP_KEEPALIVE, 1);
-            curl_setopt(self::$curlHandle, CURLOPT_TCP_KEEPIDLE, 120);
+            curl_setopt(self::$curlHandle, CURLOPT_TCP_KEEPIDLE, $idleTimeout);
             curl_setopt(self::$curlHandle, CURLOPT_TCP_KEEPINTVL, 60);
             curl_setopt(self::$curlHandle, CURLOPT_FORBID_REUSE, false);
             curl_setopt(self::$curlHandle, CURLOPT_SSL_VERIFYPEER, true);

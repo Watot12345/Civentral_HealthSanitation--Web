@@ -1839,25 +1839,29 @@ $title = 'Child Records';
     // ============================================================
     async function exportChild(id) {
         try {
-            toast.info('Preparing export...');
+            toast.info('Preparing PDF export...');
             const response = await fetch(`${API_BASE}?id=${id}&export=pdf`);
-            const result = await response.json();
 
-            if (!response.ok || !result.success) {
-                throw new Error(result.message || 'Export failed');
+            if (!response.ok) {
+                let errMsg = 'Export failed';
+                try {
+                    const json = await response.json();
+                    errMsg = json.message || errMsg;
+                } catch (e) {}
+                throw new Error(errMsg);
             }
 
-            const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+            const blob = await response.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `child_${id}_export.json`;
+            a.download = `child_${id}_immunization.pdf`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            toast.success('Export downloaded successfully');
+            toast.success('Immunization card PDF downloaded successfully');
         } catch (err) {
             toast.error(err.message || 'Export failed');
         }

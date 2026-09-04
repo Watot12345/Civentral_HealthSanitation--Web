@@ -187,6 +187,16 @@ class SessionAuthService
 
             $employee = $employees[0];
 
+            // Enforce active employment status check before activating session
+            $empStatus = strtolower(trim($employee['status'] ?? 'active'));
+            if (!empty($employee['status']) && $empStatus !== 'active') {
+                return [
+                    'success' => false,
+                    'error_type' => 'account_inactive',
+                    'message' => "Access Denied: Account status is '" . ucfirst($employee['status']) . "'. Please contact System Administrator or HR."
+                ];
+            }
+
             // Activate session in PHP $_SESSION
             if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
                 @session_start();
@@ -262,4 +272,94 @@ class SessionAuthService
             return ['success' => false, 'message' => 'Verification failed due to a system error.'];
         }
     }
+
+    /**
+     * Validates an active session token stored in civentral_session cookie
+     * and restores the user's $_SESSION if valid.
+     */
+    public function validateActiveToken(string $sessionToken): bool
+    {
+        $sessionToken = trim($sessionToken);
+        if (empty($sessionToken)) {
+            return false;
+        }
+
+        try {
+            $db = Database::getInstance();
+            $sessions = $db->select('user_sessions', ['session_token' => $sessionToken], [], true);
+
+            if (empty($sessions)) {
+                $this->clearSessionCookie();
+                return false;
+            }
+
+            $session = $sessions[0];
+
+            // Validate expiration time
+            if (!empty($session['expires_at']) && strtotime($session['expires_at']) <= time()) {
+                $this->clearSessionCookie();
+                return false;
+            }
+
+            $empId = (int)($session['employee_id'] ?? 0);
+            if ($empId <= 0) {
+                $this->clearSessionCookie();
+                return false;
+            }
+
+            $employees = $db->select('employees', ['id' => $empId]);
+            if (empty($employees)) {
+                $this->clearSessionCookie();
+                return false;
+            }
+
+            $employee = $employees[0];
+
+            // Verify employee active status
+            $empStatus = strtolower(trim($employee['status'] ?? 'active'));
+            if (!empty($employee['status']) && $empStatus !== 'active') {
+                $this->clearSessionCookie();
+                return false;
+            }
+
+            if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+                @session_start();
+            }
+
+            $functionalRole = $employee['role_description'] ?? $employee['role'] ?? 'Employee';
+
+            $_SESSION['user_id']          = $employee['id'];
+            $_SESSION['employee_id']      = $employee['employee_id'] ?? $employee['username'];
+            $_SESSION['full_name']        = $employee['full_name'];
+            $_SESSION['user_full_name']   = $employee['full_name'];
+            $_SESSION['department']       = $employee['department'] ?? '';
+            $_SESSION['user_department']  = $employee['department'] ?? '';
+            $_SESSION['role']             = $functionalRole;
+            $_SESSION['role_description'] = $functionalRole;
+            $_SESSION['user_role']        = $functionalRole;
+            $_SESSION['session_token']    = $sessionToken;
+            $_SESSION['session_expires']  = $session['expires_at'] ?? null;
+            $_SESSION['logged_in']        = true;
+            $_SESSION['last_activity']    = time();
+
+            return true;
+        } catch (\Throwable $e) {
+            error_log('SessionAuthService validateActiveToken error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Clears invalid or expired session cookie.
+     */
+    private function clearSessionCookie(): void
+    {
+        if (isset($_COOKIE['civentral_session'])) {
+            unset($_COOKIE['civentral_session']);
+            if (!headers_sent()) {
+                setcookie('civentral_session', '', time() - 3600, '/', '', false, true);
+            }
+        }
+    }
 }
+

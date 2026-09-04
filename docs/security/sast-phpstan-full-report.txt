@@ -1,0 +1,95 @@
+ ------ ------------------------------------------- 
+  Line   app/Controllers/PatientController.php      
+ ------ ------------------------------------------- 
+  195    Anonymous function has an unused use $id.  
+         🪪  closure.unusedUse                      
+ ------ ------------------------------------------- 
+
+ ------ ----------------------------------------------------------------- 
+  Line   app/Models/ActivityLog.php                                       
+ ------ ----------------------------------------------------------------- 
+  464    Variable $deviceType in empty() always exists and is not falsy.  
+         🪪  empty.variable                                               
+  468    Variable $deviceType in empty() always exists and is not falsy.  
+         🪪  empty.variable                                               
+ ------ ----------------------------------------------------------------- 
+
+ ------ ---------------------------------------- 
+  Line   app/Models/Employee.php                 
+ ------ ---------------------------------------- 
+  283    Variable $idList might not be defined.  
+         🪪  variable.undefined                  
+ ------ ---------------------------------------- 
+
+ ------ -------------------------------------------------------------------- 
+  Line   app/Models/Payment.php                                              
+ ------ -------------------------------------------------------------------- 
+  166    Deprecated in PHP 8.4: Parameter #2 $reason (string) is implicitly  
+         nullable via default value null.                                    
+         🪪  parameter.implicitlyNullable                                    
+  180    Deprecated in PHP 8.4: Parameter #2 $reason (string) is implicitly  
+         nullable via default value null.                                    
+         🪪  parameter.implicitlyNullable                                    
+ ------ -------------------------------------------------------------------- 
+
+ ------ ----------------------------------------------------------------------- 
+  Line   app/services/AiAnalyticsService.php                                    
+ ------ ----------------------------------------------------------------------- 
+  89     Method AiAnalyticsService::calculatePerformanceMetrics() invoked with  
+         2 parameters, 1 required.                                              
+         🪪  arguments.count                                                    
+  1703   Variable $code on left side of ?? always exists and is not nullable.   
+         🪪  nullCoalesce.variable                                              
+ ------ ----------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------- 
+  Line   app/services/DashboardService.php                            
+ ------ ------------------------------------------------------------- 
+  110    Deprecated in PHP 8.4: Parameter #2 $filterFn (callable) is  
+         implicitly nullable via default value null.                  
+         🪪  parameter.implicitlyNullable                             
+ ------ ------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------- 
+  Line   app/services/MailService.php                                          
+ ------ ---------------------------------------------------------------------- 
+  38     Access to constant ENCRYPTION_SMTPS on an unknown class               
+         PHPMailer\PHPMailer\PHPMailer.                                        
+         🪪  class.notFound                                                    
+         💡  Learn more at https://phpstan.org/user-guide/discovering-symbols  
+  42     Access to constant ENCRYPTION_STARTTLS on an unknown class            
+         PHPMailer\PHPMailer\PHPMailer.                                        
+         🪪  class.notFound                                                    
+         💡  Learn more at https://phpstan.org/user-guide/discovering-symbols  
+  72     Instantiated class PHPMailer\PHPMailer\PHPMailer not found.           
+         🪪  class.notFound                                                    
+         💡  Learn more at https://phpstan.org/user-guide/discovering-symbols  
+  91     Caught class PHPMailer\PHPMailer\Exception not found.                 
+         🪪  class.notFound                                                    
+         💡  Learn more at https://phpstan.org/user-guide/discovering-symbols  
+  167    Instantiated class PHPMailer\PHPMailer\PHPMailer not found.           
+         🪪  class.notFound                                                    
+         💡  Learn more at https://phpstan.org/user-guide/discovering-symbols  
+  188    Caught class PHPMailer\PHPMailer\Exception not found.                 
+         🪪  class.notFound                                                    
+         💡  Learn more at https://phpstan.org/user-guide/discovering-symbols  
+ ------ ---------------------------------------------------------------------- 
+
+ ------ ------------------------------------------------------------------ 
+  Line   config/database.php                                               
+ ------ ------------------------------------------------------------------ 
+  234    Variable $queryParams in empty() always exists and is not falsy.  
+         🪪  empty.variable                                                
+ ------ ------------------------------------------------------------------ 
+
+ ------ ----------------------------------------------------------------- 
+  Line   config/paths.php                                                 
+ ------ ----------------------------------------------------------------- 
+  186    Variable $deviceType in empty() always exists and is not falsy.  
+         🪪  empty.variable                                               
+  190    Variable $deviceType in empty() always exists and is not falsy.  
+         🪪  empty.variable                                               
+ ------ ----------------------------------------------------------------- 
+
+ [ERROR] Found 18 errors                                                        
+

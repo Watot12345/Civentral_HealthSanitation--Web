@@ -18,7 +18,12 @@ require_once '../includes/sidebar.php';
 // ACTIVITY LOGS & SYSTEM LOGS - Segregated Query
 // ============================================================
 require_once __DIR__ . '/../app/Models/ActivityLog.php';
+require_once __DIR__ . '/../app/Models/SchedulerLog.php';
 $activityLogModel = new ActivityLog();
+$schedulerLogModel = new SchedulerLog();
+$schedulerLogs = $schedulerLogModel->all(['limit' => 150]);
+$schedulerStats = $schedulerLogModel->getStats();
+$totalScheduler  = count($schedulerLogs);
 
 $isSystemAdmin = hasPermission(App\Constants\Permissions::ROLES_MANAGE) || getPermissionService()->isAdminRole($_SESSION['role'] ?? '') || getPermissionService()->isAdminRole($_SESSION['role_description'] ?? '');
 
@@ -84,12 +89,15 @@ $title = 'System Logs';
             <div class="flex items-center gap-3 mb-1">
                 <h2 class="text-2xl font-black text-slate-900 tracking-tight">System Logs</h2>
                 <span class="px-3 py-1 bg-brand-light text-brand-dark rounded-full text-xs font-bold flex items-center gap-1">
-                    <i class="fa-solid fa-clock-rotate-left"></i> <?php echo $totalAudit + $totalActivities + $totalErrors; ?> Total Logs
+                    <i class="fa-solid fa-clock-rotate-left"></i> <?php echo $totalAudit + $totalActivities + $totalErrors + $totalScheduler; ?> Total Logs
                 </span>
             </div>
-            <p class="text-sm text-slate-500 mt-0.5">Audit trail, activity logs, error logs &amp; log search</p>
+            <p class="text-sm text-slate-500 mt-0.5">Audit trail, operational logs, error tracking &amp; background scheduler logs</p>
         </div>
         <div class="flex gap-3 flex-wrap">
+            <button onclick="runSchedulerNow()" id="btnRunScheduler" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-semibold flex items-center gap-2 shadow-sm">
+                <i class="fa-solid fa-play text-xs"></i> Run Scheduler Now
+            </button>
             <button onclick="exportLogs()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-file-export text-xs"></i> Export Logs
             </button>
@@ -202,11 +210,13 @@ $title = 'System Logs';
                         <option value="audit">Audit Trail</option>
                         <option value="activity">Activity Logs</option>
                         <option value="error">Error Logs</option>
+                        <option value="scheduler">Scheduler Logs</option>
                     </select>
                     <select id="logStatusFilter" onchange="filterLogs()" class="px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                         <option value="all">All Status</option>
                         <option value="Success">Success</option>
                         <option value="Failed">Failed</option>
+                        <option value="Running">Running</option>
                         <option value="Resolved">Resolved</option>
                         <option value="Open">Open</option>
                     </select>
@@ -238,6 +248,10 @@ $title = 'System Logs';
         <button onclick="switchTab('error')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition" id="tab-error">
             <i class="fa-solid fa-bug"></i> Error Logs
             <span class="ml-1.5 px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px]"><?php echo $totalErrors; ?></span>
+        </button>
+        <button onclick="switchTab('scheduler')" class="tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition" id="tab-scheduler">
+            <i class="fa-solid fa-clock-rotate-left"></i> Scheduler Logs
+            <span class="ml-1.5 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-bold"><?php echo $totalScheduler; ?></span>
         </button>
     </div>
 
@@ -449,7 +463,185 @@ $title = 'System Logs';
             </div>
         </div>
     </div>
-</div>
+
+    <!-- ============================================================ -->
+    <!-- TAB CONTENT: SCHEDULER LOGS                                -->
+    <!-- ============================================================ -->
+    <div id="schedulerContent" class="tab-content hidden">
+        <!-- Scheduler KPIs / Summary Strip -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Runs</p>
+                        <p class="text-xl font-black text-slate-900 mt-1"><?php echo $schedulerStats['total']; ?></p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-list-check"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Success Rate</p>
+                        <p class="text-xl font-black text-emerald-600 mt-1"><?php echo $schedulerStats['success_rate']; ?>%</p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Failed Jobs</p>
+                        <p class="text-xl font-black <?php echo $schedulerStats['failed'] > 0 ? 'text-red-600' : 'text-slate-700'; ?> mt-1"><?php echo $schedulerStats['failed']; ?></p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Run</p>
+                        <p class="text-xs font-bold text-slate-800 mt-1.5"><?php echo $schedulerStats['last_run'] ? date('M d, h:i A', strtotime($schedulerStats['last_run'])) : 'None'; ?></p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scheduler Job Launcher Quick Strip -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt text-amber-500"></i> Quick Trigger:
+                </span>
+                <button onclick="runSchedulerNow('permit_renewals')" class="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-contract text-blue-500"></i> Permit Renewals
+                </button>
+                <button onclick="runSchedulerNow('surveillance_thresholds')" class="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-shield-virus text-purple-500"></i> Surveillance Thresholds
+                </button>
+                <button onclick="runSchedulerNow('scheduled_reports')" class="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-chart-pie text-amber-500"></i> Scheduled Reports
+                </button>
+                <button onclick="runSchedulerNow('system_maintenance')" class="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-semibold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-broom text-emerald-500"></i> System Cleanup
+                </button>
+            </div>
+            <span class="text-[11px] text-slate-400 font-mono">Runner: bin/scheduler.php</span>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i>
+                    Scheduled Job Runs &amp; Background Execution Logs
+                    <span class="text-xs font-normal text-slate-400">(<?php echo $totalScheduler; ?> entries)</span>
+                </h3>
+                <span class="text-xs text-slate-400">Automated permit renewal notices, surveillance outbreak checks &amp; reports</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200">
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Run ID</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Job Name</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Trigger Source</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Summary / Output</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Duration</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Timestamp</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                            <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <?php if (empty($schedulerLogs)): ?>
+                        <tr>
+                            <td colspan="8" class="text-center py-8 text-slate-400 text-xs font-medium">
+                                No scheduler log entries found. Click <strong>"Run Scheduler Now"</strong> to trigger background processing.
+                            </td>
+                        </tr>
+                        <?php endif; ?>
+                        <?php foreach ($schedulerLogs as $log): 
+                            $jobBadgeColor = 'bg-slate-100 text-slate-700';
+                            $jobName = $log['job_name'] ?? 'Job';
+                            if (stripos($jobName, 'Permit') !== false) {
+                                $jobBadgeColor = 'bg-blue-100 text-blue-700';
+                            } elseif (stripos($jobName, 'Surveillance') !== false) {
+                                $jobBadgeColor = 'bg-purple-100 text-purple-700';
+                            } elseif (stripos($jobName, 'Report') !== false) {
+                                $jobBadgeColor = 'bg-amber-100 text-amber-700';
+                            } elseif (stripos($jobName, 'Maintenance') !== false) {
+                                $jobBadgeColor = 'bg-emerald-100 text-emerald-700';
+                            } elseif (stripos($jobName, 'Master') !== false) {
+                                $jobBadgeColor = 'bg-indigo-100 text-indigo-700';
+                            }
+
+                            $logStatus = ucfirst(strtolower($log['status'] ?? 'unknown'));
+                            $statusBadge = 'bg-slate-100 text-slate-700';
+                            if ($logStatus === 'Success') {
+                                $statusBadge = 'bg-emerald-100 text-emerald-700';
+                            } elseif ($logStatus === 'Failed') {
+                                $statusBadge = 'bg-red-100 text-red-700';
+                            } elseif ($logStatus === 'Running') {
+                                $statusBadge = 'bg-blue-100 text-blue-700 animate-pulse';
+                            }
+
+                            $durationMs = (int)($log['duration_ms'] ?? 0);
+                            $durationFormatted = $durationMs >= 1000 ? round($durationMs / 1000, 2) . 's' : $durationMs . 'ms';
+                            $runDate = !empty($log['created_at']) ? date('M d, Y h:i A', strtotime($log['created_at'])) : date('M d, Y h:i A');
+                            $displayId = is_numeric($log['id'] ?? null) ? ('SCH-' . sprintf('%04d', (int)$log['id'])) : (string)($log['id'] ?? 'SCH-0001');
+
+                            $rawOutput = $log['output'] ?? ($log['error_message'] ?? 'No output captured');
+                            $trimmedOutput = strlen($rawOutput) > 80 ? substr($rawOutput, 0, 77) . '...' : $rawOutput;
+                        ?>
+                        <tr class="border-b border-slate-100 hover:bg-slate-50 transition log-row scheduler-log-row" data-type="scheduler" data-status="<?php echo $logStatus; ?>">
+                            <td class="px-4 py-3 font-mono font-semibold text-slate-700 text-xs">
+                                <?php echo htmlspecialchars($displayId, ENT_QUOTES); ?>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-2.5 py-1 <?php echo $jobBadgeColor; ?> rounded-lg text-xs font-bold">
+                                    <?php echo htmlspecialchars($jobName, ENT_QUOTES); ?>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[11px] font-mono">
+                                    <?php echo htmlspecialchars($log['triggered_by'] ?? 'cron', ENT_QUOTES); ?>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-slate-600 text-xs max-w-[280px] truncate" title="<?php echo htmlspecialchars($rawOutput, ENT_QUOTES); ?>">
+                                <?php echo htmlspecialchars($trimmedOutput, ENT_QUOTES); ?>
+                            </td>
+                            <td class="px-4 py-3 font-mono text-xs text-slate-600">
+                                <?php echo $durationFormatted; ?>
+                            </td>
+                            <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
+                                <?php echo $runDate; ?>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-2.5 py-0.5 <?php echo $statusBadge; ?> rounded-full text-xs font-bold">
+                                    <?php echo $logStatus; ?>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <button onclick="viewSchedulerOutput('<?php echo htmlspecialchars($log['id'], ENT_QUOTES); ?>')" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium transition px-2 py-1 hover:bg-indigo-50 rounded flex items-center gap-1">
+                                    <i class="fa-solid fa-file-code"></i> Details
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
 <!-- ============================================================ -->
 <!-- ERROR DETAILS MODAL                                        -->
@@ -471,6 +663,26 @@ $title = 'System Logs';
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- SCHEDULER OUTPUT DETAILS MODAL                             -->
+<!-- ============================================================ -->
+<div id="schedulerOutputModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i>
+                Job Execution Output Details
+            </h3>
+            <button onclick="closeModal('schedulerOutputModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6" id="schedulerOutputContent">
+            <!-- Dynamic content loaded via JavaScript -->
+        </div>
+    </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
     <i class="fa-solid fa-circle-check"></i>
@@ -480,6 +692,7 @@ $title = 'System Logs';
 <script>
     // PHP Data to JavaScript
     const ERROR_LOGS = <?php echo json_encode($errorLogs); ?>;
+    const SCHEDULER_LOGS = <?php echo json_encode($schedulerLogs); ?>;
 
     // ============================================================
     // TAB SWITCHING
@@ -492,8 +705,10 @@ $title = 'System Logs';
         });
         
         const tabBtn = document.getElementById('tab-' + tab);
-        tabBtn.classList.add('active', 'border-brand-dark', 'text-brand-dark');
-        tabBtn.classList.remove('border-transparent', 'text-slate-500');
+        if (tabBtn) {
+            tabBtn.classList.add('active', 'border-brand-dark', 'text-brand-dark');
+            tabBtn.classList.remove('border-transparent', 'text-slate-500');
+        }
         
         // Show/hide content
         document.querySelectorAll('.tab-content').forEach(content => {
@@ -506,8 +721,131 @@ $title = 'System Logs';
             document.getElementById('activityContent').classList.remove('hidden');
         } else if (tab === 'error') {
             document.getElementById('errorContent').classList.remove('hidden');
+        } else if (tab === 'scheduler') {
+            document.getElementById('schedulerContent').classList.remove('hidden');
         }
     }
+
+    // ============================================================
+    // RUN SCHEDULER NOW
+    // ============================================================
+    function runSchedulerNow(jobKey = 'all') {
+        const btn = document.getElementById('btnRunScheduler');
+        const originalHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i> Running...';
+        }
+        showToast('⚡ Executing background job: ' + jobKey + '...', 'info');
+
+        fetch('../api/scheduler/run.php?job=' + encodeURIComponent(jobKey), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ job: jobKey })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success || data.status === 'success') {
+                showToast('✅ Background processing finished (' + (data.duration_ms || 0) + 'ms)', 'success');
+                setTimeout(() => {
+                    window.location.href = window.location.pathname + '?tab=scheduler';
+                }, 800);
+            } else {
+                showToast('⚠️ Scheduler issue: ' + (data.message || data.error_message || 'Check logs'), 'warning');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showToast('❌ Failed to trigger scheduler endpoint', 'danger');
+        })
+        .finally(() => {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        });
+    }
+
+    // ============================================================
+    // VIEW SCHEDULER OUTPUT DETAILS
+    // ============================================================
+    function viewSchedulerOutput(logId) {
+        const log = SCHEDULER_LOGS.find(l => String(l.id) === String(logId));
+        if (!log) {
+            showToast('Log record not found', 'warning');
+            return;
+        }
+
+        const container = document.getElementById('schedulerOutputContent');
+        if (!container) return;
+
+        let outputDisplay = log.output || 'No output recorded';
+        try {
+            const parsed = JSON.parse(outputDisplay);
+            outputDisplay = JSON.stringify(parsed, null, 2);
+        } catch (e) {
+            // Raw string
+        }
+
+        const statusClass = (log.status || '').toLowerCase() === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700';
+
+        container.innerHTML = `
+            <div class="space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div>
+                        <span class="text-xs text-slate-400 font-mono">Job Identifier</span>
+                        <h4 class="text-base font-bold text-slate-800">${log.job_name}</h4>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-xs font-bold ${statusClass}">
+                        ${(log.status || 'unknown').toUpperCase()}
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 text-xs">
+                    <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <span class="text-slate-400 block font-semibold mb-0.5">Execution Source</span>
+                        <span class="font-mono text-slate-700 font-bold">${log.triggered_by || 'cron'}</span>
+                    </div>
+                    <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <span class="text-slate-400 block font-semibold mb-0.5">Duration</span>
+                        <span class="font-mono text-slate-700 font-bold">${log.duration_ms || 0} ms</span>
+                    </div>
+                    <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <span class="text-slate-400 block font-semibold mb-0.5">Started At</span>
+                        <span class="font-mono text-slate-700">${log.started_at || '—'}</span>
+                    </div>
+                    <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                        <span class="text-slate-400 block font-semibold mb-0.5">Completed At</span>
+                        <span class="font-mono text-slate-700">${log.completed_at || log.started_at || '—'}</span>
+                    </div>
+                </div>
+
+                ${log.error_message ? `
+                <div>
+                    <label class="block text-xs font-bold text-red-600 uppercase tracking-wider mb-1">Error Trace</label>
+                    <pre class="bg-red-50 text-red-700 p-3 rounded-xl text-xs font-mono border border-red-200 overflow-x-auto whitespace-pre-wrap">${log.error_message}</pre>
+                </div>` : ''}
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Output / Processed Records Payload</label>
+                    <pre class="bg-slate-900 text-emerald-400 p-4 rounded-xl text-xs font-mono max-h-64 overflow-y-auto whitespace-pre-wrap">${outputDisplay}</pre>
+                </div>
+            </div>
+        `;
+
+        openModal('schedulerOutputModal');
+    }
+
+    // Auto-switch tab if URL param is set
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tab = urlParams.get('tab');
+        if (tab && ['audit', 'activity', 'error', 'scheduler'].includes(tab)) {
+            switchTab(tab);
+        }
+    });
 
     // ============================================================
     // SEARCH LOGS

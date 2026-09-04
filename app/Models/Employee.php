@@ -2,6 +2,7 @@
 // app/Models/Employee.php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../helpers/EncryptionHelper.php';
 
 class Employee
 {
@@ -88,7 +89,8 @@ class Employee
         if (empty($data['role_id'])) {
             $data['role_id'] = $this->resolveRoleId($data);
         }
-        return $this->db->insert($this->table, $data, true);
+        $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+        return $this->db->insert($this->table, $encryptedData, true);
     }
 
     public function updateById(string|int $id, array $data): array
@@ -96,7 +98,21 @@ class Employee
         if (empty($data['role_id']) && (!empty($data['role_description']) || !empty($data['role']))) {
             $data['role_id'] = $this->resolveRoleId($data);
         }
-        return $this->db->update($this->table, $data, ['id' => 'eq.' . $id], true);
+        $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+        return $this->db->update($this->table, $encryptedData, ['id' => 'eq.' . $id], true);
+    }
+
+    public function findByEmployeeId(string $employeeId): ?array
+    {
+        try {
+            $result = $this->db->select($this->table, ['employee_id' => $employeeId]);
+            if (empty($result)) {
+                $result = $this->db->select($this->table, ['username' => $employeeId]);
+            }
+            return !empty($result) ? $this->normalizeEmployee($result[0]) : null;
+        } catch (Throwable $e) {
+            return null;
+        }
     }
 
 
@@ -230,6 +246,7 @@ class Employee
         }
 
         // Ensure other fields exist for compatibility
+        $employee = EncryptionHelper::decryptModel($this->table, $employee);
         $employee['first_name'] = $employee['full_name'];
         $employee['last_name'] = '';
         $employee['username']  = $employee['username'] ?? $employee['employee_id'] ?? '';

@@ -4,11 +4,17 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 require_once __DIR__ . '/../config/paths.php';
 
-// Auto-restore session from active 12h/7d civentral_session cookie if PHP session expired
-if (empty($_SESSION['logged_in']) && !empty($_COOKIE['civentral_session'])) {
-    require_once __DIR__ . '/../app/services/SessionAuthService.php';
-    $authSvc = new SessionAuthService();
-    $authSvc->validateActiveToken($_COOKIE['civentral_session']);
+// Auto-restore session from active cookie (civentral_remember or civentral_session) if PHP session expired
+if (empty($_SESSION['logged_in'])) {
+    if (!empty($_COOKIE['civentral_remember'])) {
+        require_once __DIR__ . '/../app/services/RememberMeService.php';
+        \App\Services\RememberMeService::processAutoLogin();
+    }
+    if (empty($_SESSION['logged_in']) && !empty($_COOKIE['civentral_session'])) {
+        require_once __DIR__ . '/../app/services/SessionAuthService.php';
+        $authSvc = new SessionAuthService();
+        $authSvc->validateActiveToken($_COOKIE['civentral_session']);
+    }
 }
 
 if (empty($_SESSION['logged_in'])) {

@@ -93,6 +93,14 @@ $router->post('/settings/test-sms', [\NotificationController::class, 'testSms'])
 $router->post('/settings/backup', [\BackupController::class, 'runBackup']);
 $router->post('/settings/restore', [\BackupController::class, 'restore']);
 
+
+// Consent Management Routes (DPA Compliance)
+require_once __DIR__ . '/../app/Controllers/ConsentController.php';
+$router->post('/consent/withdraw', [\ConsentController::class, 'withdraw']);
+$router->post('/consent', [\ConsentController::class, 'store']);
+$router->get('/consent', [\ConsentController::class, 'index']);
+
+
 // Strip a leading /api prefix if the web server passes the full path through.
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
 $uri = preg_replace('#^/api#', '', parse_url($uri, PHP_URL_PATH) ?: '/') ?: '/';

@@ -804,3 +804,16 @@ CREATE TABLE public.vaccine_inventory (
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT vaccine_inventory_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.scheduler_logs (
+  id bigint NOT NULL DEFAULT nextval('scheduler_logs_id_seq'::regclass),
+  job_name character varying(100) NOT NULL,
+  status character varying(50) NOT NULL DEFAULT 'running'::character varying,
+  triggered_by character varying(100) NOT NULL DEFAULT 'cron'::character varying,
+  output text,
+  error_message text,
+  started_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at timestamp with time zone,
+  duration_ms integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT scheduler_logs_pkey PRIMARY KEY (id)
+);

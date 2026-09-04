@@ -15,14 +15,25 @@ class PatientController extends BaseController
     
     public function index(): void
     {
-        $patients = $this->patientModel->all(['order' => 'created_at.desc']);
+        $limit = isset($_GET['limit']) ? min((int)$_GET['limit'], 200) : 50;
+        $offset = isset($_GET['offset']) ? max((int)$_GET['offset'], 0) : 0;
+
+        $options = [
+            'order'  => 'created_at.desc',
+            'limit'  => $limit,
+            'offset' => $offset
+        ];
+
+        $patients = $this->patientModel->all($options);
         $patients = array_map([$this, 'mapToFrontend'], $patients);
         
-        $this->handle(function() use ($patients) {
+        $this->handle(function() use ($patients, $limit, $offset) {
             return [
                 'success' => true,
-                'data' => $patients,
-                'total' => count($patients)
+                'data'    => $patients,
+                'total'   => count($patients),
+                'limit'   => $limit,
+                'offset'  => $offset
             ];
         });
     }

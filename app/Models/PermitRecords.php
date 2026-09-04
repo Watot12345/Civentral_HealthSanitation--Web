@@ -2,6 +2,7 @@
 // models/Permit.php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../helpers/EncryptionHelper.php';
 
 class Permit
 {
@@ -49,6 +50,7 @@ class Permit
         
         // Get paginated results
         $permits = $this->db->select('permits', $apiFilters, $options);
+        $permits = EncryptionHelper::decryptRows('permits', $permits);
 
         return [
             'permits' => $permits,
@@ -71,7 +73,7 @@ class Permit
             return null;
         }
 
-        $permit = $permits[0];
+        $permit = EncryptionHelper::decryptModel('permits', $permits[0]);
 
         // Get associated documents
         $docFilters = ['permit_id' => $id];
@@ -96,7 +98,8 @@ class Permit
         $data['created_at'] = date('Y-m-d H:i:s');
         $data['updated_at'] = date('Y-m-d H:i:s');
         
-        return $this->db->insert('permits', $data, true);
+        $encryptedData = EncryptionHelper::encryptModel('permits', $data);
+        return $this->db->insert('permits', $encryptedData, true);
     }
 
     /**
@@ -105,7 +108,8 @@ class Permit
     public function update(int $id, array $data): array
     {
         $data['updated_at'] = date('Y-m-d H:i:s');
-        return $this->db->update('permits', $data, ['id' => $id], true);
+        $encryptedData = EncryptionHelper::encryptModel('permits', $data);
+        return $this->db->update('permits', $encryptedData, ['id' => $id], true);
     }
 
     /**

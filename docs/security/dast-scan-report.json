@@ -1,0 +1,65 @@
+[
+  {
+    "endpoint": "/",
+    "status": 200,
+    "headers": {
+      "X-Frame-Options": "MISSING",
+      "X-Content-Type-Options": "MISSING",
+      "Content-Security-Policy": "MISSING",
+      "Strict-Transport-Security": "MISSING"
+    },
+    "vulnerabilities": []
+  },
+  {
+    "endpoint": "/index.php",
+    "status": 200,
+    "headers": {
+      "X-Frame-Options": "MISSING",
+      "X-Content-Type-Options": "MISSING",
+      "Content-Security-Policy": "MISSING",
+      "Strict-Transport-Security": "MISSING"
+    },
+    "vulnerabilities": []
+  },
+  {
+    "endpoint": "/login.php",
+    "status": 200,
+    "headers": {
+      "X-Frame-Options": "MISSING",
+      "X-Content-Type-Options": "MISSING",
+      "Content-Security-Policy": "MISSING",
+      "Strict-Transport-Security": "MISSING"
+    },
+    "vulnerabilities": []
+  },
+  {
+    "endpoint": "/logout.php",
+    "status": 200,
+    "headers": {
+      "X-Frame-Options": "MISSING",
+      "X-Content-Type-Options": "MISSING",
+      "Content-Security-Policy": "MISSING",
+      "Strict-Transport-Security": "MISSING"
+    },
+    "vulnerabilities": []
+  },
+  {
+    "endpoint": "/api/index.php",
+    "error": "HTTP Error 404: Not Found"
+  },
+  {
+    "test": "SQLi test",
+    "payload": "' OR '1'='1",
+    "critical_findings": []
+  },
+  {
+    "test": "XSS test",
+    "payload": "<script>alert(1)</script>",
+    "critical_findings": []
+  },
+  {
+    "test": "Path traversal test",
+    "payload": "../../etc/passwd",
+    "critical_findings": []
+  }
+]

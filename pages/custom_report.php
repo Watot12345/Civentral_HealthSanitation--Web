@@ -1823,10 +1823,26 @@ function exportCSV() {
 }
 
 function exportExcel() {
-    const html = getExportDocument(getReportExportMarkup(), 'Sanitation Compliance Report');
-    downloadBlob(html, 'compliance_report.xls', 'application/vnd.ms-excel');
-    logReportGeneration('Sanitation Compliance & Inspection Report', 'Excel Export');
-    showToast('Excel file exported successfully!', 'success');
+    const data = currentReportData();
+    const headers = ['Facility', 'Inspector', 'Date', 'Score', 'Status'];
+    const rows = data.map(r => [r.facility, r.inspector, r.date, r.score + '/100', r.status]);
+    const stamp = new Date().toISOString().slice(0, 10);
+
+    showToast('Generating Excel report...', 'info');
+    fetch('../api/reports/export.php?format=excel&title=Custom_Compliance_Report&module=Reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headers, rows })
+    }).then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.blob();
+    }).then(blob => {
+        downloadBlob(blob, `compliance_report_${stamp}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        logReportGeneration('Sanitation Compliance & Inspection Report', 'Excel Export');
+        showToast('Excel report downloaded successfully!', 'success');
+    }).catch(err => {
+        showToast('Excel export failed: ' + err.message, 'danger');
+    });
 }
 
 function exportWord() {
@@ -1837,23 +1853,26 @@ function exportWord() {
 }
 
 function exportPDF() {
-    const printWindow = window.open('', '_blank', 'width=900,height=700');
-    if (!printWindow) {
-        showToast('Please allow pop-ups to print the report as PDF.', 'info');
-        return;
-    }
+    const data = currentReportData();
+    const headers = ['Facility', 'Inspector', 'Date', 'Score', 'Status'];
+    const rows = data.map(r => [r.facility, r.inspector, r.date, r.score + '/100', r.status]);
+    const stamp = new Date().toISOString().slice(0, 10);
 
-    printWindow.document.open();
-    printWindow.document.write(getExportDocument(getReportExportMarkup(), 'Sanitation Compliance Report'));
-    printWindow.document.close();
-    printWindow.onload = () => {
-        setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
-        }, 300);
-    };
-    logReportGeneration('Sanitation Compliance & Inspection Report', 'PDF Export');
-    showToast('Print dialog opened. Choose "Save as PDF" to save the report.', 'info', 5000);
+    showToast('Generating PDF report...', 'info');
+    fetch('../api/reports/export.php?format=pdf&title=Custom_Compliance_Report&module=Reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ headers, rows })
+    }).then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.blob();
+    }).then(blob => {
+        downloadBlob(blob, `compliance_report_${stamp}.pdf`, 'application/pdf');
+        logReportGeneration('Sanitation Compliance & Inspection Report', 'PDF Export');
+        showToast('PDF report downloaded successfully!', 'success');
+    }).catch(err => {
+        showToast('PDF export failed: ' + err.message, 'danger');
+    });
 }
 
 // ─── RESET FILTERS ────────────────────────────────────────────

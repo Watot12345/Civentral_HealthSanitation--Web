@@ -2,6 +2,7 @@
 // app/Models/Patient.php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../helpers/EncryptionHelper.php';
 
 class Patient
 {
@@ -15,24 +16,31 @@ class Patient
 
     public function all(array $options = []): array
     {
-        return $this->db->select($this->table, [], $options);
+        try {
+            $results = $this->db->select($this->table, [], $options);
+            return EncryptionHelper::decryptRows($this->table, $results);
+        } catch (\Throwable $e) {
+            error_log("Patient::all error: " . $e->getMessage());
+            return [];
+        }
     }
 
     public function find(string $id): ?array
     {
         $result = $this->db->select($this->table, ['id' => 'eq.' . $id]);
-        return !empty($result) ? $result[0] : null;
+        return !empty($result) ? EncryptionHelper::decryptModel($this->table, $result[0]) : null;
     }
 
     public function findByPatientId(string $patientId): ?array
     {
         $result = $this->db->select($this->table, ['patient_id' => 'eq.' . $patientId]);
-        return !empty($result) ? $result[0] : null;
+        return !empty($result) ? EncryptionHelper::decryptModel($this->table, $result[0]) : null;
     }
 
     public function create(array $data): array
     {
-        $res = $this->db->insert($this->table, $data, true);
+        $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+        $res = $this->db->insert($this->table, $encryptedData, true);
         if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
             require_once __DIR__ . '/ActivityLog.php';
             try {
@@ -48,12 +56,13 @@ class Patient
                 error_log('Patient::create ActivityLog error: ' . $e->getMessage());
             }
         }
-        return $res;
+        return is_array($res) ? EncryptionHelper::decryptModel($this->table, $res) : $res;
     }
 
     public function updateById(string $id, array $data): array
     {
-        $updated = $this->db->update($this->table, $data, ['id' => 'eq.' . $id], true);
+        $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+        $updated = $this->db->update($this->table, $encryptedData, ['id' => 'eq.' . $id], true);
         if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
             require_once __DIR__ . '/ActivityLog.php';
             try {
@@ -68,7 +77,7 @@ class Patient
                 error_log('Patient::updateById ActivityLog error: ' . $e->getMessage());
             }
         }
-        return $updated;
+        return is_array($updated) ? EncryptionHelper::decryptRows($this->table, $updated) : $updated;
     }
 
     public function deleteById(string $id): bool

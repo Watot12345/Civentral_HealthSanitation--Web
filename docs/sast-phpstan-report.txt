@@ -1,0 +1,30 @@
+ ------ ---------------------------------------------------------------------- 
+  Line   Controllers/ActivityLogController.php                                 
+ ------ ---------------------------------------------------------------------- 
+  7      Class ActivityLogController extends unknown class BaseController.     
+         🪪  class.notFound (non-ignorable)                                    
+         💡  Learn more at https://phpstan.org/user-guide/discovering-symbols  
+  21     Call to an undefined method ActivityLogController::handle().          
+         🪪  method.notFound                                                   
+  41     Call to an undefined method ActivityLogController::handle().          
+         🪪  method.notFound                                                   
+ ------ ---------------------------------------------------------------------- 
+
+ ------ ---------------------------------------------------------------------- 
+  Line   Controllers/AppointmentController.php                                 
+ ------ ---------------------------------------------------------------------- 
+  9      Class AppointmentController extends unknown class BaseController.     
+         🪪  class.notFound (non-ignorable)                                    
+         💡  Learn more at https://phpstan.org/user-guide/discovering-symbols  
+  32     Call to an undefined method AppointmentController::handle().          
+         🪪  method.notFound                                                   
+  45     Call to an undefined method AppointmentController::handle().          
+         🪪  method.notFound                                                   
+  66     Call to an undefined method AppointmentController::input().           
+         🪪  method.notFound                                                   
+  68     Call to an undefined method AppointmentController::handle().          
+         🪪  method.notFound                                                   
+  121    Offset 'appointment_id' on non-empty-array on left side of ?? always  
+         exists and is not nullable.                                           
+         🪪  nullCoalesce.offset                                               
+  142    Call to an undefined method AppointmentController::input().           

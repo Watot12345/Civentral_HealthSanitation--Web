@@ -1,14 +1,30 @@
 <?php
 // login.php - 2-Step OTP Employee Portal Authentication
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+require_once __DIR__ . '/Core/Env.php';
+Env::load();
+
+$appDebug = filter_var(Env::get('APP_DEBUG', false), FILTER_VALIDATE_BOOLEAN);
+$appEnv   = Env::get('APP_ENV', 'production');
+
+if ($appDebug && $appEnv === 'development') {
+    error_reporting(E_ALL);
+    ini_set('display_errors', '1');
+} else {
+    error_reporting(0);
+    ini_set('display_errors', '0');
+}
+ini_set('log_errors', '1');
+
 session_start();
 
-require_once __DIR__ . '/Core/Env.php';
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/paths.php';
+require_once __DIR__ . '/app/helpers/EncryptionHelper.php';
 require_once __DIR__ . '/app/Models/ActivityLog.php';
 require_once __DIR__ . '/app/services/SessionAuthService.php';
+require_once __DIR__ . '/app/services/RateLimiterService.php';
+require_once __DIR__ . '/app/Models/ConsentLog.php';
+
 
 // Handle POST Requests (Credential Check & OTP Verification)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -24,22 +40,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $employeeId = trim($_POST['employee_id'] ?? '');
             $password   = $_POST['password'] ?? '';
             $rememberMe = !empty($_POST['remember_me']) && ($_POST['remember_me'] === 'true' || $_POST['remember_me'] === '1' || $_POST['remember_me'] === 'on');
+            $agreeTerms = !empty($_POST['agree_terms']) && ($_POST['agree_terms'] === '1' || $_POST['agree_terms'] === 'true' || $_POST['agree_terms'] === true);
 
-            // --- RATE LIMITING & BRUTE-FORCE PROTECTION ---
-            $clientIp = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
-            $rateKey = 'login_rate_' . md5($clientIp . '_' . $employeeId);
-            $attemptData = $_SESSION[$rateKey] ?? ['count' => 0, 'first_attempt' => time()];
-            
-            if (time() - $attemptData['first_attempt'] > 900) {
-                // Reset after 15 minutes window
-                $attemptData = ['count' => 0, 'first_attempt' => time()];
+            if (!$agreeTerms) {
+                echo json_encode(['success' => false, 'message' => 'You must review and agree to the Terms & Staff Privacy Policy to sign in.']);
+                exit;
             }
 
-            // Enforce dynamic max login attempts from Settings
+            // --- RATE LIMITING & BRUTE-FORCE PROTECTION ---
+            $limiter = new RateLimiterService();
+            $clientIp = $limiter->getClientIp();
+            
+            // Enforce persistent lockout surviving session/cookie clearing
             $maxLoginAttempts = class_exists('Settings') ? (int)Settings::get('security.max_login_attempts', 5) : 5;
-            if ($attemptData['count'] >= $maxLoginAttempts) {
-                $lockoutRemaining = 900 - (time() - $attemptData['first_attempt']);
-                $mins = max(1, ceil($lockoutRemaining / 60));
+            $lockoutWindow = 900; // 15-minute window
+            $accountLockKey = 'login_account_' . hash('sha256', $clientIp . '_' . strtolower($employeeId));
+            $ipLockKey = 'login_ip_' . hash('sha256', $clientIp);
+
+            // 1. IP-wide brute-force threshold (25 attempts / 15 mins)
+            $ipStatus = $limiter->inspect($ipLockKey, 25, $lockoutWindow);
+            if (!$ipStatus['allowed']) {
+                $mins = max(1, ceil($ipStatus['reset'] / 60));
+                echo json_encode([
+                    'success' => false, 
+                    'message' => "Too many failed attempts from your network. Security lockout active for {$mins} more minute(s)."
+                ]);
+                exit;
+            }
+
+            // 2. Targeted Account + IP Lockout
+            $accountStatus = $limiter->inspect($accountLockKey, $maxLoginAttempts, $lockoutWindow);
+            if (!$accountStatus['allowed']) {
+                $mins = max(1, ceil($accountStatus['reset'] / 60));
                 echo json_encode([
                     'success' => false, 
                     'message' => "Too many failed attempts. Security lockout active for {$mins} more minute(s)."
@@ -53,8 +85,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $logModel = new ActivityLog();
 
                 if (empty($result) || !is_array($result)) {
-                    $attemptData['count']++;
-                    $_SESSION[$rateKey] = $attemptData;
+                    $limiter->hit($accountLockKey, $maxLoginAttempts, $lockoutWindow);
+                    $limiter->hit($ipLockKey, 25, $lockoutWindow);
                     
                     $logModel->log("Failed login attempt", [
                         'user_name' => $employeeId ?: 'Unknown',
@@ -67,11 +99,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 }
 
-                $user = $result[0];
+                $user = EncryptionHelper::decryptModel('employees', $result[0]);
+
+                // BUG-003: Enforce account status check before credential evaluation
+                $userStatus = strtolower(trim($user['status'] ?? 'active'));
+                if (!empty($user['status']) && $userStatus !== 'active') {
+                    $limiter->hit($accountLockKey, $maxLoginAttempts, $lockoutWindow);
+                    $limiter->hit($ipLockKey, 25, $lockoutWindow);
+
+                    $logModel->log("Failed login attempt (Inactive Account)", [
+                        'user_name' => $user['full_name'] ?? $employeeId,
+                        'role'      => $user['role_description'] ?? $user['role'] ?? 'Unknown',
+                        'module'    => 'Authentication',
+                        'details'   => "Login attempt for inactive/suspended account: {$employeeId} (Status: {$user['status']})",
+                        'status'    => 'Failed',
+                    ]);
+                    echo json_encode([
+                        'success' => false, 
+                        'message' => "Access Denied: Account status is '" . ucfirst($user['status']) . "'. Please contact System Administrator or HR."
+                    ]);
+                    exit;
+                }
 
                 if (!password_verify($password, $user['password'])) {
-                    $attemptData['count']++;
-                    $_SESSION[$rateKey] = $attemptData;
+                    $limiter->hit($accountLockKey, $maxLoginAttempts, $lockoutWindow);
+                    $limiter->hit($ipLockKey, 25, $lockoutWindow);
 
                     $logModel->log("Failed login attempt", [
                         'user_name' => $user['full_name'] ?? $employeeId,
@@ -85,6 +137,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 // Successful authentication: Reset failed attempt counter
+                $limiter->clear($accountLockKey);
+                $rateKey = 'login_rate_' . md5($clientIp . '_' . $employeeId);
                 unset($_SESSION[$rateKey]);
 
                 $authService = new SessionAuthService();
@@ -131,6 +185,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     try {
                         $db->update('employees', ['last_login' => date('Y-m-d H:i:sP')], ['id' => $user['id']], true);
                     } catch (\Throwable $ignored) {}
+
+                    // Record Staff Terms & Privacy Policy Consent Log
+                    try {
+                        $consentModel = new ConsentLog();
+                        $empSubjectId = $user['employee_id'] ?? ('EMP-' . $user['id']);
+                        $existingConsent = $consentModel->findActiveConsent($empSubjectId, 'staff_privacy_policy_dpa');
+                        if (!$existingConsent) {
+                            $consentModel->create([
+                                'subject_id'      => $empSubjectId,
+                                'subject_type'    => 'employee',
+                                'consent_type'    => 'staff_privacy_policy_dpa',
+                                'consent_version' => '1.0',
+                                'ip_address'      => $clientIp,
+                                'user_agent'      => $_SERVER['HTTP_USER_AGENT'] ?? 'Civentral-Staff-Portal'
+                            ]);
+                        }
+                    } catch (\Throwable $consentErr) {
+                        error_log('Staff consent logging error: ' . $consentErr->getMessage());
+                    }
+
 
                     // Check password expiry
                     $passwordExpiryDays = class_exists('Settings') ? (int)Settings::get('security.password_expiry', 90) : 90;
@@ -227,6 +301,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $db = Database::getInstance();
                         $db->update('employees', ['last_login' => date('Y-m-d H:i:sP')], ['id' => $user['id']], true);
                     } catch (\Throwable $ignored) {}
+
+                    // Record Staff Terms & Privacy Policy Consent Log
+                    try {
+                        $consentModel = new ConsentLog();
+                        $empSubjectId = $user['employee_id'] ?? ('EMP-' . $user['id']);
+                        $existingConsent = $consentModel->findActiveConsent($empSubjectId, 'staff_privacy_policy_dpa');
+                        if (!$existingConsent) {
+                            $limiter = new RateLimiterService();
+                            $otpClientIp = $limiter->getClientIp();
+                            $consentModel->create([
+                                'subject_id'      => $empSubjectId,
+                                'subject_type'    => 'employee',
+                                'consent_type'    => 'staff_privacy_policy_dpa',
+                                'consent_version' => '1.0',
+                                'ip_address'      => $otpClientIp,
+                                'user_agent'      => $_SERVER['HTTP_USER_AGENT'] ?? 'Civentral-Staff-Portal'
+                            ]);
+                        }
+                    } catch (\Throwable $consentErr) {
+                        error_log('Staff consent logging error (OTP): ' . $consentErr->getMessage());
+                    }
+
                 }
 
                 echo json_encode($verifyResult);
@@ -741,6 +837,32 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                         <a href="javascript:void(0)" onclick="openForgotPasswordModal()" class="text-xs font-semibold text-brand-medium hover:underline cursor-pointer">Forgot password?</a>
                     </div>
 
+                    <!-- Staff DPA Terms & Privacy Policy Agreement -->
+                    <div class="pt-2 pb-1 border-t border-gray-100 mt-1">
+                        <div class="flex items-start space-x-2.5">
+                            <input
+                                type="checkbox"
+                                id="agreeTermsCheckbox"
+                                name="agree_terms"
+                                required
+                                onclick="handleTermsCheckboxClick(event)"
+                                class="w-4 h-4 mt-0.5 text-brand-dark border-gray-300 rounded focus:ring-brand-medium accent-brand-medium cursor-pointer"
+                            />
+                            <label for="agreeTermsCheckbox" class="text-xs text-gray-600 select-none leading-relaxed">
+                                I agree to the 
+                                <button type="button" onclick="openPrivacyPolicyModal()" class="text-brand-dark font-bold hover:underline cursor-pointer inline-flex items-center gap-1">
+                                    <span>Terms &amp; Staff Privacy Policy</span>
+                                    <i class="fa-solid fa-up-right-from-square text-[10px]"></i>
+                                </button>
+                                under RA 10173 (DPA).
+                            </label>
+                        </div>
+                        <p id="policyCheckError" class="hidden text-[11px] font-semibold text-red-600 mt-1.5 flex items-center gap-1">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                            <span>You must review and agree to the Terms &amp; Privacy Policy to proceed.</span>
+                        </p>
+                    </div>
+
                     <button type="submit" id="loginButton" class="w-full py-3 px-4 bg-brand-medium hover:bg-opacity-90 text-white font-medium rounded-lg text-sm transition shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-medium focus:ring-offset-2 cursor-pointer">
                         <span id="btnText">Sign in</span>
                     </button>
@@ -1093,6 +1215,129 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                         <span id="resetBtnText">Save New Password &amp; Sign In</span>
                     </button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- STAFF PRIVACY POLICY & TERMS MODAL (SCROLL TO AGREE)         -->
+    <!-- ============================================================ -->
+    <div id="privacyPolicyModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-brand-border overflow-hidden flex flex-col max-h-[90vh] animate-scale-up">
+            <!-- Modal Header -->
+            <div class="bg-brand-dark p-5 text-white flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-brand-medium text-lg border border-white/20">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white">Staff Privacy Policy &amp; Terms of Access</h3>
+                        <p class="text-xs text-brand-light/70">Republic Act No. 10173 (Philippine Data Privacy Act of 2012)</p>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onclick="closePrivacyPolicyModal()"
+                    class="text-white/70 hover:text-white hover:bg-white/10 w-8 h-8 rounded-lg flex items-center justify-center transition cursor-pointer"
+                >
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Scroll Notice Banner -->
+            <div id="scrollNoticeBanner" class="bg-amber-50 px-5 py-2.5 border-b border-amber-200 text-xs text-amber-900 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-down-long text-amber-600 animate-bounce"></i>
+                    <span id="scrollNoticeText" class="font-semibold">Please read and scroll to the end of the policy to enable the Agree button.</span>
+                </div>
+            </div>
+
+
+            <!-- Scrollable Policy Content Container -->
+            <div id="policyScrollContainer" onscroll="handlePolicyScroll()" class="p-6 overflow-y-auto space-y-4 text-xs leading-relaxed text-slate-700 select-none">
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                    <p class="font-bold text-slate-900 uppercase text-[11px] tracking-wide">Civentral Portal — Employee Data Privacy &amp; Terms of Access</p>
+                    <p class="text-slate-500 text-[11px]">Guidelines for handling citizen, patient, and permit information under Republic Act No. 10173.</p>
+                </div>
+
+                <!-- ITEM 1: PERSONAL DATA PROTECTION -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center font-black text-xs">1</span>
+                        <h4 class="font-bold text-slate-900 text-sm">Personal Data Protection</h4>
+                    </div>
+                    <p class="text-slate-600">
+                        <strong>Personal information complies with the Data Privacy Act.</strong>
+                    </p>
+                    <ul class="list-disc pl-5 space-y-1 text-slate-600">
+                        <li>All citizen names, contact numbers, residential addresses, and medical records are strictly confidential.</li>
+                        <li>Do not share, screenshot, copy, or distribute citizen information outside official duties.</li>
+                        <li>Keep confidential data masked on screen when assisting in public areas or shared workspaces.</li>
+                    </ul>
+                </div>
+
+                <!-- ITEM 2: CONSENT MANAGEMENT -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-xs">2</span>
+                        <h4 class="font-bold text-slate-900 text-sm">Consent Management</h4>
+                    </div>
+                    <p class="text-slate-600">
+                        <strong>User consent is properly collected and managed.</strong>
+                    </p>
+                    <ul class="list-disc pl-5 space-y-1 text-slate-600">
+                        <li>Citizens must willingly agree to data processing before registration or medical intake.</li>
+                        <li>Never check privacy consent boxes on behalf of a citizen without their explicit permission.</li>
+                        <li>Citizens have the right to withdraw their consent at any time through official request channels.</li>
+                    </ul>
+                </div>
+
+                <!-- ITEM 3: RIGHT TO DELETE DATA -->
+                <div class="p-4 rounded-xl border border-slate-200 bg-white space-y-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 h-6 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center font-black text-xs">3</span>
+                        <h4 class="font-bold text-slate-900 text-sm">Right to Delete Data</h4>
+                    </div>
+                    <p class="text-slate-600">
+                        <strong>Users can request deletion of personal information.</strong>
+                    </p>
+                    <ul class="list-disc pl-5 space-y-1 text-slate-600">
+                        <li>Citizens have the right to request erasure or anonymization of their personal information.</li>
+                        <li>Staff must route all citizen deletion requests to authorized administrators for compliance review.</li>
+                        <li>Clinical history will be handled in accordance with Department of Health retention policies.</li>
+                    </ul>
+                </div>
+
+                <!-- EMPLOYEE ACKNOWLEDGMENT -->
+                <div class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 text-xs flex items-start gap-2.5">
+                    <i class="fa-solid fa-circle-check text-emerald-600 text-sm mt-0.5"></i>
+                    <div>
+                        <p class="font-bold">Employee Acknowledgment</p>
+                        <p class="text-emerald-900 mt-0.5">By clicking <strong>"I Have Read &amp; Agree"</strong>, you confirm your responsibility to protect citizen data and follow these privacy policies.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+                <button
+                    type="button"
+                    onclick="closePrivacyPolicyModal()"
+                    class="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-xl transition cursor-pointer"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="button"
+                    id="agreePolicyModalBtn"
+                    disabled
+                    onclick="acceptPrivacyPolicyFromModal()"
+                    class="px-5 py-2.5 bg-brand-dark hover:bg-brand-medium text-white text-xs font-bold rounded-xl transition shadow-sm cursor-not-allowed opacity-40 flex items-center gap-2"
+                >
+                    <i class="fa-solid fa-check"></i>
+                    <span id="agreePolicyModalBtnText">Scroll to Bottom to Agree</span>
+                </button>
             </div>
         </div>
     </div>
@@ -1471,16 +1716,132 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
         }, 1000);
     }
 
+    // ============================================================
+    // STAFF PRIVACY POLICY & TERMS MODAL LOGIC (SCROLL TO AGREE)
+    // ============================================================
+    let hasReachedPolicyBottom = false;
+
+    function handleTermsCheckboxClick(event) {
+        const checkbox = document.getElementById('agreeTermsCheckbox');
+        if (!checkbox) return;
+
+        // If not agreed yet, prevent direct checking and show the policy modal
+        if (!hasReachedPolicyBottom) {
+            checkbox.checked = false;
+            openPrivacyPolicyModal();
+        } else {
+            // Already read and agreed; allow normal toggle
+            const policyError = document.getElementById('policyCheckError');
+            if (checkbox.checked && policyError) {
+                policyError.classList.add('hidden');
+            }
+        }
+    }
+
+    function openPrivacyPolicyModal() {
+        const modal = document.getElementById('privacyPolicyModal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+
+        const container = document.getElementById('policyScrollContainer');
+        const agreeBtn = document.getElementById('agreePolicyModalBtn');
+        const btnText = document.getElementById('agreePolicyModalBtnText');
+
+        // Check if content already fits or previously scrolled to end
+        if (container) {
+            const isScrollable = container.scrollHeight > container.clientHeight + 10;
+            if (!isScrollable || hasReachedPolicyBottom) {
+                unlockPolicyAgreeButton();
+            } else {
+                if (agreeBtn) {
+                    agreeBtn.disabled = true;
+                    agreeBtn.classList.add('opacity-40', 'cursor-not-allowed');
+                }
+                if (btnText) btnText.textContent = 'Scroll to End to Agree';
+            }
+        }
+    }
+
+    function closePrivacyPolicyModal() {
+        const modal = document.getElementById('privacyPolicyModal');
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    function unlockPolicyAgreeButton() {
+        hasReachedPolicyBottom = true;
+        const agreeBtn = document.getElementById('agreePolicyModalBtn');
+        const btnText = document.getElementById('agreePolicyModalBtnText');
+        const banner = document.getElementById('scrollNoticeBanner');
+
+        if (agreeBtn) {
+            agreeBtn.disabled = false;
+            agreeBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+            agreeBtn.classList.add('hover:bg-emerald-600', 'bg-emerald-700');
+        }
+        if (btnText) {
+            btnText.textContent = 'I Have Read & Agree to Terms';
+        }
+        if (banner) {
+            banner.className = 'bg-emerald-50 px-5 py-2.5 border-b border-emerald-200 text-xs text-emerald-900 flex items-center justify-between';
+            banner.innerHTML = '<div class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-emerald-600"></i><span class="font-semibold">Review complete. You may now click Agree.</span></div>';
+        }
+    }
+
+    function handlePolicyScroll() {
+        if (hasReachedPolicyBottom) return;
+
+        const container = document.getElementById('policyScrollContainer');
+        if (!container) return;
+
+        const scrollTop = container.scrollTop;
+        // Threshold: within 25px of the end of the modal content
+        if (scrollTop + container.clientHeight >= container.scrollHeight - 25) {
+            unlockPolicyAgreeButton();
+        }
+    }
+
+    function acceptPrivacyPolicyFromModal() {
+        if (!hasReachedPolicyBottom) return;
+
+        const checkbox = document.getElementById('agreeTermsCheckbox');
+        if (checkbox) {
+            checkbox.checked = true;
+            const errorMsg = document.getElementById('policyCheckError');
+            if (errorMsg) errorMsg.classList.add('hidden');
+        }
+
+        closePrivacyPolicyModal();
+    }
+
+
+
     async function handleLogin(event) {
         event.preventDefault();
         const employeeId = document.getElementById('employeeId').value.trim();
         const password = document.getElementById('password').value;
         const submitBtn = document.getElementById('loginButton');
         const btnText = document.getElementById('btnText');
+        const agreeCheckbox = document.getElementById('agreeTermsCheckbox');
+        const policyError = document.getElementById('policyCheckError');
 
         if (!employeeId || !password) {
             toast.error('Please enter both Employee ID and Password.', { title: 'Missing Information' });
             return;
+        }
+
+        // Validate DPA Terms & Policy Checkbox
+        if (!agreeCheckbox || !agreeCheckbox.checked) {
+            if (policyError) policyError.classList.remove('hidden');
+            toast.error('Please read and agree to the Terms & Staff Privacy Policy before signing in.', { title: 'DPA Consent Required' });
+            // Shake checkbox container
+            agreeCheckbox?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            agreeCheckbox?.focus();
+            return;
+        } else {
+            if (policyError) policyError.classList.add('hidden');
         }
 
         submitBtn.disabled = true;
@@ -1499,6 +1860,8 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
             formData.append('password', password);
             const rememberMe = document.getElementById('rememberMe')?.checked || false;
             formData.append('remember_me', rememberMe);
+            formData.append('agree_terms', agreeCheckbox ? (agreeCheckbox.checked ? '1' : '0') : '0');
+
 
             const response = await fetch('login.php', {
                 method: 'POST',

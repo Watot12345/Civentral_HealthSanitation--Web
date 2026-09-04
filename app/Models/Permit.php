@@ -2,6 +2,7 @@
 // app/Models/Permit.php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../helpers/EncryptionHelper.php';
 
 class Permit
 {
@@ -19,7 +20,8 @@ class Permit
             $options['order'] = 'created_at.desc';
         }
         try {
-            return $this->db->select($this->table, [], $options);
+            $rows = $this->db->select($this->table, [], $options);
+            return EncryptionHelper::decryptRows($this->table, $rows);
         } catch (Throwable $e) {
             error_log('Permit Model Error (all): ' . $e->getMessage());
             return [];
@@ -30,7 +32,7 @@ class Permit
     {
         try {
             $result = $this->db->select($this->table, ['id' => $id]);
-            return !empty($result) ? $result[0] : null;
+            return !empty($result) ? EncryptionHelper::decryptModel($this->table, $result[0]) : null;
         } catch (Throwable $e) {
             error_log('Permit Model Error (find): ' . $e->getMessage());
             return null;
@@ -46,12 +48,16 @@ class Permit
         if (empty($data['status'])) {
             $data['status'] = 'pending';
         }
-        return $this->db->insert($this->table, $data);
+        $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+        $res = $this->db->insert($this->table, $encryptedData);
+        return is_array($res) ? EncryptionHelper::decryptModel($this->table, $res) : $res;
     }
 
     public function updateById(string|int $id, array $data): array
     {
-        return $this->db->update($this->table, $data, ['id' => $id]);
+        $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+        $updated = $this->db->update($this->table, $encryptedData, ['id' => $id]);
+        return is_array($updated) ? EncryptionHelper::decryptRows($this->table, $updated) : $updated;
     }
 
     public function deleteById(string|int $id): bool

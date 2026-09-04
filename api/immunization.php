@@ -35,6 +35,57 @@ try {
         case 'GET':
             if (isset($_GET['stats'])) {
                 $controller->stats();
+            } elseif ($targetId && isset($_GET['export']) && $_GET['export'] === 'pdf') {
+                require_once __DIR__ . '/../vendor/autoload.php';
+                require_once __DIR__ . '/../app/services/ExportService.php';
+                require_once __DIR__ . '/../app/Models/ActivityLog.php';
+
+                $child = $childModel->find((string)$targetId);
+                if (!$child) {
+                    Response::error('Child record not found', 404);
+                }
+
+                $db = Database::getInstance();
+                $doses = [];
+                try {
+                    $doses = $db->select('immunizations', ['child_id' => $targetId], ['order' => 'date_administered.asc']);
+                } catch (\Throwable $e) {
+                    $doses = [];
+                }
+
+                $headers = ['Vaccine', 'Dose #', 'Date Administered', 'Administered By', 'Health Center', 'Batch Number'];
+                $rows = [];
+                foreach ($doses as $d) {
+                    $rows[] = [
+                        $d['vaccine'] ?? 'N/A',
+                        $d['dose'] ?? '1',
+                        $d['date_administered'] ?? '—',
+                        $d['administered_by'] ?? 'Staff',
+                        $d['health_center'] ?? 'Caloocan Health Center',
+                        $d['batch_number'] ?? '—'
+                    ];
+                }
+                if (empty($rows)) {
+                    $rows[] = ['No immunizations recorded yet', '—', '—', '—', '—', '—'];
+                }
+
+                $childName = trim(($child['first_name'] ?? '') . ' ' . ($child['last_name'] ?? ''));
+                $childCode = $child['child_id'] ?? "CH-{$targetId}";
+
+                try {
+                    $log = new ActivityLog();
+                    $log->log("Generated Report: Child Immunization Record", [
+                        'module'  => 'Immunization & Nutrition',
+                        'details' => "Exported PDF Immunization Record for {$childName} ({$childCode})",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $logEx) {}
+
+                \App\Services\ExportService::toPdf(
+                    ['headers' => $headers, 'rows' => $rows],
+                    "Child Immunization Card — {$childName} ({$childCode})",
+                    "child_{$targetId}_immunization.pdf"
+                );
             } elseif ($targetId) {
                 $controller->show($targetId);
             } elseif (isset($_GET['page'])) {

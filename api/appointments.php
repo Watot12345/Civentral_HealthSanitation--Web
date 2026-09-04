@@ -4,6 +4,21 @@
 require_once __DIR__ . '/../Core/Env.php';
 require_once __DIR__ . '/../Core/Response.php';
 require_once __DIR__ . '/../app/Controllers/AppointmentController.php';
+require_once __DIR__ . '/../app/services/RateLimiterService.php';
+
+// Rate Limiting Protection (60 req / min per IP)
+$limiter = new RateLimiterService(60, 60);
+$rateCheck = $limiter->check();
+if (!$rateCheck['allowed']) {
+    http_response_code(429);
+    header('Retry-After: ' . $rateCheck['reset']);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Too many requests. Please retry in ' . $rateCheck['reset'] . ' seconds.',
+        'retry_after' => $rateCheck['reset']
+    ]);
+    exit;
+}
 
 // Handle CORS
 header('Access-Control-Allow-Origin: *');

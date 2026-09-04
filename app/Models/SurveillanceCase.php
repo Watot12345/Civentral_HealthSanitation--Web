@@ -2,6 +2,7 @@
 // app/Models/SurveillanceCase.php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../helpers/EncryptionHelper.php';
 
 class SurveillanceCase
 {
@@ -17,7 +18,8 @@ class SurveillanceCase
     {
         try {
             $opts = array_merge(['order' => 'id.desc'], $options);
-            return $this->db->select($this->table, [], $opts);
+            $rows = $this->db->select($this->table, [], $opts);
+            return EncryptionHelper::decryptRows($this->table, $rows);
         } catch (Throwable $e) {
             error_log("SurveillanceCase DB query error: " . $e->getMessage());
             return [];
@@ -28,7 +30,7 @@ class SurveillanceCase
     {
         try {
             $res = $this->db->select($this->table, ['id' => $id]);
-            return $res[0] ?? null;
+            return !empty($res) ? EncryptionHelper::decryptModel($this->table, $res[0]) : null;
         } catch (Throwable $e) {
             $all = $this->all();
             foreach ($all as $c) {
@@ -44,8 +46,9 @@ class SurveillanceCase
             $data['case_code'] = 'CS-2026-' . str_pad((string) rand(100, 999), 3, '0', STR_PAD_LEFT);
         }
         try {
-            $res = $this->db->insert($this->table, $data);
-            return $res[0] ?? $data;
+            $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+            $res = $this->db->insert($this->table, $encryptedData);
+            return !empty($res[0]) ? EncryptionHelper::decryptModel($this->table, $res[0]) : $data;
         } catch (Throwable $e) {
             error_log("SurveillanceCase insert fallback: " . $e->getMessage());
             $data['id'] = rand(10, 99);
@@ -57,8 +60,9 @@ class SurveillanceCase
     {
         $data['updated_at'] = date('Y-m-d H:i:s');
         try {
-            $res = $this->db->update($this->table, $data, ['id' => $id]);
-            return $res[0] ?? $data;
+            $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+            $res = $this->db->update($this->table, $encryptedData, ['id' => $id]);
+            return !empty($res[0]) ? EncryptionHelper::decryptModel($this->table, $res[0]) : $data;
         } catch (Throwable $e) {
             error_log("SurveillanceCase update fallback: " . $e->getMessage());
             $data['id'] = $id;

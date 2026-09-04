@@ -2,6 +2,7 @@
 // app/Models/Child.php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../helpers/EncryptionHelper.php';
 
 class Child
 {
@@ -20,7 +21,8 @@ class Child
             $options['order'] = 'created_at.desc';
         }
         try {
-            return $this->db->select($this->table, [], $options);
+            $rows = $this->db->select($this->table, [], $options);
+            return EncryptionHelper::decryptRows($this->table, $rows);
         } catch (Throwable $e) {
             error_log('Child Model Error (all): ' . $e->getMessage());
             return [];
@@ -31,7 +33,7 @@ class Child
     {
         try {
             $result = $this->db->select($this->table, ['id' => $id]);
-            return !empty($result) ? $result[0] : null;
+            return !empty($result) ? EncryptionHelper::decryptModel($this->table, $result[0]) : null;
         } catch (Throwable $e) {
             error_log('Child Model Error (find): ' . $e->getMessage());
             return null;
@@ -42,7 +44,7 @@ class Child
     {
         try {
             $result = $this->db->select($this->table, ['child_id' => $childId]);
-            return !empty($result) ? $result[0] : null;
+            return !empty($result) ? EncryptionHelper::decryptModel($this->table, $result[0]) : null;
         } catch (Throwable $e) {
             error_log('Child Model Error (findByChildId): ' . $e->getMessage());
             return null;
@@ -63,12 +65,16 @@ class Child
         if (empty($data['vaccine_compliance'])) {
             $data['vaccine_compliance'] = 0;
         }
-        return $this->db->insert($this->table, $data);
+        $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+        $res = $this->db->insert($this->table, $encryptedData);
+        return is_array($res) ? EncryptionHelper::decryptModel($this->table, $res) : $res;
     }
 
     public function update(string|int $id, array $data): array
     {
-        return $this->db->update($this->table, $data, ['id' => $id]);
+        $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+        $res = $this->db->update($this->table, $encryptedData, ['id' => $id]);
+        return is_array($res) ? EncryptionHelper::decryptRows($this->table, $res) : $res;
     }
 
     public function delete(string|int $id): bool
@@ -118,7 +124,8 @@ class Child
         }
 
         try {
-            return $this->db->select($this->table, $filters, $options);
+            $results = $this->db->select($this->table, $filters, $options);
+            return EncryptionHelper::decryptRows($this->table, $results);
         } catch (Throwable $e) {
             error_log('Child Model Error (search): ' . $e->getMessage());
             return [];

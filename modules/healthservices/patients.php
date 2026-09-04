@@ -1281,7 +1281,67 @@ td .text-slate-600.maskable.masked::after {
     function confirmImport(){ if(!pendingImportRows?.length)return; ModalSystem.close('importModal'); clearImportFile(); ModalSystem.toast.success(pendingImportRows.length+' patient(s) imported.'); setTimeout(()=>window.location.reload(),1000); }
     function prepExportModal(){ document.getElementById('exportCountAll').textContent=Object.keys(PATIENTS).length; document.getElementById('exportCountFiltered').textContent=document.querySelectorAll('.patient-row:not([style*="display: none"])').length; selectExportFormat('csv'); }
     function selectExportFormat(f){ selectedExportFormat=f; document.querySelectorAll('.export-format-btn').forEach(b=>b.classList.toggle('selected',b.dataset.format===f)); }
-    function runExport(){ const rows=Object.values(PATIENTS); const h=['patient_id','first_name','last_name','gender','age','blood_type','barangay','status','contact','email']; const csv=[h.join(',')]; rows.forEach(p=>csv.push(h.map(k=>`"${String(p[k]??'').replace(/"/g,'""')}"`).join(','))); const blob=new Blob([csv.join('\n')],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='patients_export.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url); ModalSystem.close('exportModal'); ModalSystem.toast.success(rows.length+' patient(s) exported.'); }
+    function runExport() {
+        const scope = document.querySelector('input[name="exportScope"]:checked')?.value || 'all';
+        const allRows = Object.values(PATIENTS);
+        const filteredIds = new Set(Array.from(document.querySelectorAll('.patient-row:not([style*="display: none"])')).map(r => r.dataset.id));
+        const exportRows = scope === 'filtered' ? allRows.filter(p => filteredIds.has(String(p.id || p.patient_id))) : allRows;
+
+        if (!exportRows.length) {
+            ModalSystem.toast.warning('No patient records found to export.');
+            return;
+        }
+
+        const h = ['patient_id', 'first_name', 'last_name', 'gender', 'age', 'blood_type', 'barangay', 'status', 'contact', 'email'];
+        const fmt = (typeof selectedExportFormat !== 'undefined' && selectedExportFormat) ? selectedExportFormat : 'csv';
+        const stamp = new Date().toISOString().slice(0, 10);
+
+        if (fmt === 'csv') {
+            const escapeCsv = v => {
+                let s = String(v ?? '');
+                if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+                return `"${s.replace(/"/g, '""')}"`;
+            };
+            const csv = [h.join(',')];
+            exportRows.forEach(p => csv.push(h.map(k => escapeCsv(p[k])).join(',')));
+            const blob = new Blob(['\uFEFF' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `patients_export_${stamp}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            ModalSystem.close('exportModal');
+            ModalSystem.toast.success(exportRows.length + ' patient(s) exported to CSV.');
+        } else {
+            const tableRows = exportRows.map(p => h.map(k => p[k] ?? ''));
+            ModalSystem.toast.info(`Generating ${fmt.toUpperCase()} export...`);
+            fetch('../../api/reports/export.php?format=' + fmt + '&title=Patients_Registry&module=Health Center Services', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ headers: h, rows: tableRows })
+            }).then(res => {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.blob();
+            }).then(blob => {
+                const ext = fmt === 'excel' ? 'xlsx' : 'pdf';
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `patients_export_${stamp}.${ext}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                ModalSystem.close('exportModal');
+                ModalSystem.toast.success(exportRows.length + ` patient(s) exported to ${fmt.toUpperCase()}.`);
+            }).catch(err => {
+                ModalSystem.toast.error('Export failed: ' + err.message);
+            });
+        }
+    }
 
     // ============================================================
 // SEARCH & FILTER - DATE PILLS & LIVE SEARCH

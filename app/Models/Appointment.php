@@ -18,7 +18,12 @@ class Appointment
         if (empty($options['order'])) {
             $options['order'] = 'created_at.desc';
         }
-        return $this->db->select($this->table, [], $options);
+        try {
+            return $this->db->select($this->table, [], $options);
+        } catch (\Throwable $e) {
+            error_log("Appointment::all error: " . $e->getMessage());
+            return [];
+        }
     }
 
     public function find(string|int $id): ?array

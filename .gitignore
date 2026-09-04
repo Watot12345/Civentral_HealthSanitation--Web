@@ -12,3 +12,6 @@ storage/
 
 # Optional
 package-lock.json
+vendor/
+
+vendor/

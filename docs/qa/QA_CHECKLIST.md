@@ -34,9 +34,9 @@
 | **1.5** | **IoT Integration** | Connected devices successfully transmit and receive data in real time. | IoT Logs | [ ] | Sanitation flow rate & wastewater telemetry ingestion. |
 | **1.6** | **API Integration** | REST APIs respond correctly with proper authentication and error handling. | API Documentation Test | [ ] | `api/` endpoints with JSON error handling and HTTP status codes. |
 | **1.7** | **Offline Synchronization** | Offline transactions synchronize correctly after reconnecting to the network. | Offline Test Report | [ ] | Client-side queue syncing pending health worker field entries. |
-| **1.8** | **Background Processing** | Scheduled jobs and background tasks execute successfully. | Scheduler Logs | [ ] | Automated permit renewal notices & surveillance threshold checks. |
+| **1.8** | **Background Processing** | Scheduled jobs and background tasks execute successfully. | Scheduler Logs | [x] | Automated permit renewal notices, surveillance threshold checks, report dispatch, system maintenance executed via `bin/scheduler.php`, logged in `scheduler_logs`, and viewable in `management/system_logs.php`. |
 | **1.9** | **Error Recovery** | System recovers gracefully from unexpected failures. | Error Logs | [ ] | Graceful try-catch blocks with logging to `storage/logs/`. |
-| **1.10** | **Scalability** | System supports concurrent users without performance degradation. | Load Test Report | [ ] | Connection pooling, persistent cURL handles, and indexed queries. |
+| **1.10** | **Scalability** | System supports concurrent users without performance degradation. | Load Test Report | [x] | Concurrent load test (10–100 VUs) passed with peak 6,296 RPS, sub-310ms p95 latency, 0% 5xx error rate. Evidence: `docs/qa/LOAD_TEST_REPORT.md`, `tests/load/run-load-test.php`, `tests/load/k6-load-test.js`. |
 
 ---
 
@@ -51,14 +51,14 @@
 | **2.3** | **Password Security** | Strong password policies are enforced. | Security Configuration | [ ] | `password_hash()` (bcrypt), minimum complexity & 90-day expiry check. |
 | **2.4** | **Account Lockout** | Multiple failed login attempts trigger account lockout. | Authentication Test | [ ] | `login.php:L29-L48` 5 failed attempts $\rightarrow$ 15-minute lock. |
 | **2.5** | **TLS Encryption** | HTTPS using TLS 1.3 is implemented. | SSL Report | [ ] | Enforced HTTPS + cURL `CURLOPT_SSL_VERIFYPEER = true`. |
-| **2.6** | **Database Encryption** | Sensitive information is encrypted using AES-256 or equivalent. | Database Configuration Documentation | [ ] | `app/Encryption/EncryptionManager.php` AES-256-CBC field encryption. |
+| **2.6** | **Database Encryption** | Sensitive information is encrypted using AES-256 or equivalent. | Database Configuration Documentation | [x] | PostgreSQL `pgcrypto` AES-256 column encryption via Supabase Vault (`2026_09_04_enable_pgcrypto_column_encryption.sql`). Documented in `DATABASE_SECURITY.md`. |
 | **2.7** | **Personal Data Protection** | Personal information complies with the Data Privacy Act (RA 10173). | Privacy Policy | [ ] | Data masking on export, restricted health record views. |
 | **2.8** | **Consent Management** | User consent is properly collected and managed. | Privacy Policy | [ ] | Patient registration consent capture and terms acknowledgment. |
 | **2.9** | **Right to Delete Data** | Users can request deletion of personal information. | Test Evidence | [ ] | Anonymization and soft-delete procedures for GDPR/DPA compliance. |
 | **2.10** | **Audit Trail** | System records user activities with timestamps and user identification. | Audit Logs | [ ] | `app/Models/ActivityLog.php` immutable logs with IP & role capture. |
-| **2.11** | **AI Prompt Protection** | AI rejects prompt injection and unauthorized instructions. | AI Security Report | [ ] | Server-side prompt boundary wrapping & PII stripping before Gemini API. |
+| **2.11** | **AI Prompt Protection** | AI rejects prompt injection and unauthorized instructions. | AI Security Report | [x] | Server-side prompt boundary wrapping & PII stripping before Gemini API. Verified in `docs/security/AI_SECURITY_REPORT.md`. |
 | **2.12** | **Source Code Security Scan** | No critical vulnerabilities found through SAST/DAST scanning. | Security Report | [ ] | Static analysis audit, zero raw unescaped SQL queries. |
-| **2.13** | **Dependency Security** | Third-party libraries contain no critical vulnerabilities. | Dependency Report | [ ] | Clean `composer audit` and `npm audit` verification. |
+| **2.13** | **Dependency Security** | Third-party libraries contain no critical vulnerabilities. | Dependency Report | [x] | Clean PHP vendor & npm audit (0 critical vulnerabilities). Verified in `docs/security/DEPENDENCY_REPORT.md`. |
 
 ---
 

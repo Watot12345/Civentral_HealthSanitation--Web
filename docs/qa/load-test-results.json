@@ -1,0 +1,383 @@
+{
+    "system": "Civentral Health & Sanitation Management Information System",
+    "timestamp": "2026-09-04 10:58:02",
+    "base_url": "http://127.0.0.1:8080",
+    "concurrency": [
+        10,
+        25,
+        50,
+        100
+    ],
+    "verdict": "PASS",
+    "summary": "System maintained high throughput and sub-second p95 latencies across concurrent load tiers.",
+    "results": {
+        "tier_10_vus": {
+            "Gateway Landing Page": {
+                "total_requests": 100,
+                "duration_sec": 0.023,
+                "rps": 4427.3,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 1.45,
+                    "max": 4.36,
+                    "avg": 2.13,
+                    "p50": 1.71,
+                    "p90": 4.28,
+                    "p95": 4.32,
+                    "p99": 4.36
+                }
+            },
+            "Reports Schedule API": {
+                "total_requests": 100,
+                "duration_sec": 0.132,
+                "rps": 757.2,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 8.43,
+                    "max": 48.67,
+                    "avg": 13.07,
+                    "p50": 8.91,
+                    "p90": 48.65,
+                    "p95": 48.66,
+                    "p99": 48.67
+                }
+            },
+            "Scheduler Telemetry API": {
+                "total_requests": 100,
+                "duration_sec": 0.253,
+                "rps": 395.1,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 23.47,
+                    "max": 30.71,
+                    "avg": 25.18,
+                    "p50": 24.86,
+                    "p90": 30.69,
+                    "p95": 30.7,
+                    "p99": 30.71
+                }
+            },
+            "Appointments Rate-Limited API": {
+                "total_requests": 100,
+                "duration_sec": 0.243,
+                "rps": 412.3,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 22.36,
+                    "max": 31.76,
+                    "avg": 24.12,
+                    "p50": 23.01,
+                    "p90": 31.74,
+                    "p95": 31.75,
+                    "p99": 31.76
+                }
+            },
+            "Patients Paginated API": {
+                "total_requests": 100,
+                "duration_sec": 0.111,
+                "rps": 902.2,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 9.87,
+                    "max": 14.37,
+                    "avg": 10.96,
+                    "p50": 10.29,
+                    "p90": 14.34,
+                    "p95": 14.36,
+                    "p99": 14.37
+                }
+            }
+        },
+        "tier_25_vus": {
+            "Gateway Landing Page": {
+                "total_requests": 100,
+                "duration_sec": 0.018,
+                "rps": 5637.6,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 3.82,
+                    "max": 4.93,
+                    "avg": 4.2,
+                    "p50": 4.03,
+                    "p90": 4.89,
+                    "p95": 4.91,
+                    "p99": 4.93
+                }
+            },
+            "Reports Schedule API": {
+                "total_requests": 100,
+                "duration_sec": 0.096,
+                "rps": 1038.7,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 22.79,
+                    "max": 26.09,
+                    "avg": 23.83,
+                    "p50": 23.48,
+                    "p90": 26.07,
+                    "p95": 26.08,
+                    "p99": 26.09
+                }
+            },
+            "Scheduler Telemetry API": {
+                "total_requests": 100,
+                "duration_sec": 0.274,
+                "rps": 365.4,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 63.38,
+                    "max": 78.23,
+                    "avg": 68.17,
+                    "p50": 65.69,
+                    "p90": 78.21,
+                    "p95": 78.22,
+                    "p99": 78.23
+                }
+            },
+            "Appointments Rate-Limited API": {
+                "total_requests": 100,
+                "duration_sec": 0.219,
+                "rps": 455.7,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 52.76,
+                    "max": 58.55,
+                    "avg": 54.65,
+                    "p50": 54.22,
+                    "p90": 58.53,
+                    "p95": 58.54,
+                    "p99": 58.55
+                }
+            },
+            "Patients Paginated API": {
+                "total_requests": 100,
+                "duration_sec": 0.105,
+                "rps": 952.4,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 23.82,
+                    "max": 27.97,
+                    "avg": 26.02,
+                    "p50": 26.45,
+                    "p90": 27.94,
+                    "p95": 27.96,
+                    "p99": 27.97
+                }
+            }
+        },
+        "tier_50_vus": {
+            "Gateway Landing Page": {
+                "total_requests": 100,
+                "duration_sec": 0.016,
+                "rps": 6231.3,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 7.63,
+                    "max": 7.83,
+                    "avg": 7.73,
+                    "p50": 7.72,
+                    "p90": 7.81,
+                    "p95": 7.82,
+                    "p99": 7.83
+                }
+            },
+            "Reports Schedule API": {
+                "total_requests": 100,
+                "duration_sec": 0.091,
+                "rps": 1097.2,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 41.36,
+                    "max": 49.14,
+                    "avg": 45.25,
+                    "p50": 49.02,
+                    "p90": 49.12,
+                    "p95": 49.13,
+                    "p99": 49.14
+                }
+            },
+            "Scheduler Telemetry API": {
+                "total_requests": 100,
+                "duration_sec": 0.263,
+                "rps": 379.9,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 128.06,
+                    "max": 134.47,
+                    "avg": 131.27,
+                    "p50": 134.36,
+                    "p90": 134.45,
+                    "p95": 134.46,
+                    "p99": 134.47
+                }
+            },
+            "Appointments Rate-Limited API": {
+                "total_requests": 100,
+                "duration_sec": 0.247,
+                "rps": 404.5,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 117.56,
+                    "max": 128.97,
+                    "avg": 123.27,
+                    "p50": 128.83,
+                    "p90": 128.94,
+                    "p95": 128.96,
+                    "p99": 128.97
+                }
+            },
+            "Patients Paginated API": {
+                "total_requests": 100,
+                "duration_sec": 0.102,
+                "rps": 983.7,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 47.82,
+                    "max": 53.26,
+                    "avg": 50.53,
+                    "p50": 53.12,
+                    "p90": 53.24,
+                    "p95": 53.25,
+                    "p99": 53.26
+                }
+            }
+        },
+        "tier_100_vus": {
+            "Gateway Landing Page": {
+                "total_requests": 100,
+                "duration_sec": 0.016,
+                "rps": 6296.1,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 15.38,
+                    "max": 15.69,
+                    "avg": 15.55,
+                    "p50": 15.56,
+                    "p90": 15.67,
+                    "p95": 15.68,
+                    "p99": 15.69
+                }
+            },
+            "Reports Schedule API": {
+                "total_requests": 100,
+                "duration_sec": 0.106,
+                "rps": 943.3,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 105.54,
+                    "max": 105.87,
+                    "avg": 105.71,
+                    "p50": 105.71,
+                    "p90": 105.85,
+                    "p95": 105.86,
+                    "p99": 105.87
+                }
+            },
+            "Scheduler Telemetry API": {
+                "total_requests": 100,
+                "duration_sec": 0.265,
+                "rps": 377.6,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 264.43,
+                    "max": 264.71,
+                    "avg": 264.56,
+                    "p50": 264.55,
+                    "p90": 264.68,
+                    "p95": 264.7,
+                    "p99": 264.71
+                }
+            },
+            "Appointments Rate-Limited API": {
+                "total_requests": 100,
+                "duration_sec": 0.302,
+                "rps": 331.2,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 301.51,
+                    "max": 301.75,
+                    "avg": 301.62,
+                    "p50": 301.62,
+                    "p90": 301.73,
+                    "p95": 301.74,
+                    "p99": 301.75
+                }
+            },
+            "Patients Paginated API": {
+                "total_requests": 100,
+                "duration_sec": 0.098,
+                "rps": 1022.2,
+                "status_codes": {
+                    "200": 100
+                },
+                "error_rate_pct": 0,
+                "latencies_ms": {
+                    "min": 97.25,
+                    "max": 97.59,
+                    "avg": 97.42,
+                    "p50": 97.43,
+                    "p90": 97.56,
+                    "p95": 97.58,
+                    "p99": 97.59
+                }
+            }
+        }
+    }
+}
