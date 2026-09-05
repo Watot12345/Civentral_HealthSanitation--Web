@@ -329,9 +329,25 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   <script src="<?= site_url('assets/js/common.js'); ?>"></script>
   <!-- Offline Transaction Queue & Auto-Sync -->
   <script src="<?= site_url('assets/js/offline-sync.js'); ?>"></script>
+  <link rel="manifest" href="/manifest.json">
 </head>
 <?php if (!$minimalHeader) include_once __DIR__ . '/data-mask.php'; ?>
 <body class="bg-white font-sans antialiased text-slate-800 min-h-screen flex flex-col">
+
+<!-- PWA Install Prompt -->
+<div id="pwa-install-prompt" class="hidden fixed bottom-4 right-4 bg-white border border-slate-200 shadow-xl rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4 z-50">
+  <div class="flex items-center gap-3">
+    <img src="<?= site_url('assets/images/logo.png'); ?>" alt="App Logo" class="h-10 w-10 object-contain">
+    <div class="flex flex-col">
+      <span class="text-sm font-bold text-slate-800">Install Civentral</span>
+      <span class="text-xs text-slate-500">Add to home screen for offline access</span>
+    </div>
+  </div>
+  <div class="flex items-center gap-2 w-full sm:w-auto">
+    <button id="pwa-install-btn" class="flex-1 sm:flex-none bg-brand-medium text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-dark transition-colors">Install App</button>
+    <button id="pwa-dismiss-btn" class="px-3 py-2 text-slate-400 hover:text-slate-600 transition-colors"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+</div>
 
   <header class="bg-white border-b border-slate-200 h-20 px-6 flex items-center justify-between sticky top-0 z-40 shadow-xs shrink-0">
     <div class="flex items-center space-x-4 text-brand-dark">

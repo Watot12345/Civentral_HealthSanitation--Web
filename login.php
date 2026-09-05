@@ -145,7 +145,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $twoFactorEnforced = class_exists('Settings') ? (bool)Settings::get('security.two_factor_auth', false) : false;
                 // Remembered Device Logic:
                 // If this device already has an active verified session/cookie and 2FA is not forced on every login, bypass OTP
-                $requireOtp = $twoFactorEnforced || !$rememberMe;
+                $userCookieToken = $_COOKIE['civentral_session_' . $user['id']] ?? ($_COOKIE['civentral_session'] ?? '');
+                $deviceRemembered = false;
+                if (!empty($userCookieToken)) {
+                    $deviceRemembered = $authService->validateActiveToken($userCookieToken);
+                    if ($deviceRemembered && isset($_SESSION['user_id']) && $_SESSION['user_id'] != $user['id']) {
+                        $deviceRemembered = false;
+                    }
+                }
+                
+                $requireOtp = $twoFactorEnforced || !$deviceRemembered;
 
                 // Direct login if device is already verified
                 if (!$requireOtp) {

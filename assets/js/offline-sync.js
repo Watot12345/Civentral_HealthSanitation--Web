@@ -271,6 +271,17 @@ const CiventralOfflineSync = (function() {
                 if (res.ok) {
                     await removeQueueItem(item.id);
                     successCount++;
+                } else if (res.status === 401 || res.status === 403) {
+                    console.warn(`Item ${item.id} rejected by server with ${res.status} (Unauthorized). Pausing sync. Please log in.`);
+                    isSyncing = false;
+                    const remaining = await getPendingQueue();
+                    updateUIBadge(remaining.length, false);
+                    if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                        ModalSystem.toast.error('Session expired. Please log in to sync offline data.');
+                    } else if (typeof showToast === 'function') {
+                        showToast('Session expired. Please log in to sync offline data.', 'error');
+                    }
+                    return;
                 } else if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
                     console.warn(`Item ${item.id} rejected by server with ${res.status}. Removing from sync queue.`);
                     await removeQueueItem(item.id);
@@ -458,7 +469,50 @@ const CiventralOfflineSync = (function() {
     // ============================================================
     // 7. Lifecycle Initialization & Event Binding
     // ============================================================
+    let deferredPrompt;
+    function initPWAInstallPrompt() {
+        const promptEl = document.getElementById('pwa-install-prompt');
+        const installBtn = document.getElementById('pwa-install-btn');
+        const dismissBtn = document.getElementById('pwa-dismiss-btn');
+
+        if (!promptEl || !installBtn || !dismissBtn) return;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (localStorage.getItem('pwa_prompt_dismissed') !== 'true') {
+                promptEl.classList.remove('hidden');
+            }
+        });
+
+        installBtn.addEventListener('click', () => {
+            promptEl.classList.add('hidden');
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    deferredPrompt = null;
+                });
+            }
+        });
+
+        dismissBtn.addEventListener('click', () => {
+            promptEl.classList.add('hidden');
+            localStorage.setItem('pwa_prompt_dismissed', 'true');
+        });
+    }
+
     function init() {
+        initPWAInstallPrompt();
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }).catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+
         window.addEventListener('online', () => {
             console.log('Browser online event caught');
             checkConnectivity();

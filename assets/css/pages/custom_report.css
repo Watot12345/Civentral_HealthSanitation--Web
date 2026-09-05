@@ -1,0 +1,455 @@
+    /* ===== CSS VARIABLES (From System Overview) ===== */
+    :root {
+        --color-primary: #176B87;
+        --color-primary-dark: #0F4A5E;
+        --color-secondary: #86B6F6;
+        --color-success: #10B981;
+        --color-warning: #F59E0B;
+        --color-danger: #EF4444;
+        --color-info: #3B82F6;
+        
+        --radius-sm: 0.5rem;
+        --radius-md: 0.75rem;
+        --radius-lg: 1rem;
+        --radius-xl: 1.5rem;
+        
+        --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+        --shadow-md: 0 4px 6px rgba(0,0,0,0.07);
+        --shadow-lg: 0 10px 15px rgba(0,0,0,0.1);
+        
+        --transition-fast: 0.15s ease;
+        --transition-normal: 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+        --transition-slow: 0.35s ease;
+        
+        --glass-bg: rgba(255,255,255,0.7);
+        --glass-border: rgba(255,255,255,0.2);
+    }
+
+    /* ===== BASE CARD STYLES ===== */
+    .report-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(180, 212, 255, 0.3);
+        box-shadow: 0 10px 40px -10px rgba(23, 107, 135, 0.15);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        position: relative;
+    }
+
+    /* Tab Animations */
+    .tab-content {
+        animation: fadeInSlide 0.5s ease-in-out;
+    }
+    @keyframes fadeInSlide {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Button Animations */
+    .btn-primary {
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(23, 107, 135, 0.3);
+    }
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(23, 107, 135, 0.4);
+    }
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-outline-primary {
+        border: 1px solid rgba(180, 212, 255, 0.5);
+        color: var(--color-primary);
+        transition: all 0.2s ease;
+    }
+    .btn-outline-primary:hover {
+        background: rgba(180, 212, 255, 0.2);
+        border-color: var(--color-primary);
+    }
+
+    /* Filter Chips */
+    .filter-chip {
+        border: 1px solid rgba(180, 212, 255, 0.4);
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .filter-chip:hover { background: rgba(180, 212, 255, 0.2); }
+    .filter-chip.active {
+        background: var(--color-primary);
+        color: white;
+        border-color: var(--color-primary);
+    }
+
+    /* Tab Buttons */
+    .tab-btn {
+        color: #64748b;
+        border-bottom: 2px solid transparent;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+    }
+    .tab-btn:hover { color: var(--color-primary); }
+    .tab-btn.active {
+        color: var(--color-primary);
+        border-color: var(--color-primary);
+        font-weight: 600;
+    }
+
+    /* Table Hover */
+    .table-row-hover { transition: background-color 0.2s ease; }
+    .table-row-hover:hover { background-color: rgba(180, 212, 255, 0.1); }
+
+    /* Modal Animations */
+    .modal-overlay {
+        background: rgba(23, 107, 135, 0.4);
+        backdrop-filter: blur(4px);
+        transition: opacity 0.3s ease;
+    }
+    .modal-content {
+        background: rgba(255, 255, 255, 0.95);
+        animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes scaleIn {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Spinner */
+    .spinner {
+        width: 16px; height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast-show {
+        transform: translateY(0) !important;
+        opacity: 1 !important;
+    }
+
+    /* Decorative Shapes */
+    .card-shape {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(40px);
+        z-index: 0;
+    }
+    .card-shape-1 { background: #B4D4FF; width: 200px; height: 200px; top: -50px; right: -50px; opacity: 0.15; }
+    .card-shape-2 { background: #86B6F6; width: 150px; height: 150px; bottom: -30px; left: -30px; opacity: 0.15; }
+    .card-shape-3 { background: #176B87; width: 100px; height: 100px; top: 20%; right: 10%; opacity: 0.08; }
+    .card-shape-4 { background: #86B6F6; width: 180px; height: 180px; top: 0; right: 0; opacity: 0.1; }
+    .card-shape-sm { width: 80px; height: 80px; background: #B4D4FF; opacity: 0.2; top: -10px; right: -10px; }
+
+    .dot-pattern {
+        background-image: radial-gradient(#176B8710 1px, transparent 1px);
+        background-size: 20px 20px;
+        z-index: 0;
+    }
+
+    /* Form Inputs */
+    select, input[type="date"], input[type="time"], input[type="text"] {
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(180, 212, 255, 0.5);
+        transition: all 0.2s ease;
+    }
+    select:focus, input:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px rgba(23, 107, 135, 0.1);
+        background: #fff;
+    }
+
+    /* ===== KPI CARDS ===== */
+    .kpi-card {
+        position: relative;
+        overflow: hidden;
+        background: white;
+        border: 1px solid slate-100;
+        transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), 
+                    box-shadow 0.22s ease, 
+                    border-color 0.22s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-4px) scale(1.015);
+    }
+    .kpi-card:active {
+        transform: translateY(-1px) scale(0.985);
+    }
+    .kpi-shine {
+        position: absolute;
+        top: 0; left: 0;
+        width: 40%; height: 100%;
+        background: linear-gradient(120deg, transparent, rgba(255,255,255,0.55), transparent);
+        opacity: 0;
+        pointer-events: none;
+    }
+    .kpi-card:hover .kpi-shine {
+        opacity: 1;
+        animation: shine 0.85s ease forwards;
+    }
+    @keyframes shine {
+        0% { transform: translateX(-120%) skewX(-20deg); }
+        100% { transform: translateX(220%) skewX(-20deg); }
+    }
+    
+    .kpi-value {
+        transition: transform 0.22s ease;
+        display: inline-block;
+    }
+    .kpi-card:hover .kpi-value {
+        transform: scale(1.06);
+    }
+    
+    .kpi-watermark {
+        transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .kpi-card:hover .kpi-watermark {
+        transform: scale(1.12) rotate(-3deg);
+    }
+    
+    .kpi-ring-progress {
+        stroke-dasharray: 100;
+        stroke-dashoffset: 100;
+        animation: ringFill 1s cubic-bezier(0.65,0,0.35,1) forwards;
+    }
+    @keyframes ringFill {
+        to { stroke-dashoffset: var(--offset, 0); }
+    }
+    .kpi-ring {
+        transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .kpi-card:hover .kpi-ring {
+        transform: scale(1.08);
+    }
+
+    /* Staggered entrance */
+    .kpi-grid > a {
+        opacity: 0;
+        animation: slideUp 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(36px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .kpi-grid > a:nth-child(1) { animation-delay: 0.05s; }
+    .kpi-grid > a:nth-child(1) .kpi-ring-progress { animation-delay: 0.35s; }
+    .kpi-grid > a:nth-child(2) { animation-delay: 0.12s; }
+    .kpi-grid > a:nth-child(2) .kpi-ring-progress { animation-delay: 0.42s; }
+    .kpi-grid > a:nth-child(3) { animation-delay: 0.19s; }
+    .kpi-grid > a:nth-child(3) .kpi-ring-progress { animation-delay: 0.49s; }
+    .kpi-grid > a:nth-child(4) { animation-delay: 0.26s; }
+    .kpi-grid > a:nth-child(4) .kpi-ring-progress { animation-delay: 0.56s; }
+
+    /* Glow effects */
+    .glow-blue { border-color: rgba(59, 130, 246, 0.1); }
+    .glow-blue:hover { border-color: rgba(59, 130, 246, 0.4); box-shadow: 0 15px 40px -10px rgba(59, 130, 246, 0.15); }
+    .glow-emerald { border-color: rgba(16, 185, 129, 0.1); }
+    .glow-emerald:hover { border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 15px 40px -10px rgba(16, 185, 129, 0.15); }
+    .glow-red { border-color: rgba(239, 68, 68, 0.1); }
+    .glow-red:hover { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 15px 40px -10px rgba(239, 68, 68, 0.15); }
+    .glow-purple { border-color: rgba(139, 92, 246, 0.1); }
+    .glow-purple:hover { border-color: rgba(139, 92, 246, 0.4); box-shadow: 0 15px 40px -10px rgba(139, 92, 246, 0.15); }
+
+    /* Template list items */
+    .template-item {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .template-item:hover {
+        background: rgba(180, 212, 255, 0.15);
+        transform: translateX(4px);
+    }
+    .template-item .delete-btn {
+        opacity: 0;
+        transition: opacity 0.2s ease;
+    }
+    .template-item:hover .delete-btn {
+        opacity: 1;
+    }
+
+    /* Action Buttons */
+    .action-btn {
+        transition: all 0.2s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .action-btn:hover {
+        transform: scale(1.1);
+    }
+    .action-btn-view {
+        color: #176B87;
+    }
+    .action-btn-view:hover {
+        color: #0F4A5E;
+    }
+    .action-btn-download {
+        color: #64748b;
+    }
+    .action-btn-download:hover {
+        color: #176B87;
+    }
+
+    /* Prevent export helpers from covering the report controls. */
+    .html2pdf__overlay {
+        display: none !important;
+    }
+
+    /* ===== FORMAL REPORT PRINT LAYOUT ===== */
+    #printReportHeader {
+        display: none;
+    }
+
+    @page {
+        margin: 0.75in;
+    }
+
+    @media print {
+        header:not(#printReportHeader),
+        aside,
+        .sidebar,
+        #sidebar,
+        footer,
+        .footer,
+        #footer,
+        #reportConfiguration,
+        #recentReports,
+        #reportFooter,
+        #reportTabsBar,
+        #reportPreview .action-btn,
+        #tablePagination,
+        #tabTable th:last-child,
+        #tabTable td:last-child,
+        .modal-overlay {
+            display: none !important;
+        }
+
+        html,
+        body,
+        main {
+            height: auto !important;
+            min-height: auto !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+        }
+
+        main {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            float: none !important;
+        }
+
+        #reportPreview {
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+            border: 0 !important;
+            background: #ffffff !important;
+        }
+
+        #printReportHeader {
+            display: block !important;
+            text-align: center;
+            font-family: "Times New Roman", Times, serif;
+            margin: 0 0 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #000;
+        }
+
+        #printReportHeader img {
+            width: 120px;
+            height: auto;
+            display: block;
+            margin: 0 auto 10px;
+        }
+
+        #printReportHeader h1 {
+            margin: 0;
+            color: #000;
+            font-size: 20pt;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        #printReportHeader h2 {
+            margin: 5px 0 0;
+            color: #000;
+            font-size: 14pt;
+            font-weight: normal;
+        }
+
+        #tabChart,
+        #tabTable,
+        #tabSummary {
+            display: block !important;
+            height: auto !important;
+            min-height: 0 !important;
+            opacity: 1 !important;
+            overflow: visible !important;
+            transform: none !important;
+            animation: none !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        #reportPreview .overflow-x-auto,
+        #reportPreview .overflow-hidden {
+            overflow: visible !important;
+        }
+
+        #reportPreview canvas {
+            max-width: 100% !important;
+        }
+
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+    }
+
+    /* ===== REPORT NAVIGATION PILLS & SECTIONS ===== */
+    .report-nav-pill {
+        padding: 0.5rem 1.125rem;
+        border-radius: 0.875rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        white-space: nowrap;
+        cursor: pointer;
+        border: 1px solid transparent;
+        background: transparent;
+    }
+    .report-nav-pill:hover {
+        color: var(--color-primary);
+        background: rgba(180, 212, 255, 0.25);
+        transform: translateY(-1px);
+    }
+    .report-nav-pill.active {
+        color: #ffffff;
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+        box-shadow: 0 4px 14px rgba(23, 107, 135, 0.25);
+        border-color: transparent;
+    }
+    .report-section {
+        animation: fadeInSlide 0.35s ease-in-out;
+    }
+    .status-badge-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.25rem 0.625rem;
+        border-radius: 9999px;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }

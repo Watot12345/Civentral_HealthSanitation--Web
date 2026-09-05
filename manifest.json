@@ -1,0 +1,21 @@
+{
+  "name": "Civentral Health Services",
+  "short_name": "Civentral",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5e9",
+  "description": "Municipal health, sanitation, and urban services management system",
+  "icons": [
+    {
+      "src": "/assets/images/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/images/logo-large.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
