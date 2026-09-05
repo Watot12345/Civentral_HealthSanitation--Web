@@ -246,6 +246,24 @@ class ClinicalSurveillanceService
     }
 
     /**
+     * Removes associated disease surveillance cases when a consultation is deleted.
+     */
+    public function removeConsultationCase(array $consultation): bool
+    {
+        $id = $consultation['id'] ?? null;
+        if (!$id) {
+            return false;
+        }
+        try {
+            $this->db->delete('disease_surveillance_cases', ['consultation_id' => $id]);
+            return true;
+        } catch (Throwable $e) {
+            error_log('ClinicalSurveillanceService::removeConsultationCase error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Resolves Caloocan administrative Zone for a given Barangay name.
      */
     public function resolveZoneForBarangay(string $barangayName): string

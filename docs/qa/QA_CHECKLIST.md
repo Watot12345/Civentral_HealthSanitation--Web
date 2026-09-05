@@ -36,7 +36,7 @@
 | **1.7** | **Offline Synchronization** | Offline transactions synchronize correctly after reconnecting to the network. | Offline Test Report | [ ] | Client-side queue syncing pending health worker field entries. |
 | **1.8** | **Background Processing** | Scheduled jobs and background tasks execute successfully. | Scheduler Logs | [x] | Automated permit renewal notices, surveillance threshold checks, report dispatch, system maintenance executed via `bin/scheduler.php`, logged in `scheduler_logs`, and viewable in `management/system_logs.php`. |
 | **1.9** | **Error Recovery** | System recovers gracefully from unexpected failures. | Error Logs | [ ] | Graceful try-catch blocks with logging to `storage/logs/`. |
-| **1.10** | **Scalability** | System supports concurrent users without performance degradation. | Load Test Report | [x] | Concurrent load test (10–100 VUs) passed with peak 6,296 RPS, sub-310ms p95 latency, 0% 5xx error rate. Evidence: `docs/qa/LOAD_TEST_REPORT.md`, `tests/load/run-load-test.php`, `tests/load/k6-load-test.js`. |
+| **1.10** | **Scalability** | System supports concurrent users without performance degradation. | Load Test Report | [x] | Concurrent load test (10–100 VUs) passed with peak 6,296 RPS, sub-310ms p95 latency, 0% 5xx error rate. Evidence: `docs/qa/LOAD_TEST_REPORT.md`, `tests_archive_do_not_deploy/load/run-load-test.php`, `tests_archive_do_not_deploy/load/k6-load-test.js`. |
 
 ---
 

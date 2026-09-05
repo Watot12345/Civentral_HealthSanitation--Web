@@ -29,7 +29,7 @@ Your goal is to find bugs, validate core requirements, test edge cases, break co
 - [ ] **Offline Synchronization**: Offline transactions synchronize correctly after reconnecting to network. (Evidence: Offline Test Report)
 - [x] **Background Processing**: Scheduled jobs and background tasks execute successfully. (Evidence: Scheduler Logs in `management/system_logs.php`, `bin/scheduler.php`, `database/migrations/2026_09_04_create_scheduler_logs_table.sql`)
 - [ ] **Error Recovery**: System recovers gracefully from unexpected failures. (Evidence: Error Logs)
-- [x] **Scalability**: System supports concurrent users without performance degradation. (Evidence: Load Test Report in `docs/qa/LOAD_TEST_REPORT.md`, `tests/load/run-load-test.php`, `docs/qa/load-test-results.json`)
+- [x] **Scalability**: System supports concurrent users without performance degradation. (Evidence: Load Test Report in `docs/qa/LOAD_TEST_REPORT.md`, `tests_archive_do_not_deploy/load/run-load-test.php`, `docs/qa/load-test-results.json`)
 
 ### Section 2: Security, Data Privacy & AI Governance (CRITICAL)
 - [ ] **Multi-Factor Authentication**: MFA implemented for privileged accounts. (Evidence: Authentication Settings)

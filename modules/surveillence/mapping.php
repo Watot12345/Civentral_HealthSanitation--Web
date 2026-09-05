@@ -638,8 +638,23 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
         map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
         map.addControl(new maplibregl.FullscreenControl(), 'top-right');
 
+        // Accessibility 7.8: Screen Reader ARIA-Live Map Announcer
+        let liveRegion = document.getElementById('gisMapLiveRegion');
+        if (!liveRegion) {
+            liveRegion = document.createElement('div');
+            liveRegion.id = 'gisMapLiveRegion';
+            liveRegion.setAttribute('aria-live', 'polite');
+            liveRegion.setAttribute('aria-atomic', 'true');
+            liveRegion.className = 'sr-only text-xs';
+            document.body.appendChild(liveRegion);
+        }
+        window.announceGisMapState = function(msg) {
+            if (liveRegion) liveRegion.textContent = msg;
+        };
+
         map.on('load', () => {
             setupMapSourcesAndLayers();
+            announceGisMapState('GIS Surveillance Map loaded with 3D buildings, barangay boundaries, and disease clusters.');
         });
     }
 

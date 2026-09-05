@@ -225,23 +225,34 @@ function renderReports() {
     });
   });
 
-  // ── Download button events (no alert, just console log) ──
+  // ── Download button events — calls api/export.php for real file download ──
   document.querySelectorAll('.download-btn:not([disabled])').forEach(btn => {
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
       const key = this.dataset.key;
-      const format = selectedFormats[key];
-      if (key && format) {
-        const parts = key.split('-');
-        const idx = parseInt(parts[1]);
-        const data = reportData[currentCategory];
-        const item = data.items[idx];
-        if (item) {
-          // Silent action – replace alert with a simple console log
-          console.log(`📥 Exporting "${item.name}" as ${format} format. (Simulated download)`);
-          // In production, trigger the actual download here.
-        }
-      }
+      const fmt = (selectedFormats[key] || 'PDF').toLowerCase();
+      if (!key || !fmt) return;
+
+      // Map JS category key → API category parameter
+      const categoryMap = {
+        executive:   'patients',
+        sanitation:  'permits',
+        wastewater:  'wastewater',
+        healthcenter:'patients',
+        immunization:'patients',
+        nutrition:   'patients',
+        vaccination: 'patients',
+        surveillance:'surveillance'
+      };
+      const category = categoryMap[currentCategory] || currentCategory;
+
+      // Build query string
+      const params = new URLSearchParams({ category, format: fmt });
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo)   params.set('date_to',   dateTo);
+
+      // Trigger browser download via navigation — browser will save the file
+      window.location.href = `../api/export.php?${params.toString()}`;
     });
   });
 }

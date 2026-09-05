@@ -17,6 +17,8 @@ const CiventralOfflineSync = (function() {
     const DB_VERSION = 1;
     const STORE_NAME = 'sync_queue';
     const PING_INTERVAL_MS = 20000;
+    const MAX_RETRY_COUNT = 5;           // BUG-021: discard after this many failures
+    const RETRY_BASE_DELAY_MS = 30000;   // BUG-021: 30 s base → doubles each retry (30s,60s,120s,240s,480s)
 
     let dbInstance = null;
     let isSyncing = false;
@@ -67,7 +69,7 @@ const CiventralOfflineSync = (function() {
             url: item.url,
             method: item.method || 'POST',
             headers: item.headers || {},
-            body: item.body || null,
+            body: await serializeBody(item.body),  // BUG-019: convert FormData to IndexedDB-safe format
             entityType: item.entityType || detectEntityType(item.url),
             entityLabel: item.entityLabel || 'Transaction',
             timestamp: Date.now(),
@@ -201,6 +203,65 @@ const CiventralOfflineSync = (function() {
     }
 
     // ============================================================
+    // BUG-019: FormData Serialization / Deserialization
+    // IndexedDB cannot clone live FormData or File objects.
+    // serializeBody() reads every File entry to a base64 data-URL so the
+    // resulting plain object is structured-clone safe for IndexedDB storage.
+    // deserializeBody() reconstructs a real FormData (with Blob entries) at
+    // sync time so the server receives intact multipart/form-data.
+    // ============================================================
+    async function serializeBody(body) {
+        if (!body || !(body instanceof FormData)) return body;
+
+        const entries = [];
+        const reads = [];
+
+        for (const [key, value] of body.entries()) {
+            if (value instanceof File) {
+                reads.push(new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        entries.push({
+                            type: 'file',
+                            key: key,
+                            filename: value.name,
+                            mimetype: value.type,
+                            base64: reader.result   // "data:<mime>;base64,<data>"
+                        });
+                        resolve();
+                    };
+                    reader.onerror = () => reject(new Error('FileReader failed for: ' + value.name));
+                    reader.readAsDataURL(value);
+                }));
+            } else {
+                entries.push({ type: 'field', key: key, value: String(value) });
+            }
+        }
+
+        await Promise.all(reads);
+        return { __isFormData: true, entries: entries };
+    }
+
+    function deserializeBody(stored) {
+        if (!stored || typeof stored !== 'object' || !stored.__isFormData) return stored;
+
+        const fd = new FormData();
+        for (const entry of stored.entries) {
+            if (entry.type === 'file') {
+                const [, b64] = entry.base64.split(',');
+                const binary = atob(b64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const blob = new Blob([bytes], { type: entry.mimetype });
+                fd.append(entry.key, blob, entry.filename);
+            } else {
+                fd.append(entry.key, entry.value);
+            }
+        }
+        return fd;
+    }
+
+    // ============================================================
     // 3. Network Health & Connectivity
     // ============================================================
     async function checkConnectivity() {
@@ -254,6 +315,24 @@ const CiventralOfflineSync = (function() {
         let failCount = 0;
 
         for (const item of pending) {
+            // BUG-021: Hard discard items that exceeded the maximum retry ceiling
+            if ((item.retryCount || 0) >= MAX_RETRY_COUNT) {
+                console.warn(`[offline-sync] Item ${item.id} (${item.entityType}) exceeded ${MAX_RETRY_COUNT} retries. Discarding permanently. Last error: ${item.error}`);
+                await removeQueueItem(item.id);
+                failCount++;
+                if (typeof showToast === 'function') {
+                    showToast(`1 offline ${item.entityLabel || item.entityType || 'transaction'} could not be synced after ${MAX_RETRY_COUNT} attempts and was discarded.`, 'warning');
+                }
+                continue;
+            }
+
+            // BUG-021: Skip items still within their exponential back-off window
+            if (item.nextRetryAt && item.nextRetryAt > Date.now()) {
+                const waitSec = Math.ceil((item.nextRetryAt - Date.now()) / 1000);
+                console.log(`[offline-sync] Item ${item.id} in back-off; retrying in ${waitSec}s`);
+                continue;
+            }
+
             try {
                 const headers = Object.assign({}, item.headers);
                 if (typeof getCsrfToken === 'function') {
@@ -261,18 +340,24 @@ const CiventralOfflineSync = (function() {
                     if (token) headers['X-CSRF-TOKEN'] = token;
                 }
 
+                // BUG-019: Reconstruct FormData from stored base64 representation before replay
+                const body = deserializeBody(item.body);
+
+                // BUG-019: Strip Content-Type for FormData so browser sets multipart boundary
+                if (body instanceof FormData) delete headers['Content-Type'];
+
                 // Call raw native fetch to avoid recursive interception
                 const res = await (window._nativeFetch || fetch)(item.url, {
                     method: item.method,
                     headers: headers,
-                    body: item.body
+                    body: body
                 });
 
                 if (res.ok) {
                     await removeQueueItem(item.id);
                     successCount++;
                 } else if (res.status === 401 || res.status === 403) {
-                    console.warn(`Item ${item.id} rejected by server with ${res.status} (Unauthorized). Pausing sync. Please log in.`);
+                    console.warn(`[offline-sync] Item ${item.id} rejected (${res.status}): session expired. Pausing sync.`);
                     isSyncing = false;
                     const remaining = await getPendingQueue();
                     updateUIBadge(remaining.length, false);
@@ -283,22 +368,29 @@ const CiventralOfflineSync = (function() {
                     }
                     return;
                 } else if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
-                    console.warn(`Item ${item.id} rejected by server with ${res.status}. Removing from sync queue.`);
+                    // 4xx (except timeout/rate-limit): server rejected the request — no point retrying
+                    console.warn(`[offline-sync] Item ${item.id} permanently rejected by server (${res.status}). Removing.`);
                     await removeQueueItem(item.id);
                     failCount++;
                 } else {
+                    // 5xx or network-level: retry with exponential back-off (BUG-021)
                     item.retryCount = (item.retryCount || 0) + 1;
                     item.error = `HTTP ${res.status}`;
+                    item.nextRetryAt = Date.now() + Math.pow(2, item.retryCount) * RETRY_BASE_DELAY_MS;
+                    console.warn(`[offline-sync] Item ${item.id} server error (${res.status}). Retry ${item.retryCount}/${MAX_RETRY_COUNT} at ${new Date(item.nextRetryAt).toLocaleTimeString()}`);
                     await updateQueueItem(item);
                     failCount++;
                 }
             } catch (err) {
-                console.error(`Sync failure for item ${item.id}:`, err);
+                // Network error — retry with exponential back-off (BUG-021)
+                console.error(`[offline-sync] Network failure for item ${item.id}:`, err);
                 item.retryCount = (item.retryCount || 0) + 1;
                 item.error = err.message;
+                item.nextRetryAt = Date.now() + Math.pow(2, item.retryCount) * RETRY_BASE_DELAY_MS;
+                console.warn(`[offline-sync] Retry ${item.retryCount}/${MAX_RETRY_COUNT} scheduled at ${new Date(item.nextRetryAt).toLocaleTimeString()}`);
                 await updateQueueItem(item);
                 failCount++;
-                break;
+                break; // stop batch on connectivity loss; next sync cycle will resume
             }
         }
 
@@ -329,7 +421,7 @@ const CiventralOfflineSync = (function() {
         const method = (options.method || 'GET').toUpperCase();
         const isMutation = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method);
 
-        if (!navigator.onLine && isMutation) {
+        if ((!navigator.onLine || !isOnlineStatus) && isMutation) {
             const queued = await enqueue({
                 url: url,
                 method: method,
@@ -505,10 +597,12 @@ const CiventralOfflineSync = (function() {
         initPWAInstallPrompt();
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').then(registration => {
-                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                // BUG-006: use PHP-emitted base URL so SW resolves correctly under subdirectory
+                const swUrl = (window.APP_BASE_URL || '') + '/sw.js';
+                navigator.serviceWorker.register(swUrl).then(registration => {
+                    console.log('[offline-sync] ServiceWorker registered, scope:', registration.scope);
                 }).catch(err => {
-                    console.log('ServiceWorker registration failed: ', err);
+                    console.warn('[offline-sync] ServiceWorker registration failed:', err);
                 });
             });
         }
@@ -553,10 +647,10 @@ const CiventralOfflineSync = (function() {
                 url.includes('/modules/immunization/api/') ||
                 url.includes('/modules/surveillence/api/') ||
                 url.includes('/modules/services/api/')
-            ) && ['POST', 'PUT', 'DELETE'].includes(method);
+            ) && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method); // BUG-020: PATCH added
 
             if (isApiMutation) {
-                return request(resource, init);
+                return request(url, init);
             }
 
             return window._nativeFetch.apply(this, arguments);

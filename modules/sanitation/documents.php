@@ -774,21 +774,16 @@ $title = 'Documents';
 
         try {
             const file = fileInput.files[0];
-            const uploadData = {
-                permit_id: parseInt(permitSelect.value),
-                document_type: docTypeSelect.value,
-                file_name: file.name,
-                file_path: '/uploads/' + file.name,
-                file_size: file.size,
-                file_type: file.name.split('.').pop(),
-                mime_type: file.type,
-                uploaded_by: <?php echo $currentEmployeeId; ?>,
-                applicant: applicantInput.value.trim(),
-                notes: notesTextarea.value || '',
-                status: 'pending'
-            };
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('permit_id', permitSelect.value);
+            fd.append('document_type', docTypeSelect.value);
+            fd.append('uploaded_by', <?php echo $currentEmployeeId; ?>);
+            fd.append('applicant', applicantInput.value.trim());
+            fd.append('notes', notesTextarea.value || '');
+            fd.append('status', 'pending');
 
-            console.log('Uploading document:', uploadData);
+            console.log('Uploading document...');
 
             // Submit to API
             const apiUrl = '<?php echo site_url('api/permit_documents.php'); ?>';
@@ -796,10 +791,8 @@ $title = 'Documents';
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(uploadData)
+                // Omit Content-Type so browser sets multipart/form-data with boundary
+                body: fd
             });
 
             console.log('Response status:', response.status);

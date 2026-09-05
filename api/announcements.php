@@ -183,6 +183,18 @@ try {
             $fileObj = $_FILES['announcementFile'] ?? ($_FILES['file'] ?? ($_FILES['attachment'] ?? null));
 
             if ($fileObj && !empty($fileObj['name']) && $fileObj['error'] === UPLOAD_ERR_OK) {
+                require_once __DIR__ . '/../app/helpers/FileUploadValidator.php';
+                $valRes = FileUploadValidator::validate(
+                    $fileObj['tmp_name'], 
+                    $fileObj['name'], 
+                    ['png', 'jpg', 'jpeg', 'pdf', 'txt']
+                );
+                if (!$valRes['valid']) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'message' => $valRes['message']]);
+                    exit;
+                }
+
                 $uploadDir = __DIR__ . '/../storage/uploads/announcements/';
                 if (!is_dir($uploadDir)) {
                     @mkdir($uploadDir, 0755, true);

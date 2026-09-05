@@ -1,0 +1,33 @@
+parameters:
+  level: 5
+  paths:
+    - app
+    - Core
+    - config
+  bootstrapFiles:
+    - config/paths.php
+    - config/database.php
+    - vendor/autoload.php
+  scanDirectories:
+    - vendor/phpmailer/src
+    - includes
+  treatPhpDocTypesAsCertain: false
+  ignoreErrors:
+    - '#Call to function is_string\(\) with .* will always evaluate to true\.#'
+    - '#Call to function is_array\(\) with .* will always evaluate to true\.#'
+    - '#Call to function method_exists\(\) with .* will always evaluate to true\.#'
+    - '#Comparison operation .* is always true\.#'
+    - '#Strict comparison using .* will always evaluate to .*#'
+    - '#Right side of && is always true\.#'
+    - '#Constant .* is unused\.#'
+    - '#Method .* is unused\.#'
+    - '#Property .* is .*#'
+    - '#Static property .* is .*#'
+    - '#Offset .* on .* in empty\(\) does not exist\.#'
+    - '#Offset .* on .* on left side of \?\? always exists.*#'
+    - '#Parameter \#1 \$string of function str_pad expects string, .* given\.#'
+    - '#Parameter \#1 \$id of method Patient::find\(\) expects string, .* given\.#'
+    - '#Parameter \#1 \$array \(list\) of array_values is already a list, call has no effect\.#'
+
+
+

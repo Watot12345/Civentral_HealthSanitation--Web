@@ -6,13 +6,8 @@ Env::load();
 $appDebug = filter_var(Env::get('APP_DEBUG', false), FILTER_VALIDATE_BOOLEAN);
 $appEnv   = Env::get('APP_ENV', 'production');
 
-if ($appDebug && $appEnv === 'development') {
-    error_reporting(E_ALL);
-    ini_set('display_errors', '1');
-} else {
-    error_reporting(0);
-    ini_set('display_errors', '0');
-}
+error_reporting(0);
+ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
 session_start();

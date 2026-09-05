@@ -62,6 +62,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             case 'import_cases':
                 $importedRows = [];
+                if (isset($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
+                    require_once __DIR__ . '/../../app/helpers/FileUploadValidator.php';
+                    $valRes = FileUploadValidator::validate($_FILES['file']['tmp_name'], $_FILES['file']['name'], ['csv', 'xlsx', 'json', 'xls', 'txt']);
+                    if (!$valRes['valid']) {
+                        $response = ['success' => false, 'message' => $valRes['message']];
+                        break;
+                    }
+                }
                 if (!empty($_POST['rows_json'])) {
                     $importedRows = json_decode($_POST['rows_json'], true) ?: [];
                 } elseif (!empty($_POST['csv_text'])) {

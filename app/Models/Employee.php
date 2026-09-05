@@ -288,9 +288,9 @@ class Employee
             return [];
         }
         
+        $idList = implode(',', array_map('intval', $ids));
         try {
             // Use PostgREST 'in' operator: id=in.(1,2,3)
-            $idList = implode(',', array_map('intval', $ids));
             $results = $this->db->select($this->table, ["id=in.({$idList})"]);
             return $this->normalizeEmployees($results);
         } catch (Throwable $e) {

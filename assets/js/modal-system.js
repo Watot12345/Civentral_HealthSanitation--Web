@@ -406,7 +406,37 @@ const ModalSystem = (function() {
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         document.body.classList.add('overflow-hidden');
-        
+
+        // Focus Trap & Keyboard Navigation (Accessibility 7.7)
+        try {
+            modal._previouslyFocused = document.activeElement;
+            var focusables = modal.querySelectorAll('a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex="0"]');
+            if (focusables.length > 0) {
+                focusables[0].focus();
+            }
+
+            modal._focusTrapHandler = function(e) {
+                if (e.key !== 'Tab') return;
+                var currentFocusables = modal.querySelectorAll('a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex="0"]');
+                if (currentFocusables.length === 0) return;
+                var first = currentFocusables[0];
+                var last = currentFocusables[currentFocusables.length - 1];
+
+                if (e.shiftKey) {
+                    if (document.activeElement === first) {
+                        e.preventDefault();
+                        last.focus();
+                    }
+                } else {
+                    if (document.activeElement === last) {
+                        e.preventDefault();
+                        first.focus();
+                    }
+                }
+            };
+            modal.addEventListener('keydown', modal._focusTrapHandler);
+        } catch (e) {}
+
         if (options.applyMasking !== false) {
             setTimeout(function() {
                 applyMaskingToModal(modal);
@@ -425,6 +455,17 @@ const ModalSystem = (function() {
             console.warn('ModalSystem.close: Element #' + id + ' not found');
             return;
         }
+
+        // Remove focus trap listener and restore previous focus
+        if (modal._focusTrapHandler) {
+            modal.removeEventListener('keydown', modal._focusTrapHandler);
+            modal._focusTrapHandler = null;
+        }
+        if (modal._previouslyFocused && typeof modal._previouslyFocused.focus === 'function') {
+            try { modal._previouslyFocused.focus(); } catch (e) {}
+            modal._previouslyFocused = null;
+        }
+
         modal.classList.add('hidden');
         modal.classList.remove('flex');
         document.body.classList.remove('overflow-hidden');

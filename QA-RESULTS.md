@@ -135,7 +135,7 @@ Graceful `try-catch` blocks confirmed throughout controllers and services.
   - **Latency SLA:** p95 latency achieved 4.32ms (10 VUs) to 301.75ms (100 VUs), well below the 500ms threshold.
   - **Error Rate:** 0.0% HTTP 5xx server errors under peak concurrent load.
   - **Defensive Safeguards:** Enforced default query pagination limits (50 default, 200 max) in `PatientController.php`, rate limiting (60 req/min) in `api/appointments.php`, and configurable connection pooling/keepalive in `config/database.php`.
-- **Evidence:** [`docs/qa/LOAD_TEST_REPORT.md`](file:///opt/lampp/htdocs/capstone/docs/qa/LOAD_TEST_REPORT.md), [`tests/load/run-load-test.php`](file:///opt/lampp/htdocs/capstone/tests/load/run-load-test.php), [`tests/load/k6-load-test.js`](file:///opt/lampp/htdocs/capstone/tests/load/k6-load-test.js), [`docs/qa/load-test-results.json`](file:///opt/lampp/htdocs/capstone/docs/qa/load-test-results.json).
+- **Evidence:** [`docs/qa/LOAD_TEST_REPORT.md`](file:///opt/lampp/htdocs/capstone/docs/qa/LOAD_TEST_REPORT.md), [`tests_archive_do_not_deploy/load/run-load-test.php`](file:///opt/lampp/htdocs/capstone/tests_archive_do_not_deploy/load/run-load-test.php), [`tests_archive_do_not_deploy/load/k6-load-test.js`](file:///opt/lampp/htdocs/capstone/tests_archive_do_not_deploy/load/k6-load-test.js), [`docs/qa/load-test-results.json`](file:///opt/lampp/htdocs/capstone/docs/qa/load-test-results.json).
 
 ---
 

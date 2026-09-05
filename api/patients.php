@@ -47,7 +47,9 @@ try {
             break;
             
         case 'POST':
-            if ($action === 'update' && $patientId) {
+            if ($action === 'import') {
+                $controller->import();
+            } elseif ($action === 'update' && $patientId) {
                 $controller->update($patientId);
             } elseif ($action === 'delete' && $patientId) {
                 $controller->destroy($patientId);

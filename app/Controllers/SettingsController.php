@@ -132,6 +132,11 @@ class SettingsController extends BaseController
         $this->handle(function () {
             $jsonContent = null;
             if (isset($_FILES['file']['tmp_name']) && is_uploaded_file($_FILES['file']['tmp_name'])) {
+                require_once __DIR__ . '/../helpers/FileUploadValidator.php';
+                $valRes = FileUploadValidator::validate($_FILES['file']['tmp_name'], $_FILES['file']['name'], ['json']);
+                if (!$valRes['valid']) {
+                    return ['success' => false, 'message' => $valRes['message']];
+                }
                 $jsonContent = file_get_contents($_FILES['file']['tmp_name']);
             } else {
                 $input = $this->input();

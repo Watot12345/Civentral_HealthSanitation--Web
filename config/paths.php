@@ -183,15 +183,10 @@ if (!function_exists('getClientDevice')) {
         }
         $browserOsStr = implode(' ', $details);
 
-        if (!empty($deviceType) && !empty($browserOsStr)) {
+        if (!empty($browserOsStr)) {
             return "{$deviceType} • {$browserOsStr}";
-        } elseif (!empty($browserOsStr)) {
-            return $browserOsStr;
-        } elseif (!empty($deviceType)) {
-            return $deviceType;
         }
-
-        return '';
+        return $deviceType;
     }
 }
 

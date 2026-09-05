@@ -345,7 +345,7 @@ class GeminiAiService
     /**
      * Fix BUG-004: Enforce actual word count limit.
      */
-    private function limitWords(string $text, int $maxWords = 10): string
+    public function limitWords(string $text, int $maxWords = 10): string
     {
         $clean = trim(strip_tags($text));
         if ($clean === '') {

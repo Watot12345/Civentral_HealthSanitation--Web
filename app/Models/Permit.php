@@ -71,6 +71,32 @@ class Permit
         }
     }
 
+    private static ?Permit $instance = null;
+
+    private static function getInstance(): Permit
+    {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    public static function __callStatic(string $name, array $arguments)
+    {
+        return self::getInstance()->$name(...$arguments);
+    }
+
+    public function findByPermitId(string $permitId): ?array
+    {
+        try {
+            $result = $this->db->select($this->table, ['permit_id' => $permitId]);
+            return !empty($result) ? EncryptionHelper::decryptModel($this->table, $result[0]) : null;
+        } catch (Throwable $e) {
+            error_log('Permit Model Error (findByPermitId): ' . $e->getMessage());
+            return null;
+        }
+    }
+
     /**
      * Fast fallback ID generator — does NOT scan entire table.
      */

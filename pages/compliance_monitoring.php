@@ -917,36 +917,73 @@ include '../includes/sidebar.php';
             if (e.target === this) closeModal();
         });
 
-        // ----- 5. SUBMIT ACTION -----
+        // ----- 5. SUBMIT ACTION (BUG-017 fix: real backend POST) -----
         if (submitBtn) {
-            submitBtn.addEventListener('click', function() {
-                const id = modalViolationId.value;
+            submitBtn.addEventListener('click', async function() {
+                const id     = modalViolationId.value;
                 const assign = assignedTo.value.trim();
-                const due = dueDate.value;
+                const due    = dueDate.value;
+                const proof  = proofUpload.files[0] || null;
 
                 if (!assign || !due) {
                     showToast('Please fill in both "Assign to" and "Due Date".', 'error');
                     return;
                 }
 
-                const container = document.getElementById('actionsContainer');
-                if (container) {
-                    const dueFormatted = new Date(due).toISOString().split('T')[0];
-                    const newPill = document.createElement('div');
-                    newPill.className = 'action-pill border rounded-md px-3 py-1.5 text-xs flex items-center gap-2 transition-all duration-200 hover:scale-105 hover:shadow-sm bg-[#EEF5FF] border-[#B4D4FF]';
-                    newPill.setAttribute('data-date', dueFormatted);
-                    newPill.innerHTML = `
-                        <span class="font-medium text-[#0d4f64]">NEW</span>
-                        <span class="text-[#176B87]">${assign}</span>
-                        <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">OPEN</span>
-                        <span class="text-[#86B6F6]">due ${new Date(due).toLocaleDateString()}</span>
-                    `;
-                    container.prepend(newPill);
-                    applyFilters();
-                }
+                // Lock button during request
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Saving…';
 
-                closeModal();
-                showToast(`Corrective action assigned to ${assign}`, 'success');
+                const fd = new FormData();
+                fd.append('action', 'assign_action');
+                fd.append('inspection_id', id);
+                fd.append('assigned_to', assign);
+                fd.append('due_date', due);
+                if (proof) fd.append('proof', proof);
+
+                try {
+                    const resp = await fetch('../api/compliance_actions.php', {
+                        method: 'POST',
+                        body: fd
+                    });
+                    const json = await resp.json();
+
+                    if (!json.success) {
+                        showToast('Error: ' + (json.message || 'Unknown error'), 'error');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Assign Action';
+                        return;
+                    }
+
+                    // Optimistic DOM update — keep action pill so page feels instant
+                    const container = document.getElementById('actionsContainer');
+                    if (container) {
+                        const dueFormatted = new Date(due).toISOString().split('T')[0];
+                        const newPill = document.createElement('div');
+                        newPill.className = 'action-pill border rounded-md px-3 py-1.5 text-xs flex items-center gap-2 transition-all duration-200 hover:scale-105 hover:shadow-sm bg-[#EEF5FF] border-[#B4D4FF]';
+                        newPill.setAttribute('data-date', dueFormatted);
+                        const proofBadge = json.data?.proof_url
+                            ? `<span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800" title="${json.data.proof_url}">📎 Proof</span>`
+                            : '';
+                        newPill.innerHTML = `
+                            <span class="font-medium text-[#0d4f64]">NEW</span>
+                            <span class="text-[#176B87]">${assign}</span>
+                            <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800">OPEN</span>
+                            <span class="text-[#86B6F6]">due ${new Date(due).toLocaleDateString()}</span>
+                            ${proofBadge}
+                        `;
+                        container.prepend(newPill);
+                        if (typeof applyFilters === 'function') applyFilters();
+                    }
+
+                    closeModal();
+                    showToast(`Corrective action assigned to ${assign}`, 'success');
+
+                } catch (err) {
+                    showToast('Network error: ' + err.message, 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Assign Action';
+                }
             });
         }
 

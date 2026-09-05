@@ -1471,7 +1471,7 @@ class AiAnalyticsService
     }
 
 
-    private function calculatePerformanceMetrics(array $snap): array
+    private function calculatePerformanceMetrics(array $snap, string $scope = 'all'): array
     {
         $cases       = $snap['cases'] ?? [];
         $permits     = $snap['permits'] ?? [];
@@ -1700,7 +1700,7 @@ class AiAnalyticsService
             $code  = (string)($emp['employee_id'] ?? '');
             $name  = trim($emp['full_name'] ?? '');
             if (empty($name)) {
-                $name = $emp['username'] ?? $code ?? 'Employee #' . $empId;
+                $name = !empty($emp['username']) ? $emp['username'] : (!empty($code) ? $code : 'Employee #' . $empId);
             }
 
             $dept = trim($emp['department'] ?? 'Health Center Services');

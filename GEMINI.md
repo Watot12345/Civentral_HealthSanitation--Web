@@ -77,8 +77,8 @@ Preserve these boundaries. Put new behavior in the layer that owns it instead of
   - `npm install`
   - `php -S 0.0.0.0:8080 -t .`
   - `php /tmp/phpstan.phar analyse app Core config --level=1`
-  - `php tests/load/run-load-test.php --help`
-  - `k6 run tests/load/k6-load-test.js`
+  - `php tests_archive_do_not_deploy/load/run-load-test.php --help`
+  - `k6 run tests_archive_do_not_deploy/load/k6-load-test.js`
   - `php bin/scheduler.php --help`
 - `npm test` is currently a placeholder that exits with an error; do not report it as a passing test suite.
 

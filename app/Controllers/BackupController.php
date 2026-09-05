@@ -141,7 +141,20 @@ class BackupController extends BaseController
 
         foreach (self::SYSTEM_TABLES as $table) {
             try {
-                $rows = $this->db->select($table, [], ['limit' => 5000]);
+                // Paginate in 2000-row pages — no upper cap (BUG-015 fix)
+                $rows = [];
+                $pageSize = 2000;
+                $offset   = 0;
+                do {
+                    $page = $this->db->select($table, [], [
+                        'limit'  => $pageSize,
+                        'offset' => $offset,
+                        'order'  => 'id.asc',
+                    ]);
+                    if (!is_array($page) || empty($page)) break;
+                    $rows   = array_merge($rows, $page);
+                    $offset += $pageSize;
+                } while (count($page) === $pageSize);
                 if (!is_array($rows) || empty($rows)) {
                     continue;
                 }
@@ -245,13 +258,14 @@ class BackupController extends BaseController
     }
 
     /**
-     * POST /api/settings/restore — Restore settings or database from backup
+     * POST /api/settings/restore — Restore settings or core database tables from backup dump (BUG-016)
      */
     public function restore(): void
     {
         $input = $this->input();
 
         $this->handle(function () use ($input) {
+            // 1. Settings version snapshot restore
             $versionNumber = $input['version_number'] ?? null;
             if ($versionNumber !== null) {
                 $repository = new \App\Repositories\SettingsRepository();
@@ -267,6 +281,30 @@ class BackupController extends BaseController
                         'message' => "System settings successfully restored to Version #{$versionNumber}!",
                     ];
                 }
+            }
+
+            // 2. Full SQL / JSON Database Dump Restoration (BUG-016)
+            $dumpJson = $input['dump_json'] ?? null;
+            if (!empty($dumpJson) && is_array($dumpJson)) {
+                $restoredCount = 0;
+                foreach (self::SYSTEM_TABLES as $table) {
+                    if (isset($dumpJson[$table]) && is_array($dumpJson[$table])) {
+                        foreach ($dumpJson[$table] as $record) {
+                            if (is_array($record) && !empty($record)) {
+                                try {
+                                    $this->db->insert($table, $record, true);
+                                    $restoredCount++;
+                                } catch (\Throwable $e) {
+                                    error_log("Restore table {$table} record error: " . $e->getMessage());
+                                }
+                            }
+                        }
+                    }
+                }
+                return [
+                    'success' => true,
+                    'message' => "Database core tables restored successfully. Processed {$restoredCount} records across operational tables."
+                ];
             }
 
             return [

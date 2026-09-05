@@ -95,8 +95,48 @@ class PermitDocumentController
     {
         try {
             $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
-            
-            $errors = $this->validate($data, ['permit_id', 'document_type', 'file_name', 'file_path', 'uploaded_by']);
+
+            // Deep MIME Byte Validation for file uploads (BUG-012)
+            $uploadedFile = $_FILES['file'] ?? ($_FILES['document'] ?? null);
+            if ($uploadedFile && $uploadedFile['error'] !== UPLOAD_ERR_NO_FILE) {
+                if ($uploadedFile['error'] !== UPLOAD_ERR_OK) {
+                    Response::error('Upload failed with error code ' . $uploadedFile['error'], 400);
+                }
+
+                require_once __DIR__ . '/../helpers/FileUploadValidator.php';
+                $valRes = FileUploadValidator::validate(
+                    $uploadedFile['tmp_name'], 
+                    $uploadedFile['name'], 
+                    ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'xls', 'json', 'csv', 'doc', 'docx']
+                );
+                
+                if (!$valRes['valid']) {
+                    Response::error($valRes['message'], 400);
+                }
+
+                $uploadDir = __DIR__ . '/../../uploads/permits/';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0750, true);
+                }
+
+                $ext = strtolower(pathinfo($uploadedFile['name'], PATHINFO_EXTENSION));
+                $safeName = 'doc_' . time() . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+                $dest = $uploadDir . $safeName;
+
+                if (!move_uploaded_file($uploadedFile['tmp_name'], $dest)) {
+                    Response::error('Failed to store file on disk.', 500);
+                }
+
+                $data['file_name'] = $uploadedFile['name'];
+                $data['mime_type'] = $valRes['mime'];
+                $data['file_path'] = 'uploads/permits/' . $safeName;
+                $data['file_size'] = $uploadedFile['size'];
+            } elseif (empty($data['file_name']) || empty($data['file_path'])) {
+                // Not a local reference and no file uploaded
+                Response::error('No file was uploaded.', 400);
+            }
+
+            $errors = $this->validate($data, ['permit_id', 'document_type', 'file_name', 'uploaded_by']);
             
             if (!empty($errors)) {
                 Response::error('Validation failed', 422, $errors);

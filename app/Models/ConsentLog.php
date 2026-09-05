@@ -126,6 +126,22 @@ class ConsentLog
         ];
 
         $res = $this->db->insert($this->table, $payload, true);
+
+        // Dual-log to patient_consents table (BUG-007)
+        try {
+            $this->db->insert('patient_consents', [
+                'user_id'      => $payload['subject_id'],
+                'consent_type' => $payload['consent_type'],
+                'granted_at'   => $payload['consented_at'],
+                'ip'           => $payload['ip_address'],
+                'method'       => 'web_form',
+                'status'       => 'active',
+                'created_at'   => $payload['created_at']
+            ], true);
+        } catch (\Throwable $e) {
+            error_log('ConsentLog patient_consents insert warning: ' . $e->getMessage());
+        }
+
         return is_array($res) ? $res : $payload;
     }
 
@@ -156,6 +172,20 @@ class ConsentLog
             ],
             true
         );
+
+        // Update patient_consents table (BUG-007)
+        try {
+            $this->db->update('patient_consents', [
+                'status'     => 'revoked',
+                'revoked_at' => $now
+            ], [
+                'user_id'      => 'eq.' . $subjectId,
+                'consent_type' => 'eq.' . $consentType,
+                'status'       => 'eq.active'
+            ], true);
+        } catch (\Throwable $e) {
+            error_log('ConsentLog patient_consents update warning: ' . $e->getMessage());
+        }
 
         if (!empty($res)) {
             return is_array($res[0] ?? null) ? $res[0] : array_merge($active, $updateData);

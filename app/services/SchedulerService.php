@@ -451,4 +451,19 @@ class SchedulerService
             'cleaned_at'              => date('Y-m-d H:i:s')
         ];
     }
+
+    /**
+     * Job 5: Automated Data Deletion Execution
+     */
+    public function runDataDeletion(): array
+    {
+        require_once __DIR__ . '/../Models/DataDeletionRequest.php';
+        $deletionModel = new DataDeletionRequest();
+        $processedCount = $deletionModel->processApprovedRequests('system_scheduler');
+
+        return [
+            'requests_executed' => $processedCount,
+            'executed_at'        => date('Y-m-d H:i:s')
+        ];
+    }
 }

@@ -23,9 +23,9 @@ This report documents the load testing, concurrent user scalability analysis, an
 
 ### 2.1 Testing Harnesses Implemented
 Two testing harnesses are maintained in the repository:
-1. **PHP Concurrency Runner (`tests/load/run-load-test.php`):**  
+1. **PHP Concurrency Runner (`tests_archive_do_not_deploy/load/run-load-test.php`):**  
    A zero-dependency CLI load testing tool leveraging PHP `curl_multi` to dispatch parallel asynchronous request batches at target concurrency levels. It generates latency distributions, status code tallies, RPS throughput, and machine-readable JSON metrics (`docs/qa/load-test-results.json`).
-2. **Industry-Standard k6 Suite (`tests/load/k6-load-test.js`):**  
+2. **Industry-Standard k6 Suite (`tests_archive_do_not_deploy/load/k6-load-test.js`):**  
    A declarative script for k6 distributed load testing engines simulating multi-stage virtual user ramp-up (20 VUs $\rightarrow$ 50 VUs $\rightarrow$ 100 VUs $\rightarrow$ 0 VUs) with automated latency (`p(95) < 500ms`) and failure rate (`rate < 2%`) assertions.
 
 ### 2.2 Endpoints Tested

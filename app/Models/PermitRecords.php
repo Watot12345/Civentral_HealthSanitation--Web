@@ -1,10 +1,10 @@
 <?php
-// models/Permit.php
+// models/PermitRecords.php  (legacy full-featured model — renamed to avoid class-name collision with app/Models/Permit.php)
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../helpers/EncryptionHelper.php';
 
-class Permit
+class PermitRecords
 {
     private Database $db;
     
@@ -240,7 +240,7 @@ class Permit
     /**
      * Generate unique permit ID
      */
-    private function generatePermitId(): string
+    public function generatePermitId(): string
     {
         $year = date('Y');
         $count = $this->db->count('permits') + 1;

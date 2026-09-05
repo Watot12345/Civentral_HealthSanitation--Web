@@ -1277,8 +1277,36 @@ td .text-slate-600.maskable.masked::after {
         };
         reader.readAsText(file);
     }
-    function clearImportFile(){ pendingImportRows=null; document.getElementById('importFileInput').value=''; document.getElementById('importFileInfo').classList.add('hidden'); document.getElementById('importError').classList.add('hidden'); document.getElementById('importConfirmBtn').disabled=true; }
-    function confirmImport(){ if(!pendingImportRows?.length)return; ModalSystem.close('importModal'); clearImportFile(); ModalSystem.toast.success(pendingImportRows.length+' patient(s) imported.'); setTimeout(()=>window.location.reload(),1000); }
+    async function confirmImport() {
+        if (!pendingImportRows?.length) return;
+        const btn = document.getElementById('importConfirmBtn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
+        
+        try {
+            const resp = await fetch('../../api/patients.php?action=import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rows: pendingImportRows })
+            });
+            const json = await resp.json();
+            ModalSystem.close('importModal');
+            clearImportFile();
+
+            if (json.success) {
+                const msg = `Successfully imported ${json.imported_count || 0} patient(s)` + (json.skipped_count ? ` (${json.skipped_count} skipped)` : '');
+                ModalSystem.toast.success(msg);
+                setTimeout(() => window.location.reload(), 1200);
+            } else {
+                ModalSystem.toast.error('Import failed: ' + (json.message || 'Server error'));
+            }
+        } catch (err) {
+            ModalSystem.close('importModal');
+            clearImportFile();
+            ModalSystem.toast.error('Network error during import: ' + err.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Import Patients'; }
+        }
+    }
     function prepExportModal(){ document.getElementById('exportCountAll').textContent=Object.keys(PATIENTS).length; document.getElementById('exportCountFiltered').textContent=document.querySelectorAll('.patient-row:not([style*="display: none"])').length; selectExportFormat('csv'); }
     function selectExportFormat(f){ selectedExportFormat=f; document.querySelectorAll('.export-format-btn').forEach(b=>b.classList.toggle('selected',b.dataset.format===f)); }
     function runExport() {

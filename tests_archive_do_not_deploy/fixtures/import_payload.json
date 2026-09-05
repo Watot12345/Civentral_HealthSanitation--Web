@@ -1,0 +1,28 @@
+{
+  "rows": [
+    {
+      "first_name": "Alice",
+      "last_name": "Smith",
+      "email": "alice.smith@example.com",
+      "contact": "639171112233",
+      "gender": "female",
+      "age": "28",
+      "blood_type": "O+",
+      "barangay": "Barangay 1",
+      "address": "101 Clean St",
+      "status": "active"
+    },
+    {
+      "first_name": "=CMD('calc.exe')",
+      "last_name": "+SUM(1+1)",
+      "email": "malicious@test.com",
+      "contact": "639179998877",
+      "gender": "male",
+      "age": "35",
+      "blood_type": "AB+",
+      "barangay": "@Barangay 2",
+      "address": "-DDE('cmd','/c calc','__String__')",
+      "status": "active"
+    }
+  ]
+}

@@ -203,7 +203,7 @@ class PatientController extends BaseController
     
     public function destroy(string $id): void
     {
-        $this->handle(function() use ($id) {
+        $this->handle(function() {
             return [
                 'success' => false, 
                 'message' => 'Deletion of patient records is disabled to preserve clinical history and compliance records.', 
@@ -272,7 +272,7 @@ class PatientController extends BaseController
         
         // Convert conditions to medical_history JSON
         if (!empty($data['conditions'])) {
-            $dbData['medical_history'] = json_encode(['conditions' => $data['conditions']]);
+            $dbData['medical_history'] = json_encode(['conditions' => $this->sanitizeFormula((string)$data['conditions'])]);
         }
         
         // Handle birth_date - DIFFERENT FOR NEW VS EXISTING
@@ -300,9 +300,162 @@ class PatientController extends BaseController
             }
         }
         
-        // DEBUG
-        error_log('mapToDb output (isNew=' . ($isNew ? 'true' : 'false') . '): ' . json_encode($dbData));
-        
+        // Sanitize string fields & enforce length caps
+        $dbData = $this->sanitizePatientData($dbData);
+
         return $dbData;
+    }
+
+    public function import(): void
+    {
+        $input = $this->input();
+        $rows = $input['rows'] ?? (array_keys($input) === range(0, count($input) - 1) ? $input : [$input]);
+
+        $this->handle(function() use ($rows) {
+            if (empty($rows)) {
+                return ['success' => false, 'message' => 'No patient rows provided for import', 'code' => 400];
+            }
+
+            $imported = [];
+            $skipped = 0;
+            $errors = [];
+
+            // Pre-fetch all existing patients for duplicate check
+            $allPatients = $this->patientModel->all();
+            $existingNames = [];
+            foreach ($allPatients as $p) {
+                $nameKey = strtolower(trim($p['first_name'] ?? '')) . '|' . strtolower(trim($p['last_name'] ?? ''));
+                $existingNames[$nameKey] = true;
+            }
+
+            $lastId = 0;
+            $lastPatient = $this->patientModel->all(['order' => 'id.desc', 'limit' => 1]);
+            if (!empty($lastPatient)) {
+                $lastPatientId = $lastPatient[0]['patient_id'] ?? '';
+                if (preg_match('/P-2024-(\d+)/', $lastPatientId, $matches)) {
+                    $lastId = (int)$matches[1];
+                }
+            }
+
+            foreach ($rows as $index => $row) {
+                $rowNum = $index + 1;
+                $dbData = $this->mapToDb($row, true);
+                
+                $firstName = strtolower(trim($dbData['first_name'] ?? ''));
+                $lastName  = strtolower(trim($dbData['last_name'] ?? ''));
+
+                if (empty($firstName) || empty($lastName)) {
+                    $skipped++;
+                    $errors[] = "Row {$rowNum}: First name and last name are required.";
+                    continue;
+                }
+
+                // Check for formula injection in raw input vs sanitized
+                $rawFirstName = $row['first_name'] ?? '';
+                $rawLastName  = $row['last_name'] ?? '';
+                $wasFormulaSanitized = preg_match('/^[\=\+\-\@\t\r]/', trim($rawFirstName)) || preg_match('/^[\=\+\-\@\t\r]/', trim($rawLastName));
+
+                $nameKey = $firstName . '|' . $lastName;
+                if (isset($existingNames[$nameKey])) {
+                    $skipped++;
+                    $errors[] = "Row {$rowNum}: Patient " . trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? '')) . " already exists. Skipped.";
+                    continue;
+                }
+
+                // Format contact & gender
+                $dbData['gender'] = !empty($dbData['gender']) ? ucfirst(strtolower($dbData['gender'])) : 'Male';
+                $contactRaw = preg_replace('/\D+/', '', (string)($dbData['contact'] ?? ''));
+                if (strlen($contactRaw) === 11 && str_starts_with($contactRaw, '09')) {
+                    $contactRaw = '63' . substr($contactRaw, 1);
+                } elseif (strlen($contactRaw) === 10 && str_starts_with($contactRaw, '9')) {
+                    $contactRaw = '63' . $contactRaw;
+                }
+                if (strlen($contactRaw) !== 12) {
+                    $contactRaw = '639' . str_pad(substr(crc32($nameKey), 0, 9), 9, '0', STR_PAD_LEFT);
+                }
+                $dbData['contact'] = $contactRaw;
+
+                // Auto-generate patient_id
+                $lastId++;
+                $dbData['patient_id'] = 'P-2024-' . str_pad($lastId, 3, '0', STR_PAD_LEFT);
+                $dbData['registration_date'] = date('Y-m-d');
+                $dbData['status'] = !empty($dbData['status']) ? $dbData['status'] : 'active';
+
+                try {
+                    $created = $this->patientModel->create($dbData);
+                    $existingNames[$nameKey] = true;
+                    $imported[] = $created;
+
+                    if ($wasFormulaSanitized) {
+                        $errors[] = "Row {$rowNum}: Formula payload detected and sanitized before database insertion for " . trim(($dbData['first_name'] ?? '') . ' ' . ($dbData['last_name'] ?? '')) . ".";
+                    }
+                } catch (Throwable $e) {
+                    $skipped++;
+                    $errors[] = "Row {$rowNum}: Database insert failed - " . $e->getMessage();
+                }
+            }
+
+            if (class_exists('ActivityLog') || file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $cnt = count($imported);
+                    $logger->log("Batch Imported Patients: {$cnt} records", [
+                        'module'  => 'Health Center Services',
+                        'details' => "Imported: {$cnt} | Skipped: {$skipped}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (Throwable $e) {}
+            }
+
+            return [
+                'success'        => true,
+                'imported_count' => count($imported),
+                'skipped_count'  => $skipped,
+                'errors'         => $errors,
+                'data'           => $imported,
+                'message'        => count($imported) . " patient(s) imported successfully (" . $skipped . " skipped)."
+            ];
+        });
+    }
+
+    private function sanitizeFormula(string $value): string
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') return '';
+
+        // Check if text starts with dangerous spreadsheet formula triggers: =, +, -, @, \t, \r
+        if (preg_match('/^[\=\+\-\@\t\r]/', $trimmed)) {
+            // Prefix with single quote and strip formula symbols to prevent execution
+            $trimmed = "'" . preg_replace('/^[\=\+\-\@\t\r]+/', '', $trimmed);
+        }
+        return $trimmed;
+    }
+
+    private function sanitizePatientData(array $data): array
+    {
+        $lengthLimits = [
+            'first_name'  => 50,
+            'last_name'   => 50,
+            'middle_name' => 50,
+            'email'       => 100,
+            'barangay'    => 100,
+            'address'     => 255,
+            'blood_type'  => 5,
+            'gender'      => 10,
+            'status'      => 20
+        ];
+
+        foreach ($data as $key => $val) {
+            if (is_string($val)) {
+                $sanitized = $this->sanitizeFormula($val);
+                if (isset($lengthLimits[$key])) {
+                    $sanitized = mb_substr($sanitized, 0, $lengthLimits[$key], 'UTF-8');
+                }
+                $data[$key] = $sanitized;
+            }
+        }
+
+        return $data;
     }
 }

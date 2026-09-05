@@ -78,10 +78,10 @@ class Database
         }
         
         // ONLY add limit and offset if they are explicitly set
-        if (isset($options['limit']) && $options['limit'] !== null) {
+        if (isset($options['limit'])) {
             $queryParams[] = 'limit=' . (int) $options['limit'];
         }
-        if (isset($options['offset']) && $options['offset'] !== null) {
+        if (isset($options['offset'])) {
             $queryParams[] = 'offset=' . (int) $options['offset'];
         }
         
@@ -225,19 +225,17 @@ class Database
                 if (!empty($config['order'])) {
                     $queryParams[] = 'order=' . rawurlencode($config['order']);
                 }
-                if (isset($config['limit']) && $config['limit'] !== null) {
+                if (isset($config['limit'])) {
                     $queryParams[] = 'limit=' . (int)$config['limit'];
                 }
-                if (isset($config['offset']) && $config['offset'] !== null) {
+                if (isset($config['offset'])) {
                     $queryParams[] = 'offset=' . (int)$config['offset'];
                 }
             } else {
                 $queryParams[] = 'select=*';
             }
 
-            if (!empty($queryParams)) {
-                $endpoint .= '?' . implode('&', $queryParams);
-            }
+            $endpoint .= '?' . implode('&', $queryParams);
 
             $ch = curl_init($endpoint);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

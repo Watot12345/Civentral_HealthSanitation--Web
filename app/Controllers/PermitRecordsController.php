@@ -1,16 +1,16 @@
 <?php
-// controllers/PermitController.php
+// controllers/PermitRecordsController.php  (legacy records controller — renamed to avoid class-name collision)
 
-require_once __DIR__ . '/../Core/BaseController.php';
+require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Models/PermitRecords.php';
 
-class PermitController extends BaseController
+class PermitRecordsController extends BaseController
 {
-    private Permit $permitModel;
+    private PermitRecords $permitModel;
     
     public function __construct()
     {
-        $this->permitModel = new Permit();
+        $this->permitModel = new PermitRecords();
     }
 
     /**
