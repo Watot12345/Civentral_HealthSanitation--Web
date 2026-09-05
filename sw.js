@@ -1,9 +1,9 @@
 const CACHE_NAME = 'civentral-cache-v1';
 const ASSETS_TO_CACHE = [
-    '/',
-    '/manifest.json',
-    '/assets/js/offline-sync.js',
-    '/assets/css/style.css' // fallback, adjust if needed
+    './',
+    './manifest.json',
+    './assets/js/offline-sync.js',
+    './assets/css/style.css' // fallback, adjust if needed
 ];
 
 // Install Event: Cache essential assets

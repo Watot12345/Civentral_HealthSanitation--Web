@@ -60,7 +60,7 @@
                             <label class="block text-sm font-semibold text-slate-700 mb-2">
                                 Department Module
                             </label>
-                            <select id="reportType" class="w-full rounded-xl px-4 py-2.5 text-sm border border-slate-200" onchange="refreshUI()">
+                            <select id="reportType" class="w-full rounded-xl px-4 py-2.5 text-sm border border-slate-200" onchange="loadLiveReportData()">
                                 <?php foreach ($availableReportTypes as $val => $label): ?>
                                     <option value="<?= htmlspecialchars($val) ?>"><?= htmlspecialchars($label) ?></option>
                                 <?php endforeach; ?>
@@ -97,23 +97,8 @@
                             <?php endif; ?>
                         </div>
 
-                        <!-- Inspector / Personnel -->
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">
-                                <?= $isStaff ? 'Assigned Personnel' : 'Personnel / Officer' ?>
-                            </label>
-                            <?php if ($isStaff): ?>
-                                <select id="inspector" class="w-full rounded-xl px-4 py-2.5 text-sm bg-slate-100/80 border border-slate-200 cursor-not-allowed pointer-events-none" readonly>
-                                    <option value="<?= htmlspecialchars($userName) ?>" selected><?= htmlspecialchars($userName) ?> (You)</option>
-                                </select>
-                            <?php else: ?>
-                                <select id="inspector" class="w-full rounded-xl px-4 py-2.5 text-sm border border-slate-200" onchange="refreshUI()">
-                                    <option value="all">Loading Personnel...</option>
-                                </select>
-                            <?php endif; ?>
                         </div>
                     </div>
-
                     <!-- Actions -->
                     <div class="mt-5 flex flex-wrap items-center justify-end gap-4 pt-4 border-t border-slate-100">
                         <div class="flex items-center gap-2">
@@ -135,7 +120,7 @@
         <div id="printReportHeader">
             <img src="../assets/images/logo.png" alt="Logo">
             <h1>Health Sanitation Management Caloocan</h1>
-            <h2>Custom Compliance Report</h2>
+            <h2 id="printReportSubtitle">Custom Compliance Report</h2>
         </div>
 
         <!-- ─── REPORT PREVIEW CARD ─── -->
@@ -157,7 +142,7 @@
                         <button onclick="exportExcel()" class="w-8 h-8 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm inline-flex items-center justify-center" title="Export Excel"><i class="fa-solid fa-file-excel"></i></button>
                         <button onclick="exportWord()" class="w-8 h-8 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm inline-flex items-center justify-center" title="Export Word"><i class="fa-solid fa-file-word"></i></button>
                         <?php endif; ?>
-                        <button onclick="window.print()" class="w-8 h-8 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm inline-flex items-center justify-center" title="Print"><i class="fa-solid fa-print"></i></button>
+                        <button onclick="printCustomReport()" class="w-8 h-8 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm inline-flex items-center justify-center" title="Print"><i class="fa-solid fa-print"></i></button>
                         <button onclick="openScheduleModal()" class="ml-1 h-8 px-3 rounded-lg bg-[#B4D4FF]/30 text-[#176B87] text-xs font-medium hover:bg-[#86B6F6]/40 transition inline-flex items-center gap-1.5">
                             <i class="fa-solid fa-clock"></i> Schedule
                         </button>
@@ -290,13 +275,12 @@
                         <div class="table-wrap overflow-x-auto">
                             <table class="w-full text-sm">
                                 <thead>
-                                    <tr class="text-left text-xs font-semibold text-[#176B87] uppercase tracking-wider border-b border-[#B4D4FF]/30">
-                                        <th class="pb-3 pr-4">Facility</th>
-                                        <th class="pb-3 pr-4">Inspector</th>
+                                    <tr id="tableHeadRow" class="text-left text-xs font-semibold text-[#176B87] uppercase tracking-wider border-b border-[#B4D4FF]/30">
+                                        <th class="pb-3 pr-4">Module / Category</th>
+                                        <th class="pb-3 pr-4">Record ID</th>
+                                        <th class="pb-3 pr-4">Details</th>
                                         <th class="pb-3 pr-4">Date</th>
-                                        <th class="pb-3 pr-4">Score</th>
                                         <th class="pb-3 pr-4">Status</th>
-                                        <th class="pb-3">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-[#B4D4FF]/20" id="tableViewBody"></tbody>

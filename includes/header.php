@@ -329,7 +329,7 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   <script src="<?= site_url('assets/js/common.js'); ?>"></script>
   <!-- Offline Transaction Queue & Auto-Sync -->
   <script src="<?= site_url('assets/js/offline-sync.js'); ?>"></script>
-  <link rel="manifest" href="/manifest.json">
+  <link rel="manifest" href="<?= site_url('manifest.json'); ?>">
 </head>
 <?php if (!$minimalHeader) include_once __DIR__ . '/data-mask.php'; ?>
 <body class="bg-white font-sans antialiased text-slate-800 min-h-screen flex flex-col">

@@ -142,63 +142,7 @@ const FACILITY_TO_DEPT_MAP = {
 
 // ─── FILTERING ENGINE ──────────────────────────────────────────
 function getFilteredData() {
-    const facilityElem = document.getElementById('facility');
-    const facility = facilityElem ? facilityElem.value : 'all';
-    const inspectorElem = document.getElementById('inspector');
-    const inspector = inspectorElem ? inspectorElem.value : 'all';
-    const startDate = document.getElementById('startDate') ? document.getElementById('startDate').value : '';
-    const endDate = document.getElementById('endDate') ? document.getElementById('endDate').value : '';
-    const reportType = document.getElementById('reportType') ? document.getElementById('reportType').value : 'all';
-
-    return allReportRows.filter(row => {
-        if (currentStatusFilter !== 'all' && row.status !== currentStatusFilter) return false;
-
-        // Staff assigned work scoping
-        if (CURRENT_USER.tier === 'staff') {
-            const rowInsp = (row.inspector || '').toLowerCase().trim();
-            const userNameLower = (CURRENT_USER.name || '').toLowerCase().trim();
-            const isAssigned = rowInsp === userNameLower || rowInsp.includes(userNameLower) || userNameLower.includes(rowInsp);
-            const isGenericInspector = !rowInsp || rowInsp.includes('sanitation') || rowInsp.includes('staff') || rowInsp.includes('officer') || rowInsp.includes('doctor') || rowInsp.includes('specialist');
-            if (!isAssigned && !isGenericInspector) {
-                return false;
-            }
-        }
-
-        // Report Type filtering
-        if (reportType !== 'all' && reportType !== 'custom' && reportType !== 'compliance') {
-            const rowType = (row.report_type || '').toLowerCase();
-            const rowFacility = (row.facility || '').toLowerCase();
-            let typeMatches = (rowType === reportType);
-            if (!typeMatches) {
-                if (reportType === 'health_center' && rowFacility.includes('health center')) typeMatches = true;
-                else if (reportType === 'sanitation' && rowFacility.includes('sanitation')) typeMatches = true;
-                else if (reportType === 'immunization' && rowFacility.includes('immunization')) typeMatches = true;
-                else if (reportType === 'wastewater' && rowFacility.includes('wastewater')) typeMatches = true;
-                else if (reportType === 'surveillance' && rowFacility.includes('surveillance')) typeMatches = true;
-            }
-            if (!typeMatches) return false;
-        }
-
-        // Department & Facility filtering
-        if (facility !== 'all') {
-            const fLower = facility.toLowerCase().trim();
-            const target = fLower.replace(' services', '').trim();
-            const rowFacility = (row.facility || '').toLowerCase().trim();
-            const rowDept = rowFacility.replace(' services', '').trim();
-
-            const deptsForFacility = FACILITY_TO_DEPT_MAP[fLower] || [];
-            const isMatch = (rowFacility === fLower)
-                || (rowDept.includes(target) || target.includes(rowDept))
-                || deptsForFacility.some(d => rowFacility.includes(d) || d.includes(rowDept));
-
-            if (!isMatch) return false;
-        }
-
-        if (inspector !== 'all' && inspector && (row.inspector || '') !== inspector) return false;
-        if (startDate && row.date < startDate) return false;
-        if (endDate && row.date > endDate) return false;
-        return true;
-    });
+    return allReportRows;
 }
 
 // ─── GET CURRENT CONFIG (for templates) ──────────────────────
@@ -214,11 +158,13 @@ function getCurrentConfig() {
 }
 
 function applyConfig(config) {
-    if (config.reportType) document.getElementById('reportType').value = config.reportType;
-    if (config.startDate) document.getElementById('startDate').value = config.startDate;
-    if (config.endDate) document.getElementById('endDate').value = config.endDate;
-    if (config.facility) document.getElementById('facility').value = config.facility;
-    if (config.inspector) document.getElementById('inspector').value = config.inspector;
+    if (!config) return;
+    if (config.reportType && document.getElementById('reportType')) document.getElementById('reportType').value = config.reportType;
+    if (config.exportFormat && document.getElementById('exportFormat')) document.getElementById('exportFormat').value = config.exportFormat;
+    if (config.startDate && document.getElementById('startDate')) document.getElementById('startDate').value = config.startDate;
+    if (config.endDate && document.getElementById('endDate')) document.getElementById('endDate').value = config.endDate;
+    if (config.facility && document.getElementById('facility')) document.getElementById('facility').value = config.facility;
+    if (config.inspector && document.getElementById('inspector')) document.getElementById('inspector').value = config.inspector;
 
     if (config.status) {
         document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
@@ -236,33 +182,50 @@ function refreshUI() {
     populateInspectorDropdown(activeEmployeesList, facilityVal);
 
     const data = getFilteredData();
-    const total = data.length;
-    const compliant = data.filter(r => r.status === 'Compliant').length;
-    const urgent = data.filter(r => r.status === 'Urgent').length;
-    const nonCompliant = data.filter(r => r.status === 'Non-Compliant').length;
-    const pending = data.filter(r => r.status === 'Pending').length;
-    const facilities = new Set(data.map(r => r.facility)).size;
+    
+    // Fallback UI Metrics (read from dynamic KPIs)
+    const total = document.getElementById('kpi-total')?.textContent || 0;
+    const compliant = document.getElementById('kpi-compliant')?.textContent || 0;
+    const urgent = document.getElementById('kpi-urgent')?.textContent || 0;
+    const pending = document.getElementById('kpi-pending')?.textContent || 0;
+    
+    // Facilities approximation from rows if possible, or 0
+    const facilities = data.length; 
 
-    document.getElementById('kpiTotal').textContent = total;
-    document.getElementById('kpiUrgent').textContent = urgent;
-    document.getElementById('kpiFacilities').textContent = facilities;
+    // Note: The main KPI cards (Total, Compliant, Pending, Urgent) are updated 
+    // by updateDynamicKPIs() from the server response, so we don't overwrite them here.
 
-    const complianceRate = total > 0 ? ((compliant / total) * 100).toFixed(1) : 0;
-    document.getElementById('kpiCompliance').textContent = complianceRate + '%';
+    let complianceRate = 0;
+    if (parseInt(total) > 0) {
+        // Calculate based on numbers
+        let c = parseInt(compliant.replace(/[^0-9]/g, '')) || 0;
+        let t = parseInt(total.replace(/[^0-9]/g, '')) || 0;
+        if (t > 0) complianceRate = ((c / t) * 100).toFixed(1);
+    }
 
     // Summary metrics & fallback UI
-    document.getElementById('summaryText').innerHTML = `
-        <p>This report covers <strong class="text-[#176B87]">${facilities} facilities</strong> across the region, with a total of <strong class="text-[#176B87]">${total} inspections/transactions</strong> conducted between the selected date range.</p>
-        <p>The overall compliance rate stands at <strong class="text-emerald-600">${complianceRate}%</strong>.</p>
-        <p>Key areas of concern: ${urgent} urgent issues, ${nonCompliant} non-compliant, ${pending} pending.</p>
-    `;
-    document.getElementById('summaryTags').innerHTML = `
-        <span class="px-3 py-1 bg-[#B4D4FF]/30 text-[#176B87] rounded-full text-xs font-medium">🔹 Compliance ${complianceRate}%</span>
-        <span class="px-3 py-1 bg-amber-100/60 text-amber-700 rounded-full text-xs font-medium">⚠️ Pending: ${pending}</span>
-        <span class="px-3 py-1 bg-red-100/60 text-red-700 rounded-full text-xs font-medium">🚨 Urgent: ${urgent}</span>
-    `;
-    document.getElementById('metricCompliance').textContent = complianceRate + '%';
-    document.getElementById('metricComplianceBar').style.width = complianceRate + '%';
+    const sumTxt = document.getElementById('summaryText');
+    if (sumTxt) {
+        sumTxt.innerHTML = `
+            <p>This report contains a total of <strong class="text-[#176B87]">${total} records</strong>.</p>
+            <p>The positive/compliant outcome rate is <strong class="text-emerald-600">${complianceRate}%</strong>.</p>
+            <p>Key areas of concern: ${urgent} urgent issues, ${pending} pending.</p>
+        `;
+    }
+    
+    const sumTags = document.getElementById('summaryTags');
+    if (sumTags) {
+        sumTags.innerHTML = `
+            <span class="px-3 py-1 bg-[#B4D4FF]/30 text-[#176B87] rounded-full text-xs font-medium">🔹 Rate: ${complianceRate}%</span>
+            <span class="px-3 py-1 bg-amber-100/60 text-amber-700 rounded-full text-xs font-medium">⚠️ Pending: ${pending}</span>
+            <span class="px-3 py-1 bg-red-100/60 text-red-700 rounded-full text-xs font-medium">🚨 Urgent: ${urgent}</span>
+        `;
+    }
+    
+    const mComp = document.getElementById('metricCompliance');
+    if (mComp) mComp.textContent = complianceRate + '%';
+    const mBar = document.getElementById('metricComplianceBar');
+    if (mBar) mBar.style.width = complianceRate + '%';
     const coverage = total > 0 ? Math.round((facilities / 52) * 100) : 0;
     document.getElementById('metricCoverage').textContent = coverage + '%';
     document.getElementById('metricCoverageBar').style.width = coverage + '%';
@@ -271,6 +234,14 @@ function refreshUI() {
     document.getElementById('metricResolutionBar').style.width = resolution + '%';
     document.getElementById('metricParticipation').textContent = total > 0 ? '100%' : '0%';
     document.getElementById('metricParticipationBar').style.width = total > 0 ? '100%' : '0%';
+
+    // Dynamic print & export title based on module & department
+    const reportTypeSelect = document.getElementById('reportType');
+    const moduleName = reportTypeSelect?.selectedOptions[0]?.textContent?.trim() || 'Operational Report';
+    const subTitleElem = document.getElementById('printReportSubtitle');
+    if (subTitleElem) {
+        subTitleElem.textContent = moduleName;
+    }
 
     updateCharts(data);
     renderTableView(data);
@@ -290,14 +261,16 @@ async function fetchAiReportSummary(isManual = false) {
     const deptSelect = document.getElementById('facility') || document.getElementById('filterFacility');
     const selectedDept = deptSelect ? deptSelect.value : 'all';
     
-    const data = getFilteredData();
-    const total = data.length;
-    const compliant = data.filter(r => r.status === 'Compliant').length;
-    const urgent = data.filter(r => r.status === 'Urgent').length;
-    const pending = data.filter(r => r.status === 'Pending').length;
+    const total = document.getElementById('kpi-total')?.textContent || 0;
+    const compliant = document.getElementById('kpi-compliant')?.textContent || 0;
+    const urgent = document.getElementById('kpi-urgent')?.textContent || 0;
+    const pending = document.getElementById('kpi-pending')?.textContent || 0;
+
+    const moduleSelect = document.getElementById('reportType');
+    const selectedModule = moduleSelect ? moduleSelect.value : 'unified';
 
     try {
-        const url = `${APP_CONFIG.api_ai_summary}?department=${encodeURIComponent(selectedDept)}&total=${total}&compliant=${compliant}&urgent=${urgent}&pending=${pending}`;
+        const url = `${APP_CONFIG.api_ai_summary}?module=${encodeURIComponent(selectedModule)}&department=${encodeURIComponent(selectedDept)}&total=${total}&compliant=${compliant}&urgent=${urgent}&pending=${pending}`;
         const resp = await fetch(url);
         const res = await resp.json();
 
@@ -368,13 +341,11 @@ function updateCharts(data) {
         if (barChart) {
             barChart.data.labels = ['No Data'];
             barChart.data.datasets[0].data = [0];
-            barChart.data.datasets[0].backgroundColor = ['#cbd5e1'];
             barChart.update();
         }
         if (doughnutChart) {
             doughnutChart.data.labels = ['No Data'];
             doughnutChart.data.datasets[0].data = [1];
-            doughnutChart.data.datasets[0].backgroundColor = ['#cbd5e1'];
             doughnutChart.update();
         }
         if (lineChart) {
@@ -385,62 +356,33 @@ function updateCharts(data) {
         return;
     }
 
-    const selectedDept = document.getElementById('facility') ? document.getElementById('facility').value : 'all';
-    
-    const groupMap = {};
+    const catMap = {};
     data.forEach(r => {
-        const key = selectedDept !== 'all' ? (r.inspector || r.facility) : r.facility;
-        if (!groupMap[key]) groupMap[key] = { sum: 0, count: 0 };
-        groupMap[key].sum += r.score;
-        groupMap[key].count++;
+        const c = r.category || 'General';
+        catMap[c] = (catMap[c] || 0) + 1;
     });
 
-    const labels = Object.keys(groupMap);
-    const scores = labels.map(k => Math.round(groupMap[k].sum / groupMap[k].count));
-    const colors = scores.map(s => s >= 90 ? '#176B87' : s >= 75 ? '#3b82f6' : s >= 60 ? '#f59e0b' : '#ef4444');
+    const labels = Object.keys(catMap);
+    const values = Object.values(catMap);
+    const colors = ['#176B87', '#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6', '#ec4899'];
 
     if (barChart) {
         barChart.data.labels = labels;
-        barChart.data.datasets[0].data = scores;
-        barChart.data.datasets[0].backgroundColor = colors;
+        barChart.data.datasets[0].data = values;
+        barChart.data.datasets[0].backgroundColor = colors.slice(0, labels.length);
         barChart.update();
     }
 
-    const statusCounts = { Compliant: 0, Pending: 0, Urgent: 0, 'Non-Compliant': 0 };
-    data.forEach(r => { if (statusCounts.hasOwnProperty(r.status)) statusCounts[r.status]++; });
-    
-    const statusLabels = [];
-    const statusValues = [];
-    const statusColorMap = { Compliant: '#10b981', Pending: '#f59e0b', Urgent: '#ef4444', 'Non-Compliant': '#f43f5e' };
-    const doughnutColors = [];
-
-    Object.keys(statusCounts).forEach(st => {
-        if (statusCounts[st] > 0) {
-            statusLabels.push(st);
-            statusValues.push(statusCounts[st]);
-            doughnutColors.push(statusColorMap[st] || '#176B87');
-        }
-    });
-
     if (doughnutChart) {
-        doughnutChart.data.labels = statusLabels.length ? statusLabels : ['All Clear'];
-        doughnutChart.data.datasets[0].data = statusValues.length ? statusValues : [1];
-        doughnutChart.data.datasets[0].backgroundColor = doughnutColors.length ? doughnutColors : ['#10b981'];
+        doughnutChart.data.labels = labels;
+        doughnutChart.data.datasets[0].data = values;
+        doughnutChart.data.datasets[0].backgroundColor = colors.slice(0, labels.length);
         doughnutChart.update();
     }
 
-    const monthMap = {};
-    data.forEach(r => {
-        const m = r.date.substring(0, 7);
-        if (!monthMap[m]) monthMap[m] = [];
-        monthMap[m].push(r.score);
-    });
-    const months = Object.keys(monthMap).sort();
-    const avgScores = months.map(m => Math.round(monthMap[m].reduce((a,b) => a + b, 0) / monthMap[m].length));
-    
     if (lineChart) {
-        lineChart.data.labels = months.length ? months : ['Current Period'];
-        lineChart.data.datasets[0].data = months.length ? avgScores : [90];
+        lineChart.data.labels = labels;
+        lineChart.data.datasets[0].data = values;
         lineChart.update();
     }
 }
@@ -460,31 +402,26 @@ function renderTableView(data) {
     const statusBadgeClass = {
         'Compliant': 'bg-emerald-100/70 text-emerald-700',
         'Pending': 'bg-amber-100/70 text-amber-700',
-        'Urgent': 'bg-red-100/70 text-red-700',
-        'Non-Compliant': 'bg-red-100/70 text-red-700'
+        'Urgent': 'bg-red-100/70 text-red-700'
     };
 
     tbody.innerHTML = pageRows.map((r, index) => {
-        const rowIndex = start + index;
+        const cat = r.category || 'General';
+        const item = r.item || r.metric || ('Record #' + (start + index + 1));
+        const details = r.details || 'Operational record';
+        const date = r.date || '-';
+        const status = r.status || 'Compliant';
+        const statusClass = statusBadgeClass[status] || 'bg-slate-100 text-slate-700';
+
         return `
-        <tr class="table-row-hover">
-            <td class="py-3 pr-4 font-medium text-[#176B87]">${r.facility}</td>
-            <td class="py-3 pr-4 text-slate-600">${r.inspector}</td>
-            <td class="py-3 pr-4 text-slate-500">${r.date}</td>
-            <td class="py-3 pr-4 font-semibold">${r.score} / 100</td>
-            <td class="py-3 pr-4"><span class="status-badge ${statusBadgeClass[r.status] || 'bg-gray-100 text-gray-700'} px-2 py-1 rounded-full text-xs">${r.status}</span></td>
-            <td class="py-3 pr-4">
-                <div class="flex items-center gap-2">
-                    <button onclick="viewRow(${rowIndex})" class="action-btn action-btn-view text-xs font-medium flex items-center gap-1" title="View Details">
-                        <i class="fa-regular fa-eye"></i> View
-                    </button>
-                    <button onclick="downloadRow(${rowIndex})" class="action-btn action-btn-download text-xs font-medium flex items-center gap-1" title="Download CSV">
-                        <i class="fa-solid fa-download"></i>
-                    </button>
-                </div>
-            </td>
+        <tr class="table-row-hover transition-colors">
+            <td class="py-3 pr-4 font-semibold text-[#176B87] text-xs">${escapeExportHtml(cat)}</td>
+            <td class="py-3 pr-4 text-slate-800 font-medium text-xs whitespace-nowrap">${escapeExportHtml(item)}</td>
+            <td class="py-3 pr-4 text-slate-600 text-xs max-w-sm truncate" title="${escapeExportHtml(details)}">${escapeExportHtml(details)}</td>
+            <td class="py-3 pr-4 text-slate-500 text-xs whitespace-nowrap">${escapeExportHtml(date)}</td>
+            <td class="py-3 pr-4"><span class="status-badge ${statusClass} px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap">${escapeExportHtml(status)}</span></td>
         </tr>
-    `}).join('') || '<tr><td colspan="6" class="py-6 text-center text-slate-400">No records match this filter.</td></tr>';
+    `}).join('') || '<tr><td colspan="5" class="py-8 text-center text-slate-400">No records match this filter.</td></tr>';
 
     document.getElementById('tableViewSummary').textContent = total === 0
         ? 'No entries match this filter'
@@ -544,7 +481,7 @@ function downloadRow(index) {
         return;
     }
     const row = data[index];
-    const headers = ['Facility', 'Inspector', 'Date', 'Score', 'Status'];
+    const headers = ['Category', 'Metric', 'Count/Value'];
     const values = [row.facility, row.inspector, row.date, row.score + '/100', row.status];
     const csvContent = headers.join(',') + '\n' + values.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
     
@@ -773,20 +710,8 @@ function generateReport() {
         // 1. Automatically generate the AI summary
         fetchAiReportSummary(true);
         
-        // 2. Auto-scroll to the AI summary tab to show the generated content
-        scrollToPreview('summary');
-        
-        // 3. Automatically download the requested report format
-        const exportFmt = document.getElementById('exportFormat')?.value || 'pdf';
-        if (exportFmt === 'pdf') {
-            exportPDF();
-        } else if (exportFmt === 'excel') {
-            exportExcel();
-        } else if (exportFmt === 'word') {
-            exportWord();
-        } else if (exportFmt === 'csv') {
-            exportCSV();
-        }
+        // 2. Auto-scroll to report preview
+        scrollToPreview('chart');
 
         setTimeout(() => {
             if (btn) {
@@ -863,88 +788,182 @@ function getReportExportMarkup() {
     const reportType = document.getElementById('reportType')?.selectedOptions[0]?.textContent || 'Custom Report';
     const startDate = document.getElementById('startDate')?.value || '';
     const endDate = document.getElementById('endDate')?.value || '';
-    if (!document.getElementById('tabChart')) return '';
+    const generatedDate = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const logoUrl = new URL('../assets/images/logo.png', window.location.href).href;
 
-    const sections = ['tabChart', 'tabTable', 'tabSummary'].map((id, index) => {
-        const source = document.getElementById(id);
+    // Clone ALL three tabs: Chart View (Page 1), Table View (Page 2), AI Summary (Page 3)
+    const allTabs = [
+        { id: 'tabChart', title: 'Chart View', icon: '&#128202;' },
+        { id: 'tabTable', title: 'Table View', icon: '&#128203;' },
+        { id: 'tabSummary', title: 'AI Summary', icon: '&#129302;' }
+    ];
+
+    function cloneTabContent(tab) {
+        const source = document.getElementById(tab.id);
         if (!source) return '';
 
         const clone = source.cloneNode(true);
         clone.classList.remove('hidden', 'tab-content');
         clone.style.cssText = 'display:block;opacity:1;transform:none;animation:none;';
-        clone.querySelectorAll('#tablePagination, .action-btn, button').forEach(element => element.remove());
+        clone.querySelectorAll('#tablePagination, .action-btn, button, .filter-chip').forEach(el => el.remove());
 
+        // Convert canvas charts to static PNG images
         clone.querySelectorAll('canvas').forEach(canvas => {
             const sourceCanvas = document.getElementById(canvas.id);
             if (!sourceCanvas) return;
             const image = document.createElement('img');
             image.src = sourceCanvas.toDataURL('image/png');
             image.alt = canvas.id;
-            image.style.cssText = 'display:block;width:100%;height:auto;max-height:280px;object-fit:contain;';
+            image.style.cssText = 'display:block;width:100%;height:auto;max-height:320px;object-fit:contain;margin:8px auto;';
             canvas.replaceWith(image);
         });
 
-        const titles = ['Chart View', 'Table View', 'Summary'];
-        return `<section class="export-section"><h2>${titles[index]}</h2>${clone.innerHTML}</section>`;
-    }).join('');
+        return clone.innerHTML;
+    }
 
-    return `
-        <article class="export-report">
-            <div class="export-header">
-                <img src="${new URL('../assets/images/logo.png', window.location.href).href}" alt="Logo">
-                <h1>Health Sanitation Management Caloocan</h1>
-                <h3>${escapeExportHtml(reportType)}</h3>
-                <p>${escapeExportHtml(startDate)} to ${escapeExportHtml(endDate)}</p>
+    // Build main header (appears only on page 1)
+    const mainHeader = `
+        <div class="export-header">
+            <img src="${logoUrl}" alt="Logo">
+            <h1>South Caloocan City Health &amp; Sanitation</h1>
+            <h3>${escapeExportHtml(reportType)}</h3>
+            <p class="export-date-range">${escapeExportHtml(startDate)} to ${escapeExportHtml(endDate)}</p>
+            <p class="export-generated">Generated: ${escapeExportHtml(generatedDate)}</p>
+        </div>`;
+
+    // Build each page section
+    let pages = '';
+    let pageNum = 0;
+    for (const tab of allTabs) {
+        const content = cloneTabContent(tab);
+        if (!content) continue;
+        pageNum++;
+
+        pages += `
+        <div class="export-page${pageNum > 1 ? ' page-break' : ''}">
+            ${pageNum === 1 ? mainHeader : ''}
+            <div class="section-header">
+                <span class="section-icon">${tab.icon}</span>
+                <span class="section-title">${tab.title}</span>
+                <span class="section-page">Page ${pageNum}</span>
             </div>
-            ${sections}
-        </article>
-    `;
+            <div class="section-body">
+                ${content}
+            </div>
+        </div>`;
+    }
+
+    if (!pages) return '';
+
+    return `<article class="export-report">${pages}</article>`;
 }
 
 function getExportDocument(content, title, extraStyles = '') {
     return `<!doctype html><html><head><meta charset="UTF-8"><title>${escapeExportHtml(title)}</title>
         <style>
-            @page { margin: 0.75in; }
-            body { margin: 0; color: #1e293b; font-family: Arial, sans-serif; font-size: 12px; }
-            .export-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 14px; margin-bottom: 24px; }
-            .export-header img { width: 90px; display: block; margin: 0 auto 8px; }
-            .export-header h1 { margin: 0; color: #000; font: bold 18pt 'Times New Roman', serif; text-transform: uppercase; }
-            .export-header h3 { margin: 6px 0 0; color: #176B87; font-size: 14pt; }
-            .export-header p { margin: 5px 0 0; color: #64748b; }
-            .export-section { page-break-inside: auto; break-inside: auto; margin-bottom: 24px; }
-            .export-section h2 { page-break-after: avoid; break-after: avoid; }
-            .export-section h2 { color: #176B87; font-size: 14pt; border-bottom: 1px solid #B4D4FF; padding-bottom: 6px; }
-            .export-section .backdrop-blur-sm, .export-section .bg-white\\/40 { background: #fff !important; }
-            .export-section .grid { display: block !important; }
-            .export-section .grid > * { margin-bottom: 14px; }
-            .export-section table { border-collapse: collapse; width: 100%; }
-            .export-section th { background: #176B87; color: #fff; padding: 7px; text-align: left; }
-            .export-section td { border: 1px solid #cbd5e1; padding: 7px; }
-            .export-section svg { max-width: 100%; }
+            @page { margin: 0.6in 0.5in; }
+            body { margin: 0; padding: 0; color: #1e293b; font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; line-height: 1.4; }
+
+            /* ── Page break control ── */
+            .page-break { page-break-before: always; }
+            .export-page { padding: 0; }
+
+            /* ── Main header (page 1 only) ── */
+            .export-header { text-align: center; border-bottom: 3px solid #176B87; padding-bottom: 12px; margin-bottom: 16px; }
+            .export-header img { width: 72px; display: block; margin: 0 auto 6px; }
+            .export-header h1 { margin: 0; color: #0F4A5E; font-size: 16pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+            .export-header h3 { margin: 4px 0 0; color: #176B87; font-size: 12pt; font-weight: normal; }
+            .export-header .export-date-range { margin: 4px 0 0; color: #334155; font-size: 9pt; font-weight: 600; }
+            .export-header .export-generated { margin: 2px 0 0; color: #94a3b8; font-size: 7pt; }
+
+            /* ── Section header bar ── */
+            .section-header { display: block; background: #176B87; color: #fff; padding: 8px 14px; margin-bottom: 14px; border-radius: 4px; font-size: 11pt; font-weight: bold; }
+            .section-header .section-icon { margin-right: 6px; }
+            .section-header .section-title { }
+            .section-header .section-page { float: right; font-weight: normal; font-size: 8pt; opacity: 0.8; margin-top: 2px; }
+
+            /* ── Section body ── */
+            .section-body { padding: 0 4px; }
+
+            /* ── Tailwind overrides for PDF ── */
+            .backdrop-blur-sm, [class*="bg-white"] { background: #fff !important; }
+            .grid { display: block !important; }
+            .grid > * { margin-bottom: 10px; }
+            .rounded-2xl, .rounded-xl, .rounded-lg { border-radius: 4px !important; }
+            .border { border: 1px solid #e2e8f0 !important; }
+            .shadow-sm, .shadow-xs { box-shadow: none !important; }
+            .hidden { display: none !important; }
+            [class*="gap-"] { margin-bottom: 6px; }
+
+            /* ── Tables ── */
+            table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+            th { background-color: #176B87; color: #fff; padding: 6px 8px; font-size: 8pt; text-align: left; border: 1px solid #176B87; }
+            td { padding: 5px 8px; border: 1px solid #cbd5e1; font-size: 8pt; }
+            tr:nth-child(even) { background-color: #f8fafc; }
+
+            /* ── Charts (converted to images) ── */
+            img { max-width: 100%; height: auto; }
+
+            /* ── AI summary metrics ── */
+            .bg-slate-50 { background: #f8fafc !important; }
+            .bg-indigo-50\\/60 { background: #eef2ff !important; }
+            .text-indigo-900 { color: #312e81 !important; }
+
+            /* ── Progress bars ── */
+            [class*="h-2"][class*="bg-"] { height: 6px; border-radius: 3px; }
+            [class*="rounded-full"] { border-radius: 9999px; }
+
+            /* ── SVG ── */
+            svg { max-width: 100%; }
+
             ${extraStyles}
         </style></head><body>${content}</body></html>`;
 }
 
+function getReportMetadata() {
+    const reportTypeSelect = document.getElementById('reportType');
+    const moduleName = reportTypeSelect?.selectedOptions[0]?.textContent?.trim() || 'Operational Report';
+    const dept = (CURRENT_USER && CURRENT_USER.department) ? CURRENT_USER.department : 'Health Sanitation Management';
+    const cleanTitle = `${moduleName} - ${dept}`;
+    const slug = cleanTitle.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    return { title: cleanTitle, module: moduleName, slug, department: dept };
+}
+
 function exportCSV() {
+    const meta = getReportMetadata();
     const data = currentReportData();
-    const headers = ['Facility', 'Inspector', 'Date', 'Score', 'Status'];
+    const headers = ['Module / Category', 'Record ID', 'Details', 'Date', 'Status'];
     const lines = [headers.join(',')];
     data.forEach(r => {
-        lines.push([r.facility, r.inspector, r.date, r.score + '/100', r.status].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+        lines.push([
+            r.category || 'General',
+            r.item || r.metric || 'Record',
+            r.details || '',
+            r.date || '',
+            r.status || 'Compliant'
+        ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
     });
-    downloadBlob('\uFEFF' + lines.join('\n'), 'compliance_report.csv', 'text/csv;charset=utf-8;');
-    logReportGeneration('Sanitation Compliance & Inspection Report', 'CSV Export');
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadBlob('\uFEFF' + lines.join('\n'), `${meta.slug}_${stamp}.csv`, 'text/csv;charset=utf-8;');
+    logReportGeneration(meta.title, 'CSV Export');
     showToast('CSV exported successfully!', 'success');
 }
 
 function exportExcel() {
+    const meta = getReportMetadata();
     const data = currentReportData();
-    const headers = ['Facility', 'Inspector', 'Date', 'Score', 'Status'];
-    const rows = data.map(r => [r.facility, r.inspector, r.date, r.score + '/100', r.status]);
+    const headers = ['Module / Category', 'Record ID', 'Details', 'Date', 'Status'];
+    const rows = data.map(r => [
+        r.category || 'General',
+        r.item || r.metric || 'Record',
+        r.details || '',
+        r.date || '',
+        r.status || 'Compliant'
+    ]);
     const stamp = new Date().toISOString().slice(0, 10);
 
     showToast('Generating Excel report...', 'info');
-    fetch('../api/reports/export.php?format=excel&title=Custom_Compliance_Report&module=Reports', {
+    fetch(`../api/reports/export.php?format=excel&title=${encodeURIComponent(meta.title)}&module=${encodeURIComponent(meta.module)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ headers, rows })
@@ -952,8 +971,8 @@ function exportExcel() {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.blob();
     }).then(blob => {
-        downloadBlob(blob, `compliance_report_${stamp}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        logReportGeneration('Sanitation Compliance & Inspection Report', 'Excel Export');
+        downloadBlob(blob, `${meta.slug}_${stamp}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        logReportGeneration(meta.title, 'Excel Export');
         showToast('Excel report downloaded successfully!', 'success');
     }).catch(err => {
         showToast('Excel export failed: ' + err.message, 'danger');
@@ -961,33 +980,69 @@ function exportExcel() {
 }
 
 function exportWord() {
-    const html = getExportDocument(getReportExportMarkup(), 'Sanitation Compliance Report', 'body { font-family: Arial, sans-serif; }');
-    downloadBlob(html, 'compliance_report.doc', 'application/msword');
-    logReportGeneration('Sanitation Compliance & Inspection Report', 'Word Export');
+    const meta = getReportMetadata();
+    const html = getExportDocument(getReportExportMarkup(), meta.title, 'body { font-family: Arial, sans-serif; }');
+    downloadBlob(html, `${meta.slug}.doc`, 'application/msword');
+    logReportGeneration(meta.title, 'Word Export');
     showToast('Word document exported successfully!', 'success');
 }
 
 function exportPDF() {
-    const data = currentReportData();
-    const headers = ['Facility', 'Inspector', 'Date', 'Score', 'Status'];
-    const rows = data.map(r => [r.facility, r.inspector, r.date, r.score + '/100', r.status]);
-    const stamp = new Date().toISOString().slice(0, 10);
+    const meta = getReportMetadata();
+    const visualHtml = getExportDocument(getReportExportMarkup(), meta.title, `
+        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; }
+        img { max-width: 100%; height: auto; }
+        .export-section { page-break-inside: avoid; }
+    `);
 
-    showToast('Generating PDF report...', 'info');
-    fetch('../api/reports/export.php?format=pdf&title=Custom_Compliance_Report&module=Reports', {
+    if (!visualHtml || visualHtml.length < 100) {
+        showToast('No report data to export. Generate a report first.', 'warning');
+        return;
+    }
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    showToast('Generating PDF report with charts, table & AI summary...', 'info');
+
+    fetch(`../api/reports/export.php?format=pdf&title=${encodeURIComponent(meta.title)}&module=${encodeURIComponent(meta.module)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ headers, rows })
+        body: JSON.stringify({ html: visualHtml, title: meta.title })
     }).then(res => {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.blob();
     }).then(blob => {
-        downloadBlob(blob, `compliance_report_${stamp}.pdf`, 'application/pdf');
-        logReportGeneration('Sanitation Compliance & Inspection Report', 'PDF Export');
+        downloadBlob(blob, `${meta.slug}_${stamp}.pdf`, 'application/pdf');
+        logReportGeneration(meta.title, 'PDF Export');
         showToast('PDF report downloaded successfully!', 'success');
     }).catch(err => {
         showToast('PDF export failed: ' + err.message, 'danger');
     });
+}
+
+function printCustomReport() {
+    const meta = getReportMetadata();
+    logReportGeneration(meta.title, 'Browser Print');
+
+    // Temporarily show all tab-content panels for printing
+    const allPanels = document.querySelectorAll('#reportPreview .tab-content');
+    const wasHidden = [];
+    allPanels.forEach(panel => {
+        if (panel.classList.contains('hidden')) {
+            wasHidden.push(panel);
+            panel.classList.remove('hidden');
+            panel.dataset.printRestoreHidden = 'true';
+        }
+    });
+
+    window.print();
+
+    // Restore hidden state after print dialog closes
+    setTimeout(() => {
+        wasHidden.forEach(panel => {
+            panel.classList.add('hidden');
+            delete panel.dataset.printRestoreHidden;
+        });
+    }, 500);
 }
 
 // ─── RESET FILTERS ────────────────────────────────────────────
@@ -1023,11 +1078,10 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
 });
 
 // ─── FILTER CHANGE EVENTS ──────────────────────────────────
-document.getElementById('reportType').addEventListener('change', refreshUI);
-document.getElementById('facility').addEventListener('change', refreshUI);
-document.getElementById('inspector').addEventListener('change', refreshUI);
-document.getElementById('startDate').addEventListener('change', refreshUI);
-document.getElementById('endDate').addEventListener('change', refreshUI);
+['reportType', 'facility', 'startDate', 'endDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', refreshUI);
+});
 
 // ─── TAB SWITCH ──────────────────────────────────────────────
 function switchTab(tabName) {
@@ -1161,12 +1215,15 @@ function populateInspectorDropdown(employees, filterDepartment = 'all') {
 // ─── LIVE DATA LOADER ───────────────────────────────────────────
 async function loadLiveReportData() {
     try {
-        const resp = await fetch(APP_CONFIG.api_reports_data);
+        const module = document.getElementById("reportType")?.value || "unified";
+        const start = document.getElementById("startDate")?.value || "";
+        const end = document.getElementById("endDate")?.value || "";
+        const resp = await fetch(`${APP_CONFIG.api_reports_data}?module=${module}&start_date=${start}&end_date=${end}`);
         const res = await resp.json();
 
         if (res && res.success) {
             allReportRows = res.report_rows || [];
-            activeEmployeesList = res.employees || [];
+            if (res.kpis) updateDynamicKPIs(res.kpis);
             
             const recentLogs = res.recent_reports || [];
             baseRecentReports = recentLogs.slice(0, 5);
@@ -1201,11 +1258,11 @@ async function loadTemplatesList() {
             allTemplates = res.data || [];
             renderTemplatesGrid(allTemplates);
         } else {
-            container.innerHTML = '<p class="text-xs text-red-500 col-span-full py-8 text-center">Failed to load templates.</p>';
+            renderTemplatesGrid([]);
         }
     } catch (e) {
         console.error('Failed to load templates:', e);
-        container.innerHTML = '<p class="text-xs text-red-500 col-span-full py-8 text-center">Error loading templates.</p>';
+        renderTemplatesGrid([]);
     }
 }
 
@@ -1225,8 +1282,14 @@ function renderTemplatesGrid(templates) {
     if (CURRENT_USER.tier === 'staff') {
         visible = templates.filter(t => {
             const tDept = (t.department || '').toLowerCase();
-            const uDept = CURRENT_USER.department.toLowerCase();
-            return (t.status === 'active' || !t.status) && (tDept === uDept || !t.department || tDept === 'general');
+            const uDept = (CURRENT_USER.department || '').toLowerCase();
+            return (t.status === 'active' || !t.status) && (tDept === uDept || !t.department || tDept === 'general' || tDept.includes('all'));
+        });
+    } else if (CURRENT_USER.tier === 'director') {
+        visible = templates.filter(t => {
+            const tDept = (t.department || '').toLowerCase();
+            const uDept = (CURRENT_USER.department || '').toLowerCase();
+            return tDept === uDept || !t.department || tDept === 'general' || tDept.includes('all');
         });
     }
 
@@ -1243,10 +1306,20 @@ function renderTemplatesGrid(templates) {
         return;
     }
 
+    const typeLabels = {
+        'unified': 'Unified Global',
+        'health_center': 'Health Center',
+        'sanitation': 'Sanitation Permits',
+        'immunization': 'Immunization & Nutrition',
+        'wastewater': 'Wastewater Services',
+        'surveillance': 'Health Surveillance'
+    };
+
     container.innerHTML = visible.map(t => {
         const isOwnerOrAdmin = CURRENT_USER.tier === 'admin' || (CURRENT_USER.tier === 'director' && (t.department === CURRENT_USER.department || !t.department));
         const canEdit = CURRENT_USER.permissions.template_edit && isOwnerOrAdmin;
         const canDelete = CURRENT_USER.permissions.template_delete && (CURRENT_USER.tier === 'admin' || isOwnerOrAdmin);
+        const displayType = typeLabels[t.type] || escapeExportHtml(t.type || 'Standard');
 
         return `
             <div class="p-5 bg-white/70 backdrop-blur-sm rounded-2xl border border-[#B4D4FF]/30 hover:border-[#176B87]/40 shadow-xs transition flex flex-col justify-between group">
@@ -1258,7 +1331,7 @@ function renderTemplatesGrid(templates) {
                             </span>
                             <div>
                                 <h4 class="font-bold text-sm text-slate-800">${escapeExportHtml(t.name)}</h4>
-                                <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">${escapeExportHtml(t.type || 'Custom')} · ${escapeExportHtml(t.department || 'General')}</span>
+                                <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">${displayType} · ${escapeExportHtml(t.department || 'All Departments')}</span>
                             </div>
                         </div>
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${t.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}">
@@ -1268,7 +1341,7 @@ function renderTemplatesGrid(templates) {
                     <p class="text-xs text-slate-500 line-clamp-2 mt-2 leading-relaxed">${escapeExportHtml(t.description || 'Standard reporting template.')}</p>
                 </div>
                 <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                    <button onclick="useTemplate(${t.id})" class="btn-primary px-3 py-1.5 rounded-xl text-xs font-semibold text-white inline-flex items-center gap-1.5 shadow-2xs">
+                    <button onclick="useTemplate(${t.id})" class="btn-primary px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white inline-flex items-center gap-1.5 shadow-2xs hover:opacity-95 transition">
                         <i class="fa-solid fa-play text-[10px]"></i> Use Template
                     </button>
                     <div class="flex items-center gap-1">
@@ -1292,26 +1365,61 @@ function renderTemplatesGrid(templates) {
     }).join('');
 }
 
-function useTemplate(templateId) {
+async function useTemplate(templateId) {
     const t = allTemplates.find(tpl => String(tpl.id) === String(templateId));
     if (!t) return;
 
-    if (t.config) {
-        applyConfig(t.config);
-    } else if (t.type) {
-        const typeSelect = document.getElementById('reportType');
-        if (typeSelect) {
-            for (let opt of typeSelect.options) {
-                if (opt.value === t.type || opt.value.includes(t.type)) {
-                    typeSelect.value = opt.value;
+    // Normalization mapping for the 5 modules + 1 unified report
+    const modMap = {
+        'unified': 'unified',
+        'health': 'health_center',
+        'health_center': 'health_center',
+        'clinical': 'health_center',
+        'sanitation': 'sanitation',
+        'inspection': 'sanitation',
+        'immunization': 'immunization',
+        'vaccine': 'immunization',
+        'nutrition': 'immunization',
+        'wastewater': 'wastewater',
+        'water': 'wastewater',
+        'surveillance': 'surveillance',
+        'epidemiology': 'surveillance'
+    };
+
+    let targetType = (t.config && t.config.reportType) || t.type || 'unified';
+    targetType = modMap[String(targetType).toLowerCase()] || targetType;
+
+    const reportTypeSelect = document.getElementById('reportType');
+    if (reportTypeSelect) {
+        let matched = false;
+        for (let opt of reportTypeSelect.options) {
+            if (opt.value === targetType) {
+                reportTypeSelect.value = opt.value;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched && reportTypeSelect.options.length > 0) {
+            for (let opt of reportTypeSelect.options) {
+                if (opt.value.includes(targetType) || targetType.includes(opt.value)) {
+                    reportTypeSelect.value = opt.value;
                     break;
                 }
             }
         }
     }
 
-    switchReportSection('generate');
+    if (t.config) {
+        applyConfig(t.config);
+    }
+
+    if (typeof closeTemplatesListModal === 'function') closeTemplatesListModal();
+    if (typeof closeGenerateReportModal === 'function') closeGenerateReportModal();
+
+    showToast(`Loading "${t.name}" live records...`, 'info');
+    await loadLiveReportData();
     generateReport();
+    scrollToPreview('chart');
     showToast(`Template applied: ${t.name}`, 'success');
 }
 
@@ -1869,6 +1977,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     loadLiveReportData();
+    loadTemplatesList();
+    loadScheduledReports();
 });
 
 function autoSelectRoleDefaults(role) {
@@ -1898,34 +2008,65 @@ function autoSelectRoleDefaults(role) {
 
 // --- UI Tab Switching Logic ---
 function switchReportTab(tabName) {
-    const templatesTabBtn = document.getElementById('tab-btn-templates');
-    const scheduledTabBtn = document.getElementById('tab-btn-scheduled');
-    const templatesContent = document.getElementById('tab-content-templates');
-    const scheduledContent = document.getElementById('tab-content-scheduled');
-    
+    const tabs = ['templates', 'scheduled', 'logs'];
+    tabs.forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        const content = document.getElementById(`tab-content-${t}`);
+        if (btn) {
+            if (t === tabName) {
+                btn.classList.add('text-[#176B87]', 'border-[#176B87]', 'font-semibold');
+                btn.classList.remove('text-slate-500', 'border-transparent', 'font-medium');
+            } else {
+                btn.classList.add('text-slate-500', 'border-transparent', 'font-medium');
+                btn.classList.remove('text-[#176B87]', 'border-[#176B87]', 'font-semibold');
+            }
+        }
+        if (content) {
+            if (t === tabName) {
+                content.classList.remove('hidden');
+            } else {
+                content.classList.add('hidden');
+            }
+        }
+    });
+
     if (tabName === 'templates') {
-        // Active styling
-        templatesTabBtn.classList.add('text-[#176B87]', 'border-[#176B87]', 'font-semibold');
-        templatesTabBtn.classList.remove('text-slate-500', 'border-transparent', 'font-medium');
-        
-        // Inactive styling
-        scheduledTabBtn.classList.add('text-slate-500', 'border-transparent', 'font-medium');
-        scheduledTabBtn.classList.remove('text-[#176B87]', 'border-[#176B87]', 'font-semibold');
-        
-        // Show/hide content
-        templatesContent.classList.remove('hidden');
-        scheduledContent.classList.add('hidden');
+        loadTemplatesList();
     } else if (tabName === 'scheduled') {
-        // Active styling
-        scheduledTabBtn.classList.add('text-[#176B87]', 'border-[#176B87]', 'font-semibold');
-        scheduledTabBtn.classList.remove('text-slate-500', 'border-transparent', 'font-medium');
-        
-        // Inactive styling
-        templatesTabBtn.classList.add('text-slate-500', 'border-transparent', 'font-medium');
-        templatesTabBtn.classList.remove('text-[#176B87]', 'border-[#176B87]', 'font-semibold');
-        
-        // Show/hide content
-        scheduledContent.classList.remove('hidden');
-        templatesContent.classList.add('hidden');
+        loadScheduledReports();
+    } else if (tabName === 'logs') {
+        renderRecentReports();
     }
+}
+
+function updateDynamicKPIs(kpis) {
+    const totalEl = document.getElementById('kpi-total');
+    const compliantEl = document.getElementById('kpi-compliant');
+    const pendingEl = document.getElementById('kpi-pending');
+    const urgentEl = document.getElementById('kpi-urgent');
+    
+    if (totalEl) totalEl.textContent = kpis.total || 0;
+    if (compliantEl) compliantEl.textContent = kpis.compliant || 0;
+    if (pendingEl) pendingEl.textContent = kpis.pending || 0;
+    if (urgentEl) urgentEl.textContent = kpis.urgent || 0;
+    
+    const module = document.getElementById("reportType")?.value || "unified";
+    const labels = {
+        'health_center': { compliant: 'Treated', pending: 'In-Treatment', urgent: 'Critical' },
+        'sanitation': { compliant: 'Compliant', pending: 'Pending', urgent: 'Urgent' },
+        'immunization': { compliant: 'Doses Given', pending: 'Scheduled', urgent: 'Missed' },
+        'wastewater': { compliant: 'Paid', pending: 'Pending', urgent: 'Overdue' },
+        'surveillance': { compliant: 'Resolved', pending: 'Investigating', urgent: 'Outbreak' },
+        'unified': { compliant: 'Compliant', pending: 'Pending', urgent: 'Urgent' }
+    };
+    
+    const mapping = labels[module] || labels['unified'];
+    
+    const compliantLabel = document.getElementById('kpi-compliant-label');
+    const pendingLabel = document.getElementById('kpi-pending-label');
+    const urgentLabel = document.getElementById('kpi-urgent-label');
+    
+    if (compliantLabel) compliantLabel.textContent = mapping.compliant;
+    if (pendingLabel) pendingLabel.textContent = mapping.pending;
+    if (urgentLabel) urgentLabel.textContent = mapping.urgent;
 }

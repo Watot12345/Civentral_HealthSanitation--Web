@@ -68,13 +68,12 @@ $exportFormats = [
 $availableReportTypes = [];
 if ($isAdmin) {
     $availableReportTypes = [
-        'health_center' => 'Health Center Services & Consultations',
-        'sanitation'    => 'Sanitation Inspections & Permits',
+        'unified'       => 'Unified Global Report (All Modules)',
+        'health_center' => 'Health Center Services',
+        'sanitation'    => 'Sanitation Permits',
         'immunization'  => 'Immunization & Nutrition',
-        'wastewater'    => 'Wastewater & Water Quality Analysis',
-        'surveillance'  => 'Disease Surveillance & Outbreak Reports',
-        'compliance'    => 'Overall Compliance Summary',
-        'custom'        => 'Custom Report'
+        'wastewater'    => 'Wastewater Services',
+        'surveillance'  => 'Health Surveillance'
     ];
 } elseif ($isDirector) {
     $deptType = match($assignedDept) {
@@ -86,15 +85,14 @@ if ($isAdmin) {
         default                   => 'sanitation'
     };
     $deptLabels = [
-        'health_center' => 'Health Center Services & Consultations',
-        'sanitation'    => 'Sanitation Inspections & Permits',
+        'health_center' => 'Health Center Services',
+        'sanitation'    => 'Sanitation Permits',
         'immunization'  => 'Immunization & Nutrition',
-        'wastewater'    => 'Wastewater & Water Quality Analysis',
-        'surveillance'  => 'Disease Surveillance & Outbreak Reports'
+        'wastewater'    => 'Wastewater Services',
+        'surveillance'  => 'Health Surveillance'
     ];
     $availableReportTypes = [
-        $deptType    => $deptLabels[$deptType] ?? 'Department Operational Report',
-        'compliance' => $assignedDept . ' Compliance Summary'
+        $deptType => $deptLabels[$deptType] ?? ($assignedDept . ' Operational Report')
     ];
 } else {
     // Staff: only report type for their assigned department
@@ -107,11 +105,11 @@ if ($isAdmin) {
         default                   => 'sanitation'
     };
     $deptLabels = [
-        'health_center' => 'Health Center Services & Consultations',
-        'sanitation'    => 'Sanitation Inspections & Permits',
+        'health_center' => 'Health Center Services',
+        'sanitation'    => 'Sanitation Permits',
         'immunization'  => 'Immunization & Nutrition',
-        'wastewater'    => 'Wastewater & Water Quality Analysis',
-        'surveillance'  => 'Disease Surveillance & Outbreak Reports'
+        'wastewater'    => 'Wastewater Services',
+        'surveillance'  => 'Health Surveillance'
     ];
     $availableReportTypes = [
         $deptType => $deptLabels[$deptType] ?? 'Assigned Work Report'
@@ -125,7 +123,8 @@ if ($isAdmin) {
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
 <link rel="stylesheet" href="../assets/css/pages/custom_report.css" />
-<main class="flex-1 bg-dash-bg h-screen m-5 rounded-2xl font-sans overflow-y-auto scrollbar-track-transparent">
+<main class="bg-white flex-1 h-full flex flex-col overflow-hidden relative" role="main">
+    <div class="flex-1 overflow-y-auto scrollbar-track-transparent p-5">
 
     <!-- ─── TOP BAR: TITLE, SCOPE BADGE & NAVIGATION ─── -->
     <div class="mb-6">
@@ -147,10 +146,11 @@ if ($isAdmin) {
     <?php require __DIR__ . '/../includes/reports/generate_form.php'; ?>
     
     <!-- Tabbed Report Management Container -->
-    <div id="report-management-container" class="report-section mb-6">
-        <div class="flex items-center gap-4 border-b border-[#B4D4FF]/30 mb-6 px-2">
-            <button id="tab-btn-templates" onclick="switchReportTab('templates')" class="px-4 py-2 text-sm font-semibold text-[#176B87] border-b-2 border-[#176B87] transition">Saved Templates</button>
-            <button id="tab-btn-scheduled" onclick="switchReportTab('scheduled')" class="px-4 py-2 text-sm font-medium text-slate-500 hover:text-[#176B87] border-b-2 border-transparent transition">Automated Schedules</button>
+    <div id="report-management-container" class="report-section mb-6 bg-white/50 rounded-2xl p-4 sm:p-6 border border-[#B4D4FF]/30 shadow-sm">
+        <div class="flex items-center gap-4 border-b border-[#B4D4FF]/30 mb-6 px-2 overflow-x-auto">
+            <button id="tab-btn-templates" onclick="switchReportTab('templates')" class="whitespace-nowrap px-4 py-2 text-sm font-semibold text-[#176B87] border-b-2 border-[#176B87] transition">Saved Templates</button>
+            <button id="tab-btn-scheduled" onclick="switchReportTab('scheduled')" class="whitespace-nowrap px-4 py-2 text-sm font-medium text-slate-500 hover:text-[#176B87] border-b-2 border-transparent transition">Automated Schedules</button>
+            <button id="tab-btn-logs" onclick="switchReportTab('logs')" class="whitespace-nowrap px-4 py-2 text-sm font-medium text-slate-500 hover:text-[#176B87] border-b-2 border-transparent transition">Report Logs</button>
         </div>
         
         <div id="tab-content-templates">
@@ -159,9 +159,10 @@ if ($isAdmin) {
         <div id="tab-content-scheduled" class="hidden">
             <?php require __DIR__ . '/../includes/reports/scheduled.php'; ?>
         </div>
+        <div id="tab-content-logs" class="hidden">
+            <?php require __DIR__ . '/../includes/reports/recent_logs.php'; ?>
+        </div>
     </div>
-
-    <?php require __DIR__ . '/../includes/reports/recent_logs.php'; ?>
     <?php require __DIR__ . '/../includes/reports/modals.php'; ?>
     <!-- footer note -->
     <div id="reportFooter" class="mt-8 mb-4 text-center text-xs text-slate-400/70 border-t border-[#B4D4FF]/20 pt-6">
@@ -170,6 +171,7 @@ if ($isAdmin) {
 
    <!-- bypass datamask for non data masking -->
 <p class="kpi-number text-xl font-black text-slate-900 mt-1 leading-none"></p>
+    </div> <!-- close flex-1 wrapper -->
 </main>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

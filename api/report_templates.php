@@ -30,13 +30,68 @@ function getTemplates($file) {
         if (is_array($data)) return $data;
     }
     
-    // Default initial seed
+    // Default initial seed matching the 5 Core Modules and 1 Unified Option
     $initial = [
-        ['id' => 1, 'name' => 'Food Establishment Inspection', 'type' => 'inspection', 'status' => 'active', 'description' => 'Standard hygiene and food safety inspection for food establishments.', 'updated' => date('Y-m-d')],
-        ['id' => 2, 'name' => 'Water Quality Audit', 'type' => 'water', 'status' => 'active', 'description' => 'Comprehensive microbial and chemical water supply testing protocol.', 'updated' => date('Y-m-d')],
-        ['id' => 3, 'name' => 'Waste Disposal Compliance', 'type' => 'waste', 'status' => 'draft', 'description' => 'Solid waste and commercial grease disposal audit template.', 'updated' => date('Y-m-d')],
-        ['id' => 4, 'name' => 'Healthcare Facility Sanitation', 'type' => 'audit', 'status' => 'inactive', 'description' => 'Biohazard and clinic sanitation compliance checklist.', 'updated' => date('Y-m-d')],
-        ['id' => 5, 'name' => 'Public Restroom Inspection', 'type' => 'inspection', 'status' => 'active', 'description' => 'Routine public facility cleanliness and plumbing audit.', 'updated' => date('Y-m-d')]
+        [
+            'id' => 1,
+            'name' => 'Unified Global Health & Sanitation Audit',
+            'type' => 'unified',
+            'department' => 'All Departments',
+            'status' => 'active',
+            'description' => 'Cross-departmental executive summary covering consultations, inspections, immunizations, wastewater, and surveillance.',
+            'config' => ['reportType' => 'unified', 'exportFormat' => 'pdf', 'facility' => 'all'],
+            'updated' => date('Y-m-d')
+        ],
+        [
+            'id' => 2,
+            'name' => 'Health Center Clinical & Patient Report',
+            'type' => 'health_center',
+            'department' => 'Health Center Services',
+            'status' => 'active',
+            'description' => 'Primary healthcare facility diagnostics, treated consultations, and patient treatment metrics.',
+            'config' => ['reportType' => 'health_center', 'exportFormat' => 'pdf', 'facility' => 'Central Health Center'],
+            'updated' => date('Y-m-d')
+        ],
+        [
+            'id' => 3,
+            'name' => 'Sanitation Permits & Food Establishment Inspection',
+            'type' => 'sanitation',
+            'department' => 'Sanitation Permits',
+            'status' => 'active',
+            'description' => 'Commercial food safety hygiene compliance, sanitary permits, and inspection pass rates.',
+            'config' => ['reportType' => 'sanitation', 'exportFormat' => 'pdf', 'facility' => 'South Sanitation Depot'],
+            'updated' => date('Y-m-d')
+        ],
+        [
+            'id' => 4,
+            'name' => 'Immunization & Maternal Nutrition Drive',
+            'type' => 'immunization',
+            'department' => 'Immunization & Nutrition',
+            'status' => 'active',
+            'description' => 'Community vaccine doses administered, infant monitoring, and nutrition coverage rates.',
+            'config' => ['reportType' => 'immunization', 'exportFormat' => 'pdf', 'facility' => 'Central Health Center'],
+            'updated' => date('Y-m-d')
+        ],
+        [
+            'id' => 5,
+            'name' => 'Wastewater Treatment & Regulatory Billing Audit',
+            'type' => 'wastewater',
+            'department' => 'Wastewater Services',
+            'status' => 'active',
+            'description' => 'Industrial discharge tracking, grease trap inspections, environmental fees, and billing collections.',
+            'config' => ['reportType' => 'wastewater', 'exportFormat' => 'pdf', 'facility' => 'South Sanitation Depot'],
+            'updated' => date('Y-m-d')
+        ],
+        [
+            'id' => 6,
+            'name' => 'Epidemiological Health Disease Surveillance',
+            'type' => 'surveillance',
+            'department' => 'Health Surveillance',
+            'status' => 'active',
+            'description' => 'Disease outbreak surveillance, active case tracking, cluster investigation, and resolution rates.',
+            'config' => ['reportType' => 'surveillance', 'exportFormat' => 'pdf', 'facility' => 'Central Health Center'],
+            'updated' => date('Y-m-d')
+        ]
     ];
     
     if (!is_dir(dirname($file))) {
@@ -84,7 +139,8 @@ try {
             $newTemplate = [
                 'id'          => $maxId + 1,
                 'name'        => trim($input['name']),
-                'type'        => $input['type'] ?? 'inspection',
+                'type'        => $input['type'] ?? 'unified',
+                'department'  => trim($input['department'] ?? 'General'),
                 'status'      => $input['status'] ?? 'active',
                 'description' => trim($input['description'] ?? ''),
                 'config'      => $input['config'] ?? null,
@@ -113,6 +169,7 @@ try {
                 if ((string)$t['id'] === (string)$id) {
                     if (isset($input['name'])) $t['name'] = trim($input['name']);
                     if (isset($input['type'])) $t['type'] = $input['type'];
+                    if (isset($input['department'])) $t['department'] = trim($input['department']);
                     if (isset($input['status'])) $t['status'] = $input['status'];
                     if (isset($input['description'])) $t['description'] = trim($input['description']);
                     if (isset($input['config'])) $t['config'] = $input['config'];

@@ -12,8 +12,11 @@ require_once __DIR__ . '/../../app/services/ExportService.php';
 require_once __DIR__ . '/../../app/services/PermissionService.php';
 require_once __DIR__ . '/../../app/Models/ActivityLog.php';
 
+require_once __DIR__ . '/../../app/services/DepartmentResolver.php';
+
 use App\Services\ExportService;
 use App\Services\PermissionService;
+use App\Services\DepartmentResolver;
 
 try {
     $perm = PermissionService::getInstance();
@@ -24,9 +27,27 @@ try {
         exit;
     }
 
+    $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? '');
+    $userRole     = trim($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '');
+    $isAdmin      = $perm->isAdminRole($userRoleDesc) || $perm->isAdminRole($userRole);
+
+    $deptResolver = DepartmentResolver::getInstance();
+    $assignedDept = $deptResolver->resolveDepartmentName();
+
     $format = strtolower($_GET['format'] ?? $_POST['format'] ?? 'pdf');
     $title  = trim($_GET['title'] ?? $_POST['title'] ?? 'Operational Report');
     $module = trim($_GET['module'] ?? $_POST['module'] ?? 'Reports');
+
+    if (!$isAdmin) {
+        // Enforce department scope: non-admins cannot export unified global reports
+        if (stripos($module, 'unified') !== false || stripos($title, 'unified') !== false) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Forbidden: Unified global reports are restricted to Administrators.']);
+            exit;
+        }
+        $module = $assignedDept;
+    }
 
     $rawBody = file_get_contents('php://input');
     $payload = json_decode($rawBody, true) ?? $_POST;
@@ -60,7 +81,13 @@ try {
     } elseif ($format === 'csv') {
         ExportService::toCsv(['headers' => $headers, 'rows' => $rows], "{$cleanSlug}_{$timestamp}.csv");
     } else {
-        ExportService::toPdf(['headers' => $headers, 'rows' => $rows], $title, "{$cleanSlug}_{$timestamp}.pdf");
+        // PDF: prefer visual HTML (charts + table + AI summary) if client sent it
+        $htmlContent = $payload['html'] ?? '';
+        if (!empty($htmlContent) && is_string($htmlContent)) {
+            ExportService::htmlToPdf($htmlContent, $title, "{$cleanSlug}_{$timestamp}.pdf");
+        } else {
+            ExportService::toPdf(['headers' => $headers, 'rows' => $rows], $title, "{$cleanSlug}_{$timestamp}.pdf");
+        }
     }
 
 } catch (\Throwable $e) {

@@ -89,12 +89,12 @@
                     <div>
                         <label class="block text-xs font-semibold text-[#176B87] uppercase tracking-wider mb-1.5">Report Type</label>
                         <select id="editTemplateType" class="w-full rounded-xl px-4 py-2.5 text-sm border border-[#B4D4FF]/50 outline-none">
-                            <option value="sanitation">Sanitation Inspections</option>
-                            <option value="health_center">Health Center Consultations</option>
+                            <option value="unified">Unified Global Report (All Modules)</option>
+                            <option value="health_center">Health Center Services</option>
+                            <option value="sanitation">Sanitation Permits</option>
                             <option value="immunization">Immunization &amp; Nutrition</option>
-                            <option value="wastewater">Wastewater Analysis</option>
-                            <option value="surveillance">Disease Surveillance</option>
-                            <option value="compliance">Compliance Summary</option>
+                            <option value="wastewater">Wastewater Services</option>
+                            <option value="surveillance">Health Surveillance</option>
                         </select>
                     </div>
                     <div>

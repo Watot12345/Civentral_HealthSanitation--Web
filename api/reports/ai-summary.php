@@ -33,7 +33,8 @@ try {
         exit;
     }
 
-    $dept = $_REQUEST['department'] ?? $_REQUEST['facility'] ?? 'all';
+    $module = $_REQUEST['module'] ?? '';
+    $dept = !empty($module) && $module !== 'all' ? $module : ($_REQUEST['department'] ?? $_REQUEST['facility'] ?? 'all');
     $range = $_REQUEST['range'] ?? '30d';
 
     $db = Database::getInstance();

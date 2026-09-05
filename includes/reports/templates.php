@@ -26,7 +26,13 @@
 
             <!-- Templates Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="templatesGrid">
-                <p class="text-xs text-slate-400 col-span-full py-8 text-center">Loading templates...</p>
+                <div class="col-span-full py-12 flex flex-col items-center justify-center text-center">
+                    <div class="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-3 border border-slate-100 shadow-sm">
+                        <i class="fa-regular fa-folder-open text-2xl text-[#86B6F6]"></i>
+                    </div>
+                    <span class="font-medium text-slate-600 text-sm">No Templates Available</span>
+                    <span class="text-xs text-slate-400 mt-1 max-w-xs">There are currently no saved report templates for your role. Click "Create Template" to build one.</span>
+                </div>
             </div>
         </div>
     </div>

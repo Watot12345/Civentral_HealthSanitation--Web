@@ -13,8 +13,8 @@
                 <div class="relative p-4">
                     <div class="flex items-start justify-between gap-2">
                         <div>
-                            <p class="text-[8px] font-bold uppercase tracking-wider text-blue-600">Total Inspections</p>
-                            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none" id="kpiTotal">0</p>
+                            <p id="kpi-total-label" class="text-[8px] font-bold uppercase tracking-wider text-blue-600">Total Metric</p>
+                            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none" id="kpi-total">0</p>
                             <p class="text-[8px] font-medium text-slate-400 mt-0.5"><?= $isStaff ? 'Your Assigned Records' : 'Conducted' ?></p>
                         </div>
                     </div>
@@ -30,8 +30,8 @@
                 <div class="relative p-4">
                     <div class="flex items-start justify-between gap-2">
                         <div>
-                            <p class="text-[8px] font-bold uppercase tracking-wider text-emerald-600">Compliance Rate</p>
-                            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none" id="kpiCompliance">0%</p>
+                            <p id="kpi-compliant-label" class="text-[8px] font-bold uppercase tracking-wider text-emerald-600">Compliant Metric</p>
+                            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none" id="kpi-compliant">0</p>
                             <p class="text-[8px] font-medium text-slate-400 mt-0.5">Overall Status</p>
                         </div>
                     </div>
@@ -47,8 +47,8 @@
                 <div class="relative p-4">
                     <div class="flex items-start justify-between gap-2">
                         <div>
-                            <p class="text-[8px] font-bold uppercase tracking-wider text-rose-600">Urgent Issues</p>
-                            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none" id="kpiUrgent">0</p>
+                            <p id="kpi-urgent-label" class="text-[8px] font-bold uppercase tracking-wider text-rose-600">Urgent Metric</p>
+                            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none" id="kpi-urgent">0</p>
                             <p class="text-[8px] font-medium text-slate-400 mt-0.5">Need Attention</p>
                         </div>
                     </div>
@@ -64,8 +64,8 @@
                 <div class="relative p-4">
                     <div class="flex items-start justify-between gap-2">
                         <div>
-                            <p class="text-[8px] font-bold uppercase tracking-wider text-purple-600">Facilities Covered</p>
-                            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none" id="kpiFacilities">0</p>
+                            <p id="kpi-pending-label" class="text-[8px] font-bold uppercase tracking-wider text-purple-600">Pending Metric</p>
+                            <p class="kpi-value text-xl font-black text-slate-900 mt-1 leading-none" id="kpi-pending">0</p>
                             <p class="text-[8px] font-medium text-slate-400 mt-0.5">Operational Reach</p>
                         </div>
                     </div>
@@ -86,6 +86,7 @@
                 <button onclick="switchReportTab('scheduled'); document.getElementById('report-management-container').scrollIntoView({behavior: 'smooth', block: 'start'})" class="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition inline-flex items-center gap-1.5">
                     <i class="fa-regular fa-clock"></i> View Schedule
                 </button>
+                
             </div>
         </div>
 

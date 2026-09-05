@@ -383,9 +383,20 @@
             font-weight: normal;
         }
 
-        #tabChart,
-        #tabTable,
-        #tabSummary {
+        #report-management-container,
+        #statusChips,
+        .filter-chip,
+        #reportTabsBar,
+        #reportExportActions,
+        #reportFooter,
+        #section-dashboard,
+        #generateReportModal {
+            display: none !important;
+        }
+
+        /* Show ALL tab-content panels for comprehensive print */
+        .tab-content,
+        .tab-content.hidden {
             display: block !important;
             height: auto !important;
             min-height: 0 !important;
@@ -393,8 +404,46 @@
             overflow: visible !important;
             transform: none !important;
             animation: none !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
+        }
+
+        /* Add section separator and page breaks between views */
+        .tab-content + .tab-content {
+            border-top: 2px solid #176B87 !important;
+            padding-top: 16px !important;
+            margin-top: 16px !important;
+            page-break-before: always !important;
+        }
+
+        /* Add section labels before each tab for print clarity */
+        #tabChart::before {
+            content: '📊 Chart View';
+            display: block;
+            font-size: 14pt;
+            font-weight: bold;
+            color: #176B87;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #B4D4FF;
+            padding-bottom: 6px;
+        }
+        #tabTable::before {
+            content: '📋 Table View';
+            display: block;
+            font-size: 14pt;
+            font-weight: bold;
+            color: #176B87;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #B4D4FF;
+            padding-bottom: 6px;
+        }
+        #tabSummary::before {
+            content: '🤖 AI Summary';
+            display: block;
+            font-size: 14pt;
+            font-weight: bold;
+            color: #176B87;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #B4D4FF;
+            padding-bottom: 6px;
         }
 
         #reportPreview .overflow-x-auto,

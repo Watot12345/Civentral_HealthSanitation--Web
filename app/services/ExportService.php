@@ -199,4 +199,40 @@ class ExportService
         fclose($out);
         exit;
     }
+
+    /**
+     * Render pre-built visual HTML (chart images, tables, AI summary) to PDF via Dompdf.
+     * Used when the client sends a complete HTML document for PDF conversion.
+     */
+    public static function htmlToPdf(string $html, string $title = 'Report', string $filename = 'report.pdf'): void
+    {
+        if (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        // Limit HTML payload size to prevent abuse (2MB max)
+        if (strlen($html) > 2 * 1024 * 1024) {
+            throw new \RuntimeException('HTML payload too large for PDF generation.');
+        }
+
+        $options = new Options();
+        $options->set('isHtml5ParserEnabled', true);
+        // Enable remote to allow base64 data-URI images (chart PNGs)
+        $options->set('isRemoteEnabled', true);
+        $options->set('defaultFont', 'DejaVu Sans');
+        $options->set('isFontSubsettingEnabled', true);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'landscape');
+        $dompdf->render();
+
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: private, max-age=0, must-revalidate');
+        header('Pragma: public');
+
+        echo $dompdf->output();
+        exit;
+    }
 }
