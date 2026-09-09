@@ -1,6 +1,8 @@
 # Node.js dependencies
 node_modules/
 .env
+.env.*
+!.env.example
 capstone
 PROJECT_STRUCTURE.md
 # npm logs
