@@ -52,15 +52,15 @@ Your goal is to find bugs, validate core requirements, test edge cases, break co
 - [ ] **Interactive Charts**: Charts support filtering and drill-down. (Evidence: Demonstration)
 - [ ] **Historical Reports**: Historical data available for analysis. (Evidence: Reports Dashboard)
 - [ ] **KPI Monitoring**: KPIs display correct values. (Evidence: Sample Reports)
-- [ ] **Report Export**: Reports export successfully to PDF, Excel, CSV. (Evidence: Exported Samples)
+- [x] **Report Export**: Reports export successfully to PDF, Excel, CSV. (Evidence: Exported Samples in `docs/qa/samples/`, `api/export.php`)
 
 ### Section 4: Data Interoperability
 - [ ] **CSV Import**: CSV files import successfully. (Evidence: Import Test)
 - [ ] **Excel Import**: Excel files import successfully. (Evidence: Import Test)
 - [ ] **JSON Import**: JSON files validate correctly. (Evidence: Import Test)
-- [ ] **Invalid File Detection**: Invalid files generate appropriate error messages. (Evidence: Error Report)
+- [x] **Invalid File Detection**: Invalid files generate appropriate error messages. (Evidence: Error Report in `docs/qa/INVALID_FILE_DETECTION_REPORT.md`)
 - [ ] **Bulk Upload**: Large datasets process successfully. (Evidence: Performance Report)
-- [ ] **Export Accuracy**: Exported data maintains formatting completeness. (Evidence: Export Samples)
+- [x] **Export Accuracy**: Exported data maintains formatting completeness. (Evidence: Export Samples in `docs/qa/EXPORT_ACCURACY_REPORT.md`)
 
 ### Section 5: Reporting System
 - [ ] **Custom Reports**: Users can generate customized reports. (Evidence: Demonstration)

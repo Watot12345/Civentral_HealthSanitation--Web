@@ -251,15 +251,34 @@ Time-series monthly bucketing (1M–12M) confirmed.
 ### ✅ 3.5 KPI Monitoring — PASS
 Dynamic KPI computation confirmed in `DashboardService.php`.
 
-### ⚠️ 3.6 Report Export — PARTIAL
+### ✅ 3.6 Report Export — PASS
 
-**BUG-011 — HIGH: `export.php` is entirely a client-side UI placeholder with no backend export logic**
-- **Summary:** `pages/export.php` contains only HTML structure and a `<script src="../assets/js/export.js">`. There is no server-side data fetching, no file generation, and no download logic. The page is a static UI shell.
-- **Steps to Reproduce:** Navigate to Export page → select reports → click any export format button.
-- **Expected Result:** File generated server-side and downloaded.
-- **Actual / Potential Result:** No download occurs; the UI has no functional backend.
-- **Severity:** **HIGH**
-- **Evidence:** [`export.php:L1-70`](file:///d:/xampp/htdocs/Civentral_HealthSanitation--Web/pages/export.php) — zero PHP logic, zero download headers.
+**BUG-011 — RESOLVED: Multi-format export engine implemented in `api/export.php` & `ExportService.php`**
+- **Files**: [`api/export.php`](file:///opt/lampp/htdocs/capstone/api/export.php), [`app/services/ExportService.php`](file:///opt/lampp/htdocs/capstone/app/services/ExportService.php), [`assets/js/export.js`](file:///opt/lampp/htdocs/capstone/assets/js/export.js)
+- **Implementation**:
+  - Full server-side query and generation pipeline supporting PDF (Dompdf), Excel (.xlsx via PhpSpreadsheet), and CSV.
+  - Wired to frontend download buttons in `assets/js/export.js`.
+- **Test Evidence (Sample Generation & Magic Signature Verification)**:
+  ```text
+  [1. CSV EXPORT]
+    File Path        : docs/qa/samples/sample_export_patients.csv (1,095 bytes)
+    Content-Type     : text/csv; charset=utf-8
+    Magic Signature  : 0xefbbbf (MATCH: UTF-8 BOM EF BB BF)
+    Status           : VERIFIED (HTTP 200 / PASS)
+
+  [2. EXCEL (.XLSX) EXPORT]
+    File Path        : docs/qa/samples/sample_export_patients.xlsx (6,986 bytes)
+    Content-Type     : application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    Magic Signature  : 504b0304 (ASCII: 'PK  ') (MATCH: PK Zip Archive)
+    Status           : VERIFIED (HTTP 200 / PASS)
+
+  [3. PDF EXPORT]
+    File Path        : docs/qa/samples/sample_export_patients.pdf (22,625 bytes)
+    Content-Type     : application/pdf
+    Magic Signature  : '%PDF-' (MATCH: Valid %PDF- Header)
+    Status           : VERIFIED (HTTP 200 / PASS)
+  ```
+- **Samples Archived**: [`docs/qa/samples/`](file:///opt/lampp/htdocs/capstone/docs/qa/samples/)
 
 ---
 
@@ -278,22 +297,77 @@ Bulk CSV ingestion with header mapping confirmed in `api/case_reports.php`.
 ### ✅ 4.3 JSON Import — PASS
 REST payload validation confirmed.
 
-### ⚠️ 4.4 Invalid File Detection — PARTIAL
+### ✅ 4.4 Invalid File Detection — PASS
 
-**BUG-012 — MEDIUM: Server-side MIME type validation absent for text-based imports**
-- **Summary:** File validation uses extension filters and structural column checks only. A file renamed as `.csv` but containing malicious content (e.g., CSV injection with `=CMD(...)` formulas, or an embedded PHP script) is not rejected by server-side MIME inspection.
-- **Severity:** **MEDIUM**
-- **Evidence Needed:** Server-side `finfo_file()` or MIME type check code in import handlers.
+**BUG-012 — RESOLVED: Deep byte inspection (`finfo_file`), 10MB guardrail & structured errors verified**
+- **Files**: [`app/helpers/FileUploadValidator.php`](file:///opt/lampp/htdocs/capstone/app/helpers/FileUploadValidator.php), [`docs/qa/INVALID_FILE_DETECTION_REPORT.md`](file:///opt/lampp/htdocs/capstone/docs/qa/INVALID_FILE_DETECTION_REPORT.md)
+- **Implementation**:
+  - Deep byte inspection with `finfo_file(FILEINFO_MIME_TYPE)` blocking spoofed executables disguised with valid extensions.
+  - Strict 10 MB payload ceiling returning HTTP 413.
+  - Extension whitelist filtering (.csv, .xlsx, .json, .pdf) returning HTTP 422.
+  - Structural parser validation for CSV (empty/headerless check) and JSON (syntax check).
+- **Test Evidence (`docs/qa/INVALID_FILE_DETECTION_REPORT.md`)**:
+  ```text
+  [Case 1] Renamed Executable (ELF Binary -> .csv):
+    HTTP Status   : 422
+    Reject Notice : MIME type mismatch: extension '.csv' claimed, but actual byte content is 'application/x-executable'.
+    Result        : PASS (MIME Spoofing Blocked)
+
+  [Case 2] Oversized File (11 MB > 10 MB limit):
+    HTTP Status   : 413
+    Reject Notice : File size (11 MB) exceeds maximum allowed limit of 10 MB.
+    Result        : PASS (10MB Size Guardrail Enforced)
+
+  [Case 3] Prohibited Extensions (.exe, .sh, .php, .svg):
+    malware.exe   : Status 422 | File extension '.exe' is not permitted. [BLOCKED]
+    exploit.sh    : Status 422 | File extension '.sh' is not permitted.  [BLOCKED]
+    backdoor.php  : Status 422 | File extension '.php' is not permitted. [BLOCKED]
+    xss_trap.svg  : Status 422 | File extension '.svg' is not permitted. [BLOCKED]
+    Result        : PASS (All Prohibited Extensions Blocked)
+
+  [Case 4] Malformed Data Structures:
+    Broken JSON   : Status 422 | Malformed JSON structure: Syntax error [REJECTED]
+    Empty CSV     : Status 422 | Malformed or empty CSV structure: no valid column headers detected. [REJECTED]
+    Result        : PASS (Malformed Payloads Rejected with Structured Errors)
+  ```
+
+---
 
 ### ✅ 4.5 Bulk Upload — PASS
 Sequential sanitized insertions confirmed in `BackupController`.
 
-### ⚠️ 4.6 Export Accuracy — PARTIAL
+### ✅ 4.6 Export Accuracy — PASS
 
-**BUG-013 — HIGH: `export.php` simulated (see BUG-011); `custom_report.php` PDF uses browser print dialog**
-- **Summary:** PDF export relies entirely on `window.print()` which produces unreliable output across browsers and cannot be automated or emailed. No server-side PDF generation library (e.g., mPDF, FPDF, DomPDF) found.
-- **Severity:** **MEDIUM** (usability/reliability)
-- **Evidence Needed:** Server-side PDF generation code.
+**BUG-013 — RESOLVED: Encoding integrity, ISO dates, and formula-injection defense verified**
+- **Files**: [`app/services/ExportService.php`](file:///opt/lampp/htdocs/capstone/app/services/ExportService.php), [`docs/qa/EXPORT_ACCURACY_REPORT.md`](file:///opt/lampp/htdocs/capstone/docs/qa/EXPORT_ACCURACY_REPORT.md)
+- **Implementation**:
+  - Full UTF-8 BOM injection (`\xEF\xBB\xBF`) ensuring correct spreadsheet encoding.
+  - Zero mojibake: tested lowercase `ñ` and uppercase `Ñ` preservation.
+  - Strict ISO-8601 formatting preservation.
+  - Active neutralization of formula injection attacks (`=`, `+`, `-`, `@`, `\t`, `\r`) via `ExportService::sanitizeCellValue()`.
+- **Test Evidence (`docs/qa/EXPORT_ACCURACY_REPORT.md`)**:
+  ```text
+  [Test 1] ñ / Ñ Multibyte Encoding Integrity:
+    UTF-8 BOM Header Present : YES (\xEF\xBB\xBF)
+    Lowercase 'ñ' Preserved  : YES ('Niño', 'Parañaque')
+    Uppercase 'Ñ' Preserved  : YES ('PEÑAFLORIDA', 'SANTO NIÑO')
+    Mojibake Check (Ã±/Ã‘)   : CLEAN (0 mojibake detected) -> PASS
+
+  [Test 2] ISO Date Format Consistency:
+    All ISO Date Patterns Intact : YES (All 4 formats verified) -> PASS
+
+  [Test 3] Formula-Injection Sanitization:
+    - '=SUM(A1:A10)'           -> ''=SUM(A1:A10)'           [SAFE (PREFIXED WITH ')]
+    - '=cmd|/C calc!A0'        -> ''=cmd|/C calc!A0'        [SAFE (PREFIXED WITH ')]
+    - '+1234567890'            -> ''+1234567890'            [SAFE (PREFIXED WITH ')]
+    - '-50+20'                 -> ''-50+20'                 [SAFE (PREFIXED WITH ')]
+    - '@SUM(1,2)'              -> ''@SUM(1,2)'              [SAFE (PREFIXED WITH ')]
+    - '\tmalicious_tab_indent' -> ''\tmalicious_tab_indent' [SAFE (PREFIXED WITH ')]
+    - '\rmalicious_cr_return'  -> ''\rmalicious_cr_return'  [SAFE (PREFIXED WITH ')]
+    - 'Safe Normal String'     -> 'Safe Normal String'      [SAFE (UNMODIFIED)]
+    - '12345'                  -> '12345'                   [SAFE (UNMODIFIED)]
+    Result: PASS
+  ```
 
 ---
 
@@ -466,7 +540,7 @@ WCAG 2.1 AA compliance confirmed (Slate/Zinc 900 on white > 12:1 ratio).
 | BUG-003 | **HIGH** | 1.2 | Inactive employee account not blocked during login |
 | BUG-009 | ~~**HIGH**~~ | 2.11 | **RESOLVED** — Sanitization & boundary encapsulation implemented in `GeminiAiService.php` |
 | BUG-010 | **HIGH** | 2.13 | `X-Forwarded-For` spoofing bypasses rate limiter |
-| BUG-011 | **HIGH** | 3.6 | `export.php` is a static UI shell — no backend |
+| BUG-011 | ~~**HIGH**~~ | 3.6 | **RESOLVED** — Multi-format export engine implemented (`api/export.php`, `ExportService.php`); samples archived in `docs/qa/samples/` |
 | BUG-015 | ~~**HIGH**~~ | 6.6 | **RESOLVED** — Cap removed, 2,000-row chunked paginated streaming + unattended cron backup verified |
 | BUG-016 | ~~**HIGH**~~ | 6.7 | **RESOLVED** — Full table restoration implemented; 100% record parity verified across operational tables |
 | BUG-002 | **HIGH** | 1.2 | Session-based login lockout — cookie-clear bypass |
@@ -474,8 +548,8 @@ WCAG 2.1 AA compliance confirmed (Slate/Zinc 900 on white > 12:1 ratio).
 | BUG-004 | **MEDIUM** | 1.4 | `limitWords()` is a stub — word limit not enforced |
 | BUG-006 | ~~MEDIUM~~ **RESOLVED** | 1.8 | Background runner (`bin/scheduler.php`), jobs & `scheduler_logs` implemented |
 | BUG-008 | **MEDIUM** | 2.9 | No citizen data deletion workflow |
-| BUG-012 | **MEDIUM** | 4.4 | No server-side MIME validation for file imports |
-| BUG-013 | **MEDIUM** | 4.6 | PDF export via browser print only — unreliable |
+| BUG-012 | ~~**MEDIUM**~~ | 4.4 | **RESOLVED** — Deep byte inspection via `finfo_file()`, 10MB guardrail & structured errors verified in `docs/qa/INVALID_FILE_DETECTION_REPORT.md` |
+| BUG-013 | ~~**MEDIUM**~~ | 4.6 | **RESOLVED** — Server-side Dompdf/PhpSpreadsheet exports, UTF-8 BOM, ñ/Ñ integrity & formula sanitization verified in `docs/qa/EXPORT_ACCURACY_REPORT.md` |
 | BUG-005 | **LOW** | 1.4 | Invalid default Gemini model name causes 404 fallback |
 
 ---

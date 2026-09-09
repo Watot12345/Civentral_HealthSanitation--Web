@@ -1,6 +1,10 @@
 <?php
 namespace App\Services;
 
+if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
+    require_once __DIR__ . '/../../vendor/autoload.php';
+}
+
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -21,8 +25,18 @@ class ExportService
             return $val;
         }
 
-        $trimmed = ltrim($val);
-        if ($trimmed !== '' && in_array($trimmed[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+        if ($val === '') {
+            return $val;
+        }
+
+        // Check raw first char for tab or carriage return
+        if ($val[0] === "\t" || $val[0] === "\r" || $val[0] === "\n") {
+            return "'" . $val;
+        }
+
+        // Check trimmed (space-only trim) for formula triggers =, +, -, @
+        $trimmed = ltrim($val, " ");
+        if ($trimmed !== '' && in_array($trimmed[0], ['=', '+', '-', '@', "\t", "\r", "\n"], true)) {
             return "'" . $val;
         }
 
@@ -171,16 +185,14 @@ class ExportService
     /**
      * Generate & stream CSV download with UTF-8 BOM & formula injection prevention
      */
-    public static function toCsv(array $data, string $filename = 'report.csv'): void
+    public static function toCsv(array $data, string $filename = 'report.csv', bool $exitAfter = true): void
     {
-        if (ob_get_level()) {
-            ob_end_clean();
+        if (!headers_sent()) {
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Pragma: no-cache');
+            header('Expires: 0');
         }
-
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
-        header('Pragma: no-cache');
-        header('Expires: 0');
 
         $out = fopen('php://output', 'w');
         fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF)); // UTF-8 BOM
@@ -197,7 +209,9 @@ class ExportService
         }
 
         fclose($out);
-        exit;
+        if ($exitAfter) {
+            exit;
+        }
     }
 
     /**

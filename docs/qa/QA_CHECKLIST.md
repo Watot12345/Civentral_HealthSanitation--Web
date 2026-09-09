@@ -73,7 +73,7 @@
 | **3.3** | **Interactive Charts** | Charts support filtering and drill-down. | Demonstration | [ ] | Chart.js interactive disease trend & permit completion widgets. |
 | **3.4** | **Historical Reports** | Historical data is available for analysis. | Reports Dashboard | [ ] | Time-series query filters by Month, Quarter, and Year. |
 | **3.5** | **KPI Monitoring** | KPIs display correct values. | Sample Reports | [ ] | Active triage count, pending sanitation permits, outbreak alert badges. |
-| **3.6** | **Report Export** | Reports export successfully to PDF, Excel, and CSV. | Exported Samples | [ ] | `api/reports/` multi-format export engine with audit logging. |
+| **3.6** | **Report Export** | Reports export successfully to PDF, Excel, and CSV. | Exported Samples | [x] | Multi-format export engine (`api/export.php`, `ExportService.php`). Verified samples in `docs/qa/samples/`. |
 
 ---
 
@@ -86,9 +86,9 @@
 | **4.1** | **CSV Import** | CSV files import successfully. | Import Test | [ ] | Patient bulk ingestion with header mapping and validation. |
 | **4.2** | **Excel Import** | Excel files import successfully. | Import Test | [ ] | `.xlsx` parsing for immunization rosters & barangay censuses. |
 | **4.3** | **JSON Import** | JSON files validate correctly. | Import Test | [ ] | REST payload validation against expected schema before DB insertion. |
-| **4.4** | **Invalid File Detection** | Invalid files generate appropriate error messages. | Error Report | [ ] | MIME-type validation, size guardrails (max 10MB), and format warnings. |
+| **4.4** | **Invalid File Detection** | Invalid files generate appropriate error messages. | Error Report | [x] | `FileUploadValidator::validate()` byte inspection, 10MB limit, structured errors. Documented in `docs/qa/INVALID_FILE_DETECTION_REPORT.md`. |
 | **4.5** | **Bulk Upload** | Large datasets process successfully. | Performance Report | [ ] | Chunked batch insertions preventing memory exhaustion. |
-| **4.6** | **Export Accuracy** | Exported data maintains formatting completeness. | Export Samples | [ ] | Excel/CSV output retains UTF-8 characters, timestamps, and headers. |
+| **4.6** | **Export Accuracy** | Exported data maintains formatting completeness. | Export Samples | [x] | UTF-8 BOM, ñ/Ñ preservation, ISO dates, and formula injection sanitization verified in `docs/qa/EXPORT_ACCURACY_REPORT.md`. |
 
 ---
 
