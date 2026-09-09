@@ -331,8 +331,16 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   <script src="<?= site_url('assets/js/offline-sync.js'); ?>"></script>
   <link rel="manifest" href="<?= site_url('manifest.json'); ?>">
 </head>
-<?php if (!$minimalHeader) include_once __DIR__ . '/data-mask.php'; ?>
+<?php if (!$minimalHeader) {
+    include_once __DIR__ . '/data-mask.php';
+    include_once __DIR__ . '/accessibility.php';
+} ?>
 <body class="bg-white font-sans antialiased text-slate-800 min-h-screen flex flex-col">
+
+<!-- Skip to Main Content Link for Keyboard Accessibility (WCAG 2.4.1) -->
+<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[10000] focus:px-4 focus:py-2.5 focus:bg-amber-500 focus:text-slate-950 focus:font-bold focus:rounded-xl focus:shadow-2xl focus:outline-none focus:ring-4 focus:ring-slate-900 transition">
+  Skip to main content
+</a>
 
 <!-- PWA Install Prompt -->
 <div id="pwa-install-prompt" class="hidden fixed bottom-4 right-4 bg-white border border-slate-200 shadow-xl rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4 z-50">
@@ -349,7 +357,7 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   </div>
 </div>
 
-  <header class="bg-white border-b border-slate-200 h-20 px-6 flex items-center justify-between sticky top-0 z-40 shadow-xs shrink-0">
+  <header role="banner" class="bg-white border-b border-slate-200 h-20 px-6 flex items-center justify-between sticky top-0 z-40 shadow-xs shrink-0">
     <div class="flex items-center space-x-4 text-brand-dark">
         <div class="shrink-0 flex items-center justify-center">
           <img src="<?= site_url('assets/images/logo.png'); ?>" alt="Logo" class="h-16 w-auto object-contain">
@@ -706,6 +714,23 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
               <input type="checkbox" id="settingsDataMaskToggle" onchange="if(typeof toggleDataMask==='function')toggleDataMask()" class="w-4 h-4 text-c3 rounded border-slate-300 focus:ring-c3 cursor-pointer" />
             </div>
           </label>
+        </div>
+
+        <!-- Accessibility & Ergonomics -->
+        <div class="space-y-2 pt-3 border-t border-slate-100">
+          <h4 class="font-extrabold text-slate-800 uppercase text-[10px] tracking-wider text-slate-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-universal-access"></i> Accessibility &amp; Ergonomics
+          </h4>
+          <button type="button" onclick="if(window.CiventralA11y) CiventralA11y.openModal()" class="w-full flex items-center justify-between p-2.5 bg-slate-50 rounded-xl hover:bg-slate-100 transition text-left cursor-pointer border border-slate-200">
+            <div class="flex items-center gap-2 font-bold text-slate-700">
+              <i class="fa-universal-access text-amber-500"></i>
+              <div>
+                <span>Keyboard &amp; Visual Assistance</span>
+                <p class="text-[10px] text-slate-400 font-normal">Enhanced focus rings, text scaling &amp; shortcut guide (Alt+K)</p>
+              </div>
+            </div>
+            <i class="fa-solid fa-arrow-up-right-from-square text-xs text-slate-400"></i>
+          </button>
         </div>
 
         <!-- Portal Display Preferences -->
@@ -1123,4 +1148,4 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   });
   </script>
 
-  <div class="flex-1 flex relative">
+  <div id="main-content" tabindex="-1" role="main" class="flex-1 flex relative outline-none">

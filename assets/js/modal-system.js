@@ -393,6 +393,34 @@ const ModalSystem = (function() {
     }
 
     // ============================================================
+    // MODAL STACK & ACCESSIBILITY FOCUS MANAGEMENT
+    // ============================================================
+    
+    var activeModalStack = [];
+
+    /**
+     * Retrieve all genuinely visible and focusable elements inside a container
+     * Excludes <input type="hidden"> and non-rendered elements
+     */
+    function getFocusableElements(container) {
+        if (!container) return [];
+        var selector = [
+            'a[href]',
+            'button:not([disabled])',
+            'input:not([disabled]):not([type="hidden"])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])',
+            '[contenteditable="true"]'
+        ].join(', ');
+
+        return Array.prototype.filter.call(container.querySelectorAll(selector), function(el) {
+            return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length) &&
+                   window.getComputedStyle(el).visibility !== 'hidden';
+        });
+    }
+
+    // ============================================================
     // PUBLIC: Open/Close Modals
     // ============================================================
     
@@ -403,39 +431,74 @@ const ModalSystem = (function() {
             console.warn('ModalSystem.open: Element #' + id + ' not found');
             return;
         }
+        
+        // Track stack position
+        var stackIdx = activeModalStack.indexOf(id);
+        if (stackIdx !== -1) {
+            activeModalStack.splice(stackIdx, 1);
+        }
+        activeModalStack.push(id);
+
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+        modal.setAttribute('role', modal.getAttribute('role') || 'dialog');
+        modal.setAttribute('aria-modal', 'true');
         document.body.classList.add('overflow-hidden');
 
-        // Focus Trap & Keyboard Navigation (Accessibility 7.7)
-        try {
-            modal._previouslyFocused = document.activeElement;
-            var focusables = modal.querySelectorAll('a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex="0"]');
-            if (focusables.length > 0) {
-                focusables[0].focus();
-            }
+        if (options.onClose) {
+            modal._defaultOnClose = options.onClose;
+        }
 
+        // Store active element prior to opening for focus restoration
+        modal._previouslyFocused = document.activeElement;
+
+        // Logical initial focus: prioritize first form field over close "X" button
+        try {
+            var focusables = getFocusableElements(modal);
+            if (focusables.length > 0) {
+                var firstInput = modal.querySelector('input:not([type="hidden"]), select, textarea');
+                if (firstInput && focusables.indexOf(firstInput) !== -1) {
+                    firstInput.focus();
+                } else {
+                    focusables[0].focus();
+                }
+            } else {
+                modal.setAttribute('tabindex', '-1');
+                modal.focus();
+            }
+        } catch (e) {}
+
+        // Document-level Focus Trap for this modal (WCAG 2.1.2)
+        if (!modal._focusTrapHandler) {
             modal._focusTrapHandler = function(e) {
                 if (e.key !== 'Tab') return;
-                var currentFocusables = modal.querySelectorAll('a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex="0"]');
-                if (currentFocusables.length === 0) return;
+                // Only enforce for top-most modal
+                if (activeModalStack.length > 0 && activeModalStack[activeModalStack.length - 1] !== id) {
+                    return;
+                }
+
+                var currentFocusables = getFocusableElements(modal);
+                if (currentFocusables.length === 0) {
+                    e.preventDefault();
+                    return;
+                }
                 var first = currentFocusables[0];
                 var last = currentFocusables[currentFocusables.length - 1];
 
                 if (e.shiftKey) {
-                    if (document.activeElement === first) {
+                    if (document.activeElement === first || !modal.contains(document.activeElement)) {
                         e.preventDefault();
                         last.focus();
                     }
                 } else {
-                    if (document.activeElement === last) {
+                    if (document.activeElement === last || !modal.contains(document.activeElement)) {
                         e.preventDefault();
                         first.focus();
                     }
                 }
             };
-            modal.addEventListener('keydown', modal._focusTrapHandler);
-        } catch (e) {}
+            document.addEventListener('keydown', modal._focusTrapHandler, true);
+        }
 
         if (options.applyMasking !== false) {
             setTimeout(function() {
@@ -456,9 +519,15 @@ const ModalSystem = (function() {
             return;
         }
 
+        // Remove from active stack
+        var stackIdx = activeModalStack.indexOf(id);
+        if (stackIdx !== -1) {
+            activeModalStack.splice(stackIdx, 1);
+        }
+
         // Remove focus trap listener and restore previous focus
         if (modal._focusTrapHandler) {
-            modal.removeEventListener('keydown', modal._focusTrapHandler);
+            document.removeEventListener('keydown', modal._focusTrapHandler, true);
             modal._focusTrapHandler = null;
         }
         if (modal._previouslyFocused && typeof modal._previouslyFocused.focus === 'function') {
@@ -468,10 +537,15 @@ const ModalSystem = (function() {
 
         modal.classList.add('hidden');
         modal.classList.remove('flex');
-        document.body.classList.remove('overflow-hidden');
         
-        if (typeof options.onClose === 'function') {
-            options.onClose(modal);
+        // Only re-enable scrolling if no other modals remain open
+        if (activeModalStack.length === 0) {
+            document.body.classList.remove('overflow-hidden');
+        }
+        
+        var closeCallback = options.onClose || modal._defaultOnClose;
+        if (typeof closeCallback === 'function') {
+            closeCallback(modal);
         }
     }
 
@@ -520,21 +594,25 @@ const ModalSystem = (function() {
         var modalId = 'modal-system-confirm-' + Date.now();
         var overlay = document.createElement('div');
         overlay.id = modalId;
+        overlay.setAttribute('role', 'alertdialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', modalId + '-title');
+        overlay.setAttribute('aria-describedby', modalId + '-desc');
         overlay.className = 'hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[9999] items-center justify-center p-4';
         overlay.innerHTML = 
             '<div class="bg-white rounded-2xl shadow-xl w-full max-w-sm" onclick="event.stopPropagation()">' +
                 '<div class="p-6 text-center">' +
                     '<div class="w-12 h-12 rounded-full ' + iconColor + ' flex items-center justify-center mx-auto mb-4">' +
-                        '<i class="fa-solid ' + iconClass + '"></i>' +
+                        '<i class="fa-solid ' + iconClass + '" aria-hidden="true"></i>' +
                     '</div>' +
-                    '<h3 class="font-bold text-slate-900 mb-1">' + escapeHtml(title) + '</h3>' +
-                    '<p class="text-sm text-slate-500">' + escapeHtml(message) + '</p>' +
+                    '<h3 id="' + modalId + '-title" class="font-bold text-slate-900 mb-1">' + escapeHtml(title) + '</h3>' +
+                    '<p id="' + modalId + '-desc" class="text-sm text-slate-500">' + escapeHtml(message) + '</p>' +
                 '</div>' +
                 '<div class="flex gap-2 px-6 pb-6">' +
-                    '<button type="button" class="flex-1 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold modal-confirm-cancel">' +
+                    '<button type="button" class="flex-1 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-1 transition text-sm font-semibold modal-confirm-cancel">' +
                         escapeHtml(cancelText) +
                     '</button>' +
-                    '<button type="button" class="flex-1 px-4 py-2 text-white rounded-lg transition text-sm font-semibold modal-confirm-ok ' + btnColor + '">' +
+                    '<button type="button" class="flex-1 px-4 py-2 text-white rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-rose-500 transition text-sm font-semibold modal-confirm-ok ' + btnColor + '">' +
                         escapeHtml(confirmText) +
                     '</button>' +
                 '</div>' +
@@ -566,7 +644,7 @@ const ModalSystem = (function() {
             }, 500);
         }
 
-        open(modalId, { applyMasking: applyMasking });
+        open(modalId, { applyMasking: applyMasking, onClose: cleanup });
         return modalId;
     }
 
@@ -588,15 +666,18 @@ const ModalSystem = (function() {
 
         var modal = document.createElement('div');
         modal.id = id;
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', id + '-title');
         modal.className = 'hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4';
         modal.innerHTML = 
             '<div class="bg-white rounded-2xl shadow-xl w-full ' + size + ' max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">' +
                 '<div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">' +
-                    '<h3 class="font-bold text-slate-900 flex items-center gap-2">' +
-                        '<i class="fa-solid ' + icon + ' text-brand-medium"></i> ' + escapeHtml(title) +
+                    '<h3 id="' + id + '-title" class="font-bold text-slate-900 flex items-center gap-2">' +
+                        '<i class="fa-solid ' + icon + ' text-brand-medium" aria-hidden="true"></i> ' + escapeHtml(title) +
                     '</h3>' +
-                    '<button class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition modal-close-btn">' +
-                        '<i class="fa-solid fa-xmark"></i>' +
+                    '<button type="button" aria-label="Close dialog" class="w-8 h-8 rounded-lg hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-medium focus-visible:ring-offset-2 flex items-center justify-center text-slate-400 hover:text-slate-600 transition modal-close-btn">' +
+                        '<i class="fa-solid fa-xmark" aria-hidden="true"></i>' +
                     '</button>' +
                 '</div>' +
                 '<div class="p-6">' + content + '</div>' +
@@ -670,10 +751,16 @@ const ModalSystem = (function() {
 
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                var modals = document.querySelectorAll('.fixed.inset-0');
-                for (var i = 0; i < modals.length; i++) {
-                    if (!modals[i].classList.contains('hidden')) {
-                        close(modals[i].id);
+                if (activeModalStack.length > 0) {
+                    var topId = activeModalStack[activeModalStack.length - 1];
+                    close(topId);
+                } else {
+                    var openModals = Array.prototype.filter.call(
+                        document.querySelectorAll('.fixed.inset-0'),
+                        function(m) { return !m.classList.contains('hidden') && m.id; }
+                    );
+                    if (openModals.length > 0) {
+                        close(openModals[openModals.length - 1].id);
                     }
                 }
             }

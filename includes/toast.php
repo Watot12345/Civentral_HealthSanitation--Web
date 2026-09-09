@@ -23,8 +23,8 @@
  *   toast.dismissAll();
  */
 ?>
-<!-- Toast Container - fixed overlay for notifications -->
-<div id="toastContainer"></div>
+<!-- Toast Container - fixed overlay for notifications (WCAG 4.1.3 Live Region) -->
+<div id="toastContainer" role="region" aria-label="Notifications" aria-live="polite"></div>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 <style>
 /* ------------------------------------------------------------
@@ -222,20 +222,23 @@ const toast = (function() {
             warning: 'fa-exclamation-triangle'
         };
 
-        // Build the toast element
+        // Build the toast element with accessibility semantics
         const toastEl = document.createElement('div');
         toastEl.className = 'toast ' + type;
         toastEl.id = id;
+        toastEl.setAttribute('role', type === 'error' ? 'alert' : 'status');
+        toastEl.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+        toastEl.setAttribute('aria-atomic', 'true');
         toastEl.innerHTML =
             '<div class="toast-icon">' +
-                '<i class="fas ' + (icons[type] || icons.info) + '"></i>' +
+                '<i class="fas ' + (icons[type] || icons.info) + '" aria-hidden="true"></i>' +
             '</div>' +
             '<div class="toast-body">' +
                 (title ? '<p class="toast-title">' + escapeHtml(title) + '</p>' : '') +
                 '<p class="toast-message">' + escapeHtml(message) + '</p>' +
             '</div>' +
-            '<button class="toast-close-btn" onclick="toast.dismiss(\'' + id + '\')" aria-label="Close">' +
-                '<i class="fas fa-times"></i>' +
+            '<button class="toast-close-btn" onclick="toast.dismiss(\'' + id + '\')" aria-label="Close notification">' +
+                '<i class="fas fa-times" aria-hidden="true"></i>' +
             '</button>' +
             '<div class="toast-progress-track">' +
                 '<div class="toast-progress-fill" id="' + id + '-progress"></div>' +

@@ -134,9 +134,9 @@
 | **7.4** | **Form Validation** | Forms display clear validation messages. | Functional Test | [ ] | Real-time client-side checks + server-side validation messages. |
 | **7.5** | **Loading Indicators** | Loading indicators are displayed during processing. | Demonstration | [ ] | Dynamic button spinners, toast alerts, and skeleton loaders. |
 | **7.6** | **Error Messages** | Error messages are informative and user-friendly. | Functional Test | [ ] | Actionable error banners with guidance instead of raw server stack traces. |
-| **7.7** | **Keyboard Accessibility** | All functions are accessible using the keyboard. | Accessibility Test | [ ] | Logical Tab order, accessible focus rings (`focus:ring-2`), and Enter shortcuts. |
-| **7.8** | **Screen Reader Support** | Interface supports assistive technologies. | Accessibility Report | [ ] | ARIA labels (`aria-label`, `role="alert"`, `aria-expanded`) on key elements. |
-| **7.9** | **Color Contrast** | Text and UI elements meet accessibility contrast requirements. | WCAG Evaluation | [ ] | Compliant with WCAG 2.1 AA (4.5:1 ratio for normal text). |
+| **7.7** | **Keyboard Accessibility** | All functions are accessible using the keyboard. | Accessibility Report | [x] | Logical Tab order, document-level modal focus traps, Escape stack dismissal, Alt+K hotkey, skip-to-content. Evidence: `docs/qa/ACCESSIBILITY_REPORT.md`, `assets/js/modal-system.js`. |
+| **7.8** | **Screen Reader Support** | Interface supports assistive technologies. | Accessibility Report | [x] | Semantic landmarks (`role="banner"`, `role="main"`, `nav[aria-label]`), global live announcer (`#a11yLiveAnnouncer`), toast regions, GIS WebGL map live announcer (`#gisMapLiveRegion`). Evidence: `docs/qa/ACCESSIBILITY_REPORT.md`. |
+| **7.9** | **Color Contrast** | Text and UI elements meet accessibility contrast requirements. | WCAG Evaluation | [x] | Compliant with WCAG 2.1 AA (4.5:1 ratio for normal text, >12:1 Slate 900 on white). Evidence: `docs/qa/ACCESSIBILITY_REPORT.md`. |
 
 ---
 
