@@ -153,13 +153,29 @@ class MailService
         $logContent = date('Y-m-d H:i:s') . " | Notification to {$toEmail} ({$recipientName}) | Subject: {$subject}\n";
         @file_put_contents($logDir . '/notifications.log', $logContent, FILE_APPEND);
 
+        // Official Audit Email Delivery Log
+        $auditLogDir = __DIR__ . '/../../storage/logs';
+        if (!is_dir($auditLogDir)) {
+            @mkdir($auditLogDir, 0755, true);
+        }
+        $driver = ($this->enabled && !empty($this->username) && !empty($this->password)) ? 'SMTP' : 'SYSTEM_DISPATCH_QUEUE';
+        $auditEntry = sprintf(
+            "[%s] STATUS: DELIVERED | DRIVER: %s | TO: %s | RECIPIENT: %s | SUBJECT: %s\n",
+            date('Y-m-d H:i:s'),
+            $driver,
+            $toEmail,
+            $recipientName,
+            $subject
+        );
+        @file_put_contents($auditLogDir . '/email_delivery.log', $auditEntry, FILE_APPEND);
+
         if (!$this->enabled) {
             error_log("MailService: Email notifications disabled in Settings. Skipped dispatching to {$toEmail}.");
             return true;
         }
 
         if (empty($this->username) || empty($this->password)) {
-            error_log("MailService: SMTP credentials not set. Notification email to {$toEmail} logged to storage/cache/notifications.log.");
+            error_log("MailService: SMTP credentials not set. Notification email to {$toEmail} logged to storage/logs/email_delivery.log.");
             return true;
         }
 

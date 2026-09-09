@@ -24,7 +24,7 @@ if (isset($options['help'])) {
     echo "Usage:\n";
     echo "  php bin/scheduler.php [OPTIONS]\n\n";
     echo "Options:\n";
-    echo "  --job=<name>          Job to execute (all, permit_renewals, surveillance_thresholds, scheduled_reports, system_maintenance). Default: all\n";
+    echo "  --job=<name>          Job to execute (all, permit_renewals, surveillance_thresholds, scheduled_reports, system_maintenance, database_backup). Default: all\n";
     echo "  --triggered-by=<src>  Execution source label (e.g., cron, cli, github_action). Default: cli\n";
     echo "  --silent              Suppress verbose console output\n";
     echo "  --help                Display this help screen\n\n";

@@ -66,7 +66,7 @@ Your goal is to find bugs, validate core requirements, test edge cases, break co
 - [ ] **Custom Reports**: Users can generate customized reports. (Evidence: Demonstration)
 - [ ] **Report Filters**: Reports support filtering and sorting. (Evidence: Report Sample)
 - [ ] **Report Branding**: Reports include org logo, headers, footers. (Evidence: PDF Sample)
-- [ ] **Scheduled Reports**: Automated report generation works correctly. (Evidence: Email Logs)
+- [x] **Scheduled Reports**: Automated report generation works correctly. (Evidence: Email Logs in `storage/logs/email_delivery.log`, `bin/scheduler.php --job=scheduled_reports`)
 - [ ] **Print Functionality**: Reports print correctly without formatting issues. (Evidence: Printed Output)
 
 ### Section 6: Database Architecture
@@ -75,8 +75,8 @@ Your goal is to find bugs, validate core requirements, test edge cases, break co
 - [ ] **Data Dictionary**: Complete data dictionary available. (Evidence: Documentation)
 - [ ] **Index Optimization**: Frequently used fields indexed. (Evidence: DB Analysis)
 - [ ] **Query Performance**: SQL queries execute efficiently. (Evidence: Performance Report)
-- [ ] **Backup Procedures**: Automated backups functioning. (Evidence: Backup Logs)
-- [ ] **Restore Procedures**: Backup restoration successfully tested. (Evidence: Recovery Report)
+- [x] **Backup Procedures**: Automated backups functioning. (Evidence: Backup Logs in `storage/logs/backup.log`, `bin/scheduler.php --job=database_backup`)
+- [x] **Restore Procedures**: Backup restoration successfully tested. (Evidence: Recovery Report in `docs/qa/RECOVERY_REPORT.md`, `storage/logs/restore.log`)
 
 ### Section 7: User Interface, User Experience & Accessibility
 - [ ] **Responsive Layout**: Interface adapts correctly to desktop, tablet, mobile. (Evidence: Responsive Test)

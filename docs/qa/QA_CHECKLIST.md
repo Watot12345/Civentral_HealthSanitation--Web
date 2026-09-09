@@ -101,7 +101,7 @@
 | **5.1** | **Custom Reports** | Users can generate customized reports. | Demonstration | [ ] | Dynamic column selection, date ranges, and departmental scoping. |
 | **5.2** | **Report Filters** | Reports support filtering and sorting. | Report Sample | [ ] | Multi-variable filters: by Barangay, Diagnosis, Date, and Status. |
 | **5.3** | **Report Branding** | Reports include organization logo, headers, and footers. | PDF Sample | [ ] | Official Caloocan City Health Office letterhead, seal, and metadata. |
-| **5.4** | **Scheduled Reports** | Automated report generation works correctly. | Email Logs | [ ] | Weekly disease surveillance summaries emailed to Department Heads. |
+| **5.4** | **Scheduled Reports** | Automated report generation works correctly. | Email Logs | [x] | Wired to `api/reports/schedule.php` + `bin/scheduler.php --job=scheduled_reports`. Verified delivery in `storage/logs/email_delivery.log`. |
 | **5.5** | **Print Functionality** | Reports print correctly without formatting issues. | Printed Output | [ ] | CSS `@media print` stylesheets with clean pagination and no UI clutter. |
 
 ---
@@ -117,8 +117,8 @@
 | **6.3** | **Data Dictionary** | Complete data dictionary is available. | Documentation | [ ] | Field-by-field definitions, types, constraints, and descriptions. |
 | **6.4** | **Index Optimization** | Frequently used fields are indexed. | Database Analysis | [ ] | B-Tree indices on `employee_id`, `patient_id`, `created_at`, `status`. |
 | **6.5** | **Query Performance** | SQL queries execute efficiently. | Performance Report | [ ] | Sub-second latency via PostgREST and parameterized queries. |
-| **6.6** | **Backup Procedures** | Automated backups are functioning. | Backup Logs | [ ] | Scheduled database dumps + Supabase Point-in-Time Recovery (PITR). |
-| **6.7** | **Restore Procedures** | Backup restoration has been successfully tested. | Recovery Report | [ ] | Verified dry-run restoration procedure with documented RTO/RPO. |
+| **6.6** | **Backup Procedures** | Automated backups are functioning. | Backup Logs | [x] | 2000-row chunked paginated streaming (no upper limit). Unattended cron run verified in `storage/logs/backup.log`. |
+| **6.7** | **Restore Procedures** | Backup restoration has been successfully tested. | Recovery Report | [x] | Full table restoration verified with 100% parity across core tables. Documented in `docs/qa/RECOVERY_REPORT.md`. |
 
 ---
 

@@ -105,7 +105,13 @@ class Database
         ];
 
         if ($method === 'POST' || $method === 'PATCH') {
-            $headers[] = 'Prefer: return=representation';
+            $prefer = 'return=representation';
+            if (!empty($options['upsert'])) {
+                $prefer .= ', resolution=merge-duplicates';
+            } elseif (!empty($options['ignore_duplicates'])) {
+                $prefer .= ', resolution=ignore-duplicates';
+            }
+            $headers[] = 'Prefer: ' . $prefer;
         }
 
         if (self::$curlHandle === null || (!is_resource(self::$curlHandle) && !(self::$curlHandle instanceof \CurlHandle))) {
@@ -266,9 +272,14 @@ class Database
         return $results;
     }
 
-    public function insert(string $table, array $data, ?bool $useServiceKey = null): array
+    public function insert(string $table, array $data, ?bool $useServiceKey = null, array $options = []): array
     {
-        return $this->query($table, 'POST', $data, [], [], $useServiceKey);
+        return $this->query($table, 'POST', $data, [], $options, $useServiceKey);
+    }
+
+    public function upsert(string $table, array $data, ?bool $useServiceKey = null): array
+    {
+        return $this->insert($table, $data, $useServiceKey, ['upsert' => true]);
     }
 
     public function update(string $table, array $data, array $filters, ?bool $useServiceKey = null): array

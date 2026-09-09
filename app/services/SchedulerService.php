@@ -79,7 +79,8 @@ class SchedulerService
             'permit_renewals'           => ['PermitRenewalNoticeJob', 'processPermitRenewals'],
             'surveillance_thresholds'   => ['SurveillanceThresholdJob', 'checkSurveillanceThresholds'],
             'scheduled_reports'         => ['ScheduledReportDispatchJob', 'dispatchScheduledReports'],
-            'system_maintenance'       => ['SystemMaintenanceJob', 'runSystemMaintenance']
+            'system_maintenance'       => ['SystemMaintenanceJob', 'runSystemMaintenance'],
+            'database_backup'          => ['AutomatedDatabaseBackupJob', 'runAutomatedBackup']
         ];
 
         if (!isset($jobMap[$jobKey])) {
@@ -465,5 +466,15 @@ class SchedulerService
             'requests_executed' => $processedCount,
             'executed_at'        => date('Y-m-d H:i:s')
         ];
+    }
+
+    /**
+     * Job 6: Automated Database Backup (BUG-015 Unattended Cron Run)
+     */
+    public function runAutomatedBackup(): array
+    {
+        require_once __DIR__ . '/../Controllers/BackupController.php';
+        $controller = new \BackupController();
+        return $controller->runUnattendedBackup('cron');
     }
 }

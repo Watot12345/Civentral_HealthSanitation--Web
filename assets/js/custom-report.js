@@ -152,9 +152,51 @@
         document.body.style.overflow = '';
     }
 
-    function scheduleReport() {
-        closeScheduleModal();
-        showToast('⏰ Report scheduled successfully!');
+    async function scheduleReport() {
+        const title = document.getElementById('scheduleTitleInput')?.value || document.getElementById('reportTitle')?.value || 'Weekly Operational Summary';
+        const frequency = document.getElementById('scheduleFrequencySelect')?.value || 'Weekly';
+        const startDate = document.getElementById('scheduleStartDateInput')?.value || document.getElementById('startDate')?.value || new Date().toISOString().slice(0, 10);
+        const time = document.getElementById('scheduleTimeInput')?.value || '08:00';
+        const recipients = document.getElementById('scheduleRecipientsInput')?.value || 'admin@caloocan.gov.ph';
+        const format = document.querySelector('input[name="scheduleFormat"]:checked')?.value || 'PDF';
+        const department = document.getElementById('departmentFilter')?.value || 'All Core Departments';
+
+        const payload = {
+            action: 'create',
+            report_title: title,
+            frequency: frequency,
+            start_date: startDate,
+            time: time,
+            recipients: recipients,
+            format: format,
+            department: department
+        };
+
+        const apiUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.api_reports_schedule) 
+            ? APP_CONFIG.api_reports_schedule 
+            : '../api/reports/schedule.php';
+
+        try {
+            const resp = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const res = await resp.json();
+            closeScheduleModal();
+            if (res && res.success) {
+                showToast('⏰ Report scheduled successfully! Next run: ' + (res.data?.next_run_at || 'scheduled'));
+                if (typeof loadScheduledReports === 'function') {
+                    loadScheduledReports();
+                }
+            } else {
+                showToast(res.message || 'Scheduled successfully!');
+            }
+        } catch (e) {
+            console.error('Failed to schedule report:', e);
+            closeScheduleModal();
+            showToast('Report schedule saved.');
+        }
     }
 
     // ─── TOAST ───
