@@ -166,8 +166,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['logged_in']        = true;
                     $_SESSION['last_activity']    = time();
 
-                    // Refresh/set active session cookie (10 days for remembered device)
-                    $cookieDuration = class_exists('SessionAuthService') ? SessionAuthService::getRememberDurationSeconds() : 10 * 86400;
+                    // Refresh/set active session cookie (30 days for remembered device)
+                    $cookieDuration = class_exists('SessionAuthService') ? SessionAuthService::getRememberDurationSeconds() : 30 * 86400;
                     $sessionToken = !empty($userCookieToken) ? $userCookieToken : bin2hex(random_bytes(32));
                     setcookie('civentral_session', $sessionToken, time() + $cookieDuration, '/', '', false, true);
                     setcookie('civentral_session_' . $user['id'], $sessionToken, time() + $cookieDuration, '/', '', false, true);

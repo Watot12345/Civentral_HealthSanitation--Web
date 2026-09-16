@@ -487,27 +487,27 @@ class AiAnalyticsService
         $scopeConfig = match($scope) {
             'health_center' => [
                 'colors'   => ['#14b8a6', '#3b82f6', '#10b981'],
-                'subtitle' => 'Health Center 6-Month Forward Horizon · Departmental Service Forecast'
+                'subtitle' => 'Health Center 6-Month Forward Horizon · Gemini AI Forecast'
             ],
             'sanitation' => [
                 'colors'   => ['#d97706', '#f59e0b', '#3b82f6'],
-                'subtitle' => 'Sanitation 6-Month Forward Horizon · Permits & Inspections Forecast'
+                'subtitle' => 'Sanitation 6-Month Forward Horizon · Gemini AI Permits & Inspections Forecast'
             ],
             'immunization' => [
                 'colors'   => ['#2563eb', '#3b82f6', '#10b981'],
-                'subtitle' => 'Immunization 6-Month Forward Horizon · Vaccine Demand Forecast'
+                'subtitle' => 'Immunization 6-Month Forward Horizon · Gemini AI Vaccine Demand Forecast'
             ],
             'surveillance' => [
                 'colors'   => ['#ef4444', '#f59e0b', '#8b5cf6'],
-                'subtitle' => 'Epidemiological 6-Month Forward Horizon · Outbreak Projections'
+                'subtitle' => 'Epidemiological 6-Month Forward Horizon · Gemini AI Outbreak Projections'
             ],
             'wastewater' => [
                 'colors'   => ['#9333ea', '#a855f7', '#f59e0b'],
-                'subtitle' => 'Wastewater 6-Month Forward Horizon · Facility & Septic Forecast'
+                'subtitle' => 'Wastewater 6-Month Forward Horizon · Gemini AI Facility & Septic Forecast'
             ],
             default => [
                 'colors'   => ['#ef4444', '#14b8a6', '#f59e0b', '#3b82f6', '#9333ea'],
-                'subtitle' => 'City-Wide Multi-Module 6-Month Forward Horizon · Statistical Projection'
+                'subtitle' => 'City-Wide Multi-Module 6-Month Forward Horizon · Gemini AI Statistical Projection'
             ]
         };
 

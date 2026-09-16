@@ -18,22 +18,14 @@ class GeminiAiService
         Env::load();
         $this->apiKey = Env::get('GEMINI_API_KEY') ?: (getenv('GEMINI_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? null));
         $model = Env::get('GEMINI_MODEL');
-        // Fix BUG-005: gemini-3.6-flash does not exist; default to valid gemini-2.0-flash
-        if (empty($model) || $model === 'gemini-3.6-flash') {
-            $this->model = 'gemini-2.0-flash';
-        } else {
-            $this->model = $model;
-        }
+        $this->model = !empty($model) ? $model : 'gemini-3.6-flash';
         
         $fallbackConfig = Env::get('GEMINI_FALLBACK_MODELS');
         if ($fallbackConfig) {
             $configured = array_filter(array_map('trim', explode(',', $fallbackConfig)));
-            // Replace any non-existent gemini-3.x references with valid models
-            $this->fallbackModels = array_map(function($m) {
-                return str_replace(['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'], ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite'], $m);
-            }, $configured);
+            $this->fallbackModels = $configured;
         } else {
-            $this->fallbackModels = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite'];
+            $this->fallbackModels = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-2.0-flash'];
         }
 
         $this->cacheDir = __DIR__ . '/../../storage/cache';

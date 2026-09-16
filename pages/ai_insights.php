@@ -1027,7 +1027,7 @@
                         </div>
                         <span class="text-[10px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">AI Forecast</span>
                     </div>
-                    <p id="predictiveSubtitle" class="text-xs font-semibold text-zinc-400 mt-1 mb-2">6-Month Forward Horizon · Ordinary Least Squares Statistical Projection</p>
+                    <p id="predictiveSubtitle" class="text-xs font-semibold text-zinc-400 mt-1 mb-2">6-Month Forward Horizon · Gemini AI Statistical Projection</p>
                 </div>
                 
                 <!-- ApexCharts Line Graph Container with Skeleton -->

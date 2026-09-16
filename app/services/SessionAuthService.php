@@ -33,8 +33,8 @@ class SessionAuthService
             }
         }
 
-        // Default: 10 Days = 864,000 seconds
-        return 10 * 86400;
+        // Default: 30 Days = 2,592,000 seconds
+        return 30 * 86400;
     }
 
     /**

@@ -572,7 +572,7 @@ document.addEventListener('DOMContentLoaded', function() {
             animations: { enabled: true, easing: 'easeinout', speed: 600 }
         },
         colors: ['#ef4444', '#14b8a6', '#f59e0b', '#3b82f6', '#9333ea'],
-        stroke: { curve: 'smooth', width: 3, dashArray: [0, 0, 0, 0, 0] },
+        stroke: { curve: 'smooth', width: 3, dashArray: [5, 5, 5, 5, 5] },
         xaxis: {
             categories: [],
             labels: { style: { colors: '#a1a1aa', fontSize: '10px', fontWeight: '500' } },
