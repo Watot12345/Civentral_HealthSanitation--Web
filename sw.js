@@ -1,4 +1,4 @@
-const CACHE_NAME = 'civentral-cache-v3';
+const CACHE_NAME = 'civentral-cache-v4';
 const ASSETS_TO_CACHE = [
     './',
     './manifest.json',
@@ -9,8 +9,11 @@ const ASSETS_TO_CACHE = [
     // Core Pages
     './pages/dashboard.php',
     './pages/ai_insights.php',
+    './pages/custom_report.php',
+    './pages/compliance_monitoring.php',
     './management/system_logs.php',
     './management/settings.php',
+    './management/user_management.php',
     
     // Health Services Module
     './modules/healthservices/medical_records.php',
