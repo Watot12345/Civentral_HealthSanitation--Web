@@ -83,6 +83,14 @@ class EncryptionHelper
         }
 
         $dir = sys_get_temp_dir() . '/civentral_gpg';
+        
+        // If the directory exists but the current process cannot write to it,
+        // create a unique directory for this user to avoid Permission Denied errors.
+        if (is_dir($dir) && !is_writable($dir)) {
+            $userId = function_exists('posix_geteuid') ? posix_geteuid() : md5(__FILE__);
+            $dir = sys_get_temp_dir() . '/civentral_gpg_' . $userId;
+        }
+
         if (!is_dir($dir)) {
             @mkdir($dir, 0700, true);
         }
