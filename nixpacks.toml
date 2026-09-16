@@ -2,7 +2,8 @@
 nixPkgs = [
   "php83",
   "php83Packages.composer",
-  "nodejs_22"
+  "nodejs_22",
+  "gnupg"
 ]
 
 [start]
