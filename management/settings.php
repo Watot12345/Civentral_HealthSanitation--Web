@@ -991,6 +991,25 @@ $title = 'Settings';
     </div>
 </div>
 
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="hidden fixed inset-0 z-[70] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
+        <div class="px-6 py-5 border-b border-slate-200">
+            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+                Confirm Setting Changes
+            </h3>
+        </div>
+        <div class="px-6 py-4 bg-slate-50">
+            <p class="text-sm text-slate-600">Are you sure you want to save these settings? Modifying security parameters (like <strong>Session Timeout</strong>) can affect currently logged-in users.</p>
+        </div>
+        <div class="px-6 py-4 flex items-center justify-end gap-3 bg-white border-t border-slate-200">
+            <button onclick="closeConfirmModal()" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold cursor-pointer">Cancel</button>
+            <button onclick="executeSaveSettings()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold cursor-pointer">Confirm Save</button>
+        </div>
+    </div>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2">
     <i class="fa-solid fa-circle-check"></i>
@@ -1045,8 +1064,18 @@ $title = 'Settings';
         return payload;
     }
 
-    // SAVE ALL SETTINGS DYNAMIC AJAX
-    async function saveSettings() {
+    // SHOW CONFIRMATION MODAL
+    function saveSettings() {
+        document.getElementById('confirmModal').classList.remove('hidden');
+    }
+
+    function closeConfirmModal() {
+        document.getElementById('confirmModal').classList.add('hidden');
+    }
+
+    // EXECUTE SAVE SETTINGS DYNAMIC AJAX
+    async function executeSaveSettings() {
+        closeConfirmModal();
         const saveBtn = document.getElementById('saveBtn');
         const originalText = saveBtn.innerHTML;
         saveBtn.disabled = true;

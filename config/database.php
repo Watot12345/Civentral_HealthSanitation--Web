@@ -104,6 +104,7 @@ class Database
             'Content-Type: application/json',
         ];
 
+        $prefer = '';
         if ($method === 'POST' || $method === 'PATCH') {
             $prefer = 'return=representation';
             if (!empty($options['upsert'])) {
@@ -112,6 +113,33 @@ class Database
                 $prefer .= ', resolution=ignore-duplicates';
             }
             $headers[] = 'Prefer: ' . $prefer;
+        }
+
+        // PERFORMANCE CACHING LOGIC
+        require_once __DIR__ . '/../app/cache/CacheManager.php';
+        $cacheManager = new \App\Cache\CacheManager();
+        $cacheEnabled = false;
+        $cacheDuration = 3600;
+        $cacheKey = '';
+
+        // Bypass cache for system tables where real-time accuracy is critical
+        $skipCache = in_array($table, ['settings', 'audit_logs', 'system_logs', 'scheduler_logs', 'ai_analytics_logs']);
+
+        if (!$skipCache && $method === 'GET') {
+            $settingsCache = $cacheManager->get('all_settings_dictionary');
+            if ($settingsCache !== null && is_array($settingsCache)) {
+                $cacheEnabled = $settingsCache['performance.cache_enabled'] ?? false;
+                $cacheDuration = (int)($settingsCache['performance.cache_duration'] ?? 3600);
+            }
+
+            if ($cacheEnabled) {
+                // Generate a unique fingerprint for this specific query
+                $cacheKey = "db_query_" . md5($endpoint . json_encode($data) . $key . $prefer);
+                $cachedResult = $cacheManager->get($cacheKey);
+                if ($cachedResult !== null) {
+                    return $cachedResult;
+                }
+            }
         }
 
         if (self::$curlHandle === null || (!is_resource(self::$curlHandle) && !(self::$curlHandle instanceof \CurlHandle))) {
@@ -170,7 +198,14 @@ class Database
         }
 
         $decoded = json_decode($response, true);
-        return $decoded ?? [];
+        $result = $decoded ?? [];
+
+        // Save successful GET requests to cache if caching is enabled
+        if ($cacheEnabled && $method === 'GET' && $httpCode >= 200 && $httpCode < 300) {
+            $cacheManager->set($cacheKey, $result, $cacheDuration);
+        }
+
+        return $result;
     }
 
     public function select(string $table, array $filters = [], array $options = [], ?bool $useServiceKey = null): array
