@@ -269,8 +269,15 @@ async function fetchAiReportSummary(isManual = false) {
     const moduleSelect = document.getElementById('reportType');
     const selectedModule = moduleSelect ? moduleSelect.value : 'unified';
 
+    const startDate = document.getElementById('startDate')?.value || '';
+    const endDate = document.getElementById('endDate')?.value || '';
+
     try {
-        const url = `${APP_CONFIG.api_ai_summary}?module=${encodeURIComponent(selectedModule)}&department=${encodeURIComponent(selectedDept)}&total=${total}&compliant=${compliant}&urgent=${urgent}&pending=${pending}`;
+        let url = `${APP_CONFIG.api_ai_summary}?module=${encodeURIComponent(selectedModule)}&department=${encodeURIComponent(selectedDept)}&total=${encodeURIComponent(total)}&compliant=${encodeURIComponent(compliant)}&urgent=${encodeURIComponent(urgent)}&pending=${encodeURIComponent(pending)}`;
+        if (startDate) url += `&start_date=${encodeURIComponent(startDate)}`;
+        if (endDate) url += `&end_date=${encodeURIComponent(endDate)}`;
+        if (isManual) url += `&refresh=1`;
+
         const resp = await fetch(url);
         const res = await resp.json();
 
@@ -713,6 +720,17 @@ function generateReport() {
         // 2. Auto-scroll to report preview
         scrollToPreview('chart');
 
+        // 3. Auto-trigger download if export format was requested in the modal
+        const exportFmt = document.getElementById('exportFormat')?.value;
+        if (exportFmt) {
+            setTimeout(() => {
+                if (exportFmt === 'excel') exportExcel();
+                else if (exportFmt === 'pdf') exportPDF();
+                else if (exportFmt === 'csv') exportCSV();
+                else if (exportFmt === 'word') exportWord();
+            }, 600);
+        }
+
         setTimeout(() => {
             if (btn) {
                 btn.innerHTML = originalContent;
@@ -807,12 +825,16 @@ function getReportExportMarkup() {
         clone.style.cssText = 'display:block;opacity:1;transform:none;animation:none;';
         clone.querySelectorAll('#tablePagination, .action-btn, button, .filter-chip').forEach(el => el.remove());
 
-        // Convert canvas charts to static PNG images
+        // Convert canvas charts to static images (use JPEG 0.82 for compact payload size)
         clone.querySelectorAll('canvas').forEach(canvas => {
             const sourceCanvas = document.getElementById(canvas.id);
             if (!sourceCanvas) return;
             const image = document.createElement('img');
-            image.src = sourceCanvas.toDataURL('image/png');
+            try {
+                image.src = sourceCanvas.toDataURL('image/jpeg', 0.82);
+            } catch (e) {
+                image.src = sourceCanvas.toDataURL('image/png');
+            }
             image.alt = canvas.id;
             image.style.cssText = 'display:block;width:100%;height:auto;max-height:320px;object-fit:contain;margin:8px auto;';
             canvas.replaceWith(image);
@@ -963,7 +985,8 @@ function exportExcel() {
     const stamp = new Date().toISOString().slice(0, 10);
 
     showToast('Generating Excel report...', 'info');
-    fetch(`../api/reports/export.php?format=excel&title=${encodeURIComponent(meta.title)}&module=${encodeURIComponent(meta.module)}`, {
+    const exportUrl = (window.APP_CONFIG && window.APP_CONFIG.api_reports_export) ? window.APP_CONFIG.api_reports_export : '../api/reports/export.php';
+    fetch(`${exportUrl}?format=excel&title=${encodeURIComponent(meta.title)}&module=${encodeURIComponent(meta.module)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ headers, rows })
@@ -1003,7 +1026,8 @@ function exportPDF() {
     const stamp = new Date().toISOString().slice(0, 10);
     showToast('Generating PDF report with charts, table & AI summary...', 'info');
 
-    fetch(`../api/reports/export.php?format=pdf&title=${encodeURIComponent(meta.title)}&module=${encodeURIComponent(meta.module)}`, {
+    const exportPdfUrl = (window.APP_CONFIG && window.APP_CONFIG.api_reports_export) ? window.APP_CONFIG.api_reports_export : '../api/reports/export.php';
+    fetch(`${exportPdfUrl}?format=pdf&title=${encodeURIComponent(meta.title)}&module=${encodeURIComponent(meta.module)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ html: visualHtml, title: meta.title })

@@ -327,6 +327,21 @@ if (file_exists(__DIR__ . '/../app/helpers/Settings.php')) {
                 $_SESSION['last_activity'] = time();
             }
         }
+
+        // 4. Enforce SSL / HTTPS if enabled and outside localhost
+        $sslEnforced = (bool)Settings::get('security.ssl_enforced', false);
+        if ($sslEnforced && PHP_SAPI !== 'cli') {
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $isLocal = str_starts_with($host, 'localhost') || str_starts_with($host, '127.0.0.1') || str_ends_with($host, '.local');
+            if (!$isLocal) {
+                $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+                if (!$isHttps && !headers_sent()) {
+                    $redirectUrl = 'https://' . $host . ($_SERVER['REQUEST_URI'] ?? '');
+                    header('Location: ' . $redirectUrl, true, 301);
+                    exit;
+                }
+            }
+        }
     } catch (Throwable $e) {
         error_log('Settings bootstrap error: ' . $e->getMessage());
     }

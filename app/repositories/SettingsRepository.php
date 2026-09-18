@@ -68,11 +68,20 @@ class SettingsRepository
     public function saveKey(string $key, mixed $value, array $meta = []): bool
     {
         try {
-            $existing = $this->findByKey($key);
+            $existing = $meta['existing'] ?? $this->findByKey($key);
+
+            $formattedValue = $value;
+            if (is_bool($value) || (isset($meta['data_type']) && $meta['data_type'] === 'boolean')) {
+                $formattedValue = filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
+            } elseif (is_array($value)) {
+                $formattedValue = json_encode($value);
+            } else {
+                $formattedValue = (string)$value;
+            }
 
             $data = [
                 'key' => $key,
-                'value' => is_array($value) ? json_encode($value) : (string)$value,
+                'value' => $formattedValue,
                 'updated_at' => date('Y-m-d H:i:s'),
             ];
 

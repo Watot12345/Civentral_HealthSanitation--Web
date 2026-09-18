@@ -421,6 +421,12 @@ $title = 'Settings';
                             </button>
                         </div>
                     </div>
+                    <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between mt-2">
+                        <span class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fa-solid fa-circle-info text-slate-400"></i> Core system parameters</span>
+                        <button type="button" onclick="saveSettings('general')" class="px-4 py-2 bg-brand-dark hover:bg-brand-medium text-white rounded-lg text-xs font-semibold transition flex items-center gap-2 cursor-pointer shadow-sm">
+                            <i class="fa-solid fa-floppy-disk"></i> Save General Settings
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -437,29 +443,51 @@ $title = 'Settings';
                     <div class="p-4 space-y-4">
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Session Timeout (seconds)</label>
-                            <input type="number" data-setting-key="security.session_timeout" value="<?php echo htmlspecialchars($systemConfig['security']['session_timeout']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <input type="number" min="300" max="86400" data-setting-key="security.session_timeout" value="<?php echo htmlspecialchars($systemConfig['security']['session_timeout']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <p class="text-[11px] text-slate-400 mt-1">Inactivity duration before automatic logout (min: 300s / 5m, max: 86400s / 24h)</p>
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Max Login Attempts</label>
-                            <input type="number" data-setting-key="security.max_login_attempts" value="<?php echo htmlspecialchars($systemConfig['security']['max_login_attempts']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <input type="number" min="1" max="20" data-setting-key="security.max_login_attempts" value="<?php echo htmlspecialchars($systemConfig['security']['max_login_attempts']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <p class="text-[11px] text-slate-400 mt-1">Failed attempts before account lockout (min: 1, max: 20)</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Password Expiry (days)</label>
+                            <input type="number" min="0" max="365" data-setting-key="security.password_expiry" value="<?php echo htmlspecialchars($systemConfig['security']['password_expiry']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <p class="text-[11px] text-slate-400 mt-1">Days before requiring password renewal (0 = never expires, max: 365)</p>
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Security Options</label>
-                            <div class="space-y-2">
-                                <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                    <input type="checkbox" data-setting-key="security.ssl_enforced" <?php echo $systemConfig['security']['ssl_enforced'] ? 'checked' : ''; ?> class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium">
-                                    Enforce SSL
+                            <div class="space-y-3">
+                                <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+                                    <input type="checkbox" data-setting-key="security.ssl_enforced" <?php echo $systemConfig['security']['ssl_enforced'] ? 'checked' : ''; ?> class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium mt-0.5">
+                                    <div>
+                                        <span class="font-medium">Enforce SSL</span>
+                                        <span class="text-[11px] text-slate-400 block">Require HTTPS connections in production</span>
+                                    </div>
                                 </label>
-                                <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                    <input type="checkbox" data-setting-key="security.audit_logging" <?php echo $systemConfig['security']['audit_logging'] ? 'checked' : ''; ?> class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium">
-                                    Enable Audit Logging
+                                <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+                                    <input type="checkbox" data-setting-key="security.audit_logging" <?php echo $systemConfig['security']['audit_logging'] ? 'checked' : ''; ?> class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium mt-0.5">
+                                    <div>
+                                        <span class="font-medium">Enable Audit Logging</span>
+                                        <span class="text-[11px] text-slate-400 block">Record system access & change logs in database</span>
+                                    </div>
                                 </label>
-                                <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                    <input type="checkbox" data-setting-key="security.two_factor_auth" <?php echo $systemConfig['security']['two_factor_auth'] ? 'checked' : ''; ?> class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium">
-                                    Two-Factor Authentication
+                                <label class="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
+                                    <input type="checkbox" data-setting-key="security.two_factor_auth" <?php echo $systemConfig['security']['two_factor_auth'] ? 'checked' : ''; ?> class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium mt-0.5">
+                                    <div>
+                                        <span class="font-medium">Two-Factor Authentication</span>
+                                        <span class="text-[11px] text-slate-400 block">Require 2FA authentication for admin logins</span>
+                                    </div>
                                 </label>
                             </div>
                         </div>
+                    </div>
+                    <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                        <span class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fa-solid fa-shield text-red-500"></i> Security rules apply globally</span>
+                        <button type="button" onclick="saveSettings('security')" class="px-4 py-2 bg-brand-dark hover:bg-brand-medium text-white rounded-lg text-xs font-semibold transition flex items-center gap-2 cursor-pointer shadow-sm">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Security Settings
+                        </button>
                     </div>
                 </div>
 
@@ -474,22 +502,41 @@ $title = 'Settings';
                     <div class="p-4 space-y-4">
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Cache Duration (seconds)</label>
-                            <input type="number" data-setting-key="performance.cache_duration" value="<?php echo htmlspecialchars($systemConfig['performance']['cache_duration']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <input type="number" min="60" max="86400" data-setting-key="performance.cache_duration" value="<?php echo htmlspecialchars($systemConfig['performance']['cache_duration']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <p class="text-[11px] text-slate-400 mt-1">TTL for cached database queries and dictionary items (min: 60s, max: 86400s)</p>
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Log Retention (days)</label>
-                            <input type="number" data-setting-key="performance.log_retention_days" value="<?php echo htmlspecialchars($systemConfig['performance']['log_retention_days']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <input type="number" min="1" max="365" data-setting-key="performance.log_retention_days" value="<?php echo htmlspecialchars($systemConfig['performance']['log_retention_days']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <p class="text-[11px] text-slate-400 mt-1">Automatic prune threshold for activity logs (min: 1, max: 365 days)</p>
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Max Upload Size (MB)</label>
-                            <input type="number" data-setting-key="performance.max_upload_size" value="<?php echo htmlspecialchars($systemConfig['performance']['max_upload_size']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <input type="number" min="1" max="500" data-setting-key="performance.max_upload_size" value="<?php echo htmlspecialchars($systemConfig['performance']['max_upload_size']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <p class="text-[11px] text-slate-400 mt-1">Maximum allowed file upload size across all document modules (1 – 500 MB)</p>
                         </div>
-                        <div>
-                            <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                                <input type="checkbox" data-setting-key="performance.cache_enabled" <?php echo $systemConfig['performance']['cache_enabled'] ? 'checked' : ''; ?> class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium">
-                                Enable Caching
-                            </label>
+                        <div class="pt-2 border-t border-slate-100">
+                            <div class="flex items-center justify-between">
+                                <label class="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                                    <input type="checkbox" data-setting-key="performance.cache_enabled" <?php echo $systemConfig['performance']['cache_enabled'] ? 'checked' : ''; ?> class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium">
+                                    <span class="font-medium">Enable Caching</span>
+                                </label>
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold <?php echo $systemConfig['performance']['cache_enabled'] ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'; ?>">
+                                    <?php echo $systemConfig['performance']['cache_enabled'] ? 'Active' : 'Bypassed'; ?>
+                                </span>
+                            </div>
+                            <div class="mt-3">
+                                <button type="button" onclick="refreshData()" class="w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+                                    <i class="fa-solid fa-arrows-rotate text-[11px]"></i> Purge & Re-Warm Cache
+                                </button>
+                            </div>
                         </div>
+                    </div>
+                    <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                        <span class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fa-solid fa-gauge-high text-blue-500"></i> Cache synchronized with DB</span>
+                        <button type="button" onclick="saveSettings('performance')" class="px-4 py-2 bg-brand-dark hover:bg-brand-medium text-white rounded-lg text-xs font-semibold transition flex items-center gap-2 cursor-pointer shadow-sm">
+                            <i class="fa-solid fa-floppy-disk"></i> Save Performance Settings
+                        </button>
                     </div>
                 </div>
             </div>
@@ -992,20 +1039,33 @@ $title = 'Settings';
 </div>
 
 <!-- Confirmation Modal -->
-<div id="confirmModal" class="hidden fixed inset-0 z-[70] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden transform transition-all">
-        <div class="px-6 py-5 border-b border-slate-200">
-            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+<div id="confirmModal" class="hidden fixed inset-0 z-[70] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-150">
+        <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+            <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
-                Confirm Setting Changes
+                <span id="confirmModalTitle">Confirm Setting Changes</span>
             </h3>
+            <button onclick="closeConfirmModal()" class="text-slate-400 hover:text-slate-600 transition cursor-pointer">
+                <i class="fa-solid fa-times"></i>
+            </button>
         </div>
-        <div class="px-6 py-4 bg-slate-50">
-            <p class="text-sm text-slate-600">Are you sure you want to save these settings? Modifying security parameters (like <strong>Session Timeout</strong>) can affect currently logged-in users.</p>
+        <div class="px-6 py-4 bg-slate-50 space-y-3">
+            <p id="confirmModalDesc" class="text-xs text-slate-600">The following configuration changes will be committed to the database and cached:</p>
+            <div id="confirmChangesList" class="max-h-56 overflow-y-auto space-y-2 pr-1">
+                <!-- Dynamically populated diff list -->
+            </div>
+            <p id="confirmModalNote" class="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-start gap-2">
+                <i class="fa-solid fa-circle-exclamation text-amber-500 mt-0.5"></i>
+                <span>Changes take effect immediately across all sessions and update system defaults.</span>
+            </p>
         </div>
         <div class="px-6 py-4 flex items-center justify-end gap-3 bg-white border-t border-slate-200">
-            <button onclick="closeConfirmModal()" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold cursor-pointer">Cancel</button>
-            <button onclick="executeSaveSettings()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold cursor-pointer">Confirm Save</button>
+            <button onclick="closeConfirmModal()" class="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold cursor-pointer">Cancel</button>
+            <button id="modalConfirmSaveBtn" onclick="executeSaveSettings()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold cursor-pointer flex items-center gap-2">
+                <i class="fa-solid fa-check"></i>
+                <span id="modalConfirmSaveBtnText">Confirm &amp; Save</span>
+            </button>
         </div>
     </div>
 </div>
@@ -1018,6 +1078,34 @@ $title = 'Settings';
 
 <script>
     const API_BASE = '<?= site_url("api/settings/"); ?>';
+    let initialSettingsState = {};
+    let pendingSaveScope = 'all';
+
+    function captureInitialSettingsState() {
+        initialSettingsState = {};
+        document.querySelectorAll('[data-setting-key]').forEach(elem => {
+            const key = elem.getAttribute('data-setting-key');
+            if (!key || elem.hasAttribute('readonly') || elem.disabled) return;
+
+            if (elem.type === 'checkbox') {
+                initialSettingsState[key] = elem.checked;
+            } else if (elem.type === 'radio') {
+                if (elem.checked) {
+                    initialSettingsState[key] = elem.value === 'true' ? true : (elem.value === 'false' ? false : elem.value);
+                }
+            } else if (elem.type === 'number') {
+                initialSettingsState[key] = elem.value !== '' ? Number(elem.value) : '';
+            } else {
+                initialSettingsState[key] = elem.value;
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', captureInitialSettingsState);
+    } else {
+        captureInitialSettingsState();
+    }
 
     // TAB SWITCHING
     function switchSettingTab(tab) {
@@ -1042,12 +1130,21 @@ $title = 'Settings';
         }
     }
 
-    // DYNAMIC FORM FIELD COLLECTOR
-    function collectAllSettingsPayload() {
+    // DYNAMIC FORM FIELD COLLECTOR (SCOPED OR ALL)
+    function collectSettingsPayload(scope = 'all') {
         const payload = {};
-        document.querySelectorAll('[data-setting-key]').forEach(elem => {
+        let selector = '[data-setting-key]';
+        if (scope === 'security') {
+            selector = '[data-setting-key^="security."]';
+        } else if (scope === 'performance') {
+            selector = '[data-setting-key^="performance."]';
+        } else if (scope === 'general') {
+            selector = '[data-setting-key^="general."], [data-setting-key^="maintenance."]';
+        }
+
+        document.querySelectorAll(selector).forEach(elem => {
             const key = elem.getAttribute('data-setting-key');
-            if (!key) return;
+            if (!key || elem.hasAttribute('readonly') || elem.disabled) return;
 
             if (elem.type === 'checkbox') {
                 payload[key] = elem.checked;
@@ -1064,8 +1161,64 @@ $title = 'Settings';
         return payload;
     }
 
-    // SHOW CONFIRMATION MODAL
-    function saveSettings() {
+    // Backward-compatibility alias
+    function collectAllSettingsPayload() {
+        return collectSettingsPayload('all');
+    }
+
+    // SHOW CONFIRMATION MODAL WITH DYNAMIC REVIEW SUMMARY
+    function saveSettings(scope = 'all') {
+        pendingSaveScope = scope;
+        const currentPayload = collectSettingsPayload(scope);
+        const changesContainer = document.getElementById('confirmChangesList');
+        changesContainer.innerHTML = '';
+
+        const changedKeys = [];
+        for (const [key, val] of Object.entries(currentPayload)) {
+            const oldVal = initialSettingsState[key];
+            if (oldVal !== undefined && JSON.stringify(oldVal) !== JSON.stringify(val)) {
+                changedKeys.push({ key, oldVal, val });
+            }
+        }
+
+        const titleElem = document.getElementById('confirmModalTitle');
+        if (scope === 'security') {
+            titleElem.textContent = 'Confirm Security Settings Update';
+        } else if (scope === 'performance') {
+            titleElem.textContent = 'Confirm Performance Settings Update';
+        } else if (scope === 'general') {
+            titleElem.textContent = 'Confirm General Settings Update';
+        } else {
+            titleElem.textContent = 'Confirm All Settings Update';
+        }
+
+        if (changedKeys.length === 0) {
+            changesContainer.innerHTML = `
+                <div class="p-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-500 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-500 text-sm"></i>
+                    <span>No setting modifications detected. Re-saving will re-synchronize and purge dictionary cache.</span>
+                </div>
+            `;
+        } else {
+            changedKeys.forEach(item => {
+                const label = item.key.split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ')).join(' > ');
+                const oldDisplay = typeof item.oldVal === 'boolean' ? (item.oldVal ? 'Enabled' : 'Disabled') : (item.oldVal ?? 'None');
+                const newDisplay = typeof item.val === 'boolean' ? (item.val ? 'Enabled' : 'Disabled') : (item.val ?? 'None');
+
+                const chip = document.createElement('div');
+                chip.className = 'p-2.5 bg-white border border-slate-200 rounded-lg flex items-center justify-between text-xs';
+                chip.innerHTML = `
+                    <span class="font-medium text-slate-700 truncate max-w-[200px]" title="${item.key}">${label}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[11px] line-through">${oldDisplay}</span>
+                        <i class="fa-solid fa-arrow-right text-[10px] text-slate-400"></i>
+                        <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold rounded text-[11px] border border-emerald-200">${newDisplay}</span>
+                    </div>
+                `;
+                changesContainer.appendChild(chip);
+            });
+        }
+
         document.getElementById('confirmModal').classList.remove('hidden');
     }
 
@@ -1075,15 +1228,23 @@ $title = 'Settings';
 
     // EXECUTE SAVE SETTINGS DYNAMIC AJAX
     async function executeSaveSettings() {
-        closeConfirmModal();
+        const confirmBtn = document.getElementById('modalConfirmSaveBtn');
+        const confirmText = document.getElementById('modalConfirmSaveBtnText');
         const saveBtn = document.getElementById('saveBtn');
-        const originalText = saveBtn.innerHTML;
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i> Saving...';
+        const originalConfirmHtml = confirmBtn.innerHTML;
+
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i> Saving...';
+
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i> Saving...';
+        }
+
         showToast('💾 Saving settings to PostgreSQL database...', 'info');
 
         try {
-            const settingsPayload = collectAllSettingsPayload();
+            const settingsPayload = collectSettingsPayload(pendingSaveScope);
             const response = await fetch(API_BASE + 'save.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1092,7 +1253,9 @@ $title = 'Settings';
 
             const result = await response.json();
             if (result.success) {
+                closeConfirmModal();
                 showToast('✅ All settings saved & cached successfully!', 'success');
+                setTimeout(() => window.location.reload(), 800);
             } else {
                 const errMsg = result.errors ? Object.values(result.errors).flat().join(', ') : (result.message || 'Failed to save settings.');
                 showToast('❌ ' + errMsg, 'danger');
@@ -1101,8 +1264,12 @@ $title = 'Settings';
             console.error(err);
             showToast('❌ Server request error while saving settings.', 'danger');
         } finally {
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = originalText;
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = originalConfirmHtml;
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fa-solid fa-save text-xs"></i> Save All Settings';
+            }
         }
     }
 

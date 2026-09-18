@@ -218,7 +218,6 @@ class Role
             ['id' => 1,  'module' => 'Main Controls', 'slug' => 'dashboard.view',   'label' => 'Dashboard / System Overview'],
             ['id' => 2,  'module' => 'Main Controls', 'slug' => 'analytics.view',   'label' => 'Analytics'],
             ['id' => 3,  'module' => 'Main Controls', 'slug' => 'reports.view',     'label' => 'Reports'],
-            ['id' => 4,  'module' => 'Main Controls', 'slug' => 'compliance.view',  'label' => 'Compliance & Violations'],
 
             ['id' => 5,  'module' => 'Health Center Services', 'slug' => 'patients.view',        'label' => 'View Patients'],
             ['id' => 6,  'module' => 'Health Center Services', 'slug' => 'patients.create',      'label' => 'Create Patients'],

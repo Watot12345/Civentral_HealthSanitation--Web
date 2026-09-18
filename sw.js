@@ -10,7 +10,6 @@ const ASSETS_TO_CACHE = [
     './pages/dashboard.php',
     './pages/ai_insights.php',
     './pages/custom_report.php',
-    './pages/compliance_monitoring.php',
     './management/system_logs.php',
     './management/settings.php',
     './management/user_management.php',

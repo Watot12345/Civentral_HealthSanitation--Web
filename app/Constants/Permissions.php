@@ -18,7 +18,6 @@ class Permissions
     public const REPORTS_ALL_DEPARTMENTS = 'reports.all_departments';
     public const REPORTS_ALL_FACILITIES  = 'reports.all_facilities';
     public const REPORTS_ANALYTICS       = 'reports.analytics';
-    public const COMPLIANCE_VIEW  = 'compliance.view';
 
     // Role-specific Dashboard Views (6)
     public const HEALTH_CENTER_DASHBOARD  = 'dashboard.health_center';
@@ -82,7 +81,6 @@ class Permissions
             self::DASHBOARD_VIEW,
             self::ANALYTICS_VIEW,
             self::REPORTS_VIEW,
-            self::COMPLIANCE_VIEW,
             self::PATIENTS_VIEW,
             self::PATIENTS_CREATE,
             self::PATIENTS_EDIT,

@@ -208,6 +208,7 @@ if ($isAdmin) {
     
     const APP_CONFIG = {
         api_ai_summary: "<?= site_url('api/reports/ai-summary.php') ?>",
+        api_reports_export: "<?= site_url('api/reports/export.php') ?>",
         api_log_export: "<?= site_url('api/reports/log_export.php') ?>",
         api_reports_data: "<?= site_url('api/reports/data.php') ?>",
         api_report_templates: "<?= site_url('api/report_templates.php') ?>",

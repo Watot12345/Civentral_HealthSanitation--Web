@@ -1585,26 +1585,6 @@ if ($_isHcRole) {
                         </div>
                     </div>
 
-                    <!-- Compliance Violations -->
-                    <div class="p-3 bg-rose-50 rounded-xl border border-rose-200">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center flex-shrink-0">
-                                    <i class="fas fa-gavel text-rose-600 text-sm" aria-hidden="true"></i>
-                                </div>
-                                <div>
-                                    <p class="text-xs font-bold text-rose-900">Compliance Violations</p>
-                                    <p class="text-[10px] text-rose-700">5 corrective orders &bull; 2 unresolved</p>
-                                </div>
-                            </div>
-                            <span class="px-2.5 py-1 bg-rose-600 text-white font-black text-xs rounded-lg shadow-sm">2 Open</span>
-                        </div>
-                        <div class="mt-1.5 text-[9px] text-rose-800 flex items-center justify-between border-t border-rose-200/60 pt-1.5">
-                            <span><i class="fas fa-exclamation-triangle mr-1"></i>Enforcement active</span>
-                            <span class="font-bold text-rose-900">3 Corrected</span>
-                        </div>
-                    </div>
-
                     <!-- Wastewater & Septic -->
                     <div class="p-3 bg-purple-50 rounded-xl border border-purple-200">
                         <div class="flex items-center justify-between">
@@ -2082,7 +2062,7 @@ use App\Constants\Permissions;
 $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
     || hasPermission(Permissions::PERMITS_CREATE)
     || hasPermission(Permissions::IMMUNIZATION_CREATE)
-    || hasPermission(Permissions::COMPLIANCE_VIEW)
+    || hasPermission(Permissions::SURVEILLANCE_CREATE)
     || hasPermission(Permissions::INSPECTIONS_CONDUCT)
     || hasPermission(Permissions::REPORTS_VIEW)
     || $_isWasteRole
@@ -2156,7 +2136,7 @@ $hasAnyQuickAction = hasPermission(Permissions::PATIENTS_CREATE)
             <?php endif; ?>
             
             <!-- Action 4: Report Case (RBAC Guarded) -->
-            <?php if (hasPermission(Permissions::COMPLIANCE_VIEW)): ?>
+            <?php if (hasPermission(Permissions::SURVEILLANCE_CREATE) || hasPermission(Permissions::SURVEILLANCE_MANAGE)): ?>
             <button type="button" onclick="openQuickModal('quickModalReportCase')" 
                     class="action-btn group relative flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-rose-50 transition-all duration-200 cursor-pointer"
                     aria-label="Report new health case"

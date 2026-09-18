@@ -11,13 +11,14 @@ class SettingsValidator
     /**
      * Validate key-value array against validation rules
      */
-    public function validate(array $data, array $rulesMap): array
+    public function validate(array $data, array $rulesMap, array $dataTypesMap = []): array
     {
         $errors = [];
 
         foreach ($rulesMap as $field => $rulesString) {
             $value = $data[$field] ?? null;
-            $fieldErrors = $this->validateField($field, $value, $rulesString);
+            $dataType = $dataTypesMap[$field] ?? null;
+            $fieldErrors = $this->validateField($field, $value, $rulesString, $dataType);
             if (!empty($fieldErrors)) {
                 $errors[$field] = $fieldErrors;
             }
@@ -29,7 +30,7 @@ class SettingsValidator
     /**
      * Validate single setting field against rules string (e.g. "required|integer|min:1|max:100")
      */
-    public function validateField(string $field, mixed $value, string $rulesString): array
+    public function validateField(string $field, mixed $value, string $rulesString, ?string $dataType = null): array
     {
         $fieldErrors = [];
         $rules = explode('|', $rulesString);
@@ -145,18 +146,40 @@ class SettingsValidator
                     break;
 
                 case 'min':
-                    if ($ruleParam !== null && is_numeric($value) && (float)$value < (float)$ruleParam) {
-                        $fieldErrors[] = "The {$field} must be at least {$ruleParam}.";
-                    } elseif ($ruleParam !== null && is_string($value) && strlen($value) < (int)$ruleParam) {
-                        $fieldErrors[] = "The {$field} must be at least {$ruleParam} characters.";
+                    if ($ruleParam !== null) {
+                        $isNumericComparison = ($dataType === 'integer' || $dataType === 'float' || $dataType === 'number')
+                            || in_array('integer', $rules, true)
+                            || in_array('numeric', $rules, true)
+                            || (is_numeric($value) && $dataType !== 'string' && !in_array('string', $rules, true));
+
+                        if ($isNumericComparison && is_numeric($value)) {
+                            if ((float)$value < (float)$ruleParam) {
+                                $fieldErrors[] = "The {$field} must be at least {$ruleParam}.";
+                            }
+                        } elseif (is_string($value)) {
+                            if (strlen($value) < (int)$ruleParam) {
+                                $fieldErrors[] = "The {$field} must be at least {$ruleParam} characters.";
+                            }
+                        }
                     }
                     break;
 
                 case 'max':
-                    if ($ruleParam !== null && is_numeric($value) && (float)$value > (float)$ruleParam) {
-                        $fieldErrors[] = "The {$field} cannot exceed {$ruleParam}.";
-                    } elseif ($ruleParam !== null && is_string($value) && strlen($value) > (int)$ruleParam) {
-                        $fieldErrors[] = "The {$field} cannot exceed {$ruleParam} characters.";
+                    if ($ruleParam !== null) {
+                        $isNumericComparison = ($dataType === 'integer' || $dataType === 'float' || $dataType === 'number')
+                            || in_array('integer', $rules, true)
+                            || in_array('numeric', $rules, true)
+                            || (is_numeric($value) && $dataType !== 'string' && !in_array('string', $rules, true));
+
+                        if ($isNumericComparison && is_numeric($value)) {
+                            if ((float)$value > (float)$ruleParam) {
+                                $fieldErrors[] = "The {$field} cannot exceed {$ruleParam}.";
+                            }
+                        } elseif (is_string($value)) {
+                            if (strlen($value) > (int)$ruleParam) {
+                                $fieldErrors[] = "The {$field} cannot exceed {$ruleParam} characters.";
+                            }
+                        }
                     }
                     break;
 

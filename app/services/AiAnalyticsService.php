@@ -24,103 +24,112 @@ class AiAnalyticsService
     public function getAnalyticsData(string $range = '6m', string $filter = 'disease', bool $yoy = false, bool $bypassCache = false, string $scope = 'admin'): array
     {
         $cacheKey = 'analytics_' . md5($range . '_' . $filter . '_' . ($yoy ? '1' : '0') . '_' . $scope);
-        $ttlSeconds = 300; // 5-minute cost-free cache
+        $ttlSeconds = 15; // 15-second fast reactive cache
 
         if ($bypassCache) {
             $this->cache->delete($cacheKey);
+        } else {
+            $cached = $this->cache->get($cacheKey);
+            if ($cached !== null) {
+                $cached['cache_status'] = 'HIT';
+                return $cached;
+            }
         }
 
-        $result = $this->cache->remember($cacheKey, $ttlSeconds, function() use ($range, $filter, $yoy, $scope) {
-            // Targeted Fast DB Snapshot (All 5 modules interconnected from live Supabase tables)
-            $tablesToFetch = match ($scope) {
-                'sanitation'   => ['permits', 'inspections', 'renewals', 'employees', 'activity_logs'],
-                'health_center'=> ['patients', 'consultations', 'appointments', 'triage_queue', 'prescriptions', 'medical_records', 'employees'],
-                'immunization' => ['children', 'immunization_assessments', 'patients', 'prescriptions', 'consultations', 'employees'],
-                'surveillance' => ['surveillance_cases', 'surveillance_alerts', 'surveillance_contacts', 'surveillance_interventions', 'surveillance_resources', 'surveillance_response_teams', 'employees'],
-                'wastewater'   => ['septic_tanks', 'wastewater_invoices', 'service_requests', 'surveillance_resources', 'permits', 'employees'],
-                default        => [
-                    'surveillance_cases', 'surveillance_alerts', 'surveillance_contacts', 'surveillance_interventions', 'surveillance_resources', 'surveillance_response_teams',
-                    'patients', 'consultations', 'appointments', 'triage_queue', 'prescriptions', 'medical_records',
-                    'permits', 'inspections', 'renewals',
-                    'children', 'immunization_assessments',
-                    'septic_tanks', 'wastewater_invoices', 'service_requests',
-                    'employees', 'activity_logs'
-                ]
-            };
+        // Targeted Fast DB Snapshot (All 5 modules interconnected from live Supabase tables)
+        $tablesToFetch = match ($scope) {
+            'sanitation'   => ['permits', 'inspections', 'renewals', 'employees', 'activity_logs'],
+            'health_center'=> ['patients', 'consultations', 'appointments', 'triage_queue', 'prescriptions', 'medical_records', 'employees'],
+            'immunization' => ['children', 'immunization_assessments', 'patients', 'prescriptions', 'consultations', 'employees'],
+            'surveillance' => ['surveillance_cases', 'surveillance_alerts', 'surveillance_contacts', 'surveillance_interventions', 'surveillance_resources', 'surveillance_response_teams', 'employees'],
+            'wastewater'   => ['septic_tanks', 'wastewater_invoices', 'service_requests', 'surveillance_resources', 'permits', 'employees'],
+            default        => [
+                'surveillance_cases', 'surveillance_alerts', 'surveillance_contacts', 'surveillance_interventions', 'surveillance_resources', 'surveillance_response_teams',
+                'patients', 'consultations', 'appointments', 'triage_queue', 'prescriptions', 'medical_records',
+                'permits', 'inspections', 'renewals',
+                'children', 'immunization_assessments',
+                'septic_tanks', 'wastewater_invoices', 'service_requests',
+                'employees', 'activity_logs'
+            ]
+        };
 
-            $fetched = $this->db->multiSelect($tablesToFetch);
+        $fetched = $this->db->multiSelect($tablesToFetch);
 
-            $snap = [
-                // Module 1: Disease Surveillance & Response
-                'cases'          => $fetched['surveillance_cases'] ?? [],
-                'alerts'         => $fetched['surveillance_alerts'] ?? [],
-                'contacts'       => $fetched['surveillance_contacts'] ?? [],
-                'interventions'  => $fetched['surveillance_interventions'] ?? [],
-                'resources'      => $fetched['surveillance_resources'] ?? [],
-                'response_teams' => $fetched['surveillance_response_teams'] ?? [],
-                // Module 2: Health Center Services
-                'patients'       => $fetched['patients'] ?? [],
-                'consultations'  => $fetched['consultations'] ?? [],
-                'appointments'   => $fetched['appointments'] ?? [],
-                'triage'         => $fetched['triage_queue'] ?? [],
-                'prescriptions'  => $fetched['prescriptions'] ?? [],
-                'medical_records'=> $fetched['medical_records'] ?? [],
-                // Module 3: Sanitation Permits & Inspection
-                'permits'        => $fetched['permits'] ?? [],
-                'inspections'    => $fetched['inspections'] ?? [],
-                'renewals'       => $fetched['renewals'] ?? [],
-                // Module 4: Immunization & Nutrition
-                'children'       => $fetched['children'] ?? [],
-                'vaccines'       => $fetched['immunization_assessments'] ?? [],
-                // Module 5: Wastewater Management
-                'septic_tanks'   => $fetched['septic_tanks'] ?? [],
-                'invoices'       => $fetched['wastewater_invoices'] ?? [],
-                'requests'       => $fetched['service_requests'] ?? [],
-                // System & Activity
-                'employees'      => $fetched['employees'] ?? [],
-                'activity_logs'  => $fetched['activity_logs'] ?? []
-            ];
+        $snap = [
+            // Module 1: Disease Surveillance & Response
+            'cases'          => $fetched['surveillance_cases'] ?? [],
+            'alerts'         => $fetched['surveillance_alerts'] ?? [],
+            'contacts'       => $fetched['surveillance_contacts'] ?? [],
+            'interventions'  => $fetched['surveillance_interventions'] ?? [],
+            'resources'      => $fetched['surveillance_resources'] ?? [],
+            'response_teams' => $fetched['surveillance_response_teams'] ?? [],
+            // Module 2: Health Center Services
+            'patients'       => $fetched['patients'] ?? [],
+            'consultations'  => $fetched['consultations'] ?? [],
+            'appointments'   => $fetched['appointments'] ?? [],
+            'triage'         => $fetched['triage_queue'] ?? [],
+            'prescriptions'  => $fetched['prescriptions'] ?? [],
+            'medical_records'=> $fetched['medical_records'] ?? [],
+            // Module 3: Sanitation Permits & Inspection
+            'permits'        => $fetched['permits'] ?? [],
+            'inspections'    => $fetched['inspections'] ?? [],
+            'renewals'       => $fetched['renewals'] ?? [],
+            // Module 4: Immunization & Nutrition
+            'children'       => $fetched['children'] ?? [],
+            'vaccines'       => $fetched['immunization_assessments'] ?? [],
+            // Module 5: Wastewater Management
+            'septic_tanks'   => $fetched['septic_tanks'] ?? [],
+            'invoices'       => $fetched['wastewater_invoices'] ?? [],
+            'requests'       => $fetched['service_requests'] ?? [],
+            // System & Activity
+            'employees'      => $fetched['employees'] ?? [],
+            'activity_logs'  => $fetched['activity_logs'] ?? []
+        ];
 
-            $kpis          = $this->calculateKPIs($snap, $scope);
-            $insights      = $this->generateAiInsights($snap, $scope);
-            $predictive    = $this->generatePredictiveForecast($range, $snap, $scope);
-            $trend         = $this->generateTrendSeries($filter, $range, $yoy, $snap, $scope);
-            $modules       = $this->calculateModuleDistribution($snap, $scope);
-            $metrics       = $this->calculatePerformanceMetrics($snap, $scope);
-            $staff         = $this->getStaffPerformance($snap, $scope);
-            $ruleInsights  = $this->generateRuleBasedCallouts($predictive, $modules, $trend, $scope);
-            $execOverview  = $this->generateExecutiveOverview($snap, $scope);
-            $situational   = $this->generateSituationalAwareness($snap, $scope);
-            $prescriptive  = $this->generatePrescriptiveAnalytics($snap, $scope);
-            $correlations  = $this->generateCorrelationAnalysis($snap, $scope);
-            $modelMetrics  = $this->calculateModelMetrics($predictive, $snap);
+        $kpis          = $this->calculateKPIs($snap, $scope);
+        $insights      = $this->generateAiInsights($snap, $scope);
+        $predictive    = $this->generatePredictiveForecast($range, $snap, $scope);
+        $trend         = $this->generateTrendSeries($filter, $range, $yoy, $snap, $scope);
+        $modules       = $this->calculateModuleDistribution($snap, $scope);
+        $metrics       = $this->calculatePerformanceMetrics($snap, $scope);
+        $staff         = $this->getStaffPerformance($snap, $scope);
+        $ruleInsights  = $this->generateRuleBasedCallouts($predictive, $modules, $trend, $scope);
+        $execOverview  = $this->generateExecutiveOverview($snap, $scope);
+        $situational   = $this->generateSituationalAwareness($snap, $scope);
+        $prescriptive  = $this->generatePrescriptiveAnalytics($snap, $scope);
+        $correlations  = $this->generateCorrelationAnalysis($snap, $scope);
+        $modelMetrics  = $this->calculateModelMetrics($predictive, $snap);
 
-            return [
-                'success' => true,
-                'timestamp' => date('Y-m-d H:i:s'),
-                'range' => $range,
-                'scope' => $scope,
-                'exec_overview' => $execOverview,
-                'situational' => $situational,
-                'prescriptive' => $prescriptive,
-                'correlations' => $correlations,
-                'model_quality' => $modelMetrics,
-                'kpis' => $kpis,
-                'insights' => $insights,
-                'predictive' => $predictive,
-                'trend' => $trend,
-                'modules' => $modules,
-                'metrics' => $metrics,
-                'staff' => $staff,
-                'forecast_insight' => $ruleInsights['forecast_insight'],
-                'module_insight' => $ruleInsights['module_insight'],
-                'correlation_insight' => $ruleInsights['correlation_insight']
-            ];
-        });
+        $payload = [
+            'success' => true,
+            'timestamp' => date('Y-m-d H:i:s'),
+            'range' => $range,
+            'scope' => $scope,
+            'exec_overview' => $execOverview,
+            'situational' => $situational,
+            'prescriptive' => $prescriptive,
+            'correlations' => $correlations,
+            'model_quality' => $modelMetrics,
+            'kpis' => $kpis,
+            'insights' => $insights,
+            'predictive' => $predictive,
+            'trend' => $trend,
+            'modules' => $modules,
+            'metrics' => $metrics,
+            'staff' => $staff,
+            'forecast_insight' => $ruleInsights['forecast_insight'],
+            'module_insight' => $ruleInsights['module_insight'],
+            'correlation_insight' => $ruleInsights['correlation_insight'],
+            'cache_status' => 'MISS'
+        ];
 
-        $data = $result['data'];
-        $data['cache_status'] = $result['hit'] ? 'HIT' : 'MISS';
-        return $data;
+        // Only save to disk cache if database returned actual records (never cache an empty/offline snapshot)
+        $totalRecords = count($snap['cases'] ?? []) + count($snap['patients'] ?? []) + count($snap['permits'] ?? []) + count($snap['children'] ?? []) + count($snap['septic_tanks'] ?? []);
+        if ($totalRecords > 0) {
+            $this->cache->set($cacheKey, $payload, $ttlSeconds);
+        }
+
+        return $payload;
     }
 
     /**
@@ -772,7 +781,7 @@ class AiAnalyticsService
         }
 
         // Default Admin Scope: All 5 Municipal Modules
-        $historicalCases      = $this->countRecordsPerBucket(array_merge($snap['cases'] ?? [], $snap['contacts'] ?? []), 'created_at', $buckets, '6m');
+        $historicalCases      = $this->countRecordsPerBucket($snap['cases'] ?? [], 'created_at', $buckets, '6m');
         $historicalConsults   = $this->countRecordsPerBucket(array_merge($snap['patients'] ?? [], $snap['consultations'] ?? []), 'created_at', $buckets, '6m');
         $historicalPermits    = $this->countRecordsPerBucket(array_merge($snap['permits'] ?? [], $snap['inspections'] ?? []), 'created_at', $buckets, '6m');
         $historicalVaccines   = $this->countRecordsPerBucket(array_merge($snap['children'] ?? [], $snap['prescriptions'] ?? []), 'created_at', $buckets, '6m');
@@ -1219,14 +1228,14 @@ class AiAnalyticsService
         } else { // combined (admin)
             $subtitle = 'All 5 Municipal Modules System Activity';
             $colors = ['#ef4444', '#176b87', '#d97706', '#2563eb', '#9333ea'];
-            $survCnt  = count($snap['cases'] ?? []) + count($snap['contacts'] ?? []);
+            $survCnt  = count($snap['cases'] ?? []);
             $healthCnt= count($snap['patients'] ?? []) + count($snap['consultations'] ?? []);
             $sanCnt   = count($snap['permits'] ?? []) + count($snap['inspections'] ?? []);
             $immuCnt  = count($snap['children'] ?? []) + count($snap['prescriptions'] ?? []);
             $wasteCnt = count($snap['septic_tanks'] ?? []) + count($snap['invoices'] ?? []);
 
             $series = [
-                ['name' => 'Surveillance', 'data' => $this->countRecordsPerBucket(array_merge($snap['cases'] ?? [], $snap['contacts'] ?? []), 'created_at', $buckets, $rangeKey)],
+                ['name' => 'Surveillance', 'data' => $this->countRecordsPerBucket($snap['cases'] ?? [], 'created_at', $buckets, $rangeKey)],
                 ['name' => 'Health Center', 'data' => $this->countRecordsPerBucket(array_merge($snap['patients'] ?? [], $snap['consultations'] ?? []), 'created_at', $buckets, $rangeKey)],
                 ['name' => 'Sanitation', 'data' => $this->countRecordsPerBucket(array_merge($snap['permits'] ?? [], $snap['inspections'] ?? []), 'created_at', $buckets, $rangeKey)],
                 ['name' => 'Immunization', 'data' => $this->countRecordsPerBucket(array_merge($snap['children'] ?? [], $snap['prescriptions'] ?? []), 'created_at', $buckets, $rangeKey)],
@@ -1402,7 +1411,7 @@ class AiAnalyticsService
         }
 
         // 2. City-Wide Admin Overview (All 5 Municipal Modules Dynamically Computed)
-        $survCount   = count($snap['cases'] ?? []) + count($snap['contacts'] ?? []) + count($snap['interventions'] ?? []);
+        $survCount   = count($snap['cases'] ?? []);
         $healthCount = count($snap['patients'] ?? []) + count($snap['consultations'] ?? []) + count($snap['triage'] ?? []);
         $sanCount    = count($snap['permits'] ?? []) + count($snap['inspections'] ?? []) + count($snap['renewals'] ?? []);
         $immuCount   = count($snap['children'] ?? []) + count($snap['vaccines'] ?? []) + count($snap['prescriptions'] ?? []);

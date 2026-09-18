@@ -976,7 +976,7 @@
                 </div>
                 <div class="relative min-h-[224px] mt-2">
                     <!-- Trend Skeletal Loader -->
-                    <div id="trendSkeleton" class="absolute inset-0 flex flex-col justify-between p-4 bg-zinc-50/70 rounded-xl border border-dashed border-zinc-200 animate-pulse">
+                    <div id="trendSkeleton" class="hidden absolute inset-0 flex flex-col justify-between p-4 bg-zinc-50/70 rounded-xl border border-dashed border-zinc-200 animate-pulse">
                         <div class="flex items-center justify-between">
                             <div class="w-24 h-4 bg-zinc-200 rounded"></div>
                             <div class="w-16 h-4 bg-zinc-200 rounded"></div>
@@ -1032,7 +1032,7 @@
                 
                 <!-- ApexCharts Line Graph Container with Skeleton -->
                 <div class="relative min-h-[224px] mt-2">
-                    <div id="predictiveSkeleton" class="absolute inset-0 flex flex-col justify-between p-4 bg-zinc-50/70 rounded-xl border border-dashed border-zinc-200 animate-pulse">
+                    <div id="predictiveSkeleton" class="hidden absolute inset-0 flex flex-col justify-between p-4 bg-zinc-50/70 rounded-xl border border-dashed border-zinc-200 animate-pulse">
                         <div class="flex items-center justify-between">
                             <div class="w-24 h-4 bg-zinc-200 rounded"></div>
                             <div class="w-16 h-4 bg-zinc-200 rounded"></div>

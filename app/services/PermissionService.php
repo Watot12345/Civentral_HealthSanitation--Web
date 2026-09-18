@@ -16,7 +16,6 @@ class PermissionService
         'analytics.view', 'analytics.health_center', 'analytics.sanitation', 'analytics.immunization', 'analytics.wastewater', 'analytics.surveillance',
         'reports.view', 'reports.health_center', 'reports.sanitation', 'reports.immunization', 'reports.wastewater', 'reports.surveillance',
         'reports.generate', 'reports.export', 'reports.template.use', 'reports.template.create', 'reports.template.edit', 'reports.template.delete', 'reports.all_departments', 'reports.all_facilities', 'reports.analytics',
-        'compliance.view', 'compliance.admin_only',
         'patients.view', 'patients.create', 'patients.edit', 'patients.delete',
         'consultations.view', 'consultations.create', 'triage.view', 'triage.create',
         'prescriptions.view', 'prescriptions.create',
@@ -38,7 +37,7 @@ class PermissionService
     public static function normalizeRoleTitle(string $role): string
     {
         $role = trim($role);
-        if (strcasecmp($role, 'System Admin') === 0 || strcasecmp($role, 'HSA') === 0) return 'System Administrator';
+        if (strcasecmp($role, 'System Admin') === 0 || strcasecmp($role, 'HSA') === 0 || strcasecmp($role, 'Admin') === 0) return 'System Administrator';
         if (strcasecmp($role, 'HCD') === 0 || strcasecmp($role, 'Health Center Director') === 0) return 'Health Center Director';
         if (strcasecmp($role, 'SD') === 0 || strcasecmp($role, 'Sanitation Director') === 0) return 'Sanitation Director';
         if (strcasecmp($role, 'Immunization Lead') === 0 || strcasecmp($role, 'IL') === 0) return 'Immunization Coordinator';
@@ -64,6 +63,15 @@ class PermissionService
             ],
             'System Admin' => [
                 'position'           => 'System Administrator',
+                'department_scope'   => null,
+                'dashboard_slug'     => 'dashboard.system_admin',
+                'analytics_slug'     => 'analytics.view',
+                'reports_slug'       => 'reports.view',
+                'compliance_allowed' => true,
+                'modules'            => ['patients', 'consultations', 'triage', 'prescriptions', 'permits', 'inspections', 'immunization', 'nutrition', 'wastewater', 'surveillance', 'users', 'roles', 'settings', 'logs']
+            ],
+            'Admin' => [
+                'position'           => 'Admin',
                 'department_scope'   => null,
                 'dashboard_slug'     => 'dashboard.system_admin',
                 'analytics_slug'     => 'analytics.view',
@@ -298,7 +306,7 @@ class PermissionService
         }
 
         $pos = self::normalizeRoleTitle(!empty($userRoleDesc) ? $userRoleDesc : $userRole);
-        $isAdmin = $this->isAdminRole($userRoleDesc) || $this->isAdminRole($userRole) || strcasecmp($pos, 'System Administrator') === 0;
+        $isAdmin = $this->isAdminRole($userRoleDesc) || $this->isAdminRole($userRole) || strcasecmp($pos, 'System Administrator') === 0 || strcasecmp($pos, 'Admin') === 0;
 
         $matrix = self::departmentMatrix();
         $matched = null;
@@ -316,7 +324,7 @@ class PermissionService
                 'department_name' => null,
                 'is_admin'        => true,
                 'modules'         => $matched['modules'] ?? ['patients', 'consultations', 'triage', 'prescriptions', 'permits', 'inspections', 'immunization', 'nutrition', 'wastewater', 'surveillance', 'users', 'roles', 'settings', 'logs'],
-                'compliance'      => true,
+                'compliance'      => false,
             ];
         }
 
@@ -329,7 +337,7 @@ class PermissionService
                 'department_name' => $name,
                 'is_admin'        => false,
                 'modules'         => $matched['modules'],
-                'compliance'      => (bool)$matched['compliance_allowed'],
+                'compliance'      => false,
             ];
         }
 
@@ -454,7 +462,7 @@ class PermissionService
         return [
             'System Administrator' => [
                 'dashboard.view', 'dashboard.system_admin',
-                'analytics.view', 'reports.view', 'compliance.view', 'compliance.admin_only',
+                'analytics.view', 'reports.view',
                 'patients.view', 'patients.create', 'patients.edit', 'patients.delete',
                 'consultations.view', 'consultations.create', 'triage.view', 'triage.create',
                 'prescriptions.view', 'prescriptions.create',
@@ -466,7 +474,7 @@ class PermissionService
             ],
             'System Admin' => [
                 'dashboard.view', 'dashboard.system_admin',
-                'analytics.view', 'reports.view', 'compliance.view', 'compliance.admin_only',
+                'analytics.view', 'reports.view',
                 'patients.view', 'patients.create', 'patients.edit', 'patients.delete',
                 'consultations.view', 'consultations.create', 'triage.view', 'triage.create',
                 'prescriptions.view', 'prescriptions.create',
@@ -516,7 +524,7 @@ class PermissionService
             ],
             'Sanitation Director' => [
                 'dashboard.view', 'dashboard.sanitation',
-                'analytics.view', 'analytics.sanitation', 'reports.view', 'reports.sanitation', 'compliance.view',
+                'analytics.view', 'analytics.sanitation', 'reports.view', 'reports.sanitation',
                 'permits.view', 'permits.create', 'permits.approve',
                 'inspections.view', 'inspections.conduct',
                 'wastewater.view', 'wastewater.create', 'wastewater.edit',

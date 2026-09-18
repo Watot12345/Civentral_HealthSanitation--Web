@@ -72,6 +72,10 @@ class Employee
         $targetRole = trim($data['role_description'] ?? $data['role'] ?? '');
         if (empty($targetRole)) return null;
 
+        if (strcasecmp($targetRole, 'Admin') === 0 || strcasecmp($targetRole, 'System Admin') === 0 || strcasecmp($targetRole, 'System Administrator') === 0) {
+            return 1;
+        }
+
         try {
             require_once __DIR__ . '/Role.php';
             $roleModel = new Role();
@@ -150,6 +154,7 @@ class Employee
 
             'Health Surveillance_Surveillance Lead'         => ['prefix' => 'SL-',  'pad' => 4],
             'Administration_System Admin'                   => ['prefix' => 'HSA-ADMIN-', 'pad' => 2],
+            'Administration_Admin'                          => ['prefix' => 'HSA-ADMIN-', 'pad' => 2],
         ];
 
         $deptPrefixes = [
@@ -253,6 +258,40 @@ class Employee
         $employee['email']     = $employee['email'] ?? '';
         $employee['status']    = $employee['status'] ?? 'Active';
         $employee['last_login'] = $employee['last_login'] ?? null;
+
+        // Synchronize role and role_description if missing or when role_id is specified
+        if (!empty($employee['role_id'])) {
+            static $roleIdMap = [
+                1  => ['role' => 'System Admin', 'position' => 'Admin'],
+                2  => ['role' => 'Health Center Director', 'position' => 'Health Center Director'],
+                3  => ['role' => 'Medical Practitioner', 'position' => 'Doctor'],
+                4  => ['role' => 'Medical Practitioner', 'position' => 'Nurse'],
+                5  => ['role' => 'Medical Practitioner', 'position' => 'Dentist'],
+                6  => ['role' => 'Medical Practitioner', 'position' => 'Laboratory Technician'],
+                7  => ['role' => 'Health Center Staff', 'position' => 'Medical Records Clerk'],
+                8  => ['role' => 'Health Center Staff', 'position' => 'Appointment Clerk'],
+                9  => ['role' => 'Sanitation Director', 'position' => 'Sanitation Director'],
+                10 => ['role' => 'Sanitation Officer', 'position' => 'Inspector'],
+                11 => ['role' => 'Sanitation Officer', 'position' => 'Permit Clerk'],
+                12 => ['role' => 'Sanitation Officer', 'position' => 'Cashier'],
+                13 => ['role' => 'Immunization Lead', 'position' => 'Immunization Coordinator'],
+                14 => ['role' => 'Immunization Lead', 'position' => 'Midwife'],
+                15 => ['role' => 'Nutrition Staff', 'position' => 'Nutritionist'],
+                16 => ['role' => 'Nutrition Staff', 'position' => 'Nutrition Educator'],
+                17 => ['role' => 'Wastewater Lead', 'position' => 'Wastewater Officer'],
+                18 => ['role' => 'Surveillance Lead', 'position' => 'Surveillance Officer'],
+                19 => ['role' => 'Surveillance Lead', 'position' => 'Surveillance Coordinator'],
+            ];
+            $rId = (int)$employee['role_id'];
+            if (isset($roleIdMap[$rId])) {
+                if (empty($employee['role'])) {
+                    $employee['role'] = $roleIdMap[$rId]['role'];
+                }
+                if (empty($employee['role_description'])) {
+                    $employee['role_description'] = $roleIdMap[$rId]['position'];
+                }
+            }
+        }
 
         // Build initials
         $parts = explode(' ', $employee['full_name']);

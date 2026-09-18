@@ -88,19 +88,6 @@ $userScope = getUserScope();
       </div>
       <?php endif; ?>
 
-      <!-- 4. COMPLIANCE & VIOLATIONS - Direct Link -->
-      <?php if ($userScope['compliance'] && hasPermission('compliance.view')): ?>
-      <div class="space-y-1">
-        <a href="<?= site_url('pages/compliance_monitoring.php') ?>"
-           class="w-full flex items-center px-3 py-2.5 hover:bg-white/60 hover:text-brand-dark rounded-xl text-xs font-semibold tracking-wide transition group 
-           <?php echo (strpos($currentPath, 'compliance_monitoring.php') !== false || strpos($currentPath, 'violation_tracking.php') !== false || strpos($currentPath, 'corrective_actions.php') !== false || strpos($currentPath, 'regulatory_compliance.php') !== false) ? 'bg-white/60 text-brand-dark' : 'text-slate-600 hover:bg-white/60 hover:text-brand-dark'; ?>">
-          <div class="flex items-center space-x-3">
-            <i class="fa-solid fa-gavel text-sm <?php echo (strpos($currentPath, 'compliance_monitoring.php') !== false || strpos($currentPath, 'violation_tracking.php') !== false || strpos($currentPath, 'corrective_actions.php') !== false || strpos($currentPath, 'regulatory_compliance.php') !== false) ? 'text-brand-medium' : 'text-slate-400 group-hover:text-brand-medium'; ?> transition"></i>
-            <span class="sidebar-text truncate">Compliance & Violations</span>
-          </div>
-        </a>
-      </div>
-      <?php endif; ?>
 
       <!-- ============================================================ -->
       <!-- SECTION 2: OPERATIONAL MODULES                               -->

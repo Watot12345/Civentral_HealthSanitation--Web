@@ -48,11 +48,22 @@ try {
         $users = $allUsers;
     }
 
-    // Sort employees by Organizational Hierarchy
-    usort($users, function($a, $b) {
+    // Sort employees: CURRENT LOGGED-IN USER ALWAYS AT THE TOP, followed by Organizational Hierarchy
+    usort($users, function($a, $b) use ($currentUserId, $currentEmployeeId) {
+        $isCurrentUserA = ($currentUserId > 0 && (int)($a['id'] ?? 0) === $currentUserId) ||
+                          (!empty($currentEmployeeId) && ($a['employee_id'] ?? '') === $currentEmployeeId) ||
+                          (!empty($currentEmployeeId) && ($a['username'] ?? '') === $currentEmployeeId);
+
+        $isCurrentUserB = ($currentUserId > 0 && (int)($b['id'] ?? 0) === $currentUserId) ||
+                          (!empty($currentEmployeeId) && ($b['employee_id'] ?? '') === $currentEmployeeId) ||
+                          (!empty($currentEmployeeId) && ($b['username'] ?? '') === $currentEmployeeId);
+
+        if ($isCurrentUserA && !$isCurrentUserB) return -1;
+        if (!$isCurrentUserA && $isCurrentUserB) return 1;
+
         $getRoleRank = function($user) {
             $role = $user['role_description'] ?? $user['role'] ?? '';
-            if ($role === 'System Admin' || $role === 'System Administrator') return 1;
+            if ($role === 'System Admin' || $role === 'System Administrator' || $role === 'Admin') return 1;
 
             $deptHeads = [
                 'Health Center Director',
@@ -608,6 +619,71 @@ $title = 'User Management';
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- CONFIRM USER ACTION MODAL (CREATE & UPDATE CONFIRMATION)      -->
+<!-- ============================================================ -->
+<div id="confirmUserActionModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all border border-slate-100">
+        <!-- Header -->
+        <div class="px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-brand-light/30 to-white flex items-center justify-between">
+            <h3 class="font-bold text-slate-800 text-base flex items-center gap-2" id="confirmUserModalTitle">
+                <i class="fa-solid fa-circle-question text-brand-dark"></i>
+                Confirm User Registration
+            </h3>
+            <button type="button" onclick="closeModal('confirmUserActionModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <!-- Body -->
+        <div class="p-6 space-y-4">
+            <p class="text-xs text-slate-500" id="confirmUserModalPrompt">
+                Please review the details below before saving this user to the system:
+            </p>
+            <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-4 space-y-2.5 text-xs">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                    <span class="text-slate-500 font-medium">Full Name:</span>
+                    <span class="font-bold text-slate-800" id="confirmSummaryName">—</span>
+                </div>
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                    <span class="text-slate-500 font-medium">Employee ID:</span>
+                    <span class="font-mono font-semibold text-brand-dark" id="confirmSummaryUsername">—</span>
+                </div>
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                    <span class="text-slate-500 font-medium">Department:</span>
+                    <span class="font-semibold text-slate-700" id="confirmSummaryDept">—</span>
+                </div>
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                    <span class="text-slate-500 font-medium">Primary Role:</span>
+                    <span class="px-2 py-0.5 bg-slate-200/70 text-slate-700 font-semibold rounded-md" id="confirmSummaryRole">—</span>
+                </div>
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                    <span class="text-slate-500 font-medium">Position:</span>
+                    <span class="font-semibold text-slate-700" id="confirmSummaryDesc">—</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-500 font-medium">Status:</span>
+                    <span id="confirmSummaryStatus" class="px-2 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-700">Active</span>
+                </div>
+            </div>
+            <div class="p-3 bg-amber-50 border border-amber-200/70 rounded-xl flex items-start gap-2.5">
+                <i class="fa-solid fa-shield-halved text-amber-500 text-sm mt-0.5"></i>
+                <p class="text-[11px] text-amber-800 leading-relaxed" id="confirmUserModalWarning">
+                    This account will immediately be granted access rights and permissions corresponding to the selected municipal role.
+                </p>
+            </div>
+        </div>
+        <!-- Footer -->
+        <div class="px-6 py-4 flex items-center justify-end gap-2 bg-slate-50 border-t border-slate-200">
+            <button type="button" onclick="closeModal('confirmUserActionModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-100 transition text-xs font-semibold cursor-pointer">
+                Back to Form
+            </button>
+            <button type="button" id="confirmUserActionBtn" onclick="executeUserFormSubmit()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold shadow-sm flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-check"></i> <span id="confirmUserActionBtnText">Confirm & Register</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- DEDICATED MANAGE PERMISSIONS MODAL -->
 <div id="manageUserPermissionsModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <select id="permissionRoleSelect" class="hidden" aria-hidden="true" tabindex="-1">
@@ -816,7 +892,7 @@ $title = 'User Management';
     };
 
     const ROLE_TO_DESCRIPTIONS = {
-        'System Admin': ['System Administrator'],
+        'System Admin': ['Admin'],
         'Health Center Director': ['Health Center Director'],
         'Medical Practitioner': ['Doctor', 'Nurse', 'Dentist', 'Laboratory Technician'],
         'Health Center Staff': ['Medical Records Clerk', 'Appointment Clerk'],
@@ -1122,23 +1198,110 @@ $title = 'User Management';
     }
 
     // ============================================================
-    // SUBMIT USER FORM (CREATE / UPDATE via API) - ZERO RELOAD
+    // SUBMIT USER FORM (WITH CONFIRMATION MODAL & ZERO RELOAD)
     // ============================================================
+    let pendingUserFormData = null;
+
     function submitUserForm(e) {
         e.preventDefault();
+        const form = document.getElementById('userForm');
+        const errDiv = document.getElementById('userFormError');
+        if (errDiv) errDiv.classList.add('hidden');
+
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
         const userId = document.getElementById('userId').value;
         const action = userId ? 'update' : 'create';
 
-        const formData = new FormData(document.getElementById('userForm'));
+        const fullName = (document.getElementById('fullName')?.value || '').trim();
+        const username = (document.getElementById('username')?.value || '').trim();
+        const dept = document.getElementById('department')?.value || '';
+        const role = document.getElementById('roleId')?.value || '';
+        const desc = document.getElementById('roleDescription')?.value || '';
+        const status = document.getElementById('status')?.value || 'Active';
+        const password = document.getElementById('password')?.value || '';
+
+        if (!fullName) {
+            if (errDiv) {
+                errDiv.textContent = 'Full Name is required.';
+                errDiv.classList.remove('hidden');
+            }
+            return;
+        }
+
+        if (!action || (action === 'create' && !password)) {
+            if (errDiv) {
+                errDiv.textContent = 'Password is required when registering a new user.';
+                errDiv.classList.remove('hidden');
+            }
+            return;
+        }
+
+        const formData = new FormData(form);
         formData.append('action', action);
         if (userId) {
             formData.append('user_id', userId);
         }
+        pendingUserFormData = formData;
+
+        // Populate Confirmation Modal
+        const modalTitle = document.getElementById('confirmUserModalTitle');
+        const btnText = document.getElementById('confirmUserActionBtnText');
+        const promptText = document.getElementById('confirmUserModalPrompt');
+
+        if (action === 'create') {
+            if (modalTitle) modalTitle.innerHTML = '<i class="fa-solid fa-user-plus text-brand-dark"></i> Confirm User Registration';
+            if (btnText) btnText.textContent = 'Confirm & Register';
+            if (promptText) promptText.textContent = 'Please review the user details below before registering to the system:';
+        } else {
+            if (modalTitle) modalTitle.innerHTML = '<i class="fa-solid fa-user-pen text-brand-dark"></i> Confirm User Update';
+            if (btnText) btnText.textContent = 'Confirm & Save Changes';
+            if (promptText) promptText.textContent = 'Please review the modified user details before saving changes:';
+        }
+
+        const sumName = document.getElementById('confirmSummaryName');
+        const sumUser = document.getElementById('confirmSummaryUsername');
+        const sumDept = document.getElementById('confirmSummaryDept');
+        const sumRole = document.getElementById('confirmSummaryRole');
+        const sumDesc = document.getElementById('confirmSummaryDesc');
+        const sumStat = document.getElementById('confirmSummaryStatus');
+
+        if (sumName) sumName.textContent = fullName;
+        if (sumUser) sumUser.textContent = username || 'Auto-generated';
+        if (sumDept) sumDept.textContent = dept || '—';
+        if (sumRole) sumRole.textContent = role || '—';
+        if (sumDesc) sumDesc.textContent = desc || '—';
+        if (sumStat) {
+            sumStat.textContent = status;
+            sumStat.className = `px-2 py-0.5 rounded-full font-bold text-[10px] ${status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`;
+        }
+
+        openModal('confirmUserActionModal');
+    }
+
+    function executeUserFormSubmit() {
+        if (!pendingUserFormData) {
+            closeModal('confirmUserActionModal');
+            return;
+        }
+
+        const confirmBtn = document.getElementById('confirmUserActionBtn');
+        const origConfirmHtml = confirmBtn.innerHTML;
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Processing...';
 
         const submitBtn = document.getElementById('userFormSubmit');
-        const origText = submitBtn.innerHTML;
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Saving...';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Saving...';
+        }
+
+        const formData = pendingUserFormData;
+        const action = formData.get('action');
+        const userId = formData.get('user_id');
 
         fetch('user_management_api.php', {
             method: 'POST',
@@ -1146,14 +1309,20 @@ $title = 'User Management';
         })
         .then(res => res.json())
         .then(data => {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = origText;
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = origConfirmHtml;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = action === 'create' ? '<i class="fa-solid fa-save mr-1.5"></i> Register User' : '<i class="fa-solid fa-save mr-1.5"></i> Save Changes';
+            }
+
+            closeModal('confirmUserActionModal');
 
             if (data.success) {
                 const u = data.data || {};
                 const id = userId || u.id || Date.now();
                 const fullName = formData.get('full_name');
-                const username = formData.get('username');
+                const username = formData.get('username') || u.username || '';
                 const email = formData.get('email');
                 const dept = formData.get('department');
                 const role = formData.get('role');
@@ -1265,8 +1434,13 @@ $title = 'User Management';
             }
         })
         .catch(err => {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = origText;
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = origConfirmHtml;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = action === 'create' ? '<i class="fa-solid fa-save mr-1.5"></i> Register User' : '<i class="fa-solid fa-save mr-1.5"></i> Save Changes';
+            }
+            closeModal('confirmUserActionModal');
             showToast('Error connecting to server', 'danger', 'Error');
             console.error(err);
         });
@@ -1330,7 +1504,7 @@ $title = 'User Management';
 
         // 1. Role Authorization Guard (Non-Admin Restrictions)
         const isCurrentUser = (row.dataset.username && row.dataset.username === CURRENT_USER_NAME) || (fullName.toLowerCase() === CURRENT_USER_NAME.toLowerCase());
-        const isTargetDirector = /director|coordinator|lead|system admin/i.test(targetRole);
+        const isTargetDirector = /director|coordinator|lead|system admin|^admin$/i.test(targetRole);
 
         if (!IS_SYSTEM_ADMIN) {
             if (isCurrentUser) {
@@ -1338,15 +1512,15 @@ $title = 'User Management';
                 return;
             }
             if (isTargetDirector) {
-                showToast(`Access Denied: You do not have permission to edit permission matrices for Director/Lead roles (${targetRole}).`, 'warning', 'Permission Guard');
+                showToast('Access Denied: You cannot modify permissions for Department Heads, Leads, or Administrators.', 'warning', 'Permission Guard');
                 return;
             }
         }
 
-        // Update modal title & sublabel
-        const titleEl = document.getElementById('permModalTitle');
-        const subEl = document.getElementById('permModalSub');
-        if (titleEl) titleEl.textContent = `Permissions: ${fullName}`;
+        const roleTitleEl = document.getElementById('permModalUserRoleTitle');
+        if (roleTitleEl) roleTitleEl.textContent = `${fullName} (${empId})`;
+
+        const subEl = document.getElementById('permModalUserRoleSub');
         if (subEl) {
             if (!IS_SYSTEM_ADMIN) {
                 subEl.textContent = `Role: ${targetRole} • Scope: ${CURRENT_USER_DEPT || 'Department'} & Main Controls`;
@@ -1366,7 +1540,7 @@ $title = 'User Management';
         if (!matchedRoleId && roleSelect) {
             const normRole = (r) => {
                 const s = (r || '').trim().toLowerCase();
-                if (s === 'system admin') return 'system administrator';
+                if (s === 'system admin' || s === 'admin') return 'system administrator';
                 if (s === 'immunization lead') return 'immunization coordinator';
                 if (s === 'wastewater lead') return 'wastewater officer';
                 if (s === 'surveillance lead') return 'surveillance coordinator';

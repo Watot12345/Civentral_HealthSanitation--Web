@@ -79,7 +79,8 @@ try {
             $allRoles = $roleModel->all();
             $matchedRoleId = null;
             foreach ($allRoles as $r) {
-                if (strcasecmp($r['name'], $roleDescription) === 0 || strcasecmp($r['name'], $role) === 0) {
+                if (strcasecmp($r['name'], $roleDescription) === 0 || strcasecmp($r['name'], $role) === 0
+                    || ((strcasecmp($roleDescription, 'Admin') === 0 || strcasecmp($role, 'System Admin') === 0) && (int)$r['id'] === 1)) {
                     $matchedRoleId = (int) $r['id'];
                     break;
                 }

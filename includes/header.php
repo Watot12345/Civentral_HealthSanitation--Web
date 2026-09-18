@@ -63,6 +63,21 @@ if ($currentUserId > 0) {
             $department  = !empty($liveUser['department']) ? $liveUser['department'] : $department;
             $userStatus  = !empty($liveUser['status']) ? $liveUser['status'] : $userStatus;
             $displayRole = !empty($liveUser['role_description']) ? $liveUser['role_description'] : (!empty($liveUser['role']) ? $liveUser['role'] : $displayRole);
+            if (!empty($liveUser['role'])) {
+                $_SESSION['role'] = $liveUser['role'];
+                $_SESSION['user_role'] = $liveUser['role'];
+            }
+            if (!empty($liveUser['role_description'])) {
+                $_SESSION['role_description'] = $liveUser['role_description'];
+            }
+            if (!empty($liveUser['department'])) {
+                $_SESSION['department'] = $liveUser['department'];
+                $_SESSION['user_department'] = $liveUser['department'];
+            }
+            if (!empty($liveUser['full_name'])) {
+                $_SESSION['full_name'] = $liveUser['full_name'];
+                $_SESSION['user_full_name'] = $liveUser['full_name'];
+            }
         }
     } catch (\Throwable $e) {}
 }
