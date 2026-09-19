@@ -8,18 +8,7 @@ if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
 
 require_once __DIR__ . '/../config/paths.php';
 
-// Auto-restore session from active cookie (civentral_remember or civentral_session) if PHP session expired
-if (empty($_SESSION['logged_in'])) {
-    if (!empty($_COOKIE['civentral_remember'])) {
-        require_once __DIR__ . '/../app/services/RememberMeService.php';
-        \App\Services\RememberMeService::processAutoLogin();
-    }
-    if (empty($_SESSION['logged_in']) && !empty($_COOKIE['civentral_session'])) {
-        require_once __DIR__ . '/../app/services/SessionAuthService.php';
-        $authSvc = new SessionAuthService();
-        $authSvc->validateActiveToken($_COOKIE['civentral_session']);
-    }
-}
+
 
 // Global Authentication Guard: Ensure user is logged in for all pages including header.php
 $allowAnonymous = $allowAnonymous ?? false;
@@ -338,10 +327,17 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
     }
   </style>
   
-  <!-- Your custom styles -->
-  <link rel="stylesheet" href="<?= site_url('assets/css/dashb-style.css'); ?>">
+  <!-- Session Configuration -->
+  <script>
+    window.SESSION_CONFIG = {
+      timeoutSecs: <?= class_exists('Settings') ? (int)Settings::get('security.session_timeout', 120) : 120 ?>,
+      loginUrl: '<?= site_url('login.php?session_expired=1') ?>',
+      logoutUrl: '<?= site_url('logout.php?session_expired=1') ?>',
+      heartbeatUrl: '<?= site_url('api/heartbeat.php') ?>'
+    };
+  </script>
   <!-- Common JS Utilities -->
-  <script src="<?= site_url('assets/js/common.js'); ?>"></script>
+  <script src="<?= site_url('assets/js/common.js'); ?>?v=<?= filemtime(__DIR__ . '/../assets/js/common.js') ?>"></script>
   <!-- Offline Transaction Queue & Auto-Sync -->
   <script src="<?= site_url('assets/js/offline-sync.js'); ?>"></script>
   <link rel="manifest" href="<?= site_url('manifest.json'); ?>">

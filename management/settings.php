@@ -32,7 +32,7 @@ $systemConfig = [
         'maintenance_mode' => (bool)Settings::get('maintenance.mode', false),
     ],
     'security' => [
-        'session_timeout' => (int)Settings::get('security.session_timeout', 3600),
+        'session_timeout' => (int)Settings::get('security.session_timeout', 120),
         'max_login_attempts' => (int)Settings::get('security.max_login_attempts', 5),
         'password_expiry' => (int)Settings::get('security.password_expiry', 90),
         'two_factor_auth' => (bool)Settings::get('security.two_factor_auth', false),
@@ -443,8 +443,8 @@ $title = 'Settings';
                     <div class="p-4 space-y-4">
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Session Timeout (seconds)</label>
-                            <input type="number" min="300" max="86400" data-setting-key="security.session_timeout" value="<?php echo htmlspecialchars($systemConfig['security']['session_timeout']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                            <p class="text-[11px] text-slate-400 mt-1">Inactivity duration before automatic logout (min: 300s / 5m, max: 86400s / 24h)</p>
+                            <input type="number" min="120" max="86400" data-setting-key="security.session_timeout" value="<?php echo htmlspecialchars($systemConfig['security']['session_timeout']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <p class="text-[11px] text-slate-400 mt-1">Inactivity duration before automatic logout (min: 120s / 2m, max: 86400s / 24h)</p>
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Max Login Attempts</label>
@@ -512,8 +512,8 @@ $title = 'Settings';
                         </div>
                         <div>
                             <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Max Upload Size (MB)</label>
-                            <input type="number" min="1" max="500" data-setting-key="performance.max_upload_size" value="<?php echo htmlspecialchars($systemConfig['performance']['max_upload_size']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                            <p class="text-[11px] text-slate-400 mt-1">Maximum allowed file upload size across all document modules (1 – 500 MB)</p>
+                            <input type="number" min="1" max="10" data-setting-key="performance.max_upload_size" value="<?php echo htmlspecialchars($systemConfig['performance']['max_upload_size']); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <p class="text-[11px] text-slate-400 mt-1">Maximum allowed file upload size across all document modules (1 – 10 MB)</p>
                         </div>
                         <div class="pt-2 border-t border-slate-100">
                             <div class="flex items-center justify-between">
@@ -1415,21 +1415,16 @@ $title = 'Settings';
     }
 
     // TOAST NOTIFICATION SYSTEM
-    let toastTimer = null;
     function showToast(msg, type = 'success') {
-        const t = document.getElementById('toast');
-        const colors = {
-            success: 'bg-brand-dark',
-            danger: 'bg-rose-600',
-            info: 'bg-blue-600',
-            warning: 'bg-amber-600'
-        };
-        t.className = `fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white flex items-center gap-2 ${colors[type] || colors.success}`;
-        t.querySelector('i').className = type === 'danger' ? 'fa-solid fa-circle-xmark' : (type === 'info' ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-circle-check');
-        document.getElementById('toastMessage').textContent = msg;
-        t.classList.remove('hidden');
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => t.classList.add('hidden'), 3500);
+        if (typeof toast !== 'undefined') {
+            if (type === 'danger') toast.error(msg);
+            else if (type === 'warning') toast.warning(msg);
+            else if (type === 'info') toast.info(msg);
+            else toast.success(msg);
+        } else {
+            console.log(type + ": " + msg);
+            alert(msg);
+        }
     }
 </script>
 

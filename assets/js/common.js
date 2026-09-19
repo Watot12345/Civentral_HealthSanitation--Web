@@ -260,3 +260,124 @@ function throttle(fn, limit = 200) {
     };
 }
 
+// ============================================================
+// REAL-TIME SESSION IDLE TRACKER (120s Inactivity Auto-Logout)
+// ============================================================
+(function() {
+    // Skip on login and logout pages
+    const currentPath = window.location.pathname.toLowerCase();
+    if (currentPath.includes('login.php') || currentPath.includes('logout.php')) {
+        return;
+    }
+
+    const config = window.SESSION_CONFIG || {};
+    const timeoutSecs = Number(config.timeoutSecs) > 0 ? Number(config.timeoutSecs) : 120;
+    const logoutUrl = config.logoutUrl || (window.location.origin + '/capstone/logout.php?session_expired=1');
+    const loginUrl = config.loginUrl || (window.location.origin + '/capstone/login.php?session_expired=1');
+    const heartbeatUrl = config.heartbeatUrl || (window.location.origin + '/capstone/api/heartbeat.php');
+
+    const STORAGE_KEY = 'civentral_last_activity';
+    const LOGOUT_FLAG_KEY = 'civentral_session_expired';
+
+    let isLoggingOut = false;
+    let lastHeartbeat = Date.now();
+    let lastRecordedActivity = 0;
+
+    function triggerLogout() {
+        if (isLoggingOut) return;
+        isLoggingOut = true;
+
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.setItem(LOGOUT_FLAG_KEY, Date.now().toString());
+        } catch (e) {}
+
+        // Direct navigation ensures session is destroyed on server and redirects cleanly to login.php
+        window.location.href = logoutUrl;
+    }
+
+    function recordActivity(e) {
+        if (isLoggingOut) return;
+        if (e && e.isTrusted === false) return;
+
+        const now = Date.now();
+
+        // Throttle activity updates to at most once per second
+        if (now - lastRecordedActivity < 1000) return;
+        lastRecordedActivity = now;
+
+        try {
+            localStorage.setItem(STORAGE_KEY, now.toString());
+        } catch (e) {}
+
+        // Keep server session alive while user is actively interacting (every 45s)
+        if (now - lastHeartbeat >= 45000) {
+            lastHeartbeat = now;
+            fetch(heartbeatUrl, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(res => {
+                if (res.status === 401) {
+                    triggerLogout();
+                }
+            }).catch(() => {});
+        }
+    }
+
+    function checkIdle() {
+        if (isLoggingOut) return;
+
+        let lastActive = 0;
+        try {
+            lastActive = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+        } catch (e) {}
+
+        const now = Date.now();
+        if (!lastActive || isNaN(lastActive)) {
+            lastActive = now;
+            try {
+                localStorage.setItem(STORAGE_KEY, now.toString());
+            } catch (e) {}
+        }
+
+        const elapsedSeconds = Math.floor((now - lastActive) / 1000);
+        if (elapsedSeconds >= timeoutSecs) {
+            triggerLogout();
+        }
+    }
+
+    // Initialize activity timestamp for the session
+    try {
+        localStorage.removeItem(LOGOUT_FLAG_KEY);
+        const existing = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+        if (!existing || (Date.now() - existing) / 1000 >= timeoutSecs) {
+            localStorage.setItem(STORAGE_KEY, Date.now().toString());
+        }
+    } catch (e) {}
+
+    // Listen for user interactions
+    const events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach(evt => {
+        document.addEventListener(evt, recordActivity, { passive: true });
+    });
+
+    // Check inactivity every 1 second
+    setInterval(checkIdle, 1000);
+
+    // Immediate check when returning to tab or waking from sleep
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            checkIdle();
+        }
+    });
+
+    // Multi-tab synchronization: if another tab logs out, redirect immediately
+    window.addEventListener('storage', (e) => {
+        if (e.key === LOGOUT_FLAG_KEY && e.newValue) {
+            if (!isLoggingOut) {
+                isLoggingOut = true;
+                window.location.href = loginUrl;
+            }
+        }
+    });
+})();

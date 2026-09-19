@@ -142,7 +142,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // If this device already has an active verified session/cookie and 2FA is not forced on every login, bypass OTP
                 $userCookieToken = $_COOKIE['civentral_session_' . $user['id']] ?? ($_COOKIE['civentral_session'] ?? '');
                 $deviceRemembered = false;
-                if (!empty($userCookieToken)) {
+
+                // 1. Check cryptographically signed Remember Me device cookie
+                if (class_exists('App\Services\RememberMeService') && \App\Services\RememberMeService::isDeviceRememberedForUser((int)$user['id'])) {
+                    $deviceRemembered = true;
+                }
+
+                // 2. Fallback check active session cookie for this user
+                if (!$deviceRemembered && !empty($userCookieToken)) {
                     $deviceRemembered = $authService->validateActiveToken($userCookieToken);
                     if ($deviceRemembered && isset($_SESSION['user_id']) && $_SESSION['user_id'] != $user['id']) {
                         $deviceRemembered = false;
@@ -648,6 +655,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
         }
+    }
+}
+
+// Clear session if explicitly redirected from logout or session expiration
+if (isset($_GET['session_expired']) || isset($_GET['logout'])) {
+    $_SESSION = [];
+    if (ini_get("session.use_cookies")) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000,
+            $params["path"], $params["domain"],
+            $params["secure"], $params["httponly"]
+        );
+    }
+    setcookie('civentral_session', '', time() - 42000, '/');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        @session_destroy();
     }
 }
 
@@ -2022,6 +2045,11 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        try {
+            localStorage.removeItem('civentral_last_activity');
+            localStorage.removeItem('civentral_session_expired');
+        } catch (e) {}
+
         const loginForm = document.getElementById('loginForm');
         if (loginForm) loginForm.addEventListener('submit', handleLogin);
 

@@ -47,17 +47,17 @@ class SettingsService
         'general.language' => 'English',
         'maintenance.mode' => false,
 
-        'security.session_timeout' => 3600,
-        'security.max_login_attempts' => 5,
-        'security.password_expiry' => 90,
+        'security.session_timeout' => 120,
+        'security.max_login_attempts' => 3,
+        'security.password_expiry' => 30,
         'security.two_factor_auth' => false,
         'security.ssl_enforced' => true,
         'security.audit_logging' => true,
 
         'performance.cache_enabled' => true,
-        'performance.cache_duration' => 3600,
+        'performance.cache_duration' => 60,
         'performance.log_retention_days' => 30,
-        'performance.max_upload_size' => 50,
+        'performance.max_upload_size' => 10,
 
         'modules.health_center.enabled' => true,
         'modules.health_center.enable_online_appointments' => true,
