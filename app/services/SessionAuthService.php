@@ -2,6 +2,7 @@
 // app/services/SessionAuthService.php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../helpers/EncryptionHelper.php';
 require_once __DIR__ . '/MailService.php';
 
 class SessionAuthService
@@ -53,6 +54,9 @@ class SessionAuthService
             : gmdate('Y-m-d H:i:sP', time() + 86400);
 
         $email = $employee['email'] ?? '';
+        if (!empty($email) && EncryptionHelper::isEncrypted($email)) {
+            $email = EncryptionHelper::decrypt($email) ?? $email;
+        }
         $name  = $employee['full_name'] ?? ($employee['username'] ?? 'Employee');
         $empId = (int)$employee['id'];
 
@@ -185,7 +189,7 @@ class SessionAuthService
                 return ['success' => false, 'error_type' => 'user_not_found', 'message' => 'Employee account record not found in system.'];
             }
 
-            $employee = $employees[0];
+            $employee = EncryptionHelper::decryptModel('employees', $employees[0]);
 
             // Enforce active employment status check before activating session
             $empStatus = strtolower(trim($employee['status'] ?? 'active'));
@@ -208,6 +212,7 @@ class SessionAuthService
             $_SESSION['employee_id']      = $employee['employee_id'] ?? $employee['username'];
             $_SESSION['full_name']        = $employee['full_name'];
             $_SESSION['user_full_name']   = $employee['full_name'];
+            $_SESSION['email']            = $employee['email'] ?? '';
             $_SESSION['department']       = $employee['department'] ?? '';
             $_SESSION['user_department']  = $employee['department'] ?? '';
             $_SESSION['role']             = $functionalRole;
@@ -313,7 +318,7 @@ class SessionAuthService
                 return false;
             }
 
-            $employee = $employees[0];
+            $employee = EncryptionHelper::decryptModel('employees', $employees[0]);
 
             // Verify employee active status
             $empStatus = strtolower(trim($employee['status'] ?? 'active'));
@@ -332,6 +337,7 @@ class SessionAuthService
             $_SESSION['employee_id']      = $employee['employee_id'] ?? $employee['username'];
             $_SESSION['full_name']        = $employee['full_name'];
             $_SESSION['user_full_name']   = $employee['full_name'];
+            $_SESSION['email']            = $employee['email'] ?? '';
             $_SESSION['department']       = $employee['department'] ?? '';
             $_SESSION['user_department']  = $employee['department'] ?? '';
             $_SESSION['role']             = $functionalRole;

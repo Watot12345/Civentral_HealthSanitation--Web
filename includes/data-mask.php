@@ -17,6 +17,18 @@ function maskId($id, $visibleChars = 2) {
     if (strlen($id) <= $visibleChars) return $id;
     return substr($id, 0, $visibleChars) . str_repeat('*', strlen($id) - $visibleChars);
 }
+function maskEmail($email, $visibleChars = 2) {
+    if (empty($email)) return '';
+    if (class_exists('EncryptionHelper')) {
+        return EncryptionHelper::maskEmail($email);
+    }
+    if (!str_contains($email, '@')) return '***@lgu.gov.ph';
+    $parts = explode('@', $email, 2);
+    $name = $parts[0];
+    $domain = $parts[1] ?? 'lgu.gov.ph';
+    $visible = strlen($name) > $visibleChars ? substr($name, 0, $visibleChars) . '***' : $name . '***';
+    return $visible . '@' . $domain;
+}
 function maskableHTML($real, $masked, $tag = 'span', $extraClasses = '') {
     return "<{$tag} class=\"maskable {$extraClasses}\" data-masked=\"" . htmlspecialchars($masked) . "\" data-real=\"" . htmlspecialchars($real) . "\">" . htmlspecialchars($masked) . "</{$tag}>";
 }

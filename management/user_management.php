@@ -730,6 +730,71 @@ $title = 'User Management';
     </div>
 </div>
 
+<!-- DANGEROUS PERMISSION ACTION CONFIRMATION MODAL -->
+<div id="confirmDangerousPermissionModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all border border-slate-100">
+        <!-- Header -->
+        <div class="px-6 py-5 border-b border-rose-100 bg-gradient-to-r from-rose-50/80 via-white to-white flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-lg font-bold shadow-xs">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base" id="dangerousPermModalTitle">Dangerous Action Warning</h3>
+                    <p class="text-[11px] text-slate-400">Security privilege & access modification</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeModal('confirmDangerousPermissionModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <!-- Body -->
+        <div class="p-6 space-y-4">
+            <div class="p-3.5 bg-rose-50/90 border border-rose-200/80 rounded-xl flex items-start gap-3">
+                <i class="fa-solid fa-shield-halved text-rose-600 text-base mt-0.5 shrink-0"></i>
+                <div class="space-y-1">
+                    <h4 class="text-xs font-bold text-rose-900">Sensitive System Privilege Action</h4>
+                    <p class="text-[11px] text-rose-700 leading-relaxed">
+                        Modifying permissions alters system security and operational access boundaries. Any changes will take effect immediately for all accounts assigned to this role.
+                    </p>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-500">
+                Please verify the role permissions before applying these changes:
+            </p>
+
+            <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-4 space-y-2.5 text-xs">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                    <span class="text-slate-500 font-medium">Target User:</span>
+                    <span class="font-bold text-slate-800" id="confirmDangerousPermUser">—</span>
+                </div>
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                    <span class="text-slate-500 font-medium">Assigned Role:</span>
+                    <span class="px-2 py-0.5 bg-purple-100 text-purple-700 font-semibold rounded-md text-[11px]" id="confirmDangerousPermRole">—</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-500 font-medium">Selected Privileges:</span>
+                    <span class="font-bold text-slate-700" id="confirmDangerousPermCount">0 permissions</span>
+                </div>
+            </div>
+
+            <p class="text-[11px] text-slate-400 italic">
+                Are you sure you want to proceed? Click <strong>Continue</strong> to apply changes or <strong>Cancel</strong> to review.
+            </p>
+        </div>
+        <!-- Footer -->
+        <div class="px-6 py-4 flex items-center justify-end gap-2 bg-slate-50 border-t border-slate-200">
+            <button type="button" onclick="closeModal('confirmDangerousPermissionModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-100 transition text-xs font-semibold cursor-pointer">
+                Cancel
+            </button>
+            <button type="button" id="confirmDangerousPermContinueBtn" onclick="executeModalPermissionsSubmit()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition text-xs font-semibold shadow-sm flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-arrow-right text-xs"></i> <span id="confirmDangerousPermContinueBtnText">Continue</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ============================================================ -->
 <!-- SET USER STATUS MODAL (3-STATE STATUS PICKER)               -->
 <!-- ============================================================ -->
@@ -1488,6 +1553,7 @@ $title = 'User Management';
     let currentModalRoleId = null;
     let currentModalUserId = null;
     let currentModalRoleName = '';
+    let currentModalUserName = '';
 
     function managePermissions(userId) {
         const row = document.querySelector(`.user-row[data-id="${userId}"]`);
@@ -1517,10 +1583,10 @@ $title = 'User Management';
             }
         }
 
-        const roleTitleEl = document.getElementById('permModalUserRoleTitle');
+        const roleTitleEl = document.getElementById('permModalUserRoleTitle') || document.getElementById('permModalTitle');
         if (roleTitleEl) roleTitleEl.textContent = `${fullName} (${empId})`;
 
-        const subEl = document.getElementById('permModalUserRoleSub');
+        const subEl = document.getElementById('permModalUserRoleSub') || document.getElementById('permModalSub');
         if (subEl) {
             if (!IS_SYSTEM_ADMIN) {
                 subEl.textContent = `Role: ${targetRole} • Scope: ${CURRENT_USER_DEPT || 'Department'} & Main Controls`;
@@ -1568,6 +1634,7 @@ $title = 'User Management';
         currentModalRoleId = matchedRoleId;
         currentModalUserId = userId;
         currentModalRoleName = targetRole;
+        currentModalUserName = `${fullName}${empId ? ` (${empId})` : ''}`;
 
         openModal('manageUserPermissionsModal');
 
@@ -1663,10 +1730,42 @@ $title = 'User Management';
             return;
         }
 
+        const selectedIds = [];
+        document.querySelectorAll('.modal-perm-checkbox:checked').forEach(cb => {
+            selectedIds.push(cb.dataset.id);
+        });
+
+        const userEl = document.getElementById('confirmDangerousPermUser');
+        const roleEl = document.getElementById('confirmDangerousPermRole');
+        const countEl = document.getElementById('confirmDangerousPermCount');
+
+        if (userEl) userEl.textContent = currentModalUserName || 'Selected User';
+        if (roleEl) roleEl.textContent = currentModalRoleName || 'Unassigned Role';
+        if (countEl) countEl.textContent = `${selectedIds.length} permission${selectedIds.length === 1 ? '' : 's'} selected`;
+
+        // Open dangerous action confirmation modal
+        openModal('confirmDangerousPermissionModal');
+    }
+
+    function executeModalPermissionsSubmit() {
+        if (!currentModalRoleId) {
+            showToast('No role matrix ID resolved for permission update', 'danger', 'Error');
+            return;
+        }
+
+        const continueBtn = document.getElementById('confirmDangerousPermContinueBtn');
+        const origContinueHtml = continueBtn ? continueBtn.innerHTML : '<i class="fa-solid fa-arrow-right text-xs"></i> <span>Continue</span>';
+        if (continueBtn) {
+            continueBtn.disabled = true;
+            continueBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs mr-1"></i> Saving...';
+        }
+
         const saveBtn = document.getElementById('saveUserPermsModalBtn');
-        const origHtml = saveBtn.innerHTML;
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs mr-1"></i> Saving...';
+        const origSaveBtnHtml = saveBtn ? saveBtn.innerHTML : '<i class="fa-solid fa-check text-xs"></i> Save Permissions';
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs mr-1"></i> Saving...';
+        }
 
         const selectedIds = [];
         document.querySelectorAll('.modal-perm-checkbox:checked').forEach(cb => {
@@ -1684,21 +1783,37 @@ $title = 'User Management';
         })
         .then(res => res.json())
         .then(data => {
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = origHtml;
+            if (continueBtn) {
+                continueBtn.disabled = false;
+                continueBtn.innerHTML = origContinueHtml;
+            }
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = origSaveBtnHtml;
+            }
 
             if (data.success) {
+                closeModal('confirmDangerousPermissionModal');
+                closeModal('manageUserPermissionsModal');
                 showToast(`🔑 Permissions for ${currentModalRoleName || 'role'} saved successfully!`, 'success', 'Permissions Updated');
                 closeModal('manageUserPermissionsModal');
                 addActivityLogJS(`Updated permissions for role: ${currentModalRoleName || currentModalRoleId}`);
             } else {
+                closeModal('confirmDangerousPermissionModal');
                 const isWarning = (data.message || '').includes('Access Denied') || (data.message || '').includes('Restriction');
                 showToast(data.message || 'Failed to save permissions', isWarning ? 'warning' : 'danger', isWarning ? 'Access Restriction' : 'Permission Error');
             }
         })
         .catch(err => {
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = origHtml;
+            if (continueBtn) {
+                continueBtn.disabled = false;
+                continueBtn.innerHTML = origContinueHtml;
+            }
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = origSaveBtnHtml;
+            }
+            closeModal('confirmDangerousPermissionModal');
             showToast('Error connecting to permission server', 'danger', 'Connection Error');
             console.error(err);
         });
@@ -1755,6 +1870,10 @@ $title = 'User Management';
                 el.classList.add('hidden');
                 el.classList.remove('flex');
                 document.body.classList.remove('overflow-hidden');
+                const anyOpen = document.querySelectorAll('.fixed.inset-0.flex:not(.hidden)');
+                if (anyOpen.length === 0) {
+                    document.body.classList.remove('overflow-hidden');
+                }
             }
         }
     }
@@ -2198,7 +2317,8 @@ $title = 'User Management';
     .filter-btn-activity:not(.active):hover {
         opacity: 0.8;
     }
-    
+</style>
+
 <!-- CLEAR ACTIVITY LOGS CONFIRMATION MODAL -->
 <div id="clearLogsModal" class="fixed inset-0 z-50 items-center justify-center hidden bg-slate-900/50 backdrop-blur-sm p-4 transition-opacity">
     <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 text-center transform transition-all scale-95 opacity-0 duration-200" id="clearLogsModalCard">

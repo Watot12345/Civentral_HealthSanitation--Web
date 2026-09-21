@@ -244,4 +244,35 @@ class SchedulerLog
         }
         return $found;
     }
+
+    /**
+     * Clear all scheduler logs (DB and fallback JSON file)
+     */
+    public function clearAll(): bool
+    {
+        // 1. Delete from database if table exists
+        try {
+            $this->db->delete($this->table, ['id' => 'gt.0'], true);
+        } catch (\Throwable $e) {
+            error_log("SchedulerLog::clearAll DB Error: " . $e->getMessage());
+        }
+
+        // 2. Clear fallback JSON file
+        if (file_exists($this->fallbackFile)) {
+            @file_put_contents($this->fallbackFile, json_encode([], JSON_PRETTY_PRINT));
+        }
+
+        // 3. Clear file-based scheduler log if present
+        $renewalLog = dirname($this->fallbackFile) . '/renewal_notices.log';
+        if (file_exists($renewalLog)) {
+            @file_put_contents($renewalLog, '');
+        }
+
+        if (class_exists('\\App\\Cache\\CacheManager')) {
+            (new \App\Cache\CacheManager())->clear();
+        }
+
+        return true;
+    }
 }
+

@@ -494,7 +494,7 @@ try {
             break;
 
         // ==========================================================
-        // CLEAR LOGS — Delete all activity logs
+        // CLEAR LOGS — Delete all activity & scheduler logs
         // ==========================================================
         case 'clear_logs':
             if (!$isSystemAdmin) {
@@ -502,7 +502,24 @@ try {
                 break;
             }
             $logModel->clearAll();
-            $response = ['success' => true, 'message' => 'Activity logs cleared.'];
+            require_once __DIR__ . '/../app/Models/SchedulerLog.php';
+            $schedulerModel = new SchedulerLog();
+            $schedulerModel->clearAll();
+            $response = ['success' => true, 'message' => 'Activity and scheduler logs cleared.'];
+            break;
+
+        // ==========================================================
+        // CLEAR SCHEDULER LOGS — Delete background job execution logs
+        // ==========================================================
+        case 'clear_scheduler_logs':
+            if (!$isSystemAdmin) {
+                $response = ['success' => false, 'message' => 'Access Denied: Only System Administrators can clear scheduler logs.'];
+                break;
+            }
+            require_once __DIR__ . '/../app/Models/SchedulerLog.php';
+            $schedulerModel = new SchedulerLog();
+            $schedulerModel->clearAll();
+            $response = ['success' => true, 'message' => 'Scheduler logs cleared successfully.'];
             break;
 
         default:
