@@ -896,8 +896,8 @@ class AiAnalyticsService
             return [
                 'current'    => 0,
                 'forecast'   => array_fill(0, $steps + 1, 0),
-                'confidence' => 88,
-                'r_squared'  => 0.85,
+                'confidence' => 50,
+                'r_squared'  => 0.0,
                 'slope'      => 0.0,
                 'growth_pct' => 0.0
             ];
@@ -910,6 +910,50 @@ class AiAnalyticsService
         // Baseline recent moving average
         $recentSlice = array_slice($historicalValues, max(0, $n - 3));
         $recentAvg = count($recentSlice) > 0 ? (array_sum($recentSlice) / count($recentSlice)) : $currentVal;
+
+        // Helper: compute R² from OLS regression
+        $computeRSquared = function(array $vals) {
+            $cnt = count($vals);
+            if ($cnt < 2) return 0.0;
+            $mean = array_sum($vals) / $cnt;
+            if ($mean == 0) return 0.0;
+
+            $ssTot = 0; $ssRes = 0;
+            $sumX = 0; $sumY = 0; $sumXY = 0; $sumXX = 0;
+            foreach ($vals as $i => $y) {
+                $sumX += $i; $sumY += $y; $sumXY += $i * $y; $sumXX += $i * $i;
+            }
+            $denom = ($cnt * $sumXX) - ($sumX * $sumX);
+            $slope = $denom != 0 ? (($cnt * $sumXY) - ($sumX * $sumY)) / $denom : 0;
+            $intercept = ($sumY - $slope * $sumX) / $cnt;
+
+            foreach ($vals as $i => $y) {
+                $predicted = $intercept + $slope * $i;
+                $ssRes += ($y - $predicted) ** 2;
+                $ssTot += ($y - $mean) ** 2;
+            }
+            return $ssTot > 0 ? max(0.0, round(1 - ($ssRes / $ssTot), 4)) : 0.0;
+        };
+
+        // Helper: compute data-driven confidence (0-100)
+        $computeConfidence = function(array $vals, float $rSquared) {
+            $cnt = count($vals);
+            // Base confidence from R²: higher fit = higher confidence
+            $fitScore = $rSquared * 60; // 0-60 points from model fit
+            // Data quantity bonus: more data = more confidence (up to 25 points)
+            $dataScore = min(25, $cnt * 5);
+            // Stability bonus: lower coefficient of variation = higher confidence (up to 15 points)
+            $mean = $cnt > 0 ? array_sum($vals) / $cnt : 0;
+            $variance = 0;
+            foreach ($vals as $v) { $variance += ($v - $mean) ** 2; }
+            $stddev = $cnt > 1 ? sqrt($variance / ($cnt - 1)) : 0;
+            $cv = ($mean > 0) ? ($stddev / $mean) : 1.0;
+            $stabilityScore = max(0, 15 - ($cv * 15));
+
+            return (int)max(30, min(99, round($fitScore + $dataScore + $stabilityScore)));
+        };
+
+        $rSquared = $computeRSquared($historicalValues);
 
         // If dataset has few data points, use damped baseline trajectory
         if ($nonZeroCount <= 2 && $currentVal <= 10) {
@@ -924,11 +968,12 @@ class AiAnalyticsService
             }
             $lastProj = end($trajectory);
             $growthPct = $currentVal > 0 ? round((($lastProj - $currentVal) / $currentVal) * 100, 1) : 0.0;
+            $confidence = $computeConfidence($historicalValues, $rSquared);
             return [
                 'current'    => $currentVal,
                 'forecast'   => $trajectory,
-                'confidence' => 91,
-                'r_squared'  => 0.88,
+                'confidence' => $confidence,
+                'r_squared'  => round($rSquared, 2),
                 'slope'      => round($baseGrowth, 3),
                 'growth_pct' => $growthPct
             ];
@@ -958,19 +1003,20 @@ class AiAnalyticsService
             $cumulativeGrowth += $stepDelta;
             $predVal = $currentVal + $cumulativeGrowth;
 
-            // Municipal ceiling clamp: prevent spikes higher than 1.6x of recent baseline
-            $ceiling = max(8, (int)round(max($currentVal, $recentAvg) * 1.6) + 4);
+            // Municipal ceiling clamp: allow up to 2.5x of recent baseline for outbreak detection
+            $ceiling = max(8, (int)round(max($currentVal, $recentAvg) * 2.5) + 4);
             $trajectory[] = min($ceiling, max(0, (int)round($predVal)));
         }
 
         $lastProj = end($trajectory);
         $growthPct = $currentVal > 0 ? round((($lastProj - $currentVal) / $currentVal) * 100, 1) : 0.0;
+        $confidence = $computeConfidence($historicalValues, $rSquared);
 
         return [
             'current'    => $currentVal,
             'forecast'   => $trajectory,
-            'confidence' => 93,
-            'r_squared'  => 0.90,
+            'confidence' => $confidence,
+            'r_squared'  => round($rSquared, 2),
             'slope'      => round($dampedSlope, 3),
             'growth_pct' => $growthPct
         ];
@@ -2171,16 +2217,30 @@ class AiAnalyticsService
             foreach ($predictive['cards'] as $c) {
                 if (isset($c['r_squared'])) {
                     $rSquaredSum += (float)$c['r_squared'];
+                    $rVal = (float)str_replace('%', '', $c['r_squared']);
+                    // Normalize: if stored as percentage string like "0.85", it's already a ratio
+                    if ($rVal > 1) $rVal = $rVal / 100;
+                    $rSquaredSum += $rVal;
                     $rSquaredCount++;
                 }
             }
         }
         $avgRSquared = $rSquaredCount > 0 ? ($rSquaredSum / $rSquaredCount) : 0.92;
+        // Use 0.0 as fallback instead of inflated 0.92 — show honest metrics
+        $avgRSquared = $rSquaredCount > 0 ? ($rSquaredSum / $rSquaredCount) : 0.0;
         
         $mae = round(max(0.8, (1 - $avgRSquared) * 12.0 + 1.2), 2);
         $rmse = round(sqrt($mae * 2.4) + 0.6, 2);
         $mape = round(max(2.5, min(14.0, (1 - $avgRSquared) * 40)), 1) . '%';
         $healthScore = round(min(99.4, max(82.0, ($avgRSquared * 100))), 1) . '% (' . ($avgRSquared >= 0.85 ? 'High Precision' : 'Calibrating') . ')';
+
+        $precisionLabel = match(true) {
+            $avgRSquared >= 0.85 => 'High Precision',
+            $avgRSquared >= 0.60 => 'Moderate Precision',
+            $avgRSquared >= 0.30 => 'Low Precision',
+            default              => 'Insufficient Data'
+        };
+        $healthScore = round(min(99.4, max(0.0, ($avgRSquared * 100))), 1) . '% (' . $precisionLabel . ')';
 
         return [
             'r_squared'        => round($avgRSquared, 3),

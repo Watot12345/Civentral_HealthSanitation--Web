@@ -785,8 +785,184 @@ td .text-slate-600.maskable.masked::after {
     // ============================================================
     const API_BASE = '<?php echo site_url('api'); ?>';
     const PATIENTS = <?php echo json_encode(array_column($patients, null, 'id'), JSON_PRETTY_PRINT); ?>;
+    const CAN_EDIT_PATIENT = <?php echo $canEditPatient ? 'true' : 'false'; ?>;
     let pendingDeleteId = null;
     let selectedExportFormat = 'csv';
+
+    // ============================================================
+    // DYNAMIC ROW BUILDER (mirrors PHP table row template)
+    // ============================================================
+    function buildPatientRowHtml(p) {
+        const id = p.id || '';
+        const patientId = p.patient_id || '';
+        const firstName = p.first_name || '';
+        const lastName = p.last_name || '';
+        const email = p.email || '';
+        const gender = p.gender || '';
+        const age = p.age || 0;
+        const bloodType = p.blood_type || '';
+        const barangay = p.barangay || '';
+        const status = p.status || 'active';
+        const lastVisit = p.last_visit || new Date().toISOString().slice(0, 10);
+        const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+
+        const genderIcon = gender === 'Male' ? 'fa-mars text-sky-500' : 'fa-venus text-pink-500';
+        const statusClass = status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500';
+        const visitFormatted = formatDate(lastVisit);
+
+        const maskedId = maskPatientCode(patientId);
+        const maskedFirst = maskPatientName(firstName);
+        const maskedLast = maskPatientName(lastName);
+        const maskedEmail = maskPatientName(email);
+        const maskedBarangay = maskPatientName(barangay);
+
+        const editBtn = CAN_EDIT_PATIENT
+            ? `<button onclick="editPatient(${id})" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Patient"><i class="fa-solid fa-pen-to-square text-sm"></i></button>`
+            : '';
+
+        return `
+<tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors patient-row" 
+    data-row-id="${id}" 
+    data-name="${(firstName + ' ' + lastName).toLowerCase()}" 
+    data-id="${patientId}" 
+    data-barangay="${barangay}" 
+    data-status="${status}" 
+    data-last-visit="${lastVisit}">
+    
+    <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold maskable" 
+        data-real="${patientId}"
+        data-masked="${maskedId}">
+        ${maskedId}
+    </td>
+    
+    <td class="px-4 py-3">
+        <div class="flex items-center gap-2.5">
+            <div class="cell-avatar w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
+                ${initials}
+            </div>
+            <div>
+                <p class="cell-name font-semibold text-slate-800 maskable" 
+                   data-real="${firstName} ${lastName}"
+                   data-masked="${maskedFirst} ${maskedLast}">
+                    ${maskedFirst} ${maskedLast}
+                </p>
+                <p class="cell-email text-xs text-slate-400 maskable" 
+                   data-real="${email}"
+                   data-masked="${maskedEmail}">
+                    ${maskedEmail}
+                </p>
+            </div>
+        </div>
+    </td>
+    
+    <td class="px-4 py-3">
+        <span class="cell-gender text-slate-600 text-xs">
+            <i class="fa-solid ${genderIcon}"></i>
+            ${gender}
+        </span>
+    </td>
+    
+    <td class="px-4 py-3 text-slate-600 cell-age">${age}</td>
+    <td class="px-4 py-3">
+        <span class="cell-blood px-2 py-1 bg-rose-50 text-rose-600 rounded text-xs font-semibold">${bloodType}</span>
+    </td>
+    
+    <td class="px-4 py-3 text-slate-600 cell-barangay maskable" 
+        data-real="${barangay}"
+        data-masked="${maskedBarangay}">
+        ${maskedBarangay}
+    </td>
+    
+    <td class="px-4 py-3">
+        <span class="cell-status px-2 py-1 rounded-full text-xs font-semibold ${statusClass}">
+            ${status.charAt(0).toUpperCase() + status.slice(1)}
+        </span>
+    </td>
+    
+    <td class="px-4 py-3 text-slate-500 text-xs cell-visit">${visitFormatted}</td>
+    
+    <td class="px-4 py-3">
+        <div class="flex items-center justify-center gap-1">
+            <button onclick="viewPatient(${id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye text-sm"></i></button>
+            ${editBtn}
+            <button onclick="scheduleAppointment(${id})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Schedule Appointment"><i class="fa-solid fa-calendar-plus text-sm"></i></button>
+            <button onclick="checkInPatient(${id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Check-in / Queue"><i class="fa-solid fa-receipt text-sm"></i></button>
+            <button onclick="openMedicalRecord(${id})" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Medical Record"><i class="fa-solid fa-folder-open text-sm"></i></button>
+        </div>
+    </td>
+</tr>`;
+    }
+
+    function insertPatientRow(patientData) {
+        // Compute age from birth_date if missing
+        if (!patientData.age && patientData.birth_date) {
+            const dob = new Date(patientData.birth_date);
+            const now = new Date();
+            patientData.age = now.getFullYear() - dob.getFullYear() - (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+        }
+        if (!patientData.last_visit) {
+            patientData.last_visit = new Date().toISOString().slice(0, 10);
+        }
+
+        // Update JS data store
+        PATIENTS[patientData.id] = patientData;
+
+        const tbody = document.getElementById('patientTableBody');
+        if (!tbody) return;
+
+        // Build and insert row at the top
+        const temp = document.createElement('tbody');
+        temp.innerHTML = buildPatientRowHtml(patientData);
+        const newRow = temp.firstElementChild;
+        newRow.style.opacity = '0';
+        newRow.style.transform = 'translateY(-10px)';
+        tbody.insertBefore(newRow, tbody.firstChild);
+
+        // Animate in
+        requestAnimationFrame(() => {
+            newRow.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            newRow.style.opacity = '1';
+            newRow.style.transform = 'translateY(0)';
+        });
+
+        // Update "All Patients" count badge
+        const allBtn = document.getElementById('dateFilterBtnAll');
+        if (allBtn) {
+            const count = document.querySelectorAll('.patient-row').length;
+            allBtn.innerHTML = `<i class="fa-solid fa-users mr-1"></i> All Patients (${count})`;
+        }
+    }
+
+    function updatePatientRow(id, patientData) {
+        // Compute age from birth_date if missing
+        if (!patientData.age && patientData.birth_date) {
+            const dob = new Date(patientData.birth_date);
+            const now = new Date();
+            patientData.age = now.getFullYear() - dob.getFullYear() - (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+        }
+        if (!patientData.last_visit) {
+            patientData.last_visit = new Date().toISOString().slice(0, 10);
+        }
+
+        // Update JS data store
+        PATIENTS[id] = { ...PATIENTS[id], ...patientData };
+        const p = PATIENTS[id];
+
+        const oldRow = document.querySelector(`tr[data-row-id="${id}"]`);
+        if (!oldRow) return;
+
+        const temp = document.createElement('tbody');
+        temp.innerHTML = buildPatientRowHtml(p);
+        const newRow = temp.firstElementChild;
+
+        // Flash highlight effect
+        newRow.style.backgroundColor = 'rgba(20, 128, 122, 0.12)';
+        oldRow.replaceWith(newRow);
+        setTimeout(() => {
+            newRow.style.transition = 'background-color 1s ease';
+            newRow.style.backgroundColor = '';
+        }, 50);
+    }
 
     // ============================================================
     // WORKFLOW SHORTCUT NAVIGATION HELPERS
@@ -1110,10 +1286,11 @@ td .text-slate-600.maskable.masked::after {
         if (res.ok && data.success) {
             ModalSystem.toast.success('Patient added successfully!');
             ModalSystem.close('addPatientModal');
-            // Reset the form
             document.getElementById('addPatientForm').reset();
-            // Reload after a moment to show the new patient
-            setTimeout(() => window.location.reload(), 1000);
+            // Dynamically insert new row instead of reloading
+            if (data.data) {
+                insertPatientRow(data.data);
+            }
         } else if (data.is_duplicate || res.status === 409) {
             ModalSystem.close('addPatientModal');
             const searchVal = (firstName + ' ' + lastName).trim();
@@ -1244,7 +1421,10 @@ td .text-slate-600.maskable.masked::after {
             if (res.ok && data.success) {
                 ModalSystem.toast.success('Patient updated successfully!');
                 ModalSystem.close('editPatientModal');
-                setTimeout(() => window.location.reload(), 800);
+                // Dynamically update the row instead of reloading
+                if (data.data) {
+                    updatePatientRow(id, data.data);
+                }
             } else {
                 ModalSystem.toast.error(data.message || 'Failed to update patient');
             }

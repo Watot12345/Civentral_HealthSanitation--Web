@@ -1393,9 +1393,9 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     // APPOINTMENT & TRIAGE PRE-FILL
     // ============================================================
     document.addEventListener('DOMContentLoaded',function(){
-        // Always enforce logged in doctor pre-selection by default
+        // Always enforce logged in doctor pre-selection by default (unlock for admins)
         if (LOGGED_IN_DOCTOR_ID || LOGGED_IN_DOCTOR_NAME) {
-            lockDoctorSelect('add_employee_id', LOGGED_IN_DOCTOR_ID, LOGGED_IN_DOCTOR_NAME, true);
+            lockDoctorSelect('add_employee_id', LOGGED_IN_DOCTOR_ID, LOGGED_IN_DOCTOR_NAME, !IS_ADMIN);
         }
 
         const p=new URLSearchParams(window.location.search);
@@ -1418,8 +1418,8 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                     }
                 }
                 
-                // Pre-select and LOCK assigned doctor
-                lockDoctorSelect('add_employee_id', eid || LOGGED_IN_DOCTOR_ID, dn || LOGGED_IN_DOCTOR_NAME, true);
+                // Pre-select and LOCK assigned doctor (unlock for admins/directors)
+                lockDoctorSelect('add_employee_id', eid || LOGGED_IN_DOCTOR_ID, dn || LOGGED_IN_DOCTOR_NAME, !IS_ADMIN);
 
                 const di=document.getElementById('add_date');if(di&&dt)di.value=dt;
                 const ti=document.getElementById('add_time');if(ti&&tm){const m=tm.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);if(m){let h=parseInt(m[1]);if(m[3].toUpperCase()==='PM'&&h!==12)h+=12;if(m[3].toUpperCase()==='AM'&&h===12)h=0;ti.value=`${h.toString().padStart(2,'0')}:${m[2]}`;}else if(tm.includes(':'))ti.value=tm.substring(0,5);else ti.value=new Date().toTimeString().slice(0,5);}
