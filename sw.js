@@ -1,4 +1,4 @@
-const CACHE_NAME = 'civentral-cache-v5';
+const CACHE_NAME = 'civentral-cache-v6';
 const STATIC_ASSETS = [
     './manifest.json',
     './offline.html',

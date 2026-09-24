@@ -445,14 +445,18 @@ document.addEventListener('DOMContentLoaded', function () {
         hideTooltip();
     };
 
-    window.showStaffTooltip = function (event, name, score, cases, response) {
+    window.showStaffTooltip = function (event, name, score, cases, response, role, isLeadership) {
         const tooltip = document.getElementById('staffTooltip') || createStaffTooltip();
         if (!tooltip) return;
         const rect = event.currentTarget.getBoundingClientRect();
         const status = score >= 85 ? '✅ Exceeds expectations' : score >= 80 ? '✅ Meets expectations' : '⚠️ Needs improvement';
+        const roleRow = role
+            ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:11px;border-bottom:1px solid #f4f4f5;"><span style="color:#71717a;">Role</span><span style="font-weight:700;color:#18181b;text-align:right;max-width:150px;">${role}${isLeadership ? ' · Head/Coordinator' : ''}</span></div>`
+            : '';
 
         tooltip.innerHTML = `
-        <div style="font-weight:700;font-size:13px;color:#18181b;margin-bottom:10px;letter-spacing:-0.01em;">${name}</div>
+        <div style="font-weight:700;font-size:13px;color:#18181b;margin-bottom:10px;letter-spacing:-0.01em;">${name}${isLeadership ? ' <span style="color:#d97706;">★</span>' : ''}</div>
+        ${roleRow}
         <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:11px;border-bottom:1px solid #f4f4f5;"><span style="color:#71717a;">Overall Score</span><span style="font-weight:700;color:#18181b;">${score}%</span></div>
         <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:11px;border-bottom:1px solid #f4f4f5;"><span style="color:#71717a;">Cases Handled</span><span style="font-weight:700;color:#18181b;">${cases}</span></div>
         <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:11px;border-bottom:1px solid #f4f4f5;"><span style="color:#71717a;">Avg. Response Time</span><span style="font-weight:700;color:#18181b;">${response} hrs</span></div>
@@ -817,7 +821,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('correlationInsightText').textContent = data.correlation_insight;
         }
         if (data.staff && typeof updateStaffData === 'function') {
-            updateStaffData(data.staff);
+            updateStaffData(data.staff, data.scope);
         }
         if (data.metrics && typeof renderMetrics === 'function') {
             renderMetrics(data.metrics);
@@ -973,11 +977,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // Staff Performance Handling
     var staffData = [];
 
-    window.updateStaffData = function (liveStaff) {
+    window.updateStaffData = function (liveStaff, scope) {
         staffData = Array.isArray(liveStaff) ? liveStaff : [];
         const countBadge = document.getElementById('staffCountBadge');
         if (countBadge) {
-            countBadge.textContent = staffData.length > 0 ? (staffData.length + ' Personnel') : '0 Personnel';
+            // Admin scope ranks every department (heads & coordinators included);
+            // a head / coordinator sees only the staff under their own department.
+            const scopeLabel = (scope && scope !== 'admin') ? 'Department View' : 'All Departments';
+            countBadge.textContent = staffData.length > 0
+                ? (staffData.length + ' Personnel · ' + scopeLabel)
+                : ('0 Personnel');
         }
         if (typeof staffChart !== 'undefined' && staffChart && document.querySelector("#staffChart")) {
             if (staffData.length === 0) {
@@ -998,6 +1007,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function buildStaffOptions(data) {
         const dynamicHeight = Math.max(260, (data.length || 1) * 44);
+        const staffColor = '#6366f1';
+        const leadershipColor = '#f59e0b';
+        // Bars are colour-coded: amber = department head / coordinator, indigo = field staff.
+        const barColors = data.map(function (d) {
+            return d.is_leadership ? leadershipColor : staffColor;
+        });
         return {
             series: [{
                 name: 'Performance',
@@ -1014,7 +1029,15 @@ document.addEventListener('DOMContentLoaded', function () {
                         clearTimeout(window.__staffHideTimer);
                         const d = data[config.dataPointIndex];
                         if (d) {
-                            showStaffTooltip(event, d.name, d.score, d.cases, d.response);
+                            showStaffTooltip(
+                                event,
+                                d.name,
+                                d.score,
+                                d.cases,
+                                d.response,
+                                d.position || d.role || '',
+                                !!d.is_leadership
+                            );
                         }
                     },
                     dataPointMouseLeave: function () {
@@ -1024,13 +1047,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
             },
-            colors: ['#6366f1'],
+            colors: barColors,
             plotOptions: {
-                bar: { borderRadius: 6, horizontal: true, barHeight: '52%' }
+                bar: { borderRadius: 6, horizontal: true, barHeight: '52%', distributed: true }
             },
             grid: { borderColor: '#f4f4f5', strokeDashArray: 3 },
             xaxis: {
-                categories: data.map(function (d) { return d.name; }),
+                categories: data.map(function (d) { return (d.is_leadership ? '★ ' : '') + d.name; }),
                 labels: { style: { colors: '#a1a1aa', fontSize: '11px', fontWeight: '500' } },
                 max: 100,
                 axisBorder: { show: false },
@@ -1066,7 +1089,10 @@ document.addEventListener('DOMContentLoaded', function () {
         staffChart = new ApexCharts(staffChartEl, {
             series: [],
             noData: { text: 'Loading personnel records...', style: { color: '#a1a1aa', fontSize: '11px' } },
-            chart: { type: 'bar', height: 260, toolbar: { show: false } }
+            chart: { type: 'bar', height: 260, toolbar: { show: false } },
+            colors: ['#6366f1'],
+            // distributed lets each bar keep its own colour (amber for heads/coordinators)
+            plotOptions: { bar: { horizontal: true, distributed: true } }
         });
         staffChart.render();
 

@@ -328,9 +328,22 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   </style>
   
   <!-- Session Configuration -->
+  <?php
+  // Master switch: SESSION_TIMEOUT_ENABLED in .env (true = on, false = off).
+  // When off, the inactivity countdown, warning modal and auto-logout are all skipped client-side.
+  $sessionTimeoutEnabled = !in_array(
+      strtolower((string) Env::get('SESSION_TIMEOUT_ENABLED', 'true')),
+      ['false', '0', 'off', 'no'],
+      true
+  );
+  $sessionTimeoutSecs = $sessionTimeoutEnabled
+      ? (class_exists('Settings') ? (int) Settings::get('security.session_timeout', 120) : 120)
+      : 0;
+  ?>
   <script>
     window.SESSION_CONFIG = {
-      timeoutSecs: <?= class_exists('Settings') ? (int)Settings::get('security.session_timeout', 120) : 120 ?>,
+      timeoutEnabled: <?= $sessionTimeoutEnabled ? 'true' : 'false' ?>,
+      timeoutSecs: <?= (int) $sessionTimeoutSecs ?>,
       loginUrl: '<?= site_url('login.php?session_expired=1') ?>',
       logoutUrl: '<?= site_url('logout.php?session_expired=1') ?>',
       heartbeatUrl: '<?= site_url('api/heartbeat.php') ?>'

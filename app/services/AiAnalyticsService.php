@@ -1668,6 +1668,9 @@ class AiAnalyticsService
         $isAdmin = ($scope === 'admin');
         $mappedDept = $deptMap[$scope] ?? null;
 
+        // Single source of truth for department head / coordinator detection (resolved once).
+        $permService = \App\Services\PermissionService::getInstance();
+
         $employees = $snap['employees'] ?? [];
         if (empty($employees)) {
             $empFilters = (!$isAdmin && !empty($mappedDept)) ? ['department' => 'ilike.%' . $mappedDept . '%'] : [];
@@ -1760,23 +1763,33 @@ class AiAnalyticsService
 
             $dept = trim($emp['department'] ?? 'Health Center Services');
             $role = trim($emp['role'] ?? $emp['role_description'] ?? 'Staff');
+            $position = trim($emp['role_description'] ?? $emp['role'] ?? $role);
+
+            // The runtime session role is the descriptive position (role_description) with the
+            // role column as fallback — see login.php. Use the same precedence here so the
+            // ranking matches what the app considers this employee to be.
+            $effectiveRole = $position !== '' ? $position : $role;
+            $roleKey = strtolower($effectiveRole);
 
             // Department key mapping for scope filtering
             $deptLower = strtolower($dept);
             $roleLower = strtolower($role);
 
-            // Exclude Admins, Directors, Heads, and Leads from subordinate staff ranking
-            $isLeadership = str_contains($roleLower, 'admin')
-                || str_contains($roleLower, 'director')
-                || str_contains($roleLower, 'head')
-                || str_contains($roleLower, 'lead')
-                || str_contains($roleLower, 'chief')
-                || str_contains($roleLower, 'manager')
-                || str_contains($roleLower, 'supervisor')
-                || str_contains($roleLower, 'officer-in-charge')
-                || str_contains($roleLower, 'oic');
+            // System Administrator accounts are never part of the departmental ranking.
+            if (str_contains($roleKey, 'admin') || str_contains($roleKey, 'administrator')) {
+                continue;
+            }
 
-            if ($isLeadership) {
+            // Single source of truth for department head / coordinator detection.
+            // The Wastewater head title ("Wastewater Officer") carries no head keyword,
+            // so it is matched explicitly alongside its "Lead" alias.
+            $isLeadership = $permService->isHeadOrAdminRole($effectiveRole)
+                || in_array($roleKey, ['wastewater officer', 'wastewater lead'], true);
+
+            // A Head / Coordinator only ranks the staff UNDER them, so leadership peers
+            // (other heads, coordinators, directors) are excluded from their view.
+            // The System Admin sees everyone, including department heads & coordinators.
+            if ($isLeadership && !$isAdmin) {
                 continue;
             }
 
@@ -1813,14 +1826,16 @@ class AiAnalyticsService
             $responseTime = round(max(1.5, 5.5 - ($taskCount * 0.1)), 1);
 
             $allStaff[] = [
-                'id'         => $empId,
-                'name'       => $name,
-                'role'       => $role,
-                'score'      => $score,
-                'department' => $dept,
-                'dept_key'   => $deptKey,
-                'cases'      => $taskCount,
-                'response'   => $responseTime
+                'id'            => $empId,
+                'name'          => $name,
+                'role'          => $role,
+                'position'      => $position,
+                'is_leadership' => $isLeadership,
+                'score'         => $score,
+                'department'    => $dept,
+                'dept_key'      => $deptKey,
+                'cases'         => $taskCount,
+                'response'      => $responseTime
             ];
         }
 
@@ -1835,11 +1850,11 @@ class AiAnalyticsService
         if (empty($allStaff)) {
             // Fallback safety if no employees exist in DB
             return [
-                ['name' => 'Default Staff', 'score' => 85, 'department' => 'Health Center', 'dept_key' => 'health_center', 'cases' => 10, 'response' => 3.5]
+                ['name' => 'Default Staff', 'role' => 'Staff', 'position' => 'Staff', 'is_leadership' => false, 'score' => 85, 'department' => 'Health Center', 'dept_key' => 'health_center', 'cases' => 10, 'response' => 3.5]
             ];
         }
 
-        // Admin bypass: sees all staff across all 5 municipal departments (unchanged)
+        // Admin bypass: sees every staff member, including department heads & coordinators
         if ($isAdmin) {
             return $allStaff;
         }

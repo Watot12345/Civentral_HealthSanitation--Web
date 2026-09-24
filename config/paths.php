@@ -303,7 +303,20 @@ if (file_exists(__DIR__ . '/../app/helpers/Settings.php')) {
         }
 
         // 3. Enforce Session Inactivity Timeout
-        if (!empty($_SESSION['logged_in'])) {
+        // Master switch: SESSION_TIMEOUT_ENABLED in .env (true = on, false = off).
+        $sessionTimeoutEnabled = !in_array(
+            strtolower((string) Env::get('SESSION_TIMEOUT_ENABLED', 'true')),
+            ['false', '0', 'off', 'no'],
+            true
+        );
+
+        if (!$sessionTimeoutEnabled) {
+            // Timeout disabled — keep last_activity fresh so that re-enabling the switch
+            // later does not instantly expire every currently active session.
+            if (!empty($_SESSION['logged_in'])) {
+                $_SESSION['last_activity'] = time();
+            }
+        } elseif (!empty($_SESSION['logged_in'])) {
             $sessionTimeout = (int)Settings::get('security.session_timeout', 120);
             if ($sessionTimeout > 0 && isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $sessionTimeout)) {
                 $expiredUserId = $_SESSION['user_id'] ?? null;

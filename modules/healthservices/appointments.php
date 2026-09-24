@@ -499,7 +499,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                         <i class="fa-solid fa-calendar-check text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-slate-900"><?php echo $totalAppointments; ?></p>
+                        <p class="text-2xl font-black text-slate-900" id="kpiTotalAppointments"><?php echo $totalAppointments; ?></p>
                         <p class="text-xs font-medium text-slate-500">Total Bookings</p>
                     </div>
                 </div>
@@ -519,7 +519,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                         <i class="fa-solid fa-check-circle text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-emerald-600"><?php echo $totalApproved; ?></p>
+                        <p class="text-2xl font-black text-emerald-600" id="kpiApprovedAppointments"><?php echo $totalApproved; ?></p>
                         <p class="text-xs font-medium text-slate-500">Approved</p>
                     </div>
                 </div>
@@ -539,7 +539,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                         <i class="fa-solid fa-clock text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-amber-600"><?php echo $totalPending; ?></p>
+                        <p class="text-2xl font-black text-amber-600" id="kpiPendingAppointments"><?php echo $totalPending; ?></p>
                         <p class="text-xs font-medium text-slate-500">Pending</p>
                     </div>
                 </div>
@@ -559,7 +559,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                         <i class="fa-solid fa-calendar-day text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-sky-600"><?php echo $todayAppointments; ?></p>
+                        <p class="text-2xl font-black text-sky-600" id="kpiTodayAppointments"><?php echo $todayAppointments; ?></p>
                         <p class="text-xs font-medium text-slate-500">Today's Schedule</p>
                     </div>
                 </div>
@@ -650,6 +650,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                             $maskedCode = substr($code, 0, 2) . str_repeat('*', max(0, strlen($code) - 2));
                         ?>
                         <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors appointment-row"
+                            data-id="<?php echo $a['id']; ?>"
                             data-patient="<?php echo htmlspecialchars(strtolower($a['patient_name'])); ?>"
                             data-doctor="<?php echo htmlspecialchars(strtolower($a['doctor_name'])); ?>"
                             data-service="<?php echo htmlspecialchars(strtolower($a['service_type'])); ?>"

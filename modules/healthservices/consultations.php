@@ -403,7 +403,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                         <i class="fa-solid fa-stethoscope text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-slate-900"><?php echo $totalConsultations; ?></p>
+                        <p class="text-2xl font-black text-slate-900" id="kpiTotalConsultations"><?php echo $totalConsultations; ?></p>
                         <p class="text-xs font-medium text-slate-500">Total Consultations</p>
                     </div>
                 </div>
@@ -423,7 +423,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                         <i class="fa-solid fa-check-circle text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-emerald-600"><?php echo $completedCount; ?></p>
+                        <p class="text-2xl font-black text-emerald-600" id="kpiCompletedConsultations"><?php echo $completedCount; ?></p>
                         <p class="text-xs font-medium text-slate-500">Completed</p>
                     </div>
                 </div>
@@ -443,7 +443,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                         <i class="fa-solid fa-arrow-right-from-bracket text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-amber-600"><?php echo $referredCount; ?></p>
+                        <p class="text-2xl font-black text-amber-600" id="kpiReferredConsultations"><?php echo $referredCount; ?></p>
                         <p class="text-xs font-medium text-slate-500">Referred Cases</p>
                     </div>
                 </div>
@@ -463,7 +463,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                         <i class="fa-solid fa-calendar-day text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-sky-600"><?php echo $todayCount; ?></p>
+                        <p class="text-2xl font-black text-sky-600" id="kpiTodayConsultations"><?php echo $todayCount; ?></p>
                         <p class="text-xs font-medium text-slate-500">Today's Consultations</p>
                     </div>
                 </div>
@@ -526,6 +526,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         <?php else: ?>
             <?php foreach ($paginatedConsultations as $c): ?>
             <div class="consultation-card bg-white rounded-xl shadow-xs border border-slate-200 p-4 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                 data-id="<?php echo $c['id']; ?>"
                  data-patient="<?php echo htmlspecialchars(strtolower($c['patient_code'])); ?>"
                  data-doctor="<?php echo htmlspecialchars(strtolower($c['doctor_name'])); ?>"
                  data-diagnosis="<?php echo htmlspecialchars(strtolower($c['diagnosis'])); ?>"
@@ -560,6 +561,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                     <div class="flex items-center gap-1.5 flex-wrap">
                         <button onclick="viewConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye mr-1"></i> View</button>
                         <button onclick="editConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Record"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
+                        <button onclick="deleteConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Delete Record"><i class="fa-solid fa-trash mr-1"></i> Delete</button>
                     </div>
                     <div class="flex items-center gap-1 flex-wrap">
                         <button onclick="openPatientProfile(<?php echo $c['patient_id']; ?>)" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="View Patient Profile"><i class="fa-solid fa-address-card text-xs"></i></button>
@@ -728,6 +730,197 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     function maskPatientCode(code) {
         if (!code || code.length <= 2) return code || '';
         return code.substring(0, 2) + '*'.repeat(code.length - 2);
+    }
+
+    function formatConsultationDateTime(dateStr, timeStr) {
+        if (!dateStr) return '';
+        const parts = dateStr.split('-');
+        let dateFormatted = dateStr;
+        if (parts.length === 3) {
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const m = parseInt(parts[1], 10) - 1;
+            dateFormatted = `${months[m]} ${parseInt(parts[2], 10)}, ${parts[0]}`;
+        }
+        let timeFormatted = '';
+        if (timeStr) {
+            const tParts = timeStr.split(':');
+            const h = parseInt(tParts[0], 10);
+            const m = tParts[1] || '00';
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            timeFormatted = ` ${String(h12).padStart(2, '0')}:${m} ${ampm}`;
+        }
+        return dateFormatted + timeFormatted;
+    }
+
+    function updateConsultationKPIs() {
+        const allCards = document.querySelectorAll('.consultation-card');
+        const total = allCards.length;
+        const totalEl = document.getElementById('kpiTotalConsultations');
+        if (totalEl) totalEl.textContent = total;
+
+        let completed = 0;
+        let referred = 0;
+        let todayCount = 0;
+        const todayStr = new Date().toISOString().slice(0, 10);
+
+        allCards.forEach(card => {
+            const status = (card.dataset.status || '').toLowerCase();
+            const servedStatuses = ['completed', 'consulted', 'follow_up', 'referred', 'in_consultation'];
+            if (servedStatuses.includes(status)) completed++;
+            if (status === 'referred') referred++;
+            if (card.dataset.date === todayStr) todayCount++;
+        });
+
+        const completedEl = document.getElementById('kpiCompletedConsultations');
+        if (completedEl) completedEl.textContent = completed;
+
+        const referredEl = document.getElementById('kpiReferredConsultations');
+        if (referredEl) referredEl.textContent = referred;
+
+        const todayEl = document.getElementById('kpiTodayConsultations');
+        if (todayEl) todayEl.textContent = todayCount;
+    }
+
+    function buildConsultationCardHtml(c) {
+        const id = c.id;
+        const patientCode = c.patient_code || ('P-' + c.patient_id);
+        const patientName = c.patient_name || ('Patient #' + c.patient_id);
+        const initials = c.patient_avatar || (patientName ? patientName.split(' ').map(p => p[0]).join('').slice(0,2).toUpperCase() : 'PT');
+        const maskedName = maskPatientName(patientName);
+        const status = c.status || 'completed';
+        const isCompleted = String(status).toLowerCase() === 'completed';
+        const statusClass = isCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700';
+        const statusText = status.charAt(0).toUpperCase() + status.slice(1);
+        const doctorName = c.doctor_name || 'Medical Staff';
+        const formattedDate = formatConsultationDateTime(c.date, c.time);
+        const icd = c.icd_code || 'N/A';
+        const diagnosis = c.diagnosis || 'No diagnosis provided';
+        const treatment = c.treatment_plan || c.treatment || 'None recorded';
+        const conCode = c.consultation_id || ('CON-' + id);
+
+        return `
+<div class="consultation-card bg-white rounded-xl shadow-xs border border-slate-200 p-4 hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+     data-id="${id}"
+     data-patient="${patientCode.toLowerCase()}"
+     data-doctor="${doctorName.toLowerCase()}"
+     data-diagnosis="${diagnosis.toLowerCase()}"
+     data-icd="${icd.toLowerCase()}"
+     data-status="${status}"
+     data-date="${c.date || ''}">
+    <div>
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">${initials}</div>
+                <div>
+                    <button type="button" onclick="openPatientProfile(${c.patient_id})" class="text-left group block">
+                        <p class="font-semibold text-slate-800 text-sm line-clamp-1 group-hover:text-brand-medium transition maskable" data-real="${patientName}" data-masked="${maskedName}">${maskedName}</p>
+                    </button>
+                    <p class="text-xs text-slate-400 font-mono">${conCode}</p>
+                </div>
+            </div>
+            <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusClass}">${statusText}</span>
+        </div>
+        <div class="space-y-1.5 text-xs">
+            <div class="flex justify-between">
+                <span class="text-slate-500">Doctor / Staff</span>
+                <span class="text-slate-800 font-medium">${doctorName}</span>
+            </div>
+            <div class="flex justify-between"><span class="text-slate-500">Date & Time</span><span class="text-slate-800">${formattedDate}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">ICD-10 Code</span><span class="text-slate-800 font-mono font-bold">${icd}</span></div>
+        </div>
+        <div class="mt-3 pt-2.5 border-t border-slate-100"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Diagnosis</p><p class="text-xs text-slate-800 font-semibold line-clamp-1 mt-0.5">${diagnosis}</p></div>
+        <div class="mt-2"><p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Treatment Plan</p><p class="text-xs text-slate-600 line-clamp-2 mt-0.5">${treatment}</p></div>
+    </div>
+    <div class="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5 flex-wrap">
+            <button onclick="viewConsultation(${id})" class="px-2 py-1 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye mr-1"></i> View</button>
+            <button onclick="editConsultation(${id})" class="px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Record"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
+            <button onclick="deleteConsultation(${id})" class="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Delete Record"><i class="fa-solid fa-trash mr-1"></i> Delete</button>
+        </div>
+        <div class="flex items-center gap-1 flex-wrap">
+            <button onclick="openPatientProfile(${c.patient_id})" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="View Patient Profile"><i class="fa-solid fa-address-card text-xs"></i></button>
+            <button onclick="issuePrescription(${c.patient_id}, ${id})" class="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition" title="Issue Prescription (Optional)"><i class="fa-solid fa-pills text-xs"></i></button>
+            <button onclick="createReferral(${c.patient_id}, ${id})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Create Referral (Optional)"><i class="fa-solid fa-arrow-right-from-bracket text-xs"></i></button>
+            <button onclick="scheduleFollowUp(${c.patient_id}, ${id})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Schedule Follow-up"><i class="fa-solid fa-calendar-plus text-xs"></i></button>
+            <button onclick="openMedicalRecord(${c.patient_id})" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Medical Record Archive"><i class="fa-solid fa-folder-open text-xs"></i></button>
+        </div>
+    </div>
+</div>`;
+    }
+
+    function insertConsultationCard(c) {
+        CONSULTATIONS_DATA[c.id] = c;
+        const grid = document.getElementById('consultationGrid');
+        if (!grid) return;
+
+        const emptyPlaceholder = grid.querySelector('.col-span-full');
+        if (emptyPlaceholder) emptyPlaceholder.remove();
+
+        const temp = document.createElement('div');
+        temp.innerHTML = buildConsultationCardHtml(c);
+        const newCard = temp.firstElementChild;
+        newCard.style.opacity = '0';
+        newCard.style.transform = 'translateY(-10px)';
+        grid.insertBefore(newCard, grid.firstChild);
+
+        requestAnimationFrame(() => {
+            newCard.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            newCard.style.opacity = '1';
+            newCard.style.transform = 'translateY(0)';
+        });
+
+        updateConsultationKPIs();
+        if (typeof ModalSystem !== 'undefined' && ModalSystem.refreshMasking) {
+            ModalSystem.refreshMasking('consultationGrid');
+        }
+    }
+
+    function updateConsultationCard(id, data) {
+        CONSULTATIONS_DATA[id] = { ...CONSULTATIONS_DATA[id], ...data };
+        const c = CONSULTATIONS_DATA[id];
+        const oldCard = document.querySelector(`.consultation-card[data-id="${id}"]`);
+        if (!oldCard) return;
+
+        const temp = document.createElement('div');
+        temp.innerHTML = buildConsultationCardHtml(c);
+        const newCard = temp.firstElementChild;
+
+        newCard.style.backgroundColor = 'rgba(20, 128, 122, 0.12)';
+        oldCard.replaceWith(newCard);
+        setTimeout(() => {
+            newCard.style.transition = 'background-color 1s ease';
+            newCard.style.backgroundColor = '';
+        }, 50);
+
+        updateConsultationKPIs();
+        if (typeof ModalSystem !== 'undefined' && ModalSystem.refreshMasking) {
+            ModalSystem.refreshMasking('consultationGrid');
+        }
+    }
+
+    function removeConsultationCard(id) {
+        delete CONSULTATIONS_DATA[id];
+        const card = document.querySelector(`.consultation-card[data-id="${id}"]`);
+        if (card) {
+            card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.95)';
+            setTimeout(() => {
+                card.remove();
+                updateConsultationKPIs();
+                const grid = document.getElementById('consultationGrid');
+                if (grid && !grid.querySelector('.consultation-card')) {
+                    grid.innerHTML = `
+                        <div class="col-span-full bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-xs">
+                            <div class="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mx-auto mb-4 text-brand-medium text-2xl"><i class="fa-solid fa-stethoscope"></i></div>
+                            <h3 class="text-lg font-bold text-slate-800">No consultations recorded yet</h3>
+                            <p class="text-sm text-slate-500 mt-1 max-w-md mx-auto">Click "New Consultation" above to create your first patient consultation record.</p>
+                            <button onclick="ModalSystem.open('addConsultationModal')" class="mt-4 px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium text-sm font-semibold inline-flex items-center gap-2"><i class="fa-solid fa-plus text-xs"></i> New Consultation</button>
+                        </div>`;
+                }
+            }, 300);
+        }
     }
 
     // ============================================================
@@ -1106,7 +1299,20 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                         window.location.href = `referrals.php?patient_id=${patientId}&consultation_id=${createdId}&from_consultation=true`;
                     }, 800);
                 } else {
-                    setTimeout(() => window.location.reload(), 1000);
+                    const pat = PATIENTS_MAP[patientId] || {};
+                    const doctorSelect = document.getElementById('add_employee_id');
+                    const doctorName = doctorSelect?.options[doctorSelect.selectedIndex]?.text.split('(')[0].trim() || 'Attending Doctor';
+                    const newRecord = {
+                        ...payload,
+                        id: parseInt(createdId) || Date.now(),
+                        consultation_id: data.data?.consultation_id || ('CON-' + (createdId || Date.now())),
+                        patient_name: ((pat.first_name || '') + ' ' + (pat.last_name || '')).trim() || ('Patient #' + patientId),
+                        patient_code: pat.patient_id || ('P-' + patientId),
+                        patient_avatar: (((pat.first_name?.[0] || 'P')) + ((pat.last_name?.[0] || 'T'))).toUpperCase(),
+                        doctor_name: doctorName
+                    };
+                    insertConsultationCard(newRecord);
+                    document.getElementById('addConsultationForm').reset();
                 }
             } else {
                 ModalSystem.toast.error(data.message || 'Failed');
@@ -1222,7 +1428,13 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         try {
             const res = await fetch('<?php echo site_url('api/consultations.php?action=update&id='); ?>' + id, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
             const data = await res.json();
-            if (data.success) { ModalSystem.toast.success('Consultation updated!'); ModalSystem.close('editConsultationModal'); setTimeout(() => window.location.reload(), 1000); }
+            if (data.success) {
+                ModalSystem.toast.success('Consultation updated!');
+                ModalSystem.close('editConsultationModal');
+                const doctorSelect = document.getElementById('edit_employee_id');
+                const doctorName = doctorSelect?.options[doctorSelect.selectedIndex]?.text.split('(')[0].trim() || (CONSULTATIONS_DATA[id]?.doctor_name || 'Medical Staff');
+                updateConsultationCard(id, { ...payload, doctor_name: doctorName });
+            }
             else { ModalSystem.toast.error(data.message || 'Failed'); }
         } catch (err) { ModalSystem.toast.error('Network error'); }
         finally { submitBtn.disabled = false; submitBtn.innerHTML = `<i class="fa-solid fa-check"></i> Save Changes`; }
@@ -1236,7 +1448,10 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
             try {
                 const res = await fetch('<?php echo site_url('api/consultations.php?action=delete&id='); ?>' + id, { method:'POST' });
                 const data = await res.json();
-                if (data.success) { ModalSystem.toast.success('Consultation deleted!'); setTimeout(() => window.location.reload(), 800); }
+                if (data.success) {
+                    ModalSystem.toast.success('Consultation deleted!');
+                    removeConsultationCard(id);
+                }
                 else { ModalSystem.toast.error(data.message || 'Failed'); }
             } catch (err) { ModalSystem.toast.error('Error deleting consultation'); }
         }, { title:'Delete Consultation', confirmText:'Delete', type:'danger' });

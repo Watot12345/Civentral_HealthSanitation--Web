@@ -733,7 +733,12 @@ class PermissionService
     }
 
     /**
-     * Helper to check if role is a Department Head, Director, Supervisor, or Admin.
+     * Helper to check if role is a Department Head, Coordinator, Supervisor, or Admin.
+     *
+     * "coordinator" is included so the department Coordinator titles
+     * (Immunization Coordinator, Surveillance Coordinator) are treated the same as
+     * the "... Lead" titles that map to them, matching the scoping used by the
+     * dashboard activity feed and the analytics service.
      */
     public function isHeadOrAdminRole(string $role): bool
     {
@@ -743,6 +748,7 @@ class PermissionService
         $r = strtolower(trim($role));
         return str_contains($r, 'director')
             || str_contains($r, 'head')
+            || str_contains($r, 'coordinator')
             || str_contains($r, 'supervisor')
             || str_contains($r, 'officer-in-charge')
             || str_contains($r, 'oic')

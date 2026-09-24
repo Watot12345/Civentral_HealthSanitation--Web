@@ -54,17 +54,28 @@ Needs user decision on approach and module priority.
 
 ---
 
-## Bug 6: Staff Performance — Head Only — ⏳ PENDING
+## Bug 6: Staff Performance Visibility & Scope — ✅ FIXED
 
-### Status
-Needs clarification on what the actual issue is.
+### Requirement applied
+- **System Admin** → sees the Staff Performance of **everyone, including department heads & coordinators**.
+- **Department Head / Coordinator** → sees **only the staff under them** (their own department's field staff; leadership peers excluded).
 
-> [!IMPORTANT]
-> **Question:** "Staff performance head only" — is the issue that:
-> - **(A)** Department heads **can't** see it (but should)? → Likely a role string mismatch
-> - **(B)** The data shown is wrong/incomplete for heads?
-> - **(C)** You're confirming current behavior is correct and this is not actually a bug?
-> - **(D)** You want to restrict it further (e.g., remove admin access)?
+### What was done
+| # | File | Change |
+|---|------|--------|
+| 1 | `app/services/PermissionService.php` | `isHeadOrAdminRole()` now matches **`coordinator`**. Previously `Immunization Coordinator` / `Surveillance Coordinator` were blocked from the panel (only `... Lead`, `director`, `head`, `chief`, `manager`, `supervisor`, `oic` matched) — inconsistent with `dashboard.php`, which already treated `coordinator` as a head role. |
+| 2 | `app/services/AiAnalyticsService.php` | `getStaffPerformance()` now: (a) detects leadership from **both** `role` and `role_description` (catches coordinators whose role column reads `... Lead`); (b) only excludes leadership when the viewer is **not** an admin — so admins see heads/coordinators; (c) excludes `System Admin` accounts from the ranking entirely; (d) returns new fields `position` and `is_leadership`. |
+| 3 | `pages/ai_insights.php` | Added `$isAdminView`; panel badge is now dynamic (`All Departments` vs `Department View`); description text explains the scope; admins get a colour legend. |
+| 4 | `assets/js/ai-insights-app.js` | Bars are colour-coded via `distributed` (amber = head/coordinator, indigo = field staff); leadership rows are prefixed with `★`; tooltip now shows **Role** + `Head/Coordinator`; `updateStaffData()` keeps the scope label in the count badge. |
+| 5 | `sw.js` | Cache version bumped `v5` → `v6` so clients pick up the updated JS immediately (script is served stale-while-revalidate). |
+
+### Validation performed
+- `php -l` clean on `PermissionService.php`, `AiAnalyticsService.php`, `pages/ai_insights.php`; `node --check` clean on `ai-insights-app.js`.
+- Reflection test on `getStaffPerformance()` with seeded employee data:
+  - admin scope → all 12 departmental records returned, heads/coordinators flagged `is_leadership=true`, `System Admin` excluded.
+  - `health_center` scope → only the 3 Health Center field staff; `Health Center Director` and other departments excluded.
+  - `surveillance` / `immunization` scopes → leadership excluded, nutrition staff correctly included in immunization scope.
+- Role-matrix test on `isHeadOrAdminRole()`: all 8 head/coordinator titles return `true`; Practitioner / Staff / Inspector / Midwife return `false`.
 
 ---
 
@@ -77,4 +88,3 @@ Same scope as Bug #3/4 — will be addressed together once you pick an approach.
 ## Remaining Open Questions
 
 1. **Bug 3/4/7:** Which option (A/B/C)? Which modules first?
-2. **Bug 6:** What exactly is the staff performance issue?

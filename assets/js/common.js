@@ -271,6 +271,22 @@ function throttle(fn, limit = 200) {
     }
 
     const config = window.SESSION_CONFIG || {};
+
+    // Master switch (SESSION_TIMEOUT_ENABLED in .env). When the server reports the
+    // inactivity timeout as disabled, skip the idle countdown, the warning modal,
+    // the heartbeat and the auto-logout entirely.
+    // Backwards compatible: if the flag is absent, fall back to timeoutSecs > 0.
+    const timeoutEnabled = (config.timeoutEnabled === undefined)
+        ? Number(config.timeoutSecs) > 0
+        : !!config.timeoutEnabled;
+    if (!timeoutEnabled) {
+        try {
+            localStorage.removeItem('civentral_last_activity');
+            localStorage.removeItem('civentral_session_expired');
+        } catch (e) {}
+        return;
+    }
+
     const timeoutSecs = Number(config.timeoutSecs) > 0 ? Number(config.timeoutSecs) : 120;
     const logoutUrl = config.logoutUrl || (window.location.origin + '/capstone/logout.php?session_expired=1');
     const loginUrl = config.loginUrl || (window.location.origin + '/capstone/login.php?session_expired=1');
