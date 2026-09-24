@@ -51,20 +51,28 @@ function setDatePreset(preset) {
 
 // ─── TAB NAVIGATION ───────────────────────────────────────────
 function switchTab(tabId) {
-    document.querySelectorAll('.report-tab').forEach(tab => tab.classList.remove('active', 'text-[#176B87]', 'border-[#176B87]'));
-    document.querySelectorAll('.report-tab').forEach(tab => tab.classList.add('text-slate-500', 'border-transparent'));
+    document.querySelectorAll('.report-tab').forEach(tab => {
+        const isActive = tab.dataset.tab === tabId;
+        tab.classList.toggle('active', isActive);
+        tab.classList.toggle('text-[#176B87]', isActive);
+        tab.classList.toggle('border-[#176B87]', isActive);
+        tab.classList.toggle('text-slate-500', !isActive);
+        tab.classList.toggle('border-transparent', !isActive);
+    });
     
     document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
     
-    const targetTab = document.querySelector(`.report-tab[data-tab="${tabId}"]`);
-    if (targetTab) {
-        targetTab.classList.add('active', 'text-[#176B87]', 'border-[#176B87]');
-        targetTab.classList.remove('text-slate-500', 'border-transparent');
-    }
-    
-    const targetContent = document.getElementById('tab' + (tabId === 'summary' ? 'Summary' : tabId === 'chart' ? 'Chart' : 'Table'));
+    const targetContent = document.getElementById('tab' + (tabId === 'summary' ? 'Summary' : (tabId === 'chart' ? 'Chart' : 'Table')));
     if (targetContent) {
         targetContent.classList.remove('hidden');
+    }
+
+    if (tabId === 'chart') {
+        setTimeout(() => {
+            if (barChart && typeof barChart.resize === 'function') barChart.resize();
+            if (doughnutChart && typeof doughnutChart.resize === 'function') doughnutChart.resize();
+            if (lineChart && typeof lineChart.resize === 'function') lineChart.resize();
+        }, 60);
     }
 }
 function openTemplatesListModal() {
@@ -142,7 +150,36 @@ const FACILITY_TO_DEPT_MAP = {
 
 // ─── FILTERING ENGINE ──────────────────────────────────────────
 function getFilteredData() {
-    return allReportRows;
+    const facilitySelect = document.getElementById('facility');
+    const selectedFacility = facilitySelect ? facilitySelect.value : 'all';
+
+    return allReportRows.filter(row => {
+        // 1. Status Filter
+        if (currentStatusFilter && currentStatusFilter !== 'all') {
+            const rowStatus = String(row.status || '').toLowerCase();
+            const filter = String(currentStatusFilter).toLowerCase();
+            if (filter === 'non-compliant') {
+                if (rowStatus !== 'non-compliant' && rowStatus !== 'urgent' && rowStatus !== 'failed') return false;
+            } else if (filter === 'urgent') {
+                if (rowStatus !== 'urgent' && rowStatus !== 'emergency' && rowStatus !== 'high') return false;
+            } else if (filter === 'compliant') {
+                if (rowStatus !== 'compliant' && rowStatus !== 'passed' && rowStatus !== 'resolved') return false;
+            } else if (filter === 'pending') {
+                if (rowStatus !== 'pending' && rowStatus !== 'in_progress' && rowStatus !== 'investigating' && rowStatus !== 'scheduled') return false;
+            }
+        }
+
+        // 2. Facility Filter
+        if (selectedFacility && selectedFacility !== 'all') {
+            const rowFac = String(row.facility || '').toLowerCase();
+            const selFac = String(selectedFacility).toLowerCase();
+            if (selFac !== 'all core departments' && !rowFac.includes(selFac) && !selFac.includes(rowFac)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
 }
 
 // ─── GET CURRENT CONFIG (for templates) ──────────────────────
@@ -353,6 +390,7 @@ function updateCharts(data) {
         if (doughnutChart) {
             doughnutChart.data.labels = ['No Data'];
             doughnutChart.data.datasets[0].data = [1];
+            doughnutChart.data.datasets[0].backgroundColor = ['#e2e8f0'];
             doughnutChart.update();
         }
         if (lineChart) {
@@ -363,33 +401,57 @@ function updateCharts(data) {
         return;
     }
 
-    const catMap = {};
+    // 1. Bar Chart: Facility Distribution (or Module Category if multiple)
+    const facMap = {};
     data.forEach(r => {
-        const c = r.category || 'General';
-        catMap[c] = (catMap[c] || 0) + 1;
+        const fac = r.facility || r.category || 'Central Facility';
+        facMap[fac] = (facMap[fac] || 0) + 1;
     });
-
-    const labels = Object.keys(catMap);
-    const values = Object.values(catMap);
-    const colors = ['#176B87', '#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6', '#ec4899'];
+    const barLabels = Object.keys(facMap);
+    const barValues = Object.values(facMap);
+    const palette = ['#176B87', '#3b82f6', '#0ea5e9', '#6366f1', '#10b981', '#f59e0b', '#8b5cf6'];
 
     if (barChart) {
-        barChart.data.labels = labels;
-        barChart.data.datasets[0].data = values;
-        barChart.data.datasets[0].backgroundColor = colors.slice(0, labels.length);
+        barChart.data.labels = barLabels;
+        barChart.data.datasets[0].data = barValues;
+        barChart.data.datasets[0].backgroundColor = palette.slice(0, barLabels.length);
         barChart.update();
     }
 
+    // 2. Doughnut Chart: Compliance Status Distribution (Compliant, Pending, Urgent)
+    let compliantCount = 0;
+    let pendingCount = 0;
+    let urgentCount = 0;
+    data.forEach(r => {
+        const s = String(r.status || '').toLowerCase();
+        if (s === 'compliant' || s === 'passed' || s === 'resolved') compliantCount++;
+        else if (s === 'urgent' || s === 'failed' || s === 'non-compliant' || s === 'emergency') urgentCount++;
+        else pendingCount++;
+    });
+
     if (doughnutChart) {
-        doughnutChart.data.labels = labels;
-        doughnutChart.data.datasets[0].data = values;
-        doughnutChart.data.datasets[0].backgroundColor = colors.slice(0, labels.length);
+        doughnutChart.data.labels = ['Compliant', 'Pending', 'Urgent'];
+        doughnutChart.data.datasets[0].data = [compliantCount, pendingCount, urgentCount];
+        doughnutChart.data.datasets[0].backgroundColor = ['#10b981', '#f59e0b', '#ef4444'];
         doughnutChart.update();
     }
 
+    // 3. Line Chart: Timeline / Activity Trend over Dates
+    const timelineMap = {};
+    data.forEach(r => {
+        if (r.date && r.date.length >= 7) {
+            const period = r.date.substring(0, 10);
+            timelineMap[period] = (timelineMap[period] || 0) + 1;
+        }
+    });
+
+    const sortedDates = Object.keys(timelineMap).sort();
+    const lineLabels = sortedDates.length > 0 ? sortedDates : ['Active Period'];
+    const lineValues = sortedDates.length > 0 ? sortedDates.map(d => timelineMap[d]) : [data.length];
+
     if (lineChart) {
-        lineChart.data.labels = labels;
-        lineChart.data.datasets[0].data = values;
+        lineChart.data.labels = lineLabels;
+        lineChart.data.datasets[0].data = lineValues;
         lineChart.update();
     }
 }
@@ -454,12 +516,16 @@ function viewRow(index) {
         return;
     }
     const row = data[index];
-    document.getElementById('detailFacility').textContent = row.facility;
-    document.getElementById('detailInspector').textContent = row.inspector;
-    document.getElementById('detailDate').textContent = row.date;
-    document.getElementById('detailScore').textContent = row.score + ' / 100';
+    const facEl = document.getElementById('detailFacility');
+    if (facEl) facEl.textContent = row.facility || 'Central Health Facility';
+    const inspEl = document.getElementById('detailInspector');
+    if (inspEl) inspEl.textContent = row.inspector || 'Designated Officer';
+    const dateEl = document.getElementById('detailDate');
+    if (dateEl) dateEl.textContent = row.date || 'N/A';
+    const scoreEl = document.getElementById('detailScore');
+    if (scoreEl) scoreEl.textContent = (row.score !== undefined ? row.score : 85) + ' / 100';
     const statusEl = document.getElementById('detailStatus');
-    statusEl.textContent = row.status;
+    if (statusEl) statusEl.textContent = row.status || 'Compliant';
     const statusColors = {
         'Compliant': 'text-emerald-600',
         'Pending': 'text-amber-600',
@@ -601,21 +667,21 @@ function renderTemplateList() {
     
     container.innerHTML = templates.map((t, index) => `
         <div class="template-item flex items-center justify-between px-3 py-2.5 rounded-xl border border-[#B4D4FF]/20 hover:border-[#B4D4FF]/50 transition">
-            <div class="flex items-center gap-3 flex-1 min-w-0" onclick="loadTemplateByName('${t.name}')">
+            <div class="flex items-center gap-3 flex-1 min-w-0" onclick="loadLocalTemplateByName('${t.name}')">
                 <i class="fa-regular fa-file-lines text-[#176B87]"></i>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-slate-700 truncate">${t.name}</p>
                     <p class="text-[10px] text-slate-400">${new Date(t.savedAt).toLocaleDateString()}</p>
                 </div>
             </div>
-            <button onclick="deleteTemplate('${t.name}')" class="delete-btn p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition ml-2" title="Delete template">
+            <button onclick="deleteLocalTemplate('${t.name}')" class="delete-btn p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition ml-2" title="Delete template">
                 <i class="fa-regular fa-trash-can text-xs"></i>
             </button>
         </div>
     `).join('');
 }
 
-function loadTemplateByName(name) {
+function loadLocalTemplateByName(name) {
     const templates = getSavedTemplates();
     const template = templates.find(t => t.name === name);
     if (!template) {
@@ -627,7 +693,7 @@ function loadTemplateByName(name) {
     showToast(`Template "${name}" loaded successfully!`, 'success');
 }
 
-function deleteTemplate(name) {
+function deleteLocalTemplate(name) {
     if (!confirm(`Delete template "${name}"?`)) return;
     const templates = getSavedTemplates();
     const filtered = templates.filter(t => t.name !== name);
@@ -668,7 +734,7 @@ async function logReportGeneration(reportName, format) {
 }
 
 // ─── GENERATE REPORT ──────────────────────────────────────────
-function generateReport() {
+async function generateReport() {
     const btn = document.getElementById('generateBtn');
     const originalContent = btn ? btn.innerHTML : '';
     if (btn) {
@@ -676,51 +742,58 @@ function generateReport() {
         btn.disabled = true;
     }
 
-    const data = getFilteredData();
-    const total = data.length;
-    const compliant = data.filter(r => r.status === 'Compliant').length;
-    const nonCompliant = data.filter(r => r.status === 'Non-Compliant').length;
-    const urgent = data.filter(r => r.status === 'Urgent').length;
-    const complianceRate = total > 0 ? ((compliant / total) * 100).toFixed(1) : 0;
+    try {
+        // 1. Fetch live report records from database with current parameter selections
+        await loadLiveReportData();
 
-    // Update Summary Banner
-    const banner = document.getElementById('generatedReportSummary');
-    if (banner) {
-        document.getElementById('bannerCompliance').textContent = complianceRate + '%';
-        document.getElementById('bannerTotal').textContent = total;
-        document.getElementById('bannerNonCompliant').textContent = nonCompliant;
-        document.getElementById('bannerUrgent').textContent = urgent;
+        const data = getFilteredData();
+        const total = data.length;
+        const compliant = data.filter(r => r.status === 'Compliant').length;
+        const nonCompliant = data.filter(r => r.status === 'Non-Compliant').length;
+        const urgent = data.filter(r => r.status === 'Urgent').length;
+        const complianceRate = total > 0 ? ((compliant / total) * 100).toFixed(1) : 0;
 
-        const reportTypeSelect = document.getElementById('reportType');
-        const reportTypeText = reportTypeSelect ? reportTypeSelect.options[reportTypeSelect.selectedIndex]?.text : 'Operational Report';
-        const bannerMeta = document.getElementById('bannerMeta');
-        if (bannerMeta) {
-            bannerMeta.textContent = `${reportTypeText} · Scoped to ${CURRENT_USER.department} · Generated ${new Date().toLocaleTimeString()}`;
+        // 2. Update Summary Banner
+        const banner = document.getElementById('generatedReportSummary');
+        if (banner) {
+            const compEl = document.getElementById('bannerCompliance');
+            if (compEl) compEl.textContent = complianceRate + '%';
+            const totEl = document.getElementById('bannerTotal');
+            if (totEl) totEl.textContent = total;
+            const nonCompEl = document.getElementById('bannerNonCompliant');
+            if (nonCompEl) nonCompEl.textContent = nonCompliant;
+            const urgEl = document.getElementById('bannerUrgent');
+            if (urgEl) urgEl.textContent = urgent;
+
+            const reportTypeSelect = document.getElementById('reportType');
+            const reportTypeText = reportTypeSelect ? reportTypeSelect.options[reportTypeSelect.selectedIndex]?.text : 'Operational Report';
+            const bannerMeta = document.getElementById('bannerMeta');
+            if (bannerMeta) {
+                bannerMeta.textContent = `${reportTypeText} · Scoped to ${CURRENT_USER.department} · Generated ${new Date().toLocaleTimeString()}`;
+            }
+            const badge = document.getElementById('bannerReportBadge');
+            if (badge) {
+                badge.textContent = `Live Ready (${total} records)`;
+            }
+            banner.classList.remove('hidden');
         }
-        const badge = document.getElementById('bannerReportBadge');
-        if (badge) {
-            badge.textContent = `Live Ready (${total} records)`;
-        }
-        banner.classList.remove('hidden');
-    }
 
-    const reportTypeVal = document.getElementById('reportType')?.value || 'report';
-    logReportGeneration(`${reportTypeVal.toUpperCase()} Report Generation`, 'Custom Query Generated');
+        const reportTypeVal = document.getElementById('reportType')?.value || 'report';
+        logReportGeneration(`${reportTypeVal.toUpperCase()} Report Generation`, 'Custom Query Generated');
 
-    setTimeout(() => {
         refreshUI();
         if (btn) {
             btn.innerHTML = '<i class="fa-solid fa-check"></i> Report Ready!';
         }
         showToast('Report generated successfully!', 'success');
         
-        // 1. Automatically generate the AI summary
-        fetchAiReportSummary(true);
+        // 3. Update the AI summary (uses cache when available to prevent rate limits)
+        fetchAiReportSummary(false);
         
-        // 2. Auto-scroll to report preview
+        // 4. Auto-scroll to report preview
         scrollToPreview('chart');
 
-        // 3. Auto-trigger download if export format was requested in the modal
+        // 5. Auto-trigger download if export format was requested in the modal
         const exportFmt = document.getElementById('exportFormat')?.value;
         if (exportFmt) {
             setTimeout(() => {
@@ -730,14 +803,17 @@ function generateReport() {
                 else if (exportFmt === 'word') exportWord();
             }, 600);
         }
-
+    } catch (err) {
+        console.error('Failed to generate report:', err);
+        showToast('Failed to generate report: ' + err.message, 'danger');
+    } finally {
         setTimeout(() => {
             if (btn) {
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
             }
-        }, 2000);
-    }, 400);
+        }, 1500);
+    }
 }
 
 function scrollToPreview(tab = 'chart') {
@@ -1106,15 +1182,6 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', refreshUI);
 });
-
-// ─── TAB SWITCH ──────────────────────────────────────────────
-function switchTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    const selectedTab = document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
-    if (selectedTab) selectedTab.classList.remove('hidden');
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-}
 
 // ─── MODAL CONTROLS ───────────────────────────────────────────
 function openScheduleModal() {
@@ -1616,22 +1683,29 @@ function renderScheduledReports(schedules) {
         return;
     }
 
-    tbody.innerHTML = schedules.map(s => `
+    tbody.innerHTML = schedules.map(s => {
+        const title = s.report_title || s.title || s.report_type || 'Automated Report';
+        const nextRun = s.next_run_at || s.next_run || (s.last_run_at ? 'Completed' : 'Pending');
+        const recipients = Array.isArray(s.recipients) ? s.recipients.join(', ') : (s.recipients || 'admin@caloocan.gov.ph');
+        const format = (s.format || 'PDF').toUpperCase();
+        const freq = s.frequency || 'Weekly';
+
+        return `
         <tr class="table-row-hover transition-colors">
             <td class="py-3 pr-4 font-medium text-[#176B87]">
                 <div class="flex items-center gap-2">
                     <i class="fa-regular fa-calendar-check text-[#86B6F6]"></i>
-                    <span>${escapeExportHtml(s.title || s.report_type || 'Automated Report')}</span>
+                    <span>${escapeExportHtml(title)}</span>
                 </div>
             </td>
-            <td class="py-3 pr-4 text-xs font-semibold text-slate-700">${escapeExportHtml(s.frequency || 'Weekly')}</td>
+            <td class="py-3 pr-4 text-xs font-semibold text-slate-700">${escapeExportHtml(freq)}</td>
             <td class="py-3 pr-4 text-xs font-bold text-slate-600">
-                <span class="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">${escapeExportHtml(s.format || 'PDF')}</span>
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">${escapeExportHtml(format)}</span>
             </td>
-            <td class="py-3 pr-4 text-xs text-slate-500 max-w-[180px] truncate" title="${escapeExportHtml(s.recipients || 'admin@caloocan.gov.ph')}">
-                ${escapeExportHtml(s.recipients || 'admin@caloocan.gov.ph')}
+            <td class="py-3 pr-4 text-xs text-slate-500 max-w-[180px] truncate" title="${escapeExportHtml(recipients)}">
+                ${escapeExportHtml(recipients)}
             </td>
-            <td class="py-3 pr-4 text-xs text-slate-600 whitespace-nowrap">${escapeExportHtml(s.next_run || 'Pending')}</td>
+            <td class="py-3 pr-4 text-xs text-slate-600 whitespace-nowrap">${escapeExportHtml(nextRun)}</td>
             <td class="py-3 pr-4">
                 <span class="status-badge-pill bg-emerald-100 text-emerald-700 border border-emerald-200">
                     <i class="fa-solid fa-circle-dot text-[8px]"></i> Active
@@ -1643,7 +1717,7 @@ function renderScheduledReports(schedules) {
                 </button>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 async function saveSchedule() {

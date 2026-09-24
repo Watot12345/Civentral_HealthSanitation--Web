@@ -261,9 +261,6 @@ $title = 'Settings';
             <button onclick="saveSettings()" id="saveBtn" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-2 shadow-sm cursor-pointer">
                 <i class="fa-solid fa-save text-xs"></i> Save All Settings
             </button>
-            <button onclick="refreshData()" class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition text-sm font-semibold flex items-center gap-2 cursor-pointer">
-                <i class="fa-solid fa-sync-alt text-xs"></i> Refresh
-            </button>
         </div>
     </div>
 
@@ -357,9 +354,6 @@ $title = 'Settings';
     <div class="flex gap-2 mb-6 border-b border-slate-200 overflow-x-auto">
         <button onclick="switchSettingTab('system')" class="setting-tab-btn active px-4 py-2.5 text-sm font-semibold border-b-2 border-brand-dark text-brand-dark transition whitespace-nowrap cursor-pointer" id="tab-system">
             <i class="fa-solid fa-gear"></i> System Configuration
-        </button>
-        <button onclick="switchSettingTab('modules')" class="setting-tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition whitespace-nowrap cursor-pointer" id="tab-modules">
-            <i class="fa-solid fa-puzzle-piece"></i> Module Settings
         </button>
         <button onclick="switchSettingTab('notifications')" class="setting-tab-btn px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 transition whitespace-nowrap cursor-pointer" id="tab-notifications">
             <i class="fa-solid fa-bell"></i> Notification Settings
@@ -534,12 +528,7 @@ $title = 'Settings';
                                     <?php echo $systemConfig['performance']['cache_enabled'] ? 'Active' : 'Bypassed'; ?>
                                 </span>
                             </div>
-                            <div class="mt-3">
-                                <button type="button" onclick="refreshData()" class="w-full px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
-                                    <i class="fa-solid fa-arrows-rotate text-[11px]"></i> Purge & Re-Warm Cache
-                                </button>
                             </div>
-                        </div>
                     </div>
                     <div class="px-5 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
                         <span class="text-xs text-slate-500 flex items-center gap-1.5"><i class="fa-solid fa-gauge-high text-blue-500"></i> Cache synchronized with DB</span>
@@ -549,50 +538,6 @@ $title = 'Settings';
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- TAB CONTENT: MODULE SETTINGS -->
-    <div id="modulesContent" class="setting-tab-content hidden">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <?php foreach ($moduleSettings as $key => $module): ?>
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between <?php echo $module['enabled'] ? 'bg-gradient-to-r from-brand-light/50 to-white' : 'bg-gradient-to-r from-slate-50/50 to-white'; ?>">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 <?php echo $module['enabled'] ? 'bg-brand-light' : 'bg-slate-100'; ?> rounded-lg flex items-center justify-center <?php echo $module['enabled'] ? 'text-brand-dark' : 'text-slate-400'; ?>">
-                            <i class="fa-solid <?php echo $module['icon']; ?>"></i>
-                        </div>
-                        <h3 class="font-semibold text-slate-800"><?php echo htmlspecialchars($module['name']); ?></h3>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="px-2 py-0.5 <?php echo $module['enabled'] ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'; ?> rounded-full text-[10px] font-bold">
-                            <?php echo $module['enabled'] ? 'Active' : 'Inactive'; ?>
-                        </span>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" data-setting-key="modules.<?php echo $key; ?>.enabled" class="sr-only peer" <?php echo $module['enabled'] ? 'checked' : ''; ?>>
-                            <div class="w-9 h-5 bg-slate-200 peer-focus:ring-2 peer-focus:ring-brand-medium/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-dark"></div>
-                        </label>
-                    </div>
-                </div>
-                <div class="p-4 space-y-3">
-                    <?php foreach ($module['settings'] as $settingKey => $value): ?>
-                    <div class="flex items-center justify-between">
-                        <span class="text-sm text-slate-600"><?php echo ucwords(str_replace('_', ' ', $settingKey)); ?></span>
-                        <?php if (is_bool($value)): ?>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" data-setting-key="modules.<?php echo $key; ?>.<?php echo $settingKey; ?>" class="sr-only peer" <?php echo $value ? 'checked' : ''; ?>>
-                                <div class="w-8 h-4 bg-slate-200 peer-focus:ring-2 peer-focus:ring-brand-medium/40 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-brand-dark"></div>
-                            </label>
-                        <?php elseif (is_numeric($value)): ?>
-                            <input type="number" data-setting-key="modules.<?php echo $key; ?>.<?php echo $settingKey; ?>" value="<?php echo htmlspecialchars($value); ?>" class="w-20 px-2 py-1 border border-slate-200 rounded text-sm text-right focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <?php else: ?>
-                            <input type="text" data-setting-key="modules.<?php echo $key; ?>.<?php echo $settingKey; ?>" value="<?php echo htmlspecialchars($value); ?>" class="px-2 py-1 border border-slate-200 rounded text-sm text-right focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <?php endif; ?>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endforeach; ?>
         </div>
     </div>
 

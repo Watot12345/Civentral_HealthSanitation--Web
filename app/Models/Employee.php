@@ -94,7 +94,21 @@ class Employee
             $data['role_id'] = $this->resolveRoleId($data);
         }
         $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
-        return $this->db->insert($this->table, $encryptedData, true);
+        try {
+            return $this->db->insert($this->table, $encryptedData, true);
+        } catch (Throwable $e) {
+            if (str_contains($e->getMessage(), 'value too long') || str_contains($e->getMessage(), '22001')) {
+                $fallbackData = $encryptedData;
+                if (isset($encryptedData['contact_number']) && isset($data['contact_number'])) {
+                    $fallbackData['contact_number'] = substr((string)$data['contact_number'], 0, 20);
+                }
+                if (isset($encryptedData['contact']) && isset($data['contact'])) {
+                    $fallbackData['contact'] = substr((string)$data['contact'], 0, 20);
+                }
+                return $this->db->insert($this->table, $fallbackData, true);
+            }
+            throw $e;
+        }
     }
 
     public function updateById(string|int $id, array $data): array
@@ -103,7 +117,21 @@ class Employee
             $data['role_id'] = $this->resolveRoleId($data);
         }
         $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
-        return $this->db->update($this->table, $encryptedData, ['id' => 'eq.' . $id], true);
+        try {
+            return $this->db->update($this->table, $encryptedData, ['id' => 'eq.' . $id], true);
+        } catch (Throwable $e) {
+            if (str_contains($e->getMessage(), 'value too long') || str_contains($e->getMessage(), '22001')) {
+                $fallbackData = $encryptedData;
+                if (isset($encryptedData['contact_number']) && isset($data['contact_number'])) {
+                    $fallbackData['contact_number'] = substr((string)$data['contact_number'], 0, 20);
+                }
+                if (isset($encryptedData['contact']) && isset($data['contact'])) {
+                    $fallbackData['contact'] = substr((string)$data['contact'], 0, 20);
+                }
+                return $this->db->update($this->table, $fallbackData, ['id' => 'eq.' . $id], true);
+            }
+            throw $e;
+        }
     }
 
     public function findByEmployeeId(string $employeeId): ?array

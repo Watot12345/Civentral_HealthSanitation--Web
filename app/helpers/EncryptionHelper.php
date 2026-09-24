@@ -34,6 +34,7 @@ class EncryptionHelper
         ],
         'employees' => [
             'email',
+            'contact_number',
         ],
         'children' => [
             'mother_contact',

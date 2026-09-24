@@ -48,7 +48,7 @@ if ($currentUserId > 0) {
             $fullName    = $liveUser['full_name'] ?? $fullName;
             $employeeId  = $liveUser['employee_id'] ?? ($liveUser['username'] ?? $employeeId);
             $email       = !empty($liveUser['email']) ? $liveUser['email'] : $email;
-            $contact     = !empty($liveUser['contact']) ? $liveUser['contact'] : (!empty($liveUser['phone']) ? $liveUser['phone'] : $contact);
+            $contact     = !empty($liveUser['contact_number']) ? $liveUser['contact_number'] : (!empty($liveUser['contact']) ? $liveUser['contact'] : (!empty($liveUser['phone']) ? $liveUser['phone'] : $contact));
             $department  = !empty($liveUser['department']) ? $liveUser['department'] : $department;
             $userStatus  = !empty($liveUser['status']) ? $liveUser['status'] : $userStatus;
             $displayRole = !empty($liveUser['role_description']) ? $liveUser['role_description'] : (!empty($liveUser['role']) ? $liveUser['role'] : $displayRole);
@@ -125,6 +125,7 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   <!-- Global App Base URL Configuration -->
   <script>
     window.SITE_URL = "<?= rtrim(site_url(''), '/'); ?>";
+    window.APP_BASE_URL = window.SITE_URL;
     window.API_BASE = "<?= site_url('api/'); ?>";
   </script>
 
@@ -530,21 +531,12 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
 
           <!-- Menu Links -->
           <div class="py-1.5">
-            <!-- View My Profile -->
-            <button type="button" onclick="openUserProfileModal()" class="w-full px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-c3 flex items-center gap-2.5 transition text-left cursor-pointer">
+            <a href="<?= site_url('pages/profile.php#profile') ?>" class="w-full px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-c3 flex items-center gap-2.5 transition text-left cursor-pointer">
               <div class="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 text-xs">
                 <i class="fas fa-user-circle"></i>
               </div>
-              <span>View My Profile</span>
-            </button>
-
-            <!-- Personal Settings -->
-            <button type="button" onclick="openPersonalSettingsModal()" class="w-full px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-c3 flex items-center gap-2.5 transition text-left cursor-pointer">
-              <div class="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 text-xs">
-                <i class="fas fa-sliders"></i>
-              </div>
-              <span>Personal Settings</span>
-            </button>
+              <span>My Profile</span>
+            </a>
           </div>
 
           <div class="border-t border-slate-100 my-0.5"></div>
