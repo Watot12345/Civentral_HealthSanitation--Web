@@ -171,6 +171,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['role_description'] = $functionalRole;
                     $_SESSION['user_role']        = $functionalRole;
                     $_SESSION['email']            = $user['email'] ?? '';
+                    $contactVal = $user['contact_number'] ?? ($user['contact'] ?? '');
+                    $_SESSION['contact']          = $contactVal;
+                    $_SESSION['contact_number']   = $contactVal;
+                    $_SESSION['phone']            = $contactVal;
                     $_SESSION['logged_in']        = true;
                     $_SESSION['last_activity']    = time();
 

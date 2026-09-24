@@ -35,6 +35,7 @@ class EncryptionHelper
         'employees' => [
             'email',
             'contact_number',
+            'contact',
         ],
         'children' => [
             'mother_contact',
@@ -390,6 +391,12 @@ class EncryptionHelper
             }
             if (!isset($row['health_condition_notes']) && isset($row['allergies'])) {
                 $row['health_condition_notes'] = $row['allergies'];
+            }
+        } elseif ($table === 'employees') {
+            if (!isset($row['contact_number']) && isset($row['contact'])) {
+                $row['contact_number'] = $row['contact'];
+            } elseif (!isset($row['contact']) && isset($row['contact_number'])) {
+                $row['contact'] = $row['contact_number'];
             }
         }
 

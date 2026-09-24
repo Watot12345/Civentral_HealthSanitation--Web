@@ -598,11 +598,17 @@ const CiventralOfflineSync = (function() {
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 // BUG-006: use PHP-emitted base URL so SW resolves correctly under subdirectory
-                const swUrl = (window.APP_BASE_URL || '') + '/sw.js';
-                navigator.serviceWorker.register(swUrl).then(registration => {
+                const appBase = (window.SITE_URL || window.APP_BASE_URL || '').replace(/\/+$/, '');
+                const swUrl = (appBase || '') + '/sw.js';
+                const registerOptions = appBase ? { scope: appBase + '/' } : undefined;
+                navigator.serviceWorker.register(swUrl, registerOptions).then(registration => {
                     console.log('[offline-sync] ServiceWorker registered, scope:', registration.scope);
                 }).catch(err => {
-                    console.warn('[offline-sync] ServiceWorker registration failed:', err);
+                    if (err && (err.message || '').toLowerCase().includes('ssl')) {
+                        console.info('[offline-sync] ServiceWorker skipped on localhost self-signed SSL certificate.');
+                    } else {
+                        console.warn('[offline-sync] ServiceWorker registration failed:', err);
+                    }
                 });
             });
         }

@@ -125,6 +125,7 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   <!-- Global App Base URL Configuration -->
   <script>
     window.SITE_URL = "<?= rtrim(site_url(''), '/'); ?>";
+    window.APP_BASE_URL = window.SITE_URL;
     window.API_BASE = "<?= site_url('api/'); ?>";
   </script>
 

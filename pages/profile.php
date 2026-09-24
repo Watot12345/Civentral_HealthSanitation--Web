@@ -22,6 +22,36 @@ $displayRole = $_SESSION['role'] ?? ($_SESSION['role_description'] ?? 'Employee'
 $userStatus = $_SESSION['status'] ?? 'Active';
 $employeeId = $_SESSION['employee_id'] ?? '';
 
+// Fetch fresh employee record from database to ensure up-to-date profile display
+if ($currentUserId > 0) {
+    try {
+        require_once __DIR__ . '/../app/Models/Employee.php';
+        $employeeModel = new Employee();
+        $freshUser = $employeeModel->find($currentUserId);
+        if (!empty($freshUser)) {
+            $fullName = $freshUser['full_name'] ?? $fullName;
+            $email = $freshUser['email'] ?? $email;
+            $contact = $freshUser['contact_number'] ?? ($freshUser['contact'] ?? ($freshUser['phone'] ?? $contact));
+            $department = $freshUser['department'] ?? $department;
+            $displayRole = $freshUser['role_description'] ?? ($freshUser['role'] ?? $displayRole);
+            $userStatus = $freshUser['status'] ?? $userStatus;
+            $employeeId = $freshUser['employee_id'] ?? $employeeId;
+
+            $_SESSION['full_name'] = $fullName;
+            $_SESSION['user_full_name'] = $fullName;
+            $_SESSION['contact'] = $contact;
+            $_SESSION['contact_number'] = $contact;
+            $_SESSION['phone'] = $contact;
+            $_SESSION['email'] = $email;
+        }
+    } catch (Throwable $e) {
+        error_log('profile.php user refresh error: ' . $e->getMessage());
+    }
+}
+
+// Remove leading 63 / +63 for clean local number display
+$displayContact = preg_replace('/^\+?63\s*/', '', trim($contact));
+
 $nameParts = explode(' ', trim($fullName));
 $initials = '';
 foreach ($nameParts as $part) {
@@ -99,7 +129,7 @@ $pageTitle = 'My Profile';
                             <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center"><i class="fa-solid fa-phone"></i></div>
                             <div class="min-w-0 flex-1">
                                 <p class="text-[10px] uppercase tracking-[0.15em] text-slate-400 font-bold">Contact</p>
-                                <p class="font-semibold text-slate-700"><?= htmlspecialchars($contact ?: 'Not specified'); ?></p>
+                                <p class="font-semibold text-slate-700"><?= htmlspecialchars($displayContact ?: 'Not specified'); ?></p>
                             </div>
                         </div>
 
@@ -163,7 +193,11 @@ $pageTitle = 'My Profile';
 
                             <div>
                                 <label for="profileContact" class="block text-xs font-bold uppercase tracking-[0.15em] text-slate-500 mb-2">Contact Phone</label>
-                                <input id="profileContact" type="text" value="<?= htmlspecialchars($contact ?: '+63 917 000 0000'); ?>" class="w-full px-3 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-c3/30 focus:border-c3 outline-none bg-white text-sm">
+                                <div class="flex items-center rounded-xl border border-slate-200 focus-within:ring-2 focus-within:ring-c3/30 focus-within:border-c3 overflow-hidden bg-white shadow-sm">
+                                    <span class="inline-flex items-center px-3.5 py-2.5 bg-slate-100 border-r border-slate-200 text-slate-700 font-bold text-sm select-none tracking-wide">+63</span>
+                                    <input id="profileContact" type="tel" value="<?= htmlspecialchars($displayContact); ?>" placeholder="917 000 0000" class="w-full px-3 py-2.5 outline-none bg-transparent text-sm text-slate-800" maxlength="15">
+                                </div>
+                                <p class="text-[11px] text-slate-400 mt-1">Country code preselected (+63). Enter mobile number without leading 0.</p>
                             </div>
                         </div>
 
@@ -224,12 +258,23 @@ $pageTitle = 'My Profile';
             }
         });
 
+        const contactInput = document.getElementById('profileContact');
+        contactInput?.addEventListener('input', function() {
+            let val = this.value;
+            if (val.startsWith('+63')) val = val.substring(3);
+            else if (val.startsWith('63') && val.length > 10) val = val.substring(2);
+            else if (val.startsWith('0')) val = val.substring(1);
+            this.value = val.replace(/[^\d\s-]/g, '');
+        });
+
         const form = document.getElementById('profileSettingsForm');
         form?.addEventListener('submit', async function(event) {
             event.preventDefault();
 
             const displayName = document.getElementById('profileDisplayName').value.trim();
-            const contactValue = document.getElementById('profileContact').value.trim();
+            let rawContact = document.getElementById('profileContact').value.trim();
+            rawContact = rawContact.replace(/^(\+?63\s*|0+)/, '').replace(/\D+/g, '');
+            const contactPayload = rawContact ? ('+63' + rawContact) : '';
             const userId = <?= json_encode((string)($_SESSION['user_id'] ?? '')); ?>;
 
             if (!userId) {
@@ -248,7 +293,7 @@ $pageTitle = 'My Profile';
                     },
                     body: JSON.stringify({
                         full_name: displayName || 'User',
-                        contact_number: contactValue || ''
+                        contact_number: contactPayload
                     })
                 });
 
@@ -259,8 +304,8 @@ $pageTitle = 'My Profile';
                 }
 
                 localStorage.setItem('user_display_name', displayName || 'User');
-                if (contactValue) {
-                    localStorage.setItem('user_contact', contactValue);
+                if (rawContact) {
+                    localStorage.setItem('user_contact', rawContact);
                 }
 
                 const nameEls = document.querySelectorAll('#headerUserFullName, #dropdownUserFullName');
@@ -270,7 +315,9 @@ $pageTitle = 'My Profile';
                     toast.success('Profile settings saved successfully.', { title: 'Profile' });
                 }
 
-                window.location.reload();
+                setTimeout(() => {
+                    window.location.reload();
+                }, 400);
             } catch (error) {
                 console.error('Profile save failed:', error);
                 if (typeof toast !== 'undefined') {

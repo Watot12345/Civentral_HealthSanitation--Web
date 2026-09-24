@@ -90,20 +90,96 @@ class Employee
 
     public function create(array $data): array
     {
+        self::$cachedEmployees = null;
         if (empty($data['role_id'])) {
             $data['role_id'] = $this->resolveRoleId($data);
         }
         $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
-        return $this->db->insert($this->table, $encryptedData, true);
+        try {
+            return $this->db->insert($this->table, $encryptedData, true);
+        } catch (Throwable $e) {
+            // Handle column length limits (e.g. varchar(50) instead of bytea/text)
+            if (str_contains($e->getMessage(), 'value too long') || str_contains($e->getMessage(), '22001')) {
+                try {
+                    return $this->db->insert($this->table, $data, true);
+                } catch (Throwable $e2) {
+                    if (isset($data['contact_number'])) {
+                        $altData = $data;
+                        unset($altData['contact_number']);
+                        $altData['contact'] = $data['contact_number'];
+                        return $this->db->insert($this->table, $altData, true);
+                    } elseif (isset($data['contact'])) {
+                        $altData = $data;
+                        unset($altData['contact']);
+                        $altData['contact_number'] = $data['contact'];
+                        return $this->db->insert($this->table, $altData, true);
+                    }
+                    throw $e2;
+                }
+            }
+            // Handle missing column in schema cache (contact_number vs contact)
+            if (str_contains($e->getMessage(), 'schema cache') || str_contains($e->getMessage(), 'contact_number') || str_contains($e->getMessage(), 'contact')) {
+                if (isset($data['contact_number'])) {
+                    $altData = $data;
+                    unset($altData['contact_number']);
+                    $altData['contact'] = $data['contact_number'];
+                    return $this->db->insert($this->table, $altData, true);
+                } elseif (isset($data['contact'])) {
+                    $altData = $data;
+                    unset($altData['contact']);
+                    $altData['contact_number'] = $data['contact'];
+                    return $this->db->insert($this->table, $altData, true);
+                }
+            }
+            throw $e;
+        }
     }
 
     public function updateById(string|int $id, array $data): array
     {
+        self::$cachedEmployees = null;
         if (empty($data['role_id']) && (!empty($data['role_description']) || !empty($data['role']))) {
             $data['role_id'] = $this->resolveRoleId($data);
         }
         $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
-        return $this->db->update($this->table, $encryptedData, ['id' => 'eq.' . $id], true);
+        try {
+            return $this->db->update($this->table, $encryptedData, ['id' => 'eq.' . $id], true);
+        } catch (Throwable $e) {
+            // Handle column length limits (e.g. varchar(50) instead of bytea/text)
+            if (str_contains($e->getMessage(), 'value too long') || str_contains($e->getMessage(), '22001')) {
+                try {
+                    return $this->db->update($this->table, $data, ['id' => 'eq.' . $id], true);
+                } catch (Throwable $e2) {
+                    if (isset($data['contact_number'])) {
+                        $altData = $data;
+                        unset($altData['contact_number']);
+                        $altData['contact'] = $data['contact_number'];
+                        return $this->db->update($this->table, $altData, ['id' => 'eq.' . $id], true);
+                    } elseif (isset($data['contact'])) {
+                        $altData = $data;
+                        unset($altData['contact']);
+                        $altData['contact_number'] = $data['contact'];
+                        return $this->db->update($this->table, $altData, ['id' => 'eq.' . $id], true);
+                    }
+                    throw $e2;
+                }
+            }
+            // Handle missing column in schema cache (contact_number vs contact)
+            if (str_contains($e->getMessage(), 'schema cache') || str_contains($e->getMessage(), 'contact_number') || str_contains($e->getMessage(), 'contact')) {
+                if (isset($data['contact_number'])) {
+                    $altData = $data;
+                    unset($altData['contact_number']);
+                    $altData['contact'] = $data['contact_number'];
+                    return $this->db->update($this->table, $altData, ['id' => 'eq.' . $id], true);
+                } elseif (isset($data['contact'])) {
+                    $altData = $data;
+                    unset($altData['contact']);
+                    $altData['contact_number'] = $data['contact'];
+                    return $this->db->update($this->table, $altData, ['id' => 'eq.' . $id], true);
+                }
+            }
+            throw $e;
+        }
     }
 
     public function findByEmployeeId(string $employeeId): ?array
@@ -122,6 +198,7 @@ class Employee
 
     public function deleteById(string|int $id): bool
     {
+        self::$cachedEmployees = null;
         $this->db->delete($this->table, ['id' => 'eq.' . $id], true);
         return true;
     }
@@ -256,6 +333,8 @@ class Employee
         $employee['last_name'] = '';
         $employee['username']  = $employee['username'] ?? $employee['employee_id'] ?? '';
         $employee['email']     = $employee['email'] ?? '';
+        $employee['contact_number'] = $employee['contact_number'] ?? ($employee['contact'] ?? '');
+        $employee['contact']   = $employee['contact_number'];
         $employee['status']    = $employee['status'] ?? 'Active';
         $employee['last_login'] = $employee['last_login'] ?? null;
 

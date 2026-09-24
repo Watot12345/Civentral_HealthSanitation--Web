@@ -213,6 +213,10 @@ class SessionAuthService
             $_SESSION['full_name']        = $employee['full_name'];
             $_SESSION['user_full_name']   = $employee['full_name'];
             $_SESSION['email']            = $employee['email'] ?? '';
+            $contactVal = $employee['contact_number'] ?? ($employee['contact'] ?? '');
+            $_SESSION['contact']          = $contactVal;
+            $_SESSION['contact_number']   = $contactVal;
+            $_SESSION['phone']            = $contactVal;
             $_SESSION['department']       = $employee['department'] ?? '';
             $_SESSION['user_department']  = $employee['department'] ?? '';
             $_SESSION['role']             = $functionalRole;

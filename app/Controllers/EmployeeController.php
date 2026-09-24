@@ -106,7 +106,7 @@ class EmployeeController extends BaseController
             try {
                 $result = $this->employeeModel->create($dbData);
             } catch (Throwable $e) {
-                if (isset($dbData['contact_number']) && str_contains($e->getMessage(), "contact_number")) {
+                if (isset($dbData['contact_number']) && (str_contains($e->getMessage(), "contact_number") || str_contains($e->getMessage(), "schema cache") || str_contains($e->getMessage(), "value too long") || str_contains($e->getMessage(), "22001"))) {
                     $legacyData = $dbData;
                     unset($legacyData['contact_number']);
                     $legacyData['contact'] = $dbData['contact_number'];
@@ -170,7 +170,7 @@ class EmployeeController extends BaseController
                 try {
                     $this->employeeModel->updateById($id, $dbData);
                 } catch (Throwable $e) {
-                    if (isset($dbData['contact_number']) && str_contains($e->getMessage(), "contact_number")) {
+                    if (isset($dbData['contact_number']) && (str_contains($e->getMessage(), "contact_number") || str_contains($e->getMessage(), "schema cache") || str_contains($e->getMessage(), "value too long") || str_contains($e->getMessage(), "22001"))) {
                         $legacyData = $dbData;
                         unset($legacyData['contact_number']);
                         $legacyData['contact'] = $dbData['contact_number'];
@@ -178,6 +178,23 @@ class EmployeeController extends BaseController
                     } else {
                         throw $e;
                     }
+                }
+            }
+
+            // If the updated user is currently logged in, sync session variables
+            if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+                @session_start();
+            }
+            if (!empty($_SESSION['user_id']) && (string)$_SESSION['user_id'] === (string)$id) {
+                if (isset($dbData['full_name'])) {
+                    $_SESSION['full_name'] = $dbData['full_name'];
+                    $_SESSION['user_full_name'] = $dbData['full_name'];
+                }
+                $cVal = $dbData['contact_number'] ?? ($dbData['contact'] ?? null);
+                if ($cVal !== null) {
+                    $_SESSION['contact'] = $cVal;
+                    $_SESSION['contact_number'] = $cVal;
+                    $_SESSION['phone'] = $cVal;
                 }
             }
 
