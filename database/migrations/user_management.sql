@@ -8,15 +8,11 @@
 -- ============================================================
 ALTER TABLE public.employees
   ADD COLUMN IF NOT EXISTS username character varying(50) UNIQUE,
-  ADD COLUMN IF NOT EXISTS email text,
-  ADD COLUMN IF NOT EXISTS contact_number text,
+  ADD COLUMN IF NOT EXISTS email character varying(100),
+  ADD COLUMN IF NOT EXISTS contact_number character varying(20),
   ADD COLUMN IF NOT EXISTS status text DEFAULT 'Active',
   ADD COLUMN IF NOT EXISTS last_login timestamp with time zone,
   ADD COLUMN IF NOT EXISTS role_id integer REFERENCES public.roles(id) ON DELETE SET NULL;
-
--- Ensure contact_number can hold encrypted ciphertext (avoiding varchar(20) length errors)
-ALTER TABLE public.employees
-  ALTER COLUMN contact_number TYPE text;
 
 -- Backfill username from employee_id for existing rows
 UPDATE public.employees SET username = employee_id WHERE username IS NULL;

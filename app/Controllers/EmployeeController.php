@@ -106,7 +106,7 @@ class EmployeeController extends BaseController
             try {
                 $result = $this->employeeModel->create($dbData);
             } catch (Throwable $e) {
-                if (isset($dbData['contact_number']) && (str_contains($e->getMessage(), "contact_number") || str_contains($e->getMessage(), "value too long") || str_contains($e->getMessage(), "22001"))) {
+                if (isset($dbData['contact_number']) && str_contains($e->getMessage(), "contact_number")) {
                     $legacyData = $dbData;
                     unset($legacyData['contact_number']);
                     $legacyData['contact'] = $dbData['contact_number'];
@@ -170,7 +170,7 @@ class EmployeeController extends BaseController
                 try {
                     $this->employeeModel->updateById($id, $dbData);
                 } catch (Throwable $e) {
-                    if (isset($dbData['contact_number']) && (str_contains($e->getMessage(), "contact_number") || str_contains($e->getMessage(), "value too long") || str_contains($e->getMessage(), "22001"))) {
+                    if (isset($dbData['contact_number']) && str_contains($e->getMessage(), "contact_number")) {
                         $legacyData = $dbData;
                         unset($legacyData['contact_number']);
                         $legacyData['contact'] = $dbData['contact_number'];
