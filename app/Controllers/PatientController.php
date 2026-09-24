@@ -371,7 +371,7 @@ class PatientController extends BaseController
                     $contactRaw = '63' . $contactRaw;
                 }
                 if (strlen($contactRaw) !== 12) {
-                    $contactRaw = '639' . str_pad(substr(crc32($nameKey), 0, 9), 9, '0', STR_PAD_LEFT);
+                     $contactRaw = '639' . str_pad(substr((string)crc32($nameKey), 0, 9), 9, '0', STR_PAD_LEFT);
                 }
                 $dbData['contact'] = $contactRaw;
 

@@ -30,7 +30,7 @@ $segments = $path ? explode('/', $path) : [];
 $id = isset($segments[0]) && is_numeric($segments[0]) ? (int)$segments[0] : null;
 $action = $segments[1] ?? null;
 
-$controller = new PermitController();
+$controller = new PermitRecordsController();
 
 // Route the request
 try {

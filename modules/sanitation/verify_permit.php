@@ -155,7 +155,7 @@ $logoUrl = site_url('assets/images/logo.png');
                 </div>
                 <h4 class="text-lg font-black text-slate-900 mb-1">Permit Not Found</h4>
                 <p class="text-xs text-slate-500 mb-4">The scanned QR code (<?php echo htmlspecialchars($qrCode); ?>) could not be verified in the active registry.</p>
-                <a href="/capstone/" class="px-5 py-2.5 bg-[#176B87] text-white rounded-xl text-xs font-bold inline-block">Return to Homepage</a>
+                <a href="<?php echo site_url(''); ?>" class="px-5 py-2.5 bg-[#176B87] text-white rounded-xl text-xs font-bold inline-block">Return to Homepage</a>
             </div>
         <?php endif; ?>
 

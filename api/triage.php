@@ -4,6 +4,7 @@
 require_once __DIR__ . '/../Core/Env.php';
 require_once __DIR__ . '/../Core/Response.php';
 require_once __DIR__ . '/../app/Controllers/TriageController.php';
+require_once __DIR__ . '/../app/Models/Triage.php';
 
 // Handle CORS
 header('Access-Control-Allow-Origin: *');

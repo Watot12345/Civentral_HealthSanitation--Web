@@ -17,7 +17,16 @@ require_once '../app/helpers/Settings.php';
 
 // Enforce RBAC Page Authorization
 requirePermission('settings.manage');
+$isSystemAdmin = getPermissionService()->isAdminRole($_SESSION['role'] ?? '') 
+    || getPermissionService()->isAdminRole($_SESSION['role_description'] ?? '') 
+    || hasPermission(\App\Constants\Permissions::ROLES_MANAGE);
 
+if (!$isSystemAdmin) {
+    http_response_code(403);
+    $_SESSION['flash_error'] = 'Access Denied: Administrative privileges required to access System Settings.';
+    header('Location: ' . site_url('pages/dashboard.php'));
+    exit;
+}
 // ============================================================
 // DYNAMIC SYSTEM CONFIGURATION FROM POSTGRESQL / CACHE
 // ============================================================
