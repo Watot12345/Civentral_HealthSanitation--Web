@@ -431,8 +431,10 @@ $title = 'User Management';
                                 <button onclick="setUserStatus(<?php echo (int) $user['id']; ?>)" class="text-amber-600 hover:text-amber-800 text-xs font-medium transition px-2 py-1 hover:bg-amber-50 rounded" title="Set Status">
                                     <i class="fa-solid fa-sliders"></i>
                                 </button>
-                                <?php if ($isSystemAdmin): ?>
-                                <button onclick="deleteUser(<?php echo (int) $user['id']; ?>)" class="text-red-500 hover:text-red-700 text-xs font-medium transition px-2 py-1 hover:bg-red-50 rounded" title="Delete User">
+                                <?php if ($isSystemAdmin): 
+                                    $isUserActive = strcasecmp($user['status'] ?? 'Active', 'Active') === 0;
+                                ?>
+                                <button onclick="deleteUser(<?php echo (int) $user['id']; ?>)" class="text-red-500 hover:text-red-700 text-xs font-medium transition px-2 py-1 hover:bg-red-50 rounded" title="<?php echo $isUserActive ? 'Cannot delete active user (Must be set to Inactive first)' : 'Delete User'; ?>">
                                     <i class="fa-solid fa-trash-can"></i>
                                 </button>
                                 <?php endif; ?>
@@ -1450,7 +1452,7 @@ $title = 'User Management';
                                     <button onclick="setUserStatus(${id})" class="text-amber-600 hover:text-amber-800 text-xs font-medium transition px-2 py-1 hover:bg-amber-50 rounded" title="Set Status">
                                         <i class="fa-solid fa-sliders"></i>
                                     </button>
-                                    <button onclick="deleteUser(${id})" class="text-red-500 hover:text-red-700 text-xs font-medium transition px-2 py-1 hover:bg-red-50 rounded" title="Delete User">
+                                    <button onclick="deleteUser(${id})" class="text-red-500 hover:text-red-700 text-xs font-medium transition px-2 py-1 hover:bg-red-50 rounded" title="${(status || '').toLowerCase() === 'active' ? 'Cannot delete active user (Must be set to Inactive first)' : 'Delete User'}">
                                         <i class="fa-solid fa-trash"></i>
                                     </button>
                                 </div>
@@ -1469,6 +1471,10 @@ $title = 'User Management';
                             row.dataset.role = role;
                             row.dataset.roledescription = desc;
                             row.dataset.status = status;
+                            const editDelBtn = row.querySelector('button[onclick^="deleteUser"]');
+                            if (editDelBtn) {
+                                editDelBtn.title = (status || '').toLowerCase() === 'active' ? 'Cannot delete active user (Must be set to Inactive first)' : 'Delete User';
+                            }
 
                             row.children[0].querySelector('span.font-medium').textContent = fullName;
                             row.children[0].querySelector('span.text-xs').textContent = email;
@@ -2131,6 +2137,10 @@ $title = 'User Management';
                             'bg-slate-100 text-slate-700'
                         } rounded-full text-xs font-semibold`;
                     }
+                    const statusDelBtn = row.querySelector('button[onclick^="deleteUser"]');
+                    if (statusDelBtn) {
+                        statusDelBtn.title = (newStatus || '').toLowerCase() === 'active' ? 'Cannot delete active user (Must be set to Inactive first)' : 'Delete User';
+                    }
                 }
                 updateKPISummariesJS();
                 addActivityLogJS(`Set status to ${newStatus} for user: ${row ? (row.dataset.fullname || `ID ${userId}`) : `ID ${userId}`}`);
@@ -2156,6 +2166,41 @@ $title = 'User Management';
     function deleteUser(userId) {
         const row = document.querySelector(`.user-row[data-id="${userId}"]`);
         const userName = row ? (row.dataset.fullname || `ID ${userId}`) : `ID ${userId}`;
+        const userStatus = row ? (row.dataset.status || 'Active').trim() : 'Active';
+
+        if (userStatus.toLowerCase() === 'active') {
+            const warningMsg = `You cannot delete active user '${userName}'. Active users cannot be deleted. Please set this user's status to Inactive before deleting.`;
+            showToast(warningMsg, 'warning', 'Cannot Delete Active User');
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.confirm) {
+                ModalSystem.confirm(
+                    `Cannot delete user '${userName}' because the account is currently Active.\n\nActive users cannot be deleted. You must deactivate this user first before deletion.\n\nWould you like to open status settings to set this user to Inactive?`,
+                    () => {
+                        setUserStatus(userId);
+                    },
+                    { title: 'Active User Warning', confirmText: 'Change Status to Inactive', cancelText: 'Cancel', type: 'warning' }
+                );
+            } else {
+                alert(warningMsg);
+            }
+            return;
+        }
+
+        if (userStatus.toLowerCase() !== 'inactive') {
+            const warningMsg = `User '${userName}' must be Inactive before deletion. Current status: ${userStatus}.`;
+            showToast(warningMsg, 'warning', 'Cannot Delete User');
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.confirm) {
+                ModalSystem.confirm(
+                    `Cannot delete user '${userName}' because the status is currently '${userStatus}'.\n\nUsers must be set to Inactive before they can be deleted.\n\nWould you like to open status settings now?`,
+                    () => {
+                        setUserStatus(userId);
+                    },
+                    { title: 'Status Warning', confirmText: 'Change Status', cancelText: 'Cancel', type: 'warning' }
+                );
+            } else {
+                alert(warningMsg);
+            }
+            return;
+        }
 
         const performDelete = () => {
             const body = new URLSearchParams();

@@ -220,6 +220,24 @@ class EmployeeController extends BaseController
                 return ['success' => false, 'message' => 'Employee not found', 'code' => 404];
             }
 
+            $currentStatus = trim($existing['status'] ?? 'Active');
+            $userName = $existing['full_name'] ?? "ID #{$id}";
+            if (strcasecmp($currentStatus, 'Active') === 0) {
+                return [
+                    'success' => false,
+                    'message' => "Cannot delete active user '{$userName}'. Active users cannot be deleted; please set their status to Inactive first.",
+                    'code'    => 400
+                ];
+            }
+
+            if (strcasecmp($currentStatus, 'Inactive') !== 0) {
+                return [
+                    'success' => false,
+                    'message' => "User '{$userName}' must be Inactive before deletion. Current status: {$currentStatus}.",
+                    'code'    => 400
+                ];
+            }
+
             $this->employeeModel->deleteById($id);
 
             // Log activity

@@ -204,6 +204,17 @@ try {
             }
 
             $userName = $user['full_name'] ?? "ID {$id}";
+            $currentStatus = trim($user['status'] ?? 'Active');
+            if (strcasecmp($currentStatus, 'Active') === 0) {
+                $response = ['success' => false, 'message' => "Cannot delete active user '{$userName}'. Active users cannot be deleted; please set their status to Inactive first."];
+                break;
+            }
+
+            if (strcasecmp($currentStatus, 'Inactive') !== 0) {
+                $response = ['success' => false, 'message' => "User '{$userName}' must be Inactive before deletion. Current status: {$currentStatus}."];
+                break;
+            }
+
             $employeeModel->deleteById($id);
 
             $logModel->log("Deleted user: {$userName} (ID: {$id})", [
