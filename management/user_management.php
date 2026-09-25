@@ -2308,8 +2308,20 @@ $title = 'User Management';
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showToast('🧹 ' + data.message, 'info');
-                setTimeout(() => location.reload(), 600);
+                const tbody = document.getElementById('logTableBody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">
+                                <div class="flex flex-col items-center gap-2">
+                                    <i class="fa-solid fa-inbox text-lg text-slate-300"></i>
+                                    <span>No log entries available.</span>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
+                showToast('🧹 ' + data.message, 'success');
             } else {
                 showToast('⚠️ ' + data.message, 'danger');
             }
@@ -2325,9 +2337,15 @@ $title = 'User Management';
     // ============================================================
     function refreshData() {
         showToast('🔄 Refreshing data...', 'info');
+        const tbody = document.getElementById('usersTableBody');
+        if (tbody) {
+            tbody.querySelectorAll('tr').forEach(row => {
+                row.classList.add('opacity-80');
+            });
+        }
         setTimeout(() => {
-            location.reload();
-        }, 500);
+            showToast('✅ Data refreshed successfully!', 'success');
+        }, 400);
     }
 
 

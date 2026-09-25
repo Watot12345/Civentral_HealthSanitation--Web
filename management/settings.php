@@ -1208,8 +1208,8 @@ $title = 'Settings';
             const result = await response.json();
             if (result.success) {
                 closeConfirmModal();
+                captureInitialSettingsState();
                 showToast('✅ All settings saved & cached successfully!', 'success');
-                setTimeout(() => window.location.reload(), 800);
             } else {
                 const errMsg = result.errors ? Object.values(result.errors).flat().join(', ') : (result.message || 'Failed to save settings.');
                 showToast('❌ ' + errMsg, 'danger');
@@ -1294,7 +1294,6 @@ $title = 'Settings';
                     a.click();
                     document.body.removeChild(a);
                 }
-                setTimeout(() => window.location.reload(), 1600);
             } else {
                 showToast('❌ ' + (result.message || 'Backup execution failed.'), 'danger');
             }
@@ -1360,8 +1359,8 @@ $title = 'Settings';
             });
             const result = await response.json();
             if (result.success) {
+                captureInitialSettingsState();
                 showToast('✅ Settings refreshed & cache re-warmed!', 'success');
-                setTimeout(() => window.location.reload(), 800);
             }
         } catch (err) {
             showToast('✅ Settings refreshed!', 'success');

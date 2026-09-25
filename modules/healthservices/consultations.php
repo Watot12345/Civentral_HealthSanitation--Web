@@ -1281,13 +1281,23 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         };
 
         try {
-            const res = await fetch('<?php echo site_url('api/consultations.php'); ?>', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+            const csrfToken = CrudAjax.getCsrfToken();
+            const res = await fetch('<?php echo site_url('api/consultations.php'); ?>', { 
+                method:'POST', 
+                headers:{
+                    'Content-Type':'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }, 
+                body:JSON.stringify({ ...payload, csrf_token: csrfToken }) 
+            });
             const data = await res.json();
             if (data.success) {
                 ModalSystem.toast.success('Consultation created!');
                 ModalSystem.close('addConsultationModal');
                 
-                const createdId = data.data?.id || data.data?.consultation_id || '';
+                const rec = data.record || data.data;
+                const createdId = rec?.id || rec?.consultation_id || '';
                 const patientId = payload.patient_id;
 
                 if (createPrescription) {
@@ -1302,10 +1312,10 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                     const pat = PATIENTS_MAP[patientId] || {};
                     const doctorSelect = document.getElementById('add_employee_id');
                     const doctorName = doctorSelect?.options[doctorSelect.selectedIndex]?.text.split('(')[0].trim() || 'Attending Doctor';
-                    const newRecord = {
+                    const newRecord = rec || {
                         ...payload,
                         id: parseInt(createdId) || Date.now(),
-                        consultation_id: data.data?.consultation_id || ('CON-' + (createdId || Date.now())),
+                        consultation_id: rec?.consultation_id || ('CON-' + (createdId || Date.now())),
                         patient_name: ((pat.first_name || '') + ' ' + (pat.last_name || '')).trim() || ('Patient #' + patientId),
                         patient_code: pat.patient_id || ('P-' + patientId),
                         patient_avatar: (((pat.first_name?.[0] || 'P')) + ((pat.last_name?.[0] || 'T'))).toUpperCase(),
@@ -1426,14 +1436,24 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         };
 
         try {
-            const res = await fetch('<?php echo site_url('api/consultations.php?action=update&id='); ?>' + id, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+            const csrfToken = CrudAjax.getCsrfToken();
+            const res = await fetch('<?php echo site_url('api/consultations.php?action=update&id='); ?>' + id, { 
+                method:'POST', 
+                headers:{
+                    'Content-Type':'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }, 
+                body:JSON.stringify({ ...payload, csrf_token: csrfToken }) 
+            });
             const data = await res.json();
             if (data.success) {
                 ModalSystem.toast.success('Consultation updated!');
                 ModalSystem.close('editConsultationModal');
                 const doctorSelect = document.getElementById('edit_employee_id');
                 const doctorName = doctorSelect?.options[doctorSelect.selectedIndex]?.text.split('(')[0].trim() || (CONSULTATIONS_DATA[id]?.doctor_name || 'Medical Staff');
-                updateConsultationCard(id, { ...payload, doctor_name: doctorName });
+                const rec = data.record || data.data;
+                updateConsultationCard(id, rec || { ...payload, doctor_name: doctorName });
             }
             else { ModalSystem.toast.error(data.message || 'Failed'); }
         } catch (err) { ModalSystem.toast.error('Network error'); }
@@ -1446,7 +1466,16 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     async function deleteConsultation(id) {
         ModalSystem.confirm('This consultation record will be permanently removed.', async () => {
             try {
-                const res = await fetch('<?php echo site_url('api/consultations.php?action=delete&id='); ?>' + id, { method:'POST' });
+                const csrfToken = CrudAjax.getCsrfToken();
+                const res = await fetch('<?php echo site_url('api/consultations.php?action=delete&id='); ?>' + id, { 
+                    method:'POST',
+                    headers:{
+                        'Content-Type':'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ csrf_token: csrfToken })
+                });
                 const data = await res.json();
                 if (data.success) {
                     ModalSystem.toast.success('Consultation deleted!');

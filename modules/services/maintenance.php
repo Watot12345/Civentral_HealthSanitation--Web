@@ -1019,16 +1019,23 @@ $title = 'Maintenance & Desludging';
                 notes: document.getElementById('edit_service_notes').value.trim()
             };
 
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : document.querySelector('input[name="csrf_token"]')?.value || '';
             const res = await fetch(`../../api/maintenance.php?id=${id}&action=update`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const json = await res.json();
             if (json.success) {
+                const updated = json.record || json.data || { ...(SERVICES[id] || {}), ...payload, id: Number(id) };
+                SERVICES[id] = updated;
+                updateServiceRow(updated);
                 closeModal('editServiceModal');
                 showToast('Maintenance service updated successfully!', 'success');
-                setTimeout(() => location.reload(), 800);
             } else {
                 showToast(json.message || 'Failed to update service', 'danger');
             }
@@ -1045,15 +1052,22 @@ $title = 'Maintenance & Desludging';
         const rating = prompt('Rate this service (1-5 stars):', '5');
         if (rating && rating >= 1 && rating <= 5) {
             try {
+                const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : document.querySelector('input[name="csrf_token"]')?.value || '';
                 const res = await fetch(`../../api/maintenance.php?id=${id}&action=update`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rating: parseInt(rating) })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ rating: parseInt(rating), csrf_token: csrfToken })
                 });
                 const json = await res.json();
                 if (json.success) {
+                    const updated = json.record || json.data || { ...(SERVICES[id] || {}), id: Number(id), rating: parseInt(rating) };
+                    SERVICES[id] = updated;
+                    updateServiceRow(updated);
                     showToast('Service rated ' + rating + ' stars!', 'success');
-                    setTimeout(() => location.reload(), 800);
                 }
             } catch (err) {
                 console.error(err);
@@ -1289,7 +1303,6 @@ $title = 'Maintenance & Desludging';
 
             const scheduledDate = document.getElementById('schedule_date')?.value || new Date().toISOString().split('T')[0];
 
-            // ⚡ DUPLICATE SCHEDULE PREVENTION: Block overlapping active schedule for the same tank
             const duplicateConflict = Object.values(SERVICES).find(s => 
                 s.tank_id === tankId && 
                 (s.status === 'scheduled' || s.status === 'in_progress')
@@ -1318,16 +1331,52 @@ $title = 'Maintenance & Desludging';
                 notes: document.getElementById('schedule_notes')?.value?.trim() || ''
             };
 
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : document.querySelector('input[name="csrf_token"]')?.value || '';
             const res = await fetch('../../api/maintenance.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const json = await res.json();
             if (json.success) {
+                const created = json.record || json.data || { ...payload, id: Date.now(), status: 'scheduled', service_id: 'SRV-' + Date.now() };
+                SERVICES[created.id] = created;
+                const tbody = document.getElementById('maintenanceTableBody');
+                if (tbody) {
+                    const row = document.createElement('tr');
+                    row.id = 'maintenance-row-' + created.id;
+                    row.className = 'border-b border-slate-100 hover:bg-brand-light/40 transition-colors maintenance-row';
+                    row.setAttribute('data-owner', String(created.owner_name || '').toLowerCase());
+                    row.setAttribute('data-tank', created.tank_id || '');
+                    row.setAttribute('data-status', created.status || 'scheduled');
+                    row.setAttribute('data-type', created.service_type || '');
+                    row.setAttribute('data-technician', String(created.technician || '').toLowerCase());
+                    row.setAttribute('data-scheduled-date', created.scheduled_date || '');
+                    row.innerHTML = `
+                        <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${sanitizeHTML(created.service_id || '')}</td>
+                        <td class="px-4 py-3">
+                            <div>
+                                <p class="font-semibold text-slate-800 text-sm">${sanitizeHTML(created.owner_name || '')}</p>
+                                <p class="text-xs text-slate-400">${sanitizeHTML(created.tank_id || '')}</p>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-slate-600 text-xs capitalize">${sanitizeHTML(created.service_type || '')}</td>
+                        <td class="px-4 py-3 text-slate-600 text-xs">${sanitizeHTML(created.technician || '')}</td>
+                        <td class="px-4 py-3 text-slate-500 text-xs">${created.scheduled_date ? new Date(created.scheduled_date).toLocaleDateString() : ''}<span class="block mt-1">${sanitizeHTML(created.scheduled_time || '')}</span></td>
+                        <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">${sanitizeHTML(String((created.status || 'scheduled')).replace('_', ' ').toUpperCase())}</span></td>
+                        <td class="px-4 py-3"><span class="text-sm font-bold text-slate-700">₱${Number(created.cost || 0).toFixed(2)}</span></td>
+                        <td class="px-4 py-3"><div class="flex items-center justify-center gap-1"><button onclick="viewService(${created.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View"><i class="fa-solid fa-eye text-sm"></i></button><button onclick="viewServiceRoute(${created.id})" class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="Route / Location Map"><i class="fa-solid fa-route text-sm"></i></button><button onclick="startService(${created.id})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start"><i class="fa-solid fa-play text-sm"></i></button><button onclick="editService(${created.id})" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen text-sm"></i></button></div></td>
+                    `;
+                    tbody.insertBefore(row, tbody.firstChild);
+                }
                 showToast('Service scheduled successfully!', 'success');
                 closeModal('scheduleServiceModal');
-                setTimeout(() => location.reload(), 800);
+                const form = document.getElementById('scheduleServiceForm');
+                if (form) form.reset();
             } else {
                 showToast(json.message || 'Failed to schedule service', 'danger');
             }

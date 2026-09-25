@@ -2,9 +2,12 @@
 // app/Controllers/InspectionController.php
 
 require_once __DIR__ . '/../../Core/BaseController.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
 require_once __DIR__ . '/../Models/Inspection.php';
 require_once __DIR__ . '/../Models/Permit.php';
 require_once __DIR__ . '/../Models/Employee.php';
+
+use App\Constants\Permissions;
 
 class InspectionController extends BaseController
 {
@@ -21,6 +24,9 @@ class InspectionController extends BaseController
 
     public function index(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::INSPECTIONS_VIEW);
+
         $this->handle(function() {
             $rawInspections = $this->visibleInspections($this->inspectionModel->all(['order' => 'created_at.desc']));
 
@@ -38,6 +44,9 @@ class InspectionController extends BaseController
 
     public function paginated(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::INSPECTIONS_VIEW);
+
         $page = max(1, (int)($_GET['page'] ?? 1));
         $limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));
         $offset = ($page - 1) * $limit;
@@ -114,6 +123,9 @@ class InspectionController extends BaseController
 
     public function show(string $id): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::INSPECTIONS_VIEW);
+
         $this->handle(function() use ($id) {
             $inspection = $this->inspectionModel->find($id);
 
@@ -142,6 +154,10 @@ class InspectionController extends BaseController
 
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::INSPECTIONS_CONDUCT);
+
         $data = $this->input();
 
         $this->handle(function() use ($data) {
@@ -201,17 +217,31 @@ class InspectionController extends BaseController
                 } catch (Throwable $e) {}
             }
 
+            $resultRow = is_array($result) && isset($result[0]) && is_array($result[0]) ? $result[0] : (is_array($result) ? $result : []);
+            $merged = array_merge($dbData, $resultRow);
+            if (!empty($resultRow['id'])) {
+                $merged['id'] = $resultRow['id'];
+            }
+            $enriched = $this->enrichInspection($merged);
+
             return [
                 'success' => true,
                 'message' => 'Inspection scheduled successfully',
-                'data' => $result,
-                'code' => 201
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'create',
+                'id'      => $enriched['id'] ?? null,
+                'code'    => 201
             ];
         });
     }
 
     public function update(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::INSPECTIONS_CONDUCT);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -243,16 +273,26 @@ class InspectionController extends BaseController
             $dbData = $this->prepareDbData($data, true);
             $result = $this->inspectionModel->updateById($id, $dbData);
 
+            $updated = $this->inspectionModel->find($id);
+            $enriched = $this->enrichInspection($updated ?: array_merge($inspection, $dbData));
+
             return [
                 'success' => true,
                 'message' => 'Inspection updated successfully',
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function conduct(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::INSPECTIONS_CONDUCT);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -370,16 +410,26 @@ class InspectionController extends BaseController
                 } catch (Throwable $e) {}
             }
 
+            $updated = $this->inspectionModel->find($id);
+            $enriched = $this->enrichInspection($updated ?: array_merge($inspection, $updateData));
+
             return [
                 'success' => true,
                 'message' => 'Inspection #' . $inspection['inspection_id'] . ' completed successfully',
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function updateStatus(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::INSPECTIONS_CONDUCT);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -421,16 +471,26 @@ class InspectionController extends BaseController
 
             $result = $this->inspectionModel->updateById($id, $updateData);
 
+            $updated = $this->inspectionModel->find($id);
+            $enriched = $this->enrichInspection($updated ?: array_merge($inspection, $updateData));
+
             return [
                 'success' => true,
                 'message' => 'Inspection status updated to ' . ucfirst($status),
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function destroy(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::INSPECTIONS_CONDUCT);
+
         $this->handle(function() use ($id) {
             if (!$this->canViewAllInspections()) {
                 return [
@@ -453,13 +513,18 @@ class InspectionController extends BaseController
 
             return [
                 'success' => $success,
-                'message' => $success ? 'Inspection deleted successfully' : 'Failed to delete inspection'
+                'message' => $success ? 'Inspection deleted successfully' : 'Failed to delete inspection',
+                'action'  => 'delete',
+                'id'      => $id
             ];
         });
     }
 
     public function search(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::INSPECTIONS_VIEW);
+
         $query = strtolower($_GET['q'] ?? '');
 
         $this->handle(function() use ($query) {
@@ -505,6 +570,9 @@ class InspectionController extends BaseController
 
     public function stats(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::INSPECTIONS_VIEW);
+
         $this->handle(function() {
             $rawInspections = $this->visibleInspections($this->inspectionModel->all());
 

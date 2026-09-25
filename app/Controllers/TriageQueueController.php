@@ -2,8 +2,11 @@
 // app/Controllers/TriageQueueController.php
 
 require_once __DIR__ . '/../../Core/BaseController.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
 require_once __DIR__ . '/../Models/TriageQueue.php';
 require_once __DIR__ . '/../Models/Patient.php';
+
+use App\Constants\Permissions;
 
 class TriageQueueController extends BaseController
 {
@@ -18,6 +21,9 @@ class TriageQueueController extends BaseController
 
     public function index(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_VIEW);
+
         $this->handle(function() {
             $queue = $this->queueModel->getTodayQueue();
             
@@ -36,6 +42,9 @@ class TriageQueueController extends BaseController
 
     public function show(string|int $id): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_VIEW);
+
         $this->handle(function() use ($id) {
             $item = $this->queueModel->find($id);
             
@@ -56,6 +65,10 @@ class TriageQueueController extends BaseController
 
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_CREATE);
+
         $data = $this->input();
 
         $this->handle(function() use ($data) {
@@ -98,12 +111,20 @@ class TriageQueueController extends BaseController
             ];
 
             $result = $this->queueModel->create($queueData);
+            $merged = array_merge($queueData, is_array($result) ? $result : []);
+            if (!empty($result['id'])) {
+                $merged['id'] = $result['id'];
+            }
+            $enriched = $this->enrichQueueItem($merged);
 
             return [
                 'success' => true,
                 'message' => 'Patient checked in successfully',
                 'queue_number' => $result['queue_number'] ?? $queueData['queue_number'],
-                'data' => $result,
+                'data' => $enriched,
+                'record' => $enriched,
+                'action' => 'create',
+                'id' => $enriched['id'] ?? null,
                 'code' => 201
             ];
         });
@@ -111,6 +132,10 @@ class TriageQueueController extends BaseController
 
     public function updateStatus(string|int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_CREATE);
+
         $data = $this->input();
         $status = $data['status'] ?? null;
 
@@ -135,11 +160,16 @@ class TriageQueueController extends BaseController
             }
 
             $result = $this->queueModel->updateStatus($id, $status);
+            $updated = $this->queueModel->find($id);
+            $enriched = $this->enrichQueueItem($updated ?: array_merge($existing, ['status' => $status]));
 
             return [
                 'success' => true,
                 'message' => 'Queue status updated to ' . $status,
-                'data' => $result
+                'data' => $enriched,
+                'record' => $enriched,
+                'action' => 'update',
+                'id' => $id
             ];
         });
     }
@@ -149,6 +179,9 @@ class TriageQueueController extends BaseController
      */
     public function nextPatient(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_VIEW);
+
         $this->handle(function() {
             $todayQueue = $this->queueModel->getTodayQueue();
             

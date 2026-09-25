@@ -29,4 +29,28 @@ class Response
     {
         self::json(false, $message, $data, $httpCode);
     }
+
+    public static function crudSuccess(string $action, mixed $record = null, string $message = '', int $httpCode = 200, array $extra = []): never
+    {
+        $id = null;
+        if (is_array($record)) {
+            $id = $record['id'] ?? null;
+        } elseif (is_numeric($record) || is_string($record)) {
+            $id = $record;
+        }
+
+        $payload = array_merge([
+            'action' => $action,
+            'record' => $record,
+            'id'     => $id,
+        ], $extra);
+
+        $defaultMsg = ucfirst($action) . ' completed successfully.';
+        self::json(true, $message ?: $defaultMsg, $record, $httpCode, $payload);
+    }
+
+    public static function validationError(array $errors, string $message = 'Validation failed.'): never
+    {
+        self::json(false, $message, null, 422, ['errors' => $errors]);
+    }
 }

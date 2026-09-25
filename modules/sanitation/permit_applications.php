@@ -595,13 +595,17 @@ const STATUS_LABELS = {
 // API HELPER
 // ============================================================
 async function apiRequest(url, options = {}) {
+    const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
+    const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        ...(options.headers || {})
+    };
     try {
         const response = await fetch(url, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            ...options
+            ...options,
+            headers
         });
         const data = await response.json();
         if (!data.success) {
@@ -854,15 +858,15 @@ function renderTable(permits) {
         return `
         <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors permit-row"
             data-id="${p.id}">
-            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${p.permit_id}</td>
+            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${escapeHtml(p.permit_id || '')}</td>
             <td class="px-4 py-3">
                 <div>
-                    <p class="font-semibold text-slate-800 text-sm maskable" data-real="${escapeHtml(p.applicant)}" data-masked="${escapeHtml(maskedApplicant)}">${p.applicant}</p>
-                    <p class="text-xs text-slate-400 maskable" data-real="${escapeHtml(p.owner_name)}" data-masked="${escapeHtml(maskedOwner)}">${p.owner_name}</p>
+                    <p class="font-semibold text-slate-800 text-sm maskable" data-real="${escapeHtml(p.applicant || '')}" data-masked="${escapeHtml(maskedApplicant)}">${escapeHtml(p.applicant || '')}</p>
+                    <p class="text-xs text-slate-400 maskable" data-real="${escapeHtml(p.owner_name || '')}" data-masked="${escapeHtml(maskedOwner)}">${escapeHtml(p.owner_name || '')}</p>
                 </div>
             </td>
-            <td class="px-4 py-3 text-slate-600 text-xs">${p.business_type}</td>
-            <td class="px-4 py-3 text-slate-600 text-xs">${p.address}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${escapeHtml(p.business_type || '')}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${escapeHtml(p.address || '')}</td>
             <td class="px-4 py-3">
                 <span class="text-xs font-semibold text-slate-700">₱${Number(p.fee).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 ${paidBadge}
@@ -872,7 +876,7 @@ function renderTable(permits) {
                     ${statusLabel}
                 </span>
             </td>
-            <td class="px-4 py-3 text-slate-500 text-xs">${dateApplied}</td>
+            <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(dateApplied)}</td>
             <td class="px-4 py-3">
                 <div class="flex items-center justify-center gap-1">
                     <!-- View Details -->
@@ -1139,8 +1143,8 @@ async function viewPermit(id) {
                         ${p.applicant ? p.applicant.charAt(0).toUpperCase() : '?'}
                     </div>
                     <div>
-                        <h4 class="text-lg font-bold text-slate-900 maskable" data-real="${escapeHtml(p.applicant)}" data-masked="${escapeHtml(maskedApplicant)}">${p.applicant}</h4>
-                        <p class="text-sm text-slate-500">${p.permit_id} • ${p.business_type}</p>
+                        <h4 class="text-lg font-bold text-slate-900 maskable" data-real="${escapeHtml(p.applicant || '')}" data-masked="${escapeHtml(maskedApplicant)}">${escapeHtml(p.applicant || '')}</h4>
+                        <p class="text-sm text-slate-500">${escapeHtml(p.permit_id || '')} • ${escapeHtml(p.business_type || '')}</p>
                         <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColor}">
                             ${statusLabel.toUpperCase()}
                         </span>
@@ -1149,19 +1153,19 @@ async function viewPermit(id) {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Owner</p>
-                        <p class="text-sm text-slate-800 maskable" data-real="${escapeHtml(p.owner_name)}" data-masked="${escapeHtml(maskedOwner)}">${p.owner_name}</p>
+                        <p class="text-sm text-slate-800 maskable" data-real="${escapeHtml(p.owner_name || '')}" data-masked="${escapeHtml(maskedOwner)}">${escapeHtml(p.owner_name || '')}</p>
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Contact</p>
-                        <p class="text-sm text-slate-800 maskable" data-real="${escapeHtml(p.contact)}" data-masked="${escapeHtml(maskedContact)}">${p.contact}</p>
+                        <p class="text-sm text-slate-800 maskable" data-real="${escapeHtml(p.contact || '')}" data-masked="${escapeHtml(maskedContact)}">${escapeHtml(p.contact || '')}</p>
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Email</p>
-                        <p class="text-sm text-slate-800">${p.email || 'N/A'}</p>
+                        <p class="text-sm text-slate-800">${escapeHtml(p.email || 'N/A')}</p>
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Address</p>
-                        <p class="text-sm text-slate-800">${p.address}</p>
+                        <p class="text-sm text-slate-800">${escapeHtml(p.address || '')}</p>
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Fee</p>
@@ -1169,23 +1173,23 @@ async function viewPermit(id) {
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Payment</p>
-                        <p class="text-sm text-slate-800">${p.paid ? 'Paid via ' + (p.payment_method || 'N/A') : 'Unpaid'}</p>
+                        <p class="text-sm text-slate-800">${escapeHtml(p.paid ? 'Paid via ' + (p.payment_method || 'N/A') : 'Unpaid')}</p>
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Date Applied</p>
-                        <p class="text-sm text-slate-800">${dateApplied}</p>
+                        <p class="text-sm text-slate-800">${escapeHtml(dateApplied)}</p>
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Date Approved</p>
-                        <p class="text-sm text-slate-800">${dateApproved}</p>
+                        <p class="text-sm text-slate-800">${escapeHtml(dateApproved)}</p>
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Expiry Date</p>
-                        <p class="text-sm text-slate-800">${expiryDate}</p>
+                        <p class="text-sm text-slate-800">${escapeHtml(expiryDate)}</p>
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Inspector</p>
-                        <p class="text-sm text-slate-800">${p.inspector_id ? 'Inspector #' + p.inspector_id : 'Not assigned'}</p>
+                        <p class="text-sm text-slate-800">${escapeHtml(p.inspector_id ? 'Inspector #' + p.inspector_id : 'Not assigned')}</p>
                     </div>
                     ${rejectionHtml}
                 </div>

@@ -2,8 +2,11 @@
 // app/Controllers/PaymentController.php
 
 require_once __DIR__ . '/../../Core/BaseController.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
 require_once __DIR__ . '/../Models/Payment.php';
 require_once __DIR__ . '/../Models/Permit.php';
+
+use App\Constants\Permissions;
 
 class PaymentController extends BaseController
 {
@@ -21,6 +24,9 @@ class PaymentController extends BaseController
      */
     public function index(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $this->handle(function () {
             $page = (int)($_GET['page'] ?? 1);
             $limit = (int)($_GET['limit'] ?? 10);
@@ -51,6 +57,9 @@ class PaymentController extends BaseController
      */
     public function stats(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $this->handle(function () {
             return [
                 'success' => true,
@@ -64,6 +73,9 @@ class PaymentController extends BaseController
      */
     public function feeStructure(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $this->handle(function () {
             return [
                 'success' => true,
@@ -77,6 +89,9 @@ class PaymentController extends BaseController
      */
     public function show(int $id): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $this->handle(function () use ($id) {
             $payment = $this->paymentModel->getById($id);
 
@@ -100,6 +115,10 @@ class PaymentController extends BaseController
      */
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_CREATE);
+
         $this->handle(function () {
             $data = $this->input();
 
@@ -144,11 +163,20 @@ class PaymentController extends BaseController
                 ];
             }
 
-            if (empty($data['paid_by'])) {
-                $data['paid_by'] = $_SESSION['email'] ?? 'System';
+            $payload = [
+                'permit_id' => (int)$data['permit_id'],
+                'amount'    => (float)$data['amount'],
+                'method'    => trim($data['method']),
+                'paid_by'   => $data['paid_by'] ?? ($_SESSION['email'] ?? 'System'),
+            ];
+            if (!empty($data['reference_number'])) {
+                $payload['reference_number'] = trim($data['reference_number']);
+            }
+            if (!empty($data['notes'])) {
+                $payload['notes'] = trim($data['notes']);
             }
 
-            $payment = $this->paymentModel->create($data);
+            $payment = $this->paymentModel->create($payload);
             $createdPayment = $payment[0] ?? $payment;
 
             if (($createdPayment['status'] ?? null) === 'completed') {
@@ -160,11 +188,27 @@ class PaymentController extends BaseController
                 $this->autoGeneratePermitDocument((int)$data['permit_id'], $createdPayment['receipt_number'] ?? null);
             }
 
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $payCode = $createdPayment['payment_id'] ?? 'PAY';
+                    $logger->log("Processed Payment ({$payCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Permit ID: #{$data['permit_id']} | Method: {$data['method']} | Amount: ₱" . number_format((float)$data['amount'], 2),
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+
             return [
                 'success' => true,
                 'message' => 'Payment processed successfully',
-                'data' => $createdPayment,
-                'code' => 201
+                'data'    => $createdPayment,
+                'record'  => $createdPayment,
+                'action'  => 'create',
+                'id'      => $createdPayment['id'] ?? null,
+                'code'    => 201
             ];
         });
     }
@@ -174,6 +218,10 @@ class PaymentController extends BaseController
      */
     public function update(int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $this->handle(function () use ($id) {
             $payment = $this->paymentModel->getById($id);
             if (!$payment) {
@@ -185,12 +233,32 @@ class PaymentController extends BaseController
             }
 
             $data = $this->input();
-            $updated = $this->paymentModel->update($id, $data);
+            unset($data['csrf_token']);
+            $allowed = ['status', 'notes', 'reference_number', 'receipt_path', 'paid_by'];
+            $updatePayload = array_intersect_key($data, array_flip($allowed));
+            $updated = $this->paymentModel->update($id, $updatePayload);
+            $record = $updated[0] ?? $updated;
+
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $payCode = $record['payment_id'] ?? $payment['payment_id'] ?? 'PAY';
+                    $logger->log("Updated Payment ({$payCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Payment ID: #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
 
             return [
                 'success' => true,
                 'message' => 'Payment updated successfully',
-                'data' => $updated[0] ?? $updated
+                'data'    => $record,
+                'record'  => $record,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
@@ -200,6 +268,10 @@ class PaymentController extends BaseController
      */
     public function complete(int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $this->handle(function () use ($id) {
             $payment = $this->paymentModel->getById($id);
             if (!$payment) {
@@ -238,10 +310,26 @@ class PaymentController extends BaseController
             // Auto-generate Official Sanitation Permit document with unique QR Code
             $this->autoGeneratePermitDocument((int)$payment['permit_id'], $updatedPayment['receipt_number'] ?? null);
 
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $payCode = $updatedPayment['payment_id'] ?? $payment['payment_id'] ?? 'PAY';
+                    $logger->log("Verified & Completed Payment ({$payCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Payment ID: #{$id} | Permit ID: #{$payment['permit_id']} | Status: Completed",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+
             return [
                 'success' => true,
                 'message' => 'Payment verified & official Sanitation Permit with QR Code generated successfully!',
-                'data' => $updatedPayment
+                'data'    => $updatedPayment,
+                'record'  => $updatedPayment,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
@@ -251,6 +339,10 @@ class PaymentController extends BaseController
      */
     public function fail(int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $this->handle(function () use ($id) {
             $payment = $this->paymentModel->getById($id);
             if (!$payment) {
@@ -264,11 +356,28 @@ class PaymentController extends BaseController
             $data = $this->input();
             $reason = $data['reason'] ?? 'Payment failed';
             $failed = $this->paymentModel->fail($id, $reason);
+            $record = $failed[0] ?? $failed;
+
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $payCode = $record['payment_id'] ?? $payment['payment_id'] ?? 'PAY';
+                    $logger->log("Marked Payment as Failed ({$payCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Payment ID: #{$id} | Reason: {$reason}",
+                        'status'  => 'Failed'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
 
             return [
                 'success' => true,
                 'message' => 'Payment marked as failed',
-                'data' => $failed[0] ?? $failed
+                'data'    => $record,
+                'record'  => $record,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
@@ -278,6 +387,10 @@ class PaymentController extends BaseController
      */
     public function refund(int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $this->handle(function () use ($id) {
             $payment = $this->paymentModel->getById($id);
             if (!$payment) {
@@ -299,11 +412,28 @@ class PaymentController extends BaseController
             $data = $this->input();
             $reason = $data['reason'] ?? 'Payment refunded';
             $refunded = $this->paymentModel->refund($id, $reason);
+            $record = $refunded[0] ?? $refunded;
+
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $payCode = $record['payment_id'] ?? $payment['payment_id'] ?? 'PAY';
+                    $logger->log("Refunded Payment ({$payCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Payment ID: #{$id} | Reason: {$reason}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
 
             return [
                 'success' => true,
                 'message' => 'Payment refunded successfully',
-                'data' => $refunded[0] ?? $refunded
+                'data'    => $record,
+                'record'  => $record,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
@@ -313,6 +443,10 @@ class PaymentController extends BaseController
      */
     public function destroy(int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $this->handle(function () use ($id) {
             $payment = $this->paymentModel->getById($id);
             if (!$payment) {
@@ -325,9 +459,24 @@ class PaymentController extends BaseController
 
             $this->paymentModel->delete($id);
 
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $payCode = $payment['payment_id'] ?? 'PAY';
+                    $logger->log("Deleted Payment Record ({$payCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Deleted Payment ID: #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+
             return [
                 'success' => true,
-                'message' => 'Payment deleted successfully'
+                'message' => 'Payment deleted successfully',
+                'action'  => 'delete',
+                'id'      => $id
             ];
         });
     }

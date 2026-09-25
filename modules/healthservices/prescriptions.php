@@ -1517,13 +1517,19 @@ requireDepartmentAccess('health center services');
         'This will mark the prescription as dispensed.',
         async () => {
             try {
+                const csrfToken = CrudAjax.getCsrfToken();
                 const response = await fetch(`${API_URL}/${id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
                     body: JSON.stringify({
                         status: 'dispensed',
                         dispensed_by: CURRENT_USER_ID,
-                        dispensed_at: new Date().toISOString()
+                        dispensed_at: new Date().toISOString(),
+                        csrf_token: csrfToken
                     })
                 });
                 const data = await response.json();
@@ -1567,12 +1573,15 @@ requireDepartmentAccess('health center services');
             };
 
             try {
+                const csrfToken = CrudAjax.getCsrfToken();
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify({ ...data, csrf_token: csrfToken })
                 });
 
                 const result = await response.json();
@@ -1667,12 +1676,15 @@ requireDepartmentAccess('health center services');
             };
 
             try {
+                const csrfToken = CrudAjax.getCsrfToken();
                 const response = await fetch(`${API_URL}/${id}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
                     },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify({ ...data, csrf_token: csrfToken })
                 });
 
                 const result = await response.json();
@@ -1699,7 +1711,16 @@ requireDepartmentAccess('health center services');
         'This prescription will be cancelled.',
         async () => {
             try {
-                const response = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                const csrfToken = CrudAjax.getCsrfToken();
+                const response = await fetch(`${API_URL}/${id}`, { 
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ csrf_token: csrfToken })
+                });
                 const data = await response.json();
                 if (data.success) {
                     ModalSystem.toast.success('Prescription cancelled successfully');

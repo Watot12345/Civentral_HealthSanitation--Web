@@ -812,13 +812,14 @@ function renderTable(rows, filtersActive = false) {
 
     tbody.innerHTML = rows.map(i => {
         const needsFollowUp = i.status === 'completed' && i.overall_status === 'partially_compliant';
+        const maskedApplicant = maskName(i.applicant);
 
         return `
         <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors">
             <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${escapeHtml(i.inspection_id)}</td>
             <td class="px-4 py-3">
                 <div>
-                    <p class="font-semibold text-slate-800 text-sm maskable">${escapeHtml(i.applicant)}</p>
+                    <p class="font-semibold text-slate-800 text-sm maskable" data-real="${escapeHtml(i.applicant || '')}" data-masked="${escapeHtml(maskedApplicant)}">${escapeHtml(i.applicant || '')}</p>
                     <p class="text-xs text-slate-400">${escapeHtml(i.permit_number)} • ${escapeHtml(i.business_type)}</p>
                 </div>
             </td>
@@ -1437,6 +1438,7 @@ function renderInspectionDetails(i) {
     }
 
     const needsFollowUp = i.status === 'completed' && i.overall_status === 'partially_compliant';
+    const maskedApplicant = maskName(i.applicant);
 
     document.getElementById('inspectionDetailsContent').innerHTML = `
         <div class="space-y-5">
@@ -1447,7 +1449,7 @@ function renderInspectionDetails(i) {
                         ${escapeHtml((i.applicant || '?').charAt(0))}
                     </div>
                     <div>
-                        <h4 class="text-base font-bold text-slate-900 maskable">${escapeHtml(i.applicant)}</h4>
+                        <h4 class="text-base font-bold text-slate-900 maskable" data-real="${escapeHtml(i.applicant || '')}" data-masked="${escapeHtml(maskedApplicant)}">${escapeHtml(i.applicant || '')}</h4>
                         <p class="text-xs text-slate-500 font-medium">${escapeHtml(i.inspection_id)} • <span class="font-mono text-brand-dark">${escapeHtml(i.permit_number)}</span> • ${escapeHtml(i.business_type)}</p>
                         <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
                             <span class="px-2.5 py-0.5 rounded-full text-xs font-bold ${statusColors[i.status] || statusColors.scheduled}">
@@ -1537,10 +1539,13 @@ async function saveScheduledInspection(event) {
         return;
     }
 
-    try {
+        const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
         const res = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
+            },
             body: JSON.stringify(payload)
         });
         const json = await res.json();
@@ -1670,10 +1675,13 @@ async function saveConductedInspection(event) {
         notes: document.getElementById('conduct_notes').value.trim()
     };
 
-    try {
+        const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
         const res = await fetch(`${API_URL}?id=${id}&action=conduct`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
+            },
             body: JSON.stringify(payload)
         });
         const json = await res.json();
@@ -1768,10 +1776,13 @@ async function saveEditedInspection(event, helpers) {
         notes: document.getElementById('edit_notes').value
     };
 
-    try {
+        const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
         const res = await fetch(`${API_URL}?id=${id}`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
+            },
             body: JSON.stringify(payload)
         });
         const json = await res.json();
@@ -1801,6 +1812,13 @@ function escapeHtml(str) {
     return String(str)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+function maskName(name) {
+    if (!name) return '';
+    return name.split(' ').map(function(p) {
+        if (!p) return '';
+        return p.charAt(0).toUpperCase() + '*'.repeat(Math.max(0, p.length - 1));
+    }).join(' ');
 }
 function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
 function formatDate(d) {

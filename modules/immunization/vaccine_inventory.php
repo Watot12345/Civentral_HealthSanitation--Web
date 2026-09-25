@@ -1115,16 +1115,25 @@ $title = 'Vaccine Inventory';
         }
 
         try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '<?php echo $_SESSION['csrf_token'] ?? ''; ?>';
             const res = await fetch('<?php echo site_url('api/inventory.php'); ?>', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const data = await res.json();
             if (data.success) {
                 closeModal('addStockModal');
+                const saved = data.record || data.data || { ...payload, id: Date.now() };
+                if (saved.id) {
+                    INVENTORY[saved.id] = saved;
+                    upsertInventoryRow(saved);
+                }
                 showToast('✅ Vaccine stock added successfully!', 'success');
-                setTimeout(() => location.reload(), 500);
             } else {
                 showToast(data.message || 'Failed to add stock.', 'danger');
                 if (submitBtn) {
@@ -1176,16 +1185,25 @@ $title = 'Vaccine Inventory';
         }
 
         try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '<?php echo $_SESSION['csrf_token'] ?? ''; ?>';
             const res = await fetch('<?php echo site_url('api/inventory.php?action=adjust'); ?>', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const data = await res.json();
             if (data.success) {
                 closeModal('adjustStockModal');
+                const saved = data.record || data.data || { ...INVENTORY[id], ...payload, id: Number(id) };
+                if (saved && saved.id) {
+                    INVENTORY[saved.id] = saved;
+                    upsertInventoryRow(saved);
+                }
                 showToast('✅ Stock adjusted successfully!', 'success');
-                setTimeout(() => location.reload(), 500);
             } else {
                 showToast(data.message || 'Failed to adjust stock.', 'danger');
                 if (submitBtn) {
@@ -1201,6 +1219,56 @@ $title = 'Vaccine Inventory';
                 submitBtn.innerHTML = '<i class="fa-solid fa-check mr-1.5"></i> Apply Adjustment';
             }
         }
+    }
+
+    function upsertInventoryRow(v) {
+        if (!v || !v.id) return;
+        const row = document.querySelector(`.inventory-row[data-id="${v.id}"]`);
+        if (row) {
+            const nameEl = row.querySelector('.font-semibold.text-slate-800.text-sm');
+            if (nameEl) nameEl.textContent = v.vaccine_name || '';
+            const batchEl = row.querySelector('.font-mono.text-xs.text-slate-600');
+            if (batchEl) batchEl.textContent = v.batch_number || '';
+            const stockSpan = row.querySelector('.text-sm.font-bold');
+            if (stockSpan) {
+                stockSpan.textContent = Number(v.quantity ?? 0).toLocaleString();
+                stockSpan.className = `text-sm font-bold ${Number(v.quantity ?? 0) <= Number(v.minimum_stock ?? 0) ? 'text-rose-600' : 'text-slate-800'}`;
+            }
+            const minEl = row.querySelector('.text-\[10px\].text-slate-400');
+            if (minEl) minEl.textContent = 'Min: ' + Number(v.minimum_stock ?? 0).toLocaleString();
+            const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
+            if (statusBadge) {
+                const status = (v.status || 'in_stock').replace('_', ' ').toUpperCase();
+                const statusColors = {
+                    in_stock: 'bg-emerald-100 text-emerald-700',
+                    low_stock: 'bg-amber-100 text-amber-700',
+                    critical: 'bg-rose-100 text-rose-700',
+                    out_of_stock: 'bg-slate-100 text-slate-500'
+                };
+                statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[v.status] || statusColors.in_stock}`;
+                statusBadge.textContent = status;
+            }
+            row.dataset.status = v.status || 'in_stock';
+            row.className = `border-b border-slate-100 hover:bg-brand-light/40 transition-colors inventory-row ${v.status === 'critical' || v.status === 'out_of_stock' ? 'bg-rose-50/50' : ''}`;
+            return;
+        }
+
+        const tbody = document.getElementById('inventoryTableBody');
+        if (!tbody) return;
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-100 hover:bg-brand-light/40 transition-colors inventory-row ' + ((v.status === 'critical' || v.status === 'out_of_stock') ? 'bg-rose-50/50' : '');
+        tr.dataset.id = v.id;
+        tr.dataset.status = v.status || 'in_stock';
+        tr.innerHTML = `
+            <td class="px-4 py-3"><div><p class="font-semibold text-slate-800 text-sm">${v.vaccine_name || ''}</p><p class="text-xs text-slate-400">${v.unit || 'doses'}</p></div></td>
+            <td class="px-4 py-3 font-mono text-xs text-slate-600">${v.batch_number || ''}</td>
+            <td class="px-4 py-3"><span class="text-sm font-bold ${Number(v.quantity ?? 0) <= Number(v.minimum_stock ?? 0) ? 'text-rose-600' : 'text-slate-800'}">${Number(v.quantity ?? 0).toLocaleString()}</span><span class="block text-[10px] text-slate-400">Min: ${Number(v.minimum_stock ?? 0).toLocaleString()}</span></td>
+            <td class="px-4 py-3"><span class="text-xs ${v.expiry_date ? 'text-slate-500' : 'text-slate-400'}">${v.expiry_date ? new Date(v.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span></td>
+            <td class="px-4 py-3"><div class="flex items-center gap-1"><span class="text-xs font-medium ${Number(v.temperature ?? 0) >= 2 && Number(v.temperature ?? 0) <= 8 ? 'text-emerald-600' : 'text-rose-600'}">${v.temperature ?? '--'}°C</span></div></td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${v.storage_location || '—'}</td>
+            <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${v.status === 'low_stock' ? 'bg-amber-100 text-amber-700' : v.status === 'critical' ? 'bg-rose-100 text-rose-700' : v.status === 'out_of_stock' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-700'}">${String(v.status || 'in_stock').replace('_', ' ').toUpperCase()}</span></td>
+            <td class="px-4 py-3"><div class="flex items-center justify-center gap-1"><button onclick="viewVaccine(${v.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye text-sm"></i></button><button onclick="openAdjustStockFor(${v.id})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Adjust Stock"><i class="fa-solid fa-sliders text-sm"></i></button><button onclick="editVaccine(${v.id})" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen text-sm"></i></button></div></td>`;
+        tbody.insertBefore(tr, tbody.firstChild);
     }
 
     // ============================================================

@@ -985,6 +985,92 @@ $title = 'Service Providers';
         return contactOk && licenseOk && equipmentOk && emailOk;
     }
 
+    function renderProviderCardMarkup(provider) {
+        const p = provider || {};
+        const statusColors = {
+            active: 'bg-emerald-100 text-emerald-700',
+            inactive: 'bg-slate-100 text-slate-500'
+        };
+        const status = ((p.status || 'active').toLowerCase() === 'inactive') ? 'inactive' : 'active';
+        const statusClass = statusColors[status] || statusColors.active;
+        const providerId = sanitizeHTML(p.provider_id || '');
+        const providerName = sanitizeHTML(p.name || 'Provider');
+        const providerSpec = sanitizeHTML(p.specialization || 'General');
+        const providerRating = Number(p.rating || 0);
+        const providerEquipment = Number(p.equipment_count || 0);
+        const completedJobs = Number(p.completed_jobs || 0);
+        const responseTime = sanitizeHTML(p.response_time || 'N/A');
+        const certification = sanitizeHTML(p.certification || 'N/A');
+
+        return `
+            <div class="provider-card bg-white rounded-xl shadow-xs border border-slate-200 p-4 hover:shadow-md transition-all duration-200 ${status === 'active' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-slate-400'}"
+                 data-name="${sanitizeHTML((p.name || '').toLowerCase())}"
+                 data-id="${sanitizeHTML(String(p.provider_id || ''))}"
+                 data-row-id="${Number(p.id || 0)}"
+                 data-status="${sanitizeHTML(status)}"
+                 data-specialization="${sanitizeHTML((p.specialization || '').toLowerCase())}"
+                 data-rating="${sanitizeHTML(String(providerRating))}"
+                 data-contact="${sanitizeHTML((p.contact || '').toLowerCase())}"
+                 data-joined-date="${sanitizeHTML(p.joined_date || '')}"
+                 id="provider-card-${Number(p.id || 0)}">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-10 h-10 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-sm flex-shrink-0">
+                            ${providerName.slice(0, 2).toUpperCase() || 'PR'}
+                        </div>
+                        <div>
+                            <p class="font-semibold text-slate-800 text-sm">${providerName}</p>
+                            <p class="text-xs text-slate-400">${providerId}</p>
+                        </div>
+                    </div>
+                    <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusClass}">
+                        ${status.charAt(0).toUpperCase() + status.slice(1)}
+                    </span>
+                </div>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between"><span class="text-slate-500">Specialization</span><span class="text-slate-800 text-xs capitalize">${providerSpec}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Rating</span><span class="text-amber-500 text-xs font-semibold">${providerRating.toFixed(1)} ⭐</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Equipment</span><span class="text-slate-800 text-xs">${providerEquipment} units</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Completed Jobs</span><span class="text-slate-800 text-xs font-semibold">${completedJobs}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Response Time</span><span class="text-slate-800 text-xs">${responseTime}</span></div>
+                    <div class="flex justify-between"><span class="text-slate-500">Certification</span><span class="text-slate-800 text-xs">${certification}</span></div>
+                </div>
+                <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="viewProviderRoutes(${Number(p.id || 0)})" class="px-2.5 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition flex items-center gap-1 shadow-2xs" title="Route Planning & Map"><i class="fa-solid fa-route text-[11px]"></i> Routes</button>
+                        <button onclick="viewProviderHistory(${Number(p.id || 0)})" class="px-2.5 py-1.5 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition flex items-center gap-1 shadow-2xs" title="Transaction History"><i class="fa-solid fa-clock-rotate-left text-[11px]"></i> History</button>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="viewProvider(${Number(p.id || 0)})" class="px-2.5 py-1.5 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye"></i></button>
+                        <button onclick="assignProvider(${Number(p.id || 0)})" class="px-2.5 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Assign Job"><i class="fa-solid fa-user-check"></i></button>
+                        <button onclick="editProvider(${Number(p.id || 0)})" class="px-2.5 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition" title="Edit Provider"><i class="fa-solid fa-pen"></i></button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function upsertProviderCard(provider) {
+        if (!provider || !provider.id) return;
+        PROVIDERS[provider.id] = provider;
+
+        const grid = document.getElementById('providersGrid');
+        if (!grid) return;
+
+        const markup = renderProviderCardMarkup(provider);
+        const temp = document.createElement('div');
+        temp.innerHTML = markup.trim();
+        const newNode = temp.firstElementChild;
+        if (!newNode) return;
+
+        const existing = document.getElementById('provider-card-' + provider.id);
+        if (existing) {
+            existing.replaceWith(newNode);
+        } else {
+            grid.insertBefore(newNode, grid.firstChild);
+        }
+    }
+
     function editProvider(id) {
         const provider = PROVIDERS[id];
         if (!provider) return;
@@ -1035,16 +1121,22 @@ $title = 'Service Providers';
                 notes: (document.getElementById('edit_provider_notes')?.value || '').trim()
             };
 
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : document.querySelector('input[name="csrf_token"]')?.value || '';
             const res = await fetch(`../../api/providers.php?id=${id}&action=update`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const json = await res.json();
             if (json.success) {
+                const updated = json.record || json.data || { ...PROVIDERS[id], ...payload, id: Number(id) };
+                upsertProviderCard(updated);
                 closeModal('editProviderModal');
                 showToast('Service provider updated successfully!', 'success');
-                setTimeout(() => location.reload(), 800);
             } else {
                 showToast(json.message || 'Failed to update provider', 'danger');
             }
@@ -1088,16 +1180,24 @@ $title = 'Service Providers';
                 notes: document.getElementById('prov_notes')?.value?.trim() || ''
             };
 
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : document.querySelector('input[name="csrf_token"]')?.value || '';
             const res = await fetch('../../api/providers.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const json = await res.json();
             if (json.success) {
+                const created = json.record || json.data || { ...payload, id: Date.now() };
+                upsertProviderCard(created);
                 showToast('Service provider registered successfully!', 'success');
                 closeModal('registerProviderModal');
-                setTimeout(() => location.reload(), 800);
+                const form = document.getElementById('registerProviderForm');
+                if (form) form.reset();
             } else {
                 showToast(json.message || 'Failed to register provider', 'danger');
             }

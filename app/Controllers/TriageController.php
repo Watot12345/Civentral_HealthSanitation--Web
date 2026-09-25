@@ -2,9 +2,12 @@
 // app/Controllers/TriageController.php
 
 require_once __DIR__ . '/../../Core/BaseController.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
 require_once __DIR__ . '/../Models/Triage.php';
 require_once __DIR__ . '/../Models/Patient.php';
 require_once __DIR__ . '/../Models/Employee.php';
+
+use App\Constants\Permissions;
 
 class TriageController extends BaseController
 {
@@ -21,6 +24,9 @@ class TriageController extends BaseController
 
     public function index(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_VIEW);
+
         $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
         $limit = isset($_GET['limit']) ? max(1, (int)$_GET['limit']) : 1000;
 
@@ -52,6 +58,9 @@ class TriageController extends BaseController
 
     public function show(string|int $id): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_VIEW);
+
         $triage = $this->triageModel->find($id);
 
         $this->handle(function() use ($triage) {
@@ -75,6 +84,10 @@ class TriageController extends BaseController
 
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_CREATE);
+
         $data = $this->input();
 
         $this->handle(function() use ($data) {
@@ -121,17 +134,32 @@ class TriageController extends BaseController
                 } catch (Throwable $e) {}
             }
 
+            $patientsMap = $this->getPatientsMap();
+            $employeesMap = $this->getEmployeesMap();
+            $record = is_array($result) && !empty($result) ? $result : $dbData;
+            if (!empty($result['id'])) {
+                $record['id'] = $result['id'];
+            }
+            $enriched = $this->enrichTriage($record, $patientsMap, $employeesMap);
+
             return [
                 'success' => true,
                 'message' => 'Triage record created successfully',
-                'data' => $result,
-                'code' => 201
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'create',
+                'id'      => $enriched['id'] ?? null,
+                'code'    => 201
             ];
         });
     }
 
     public function update(string|int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_CREATE);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -152,16 +180,31 @@ class TriageController extends BaseController
             $dbData = $this->prepareDbData($data);
             $result = $this->triageModel->updateById($id, $dbData);
 
+            $patientsMap = $this->getPatientsMap();
+            $employeesMap = $this->getEmployeesMap();
+            $merged = array_merge($existing, $dbData);
+            if (is_array($result) && !empty($result)) {
+                $merged = array_merge($merged, $result);
+            }
+            $enriched = $this->enrichTriage($merged, $patientsMap, $employeesMap);
+
             return [
                 'success' => true,
                 'message' => 'Triage record updated successfully',
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function updateStatus(string|int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_CREATE);
+
         $data = $this->input();
         $status = $data['status'] ?? $_GET['status'] ?? null;
 
@@ -185,16 +228,28 @@ class TriageController extends BaseController
 
             $result = $this->triageModel->updateStatus($id, $status);
 
+            $updated = $this->triageModel->find($id);
+            $patientsMap = $this->getPatientsMap();
+            $employeesMap = $this->getEmployeesMap();
+            $enriched = $this->enrichTriage($updated ?: array_merge($existing, ['status' => $status]), $patientsMap, $employeesMap);
+
             return [
                 'success' => true,
                 'message' => 'Triage status updated to ' . $status,
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function destroy(string|int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_CREATE);
+
         $this->handle(function() use ($id) {
             $existing = $this->triageModel->find($id);
             if (!$existing) {
@@ -209,7 +264,9 @@ class TriageController extends BaseController
 
             return [
                 'success' => $success,
-                'message' => $success ? 'Triage record deleted successfully' : 'Failed to delete triage record'
+                'message' => $success ? 'Triage record deleted successfully' : 'Failed to delete triage record',
+                'action'  => 'delete',
+                'id'      => $id
             ];
         });
     }
@@ -219,6 +276,9 @@ class TriageController extends BaseController
      */
     public function queueStats(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_VIEW);
+
         $this->handle(function() {
             $rawTriage = $this->triageModel->all(['order' => 'created_at.asc']);
             $patientsMap = $this->getPatientsMap();
@@ -274,6 +334,9 @@ class TriageController extends BaseController
      */
     public function callNext(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::TRIAGE_CREATE);
+
         $this->handle(function() {
             $rawTriage = $this->triageModel->all();
             

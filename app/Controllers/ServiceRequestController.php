@@ -3,6 +3,9 @@
 
 require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Models/ServiceRequest.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
+
+use App\Constants\Permissions;
 
 class ServiceRequestController extends BaseController
 {
@@ -16,6 +19,9 @@ class ServiceRequestController extends BaseController
     public function index(): void
     {
         $this->handle(function () {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             $providerId = trim($_GET['provider_id'] ?? '');
             $upcoming   = isset($_GET['upcoming']) && ($_GET['upcoming'] === '1' || $_GET['upcoming'] === 'true');
             $history    = isset($_GET['history']) && ($_GET['history'] === '1' || $_GET['history'] === 'true');
@@ -93,6 +99,9 @@ class ServiceRequestController extends BaseController
     public function stats(): void
     {
         $this->handle(function () {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             return ['success' => true, 'data' => $this->model->countByStatus()];
         });
     }
@@ -108,6 +117,9 @@ class ServiceRequestController extends BaseController
         $priority = trim($_GET['priority'] ?? '');
 
         $this->handle(function () use ($page, $limit, $offset, $search, $status, $type, $priority) {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             $all = $this->model->all(['order' => 'created_at.desc']);
             $filtered = array_values(array_filter($all, function ($r) use ($search, $status, $type, $priority) {
                 $matchSearch = !$search ||
@@ -134,6 +146,9 @@ class ServiceRequestController extends BaseController
     public function show(string $id): void
     {
         $this->handle(function () use ($id) {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             $req = $this->model->find($id);
             if (!$req) return ['success' => false, 'message' => 'Service request not found', 'code' => 404];
             return ['success' => true, 'data' => $req];
@@ -143,6 +158,10 @@ class ServiceRequestController extends BaseController
     public function store(): void
     {
         $this->handle(function () {
+            $this->validateCsrf();
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_CREATE);
+
             // Check if service requests are enabled
             $srvReqEnabled = class_exists('Settings') ? (bool)Settings::get('modules.wastewater.enable_service_requests', true) : true;
             if (!$srvReqEnabled) {
@@ -237,13 +256,24 @@ class ServiceRequestController extends BaseController
                 } catch (Throwable $e) {}
             }
 
-            return ['success' => true, 'message' => 'Service request submitted successfully and connected records generated!', 'data' => $req];
+            return [
+                'success' => true,
+                'action'  => 'create',
+                'record'  => $req,
+                'message' => 'Service request submitted successfully and connected records generated!',
+                'data'    => $req,
+                'code'    => 201
+            ];
         });
     }
 
     public function update(string $id): void
     {
         $this->handle(function () use ($id) {
+            $this->validateCsrf();
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_EDIT);
+
             $existing = $this->model->find($id);
             if (!$existing) return ['success' => false, 'message' => 'Service request not found', 'code' => 404];
 
@@ -255,17 +285,34 @@ class ServiceRequestController extends BaseController
             if (empty($data)) return ['success' => false, 'message' => 'No valid fields to update', 'code' => 422];
 
             $result = $this->model->updateById($id, $data);
-            return ['success' => true, 'message' => 'Service request updated successfully.', 'data' => $result[0] ?? $result];
+            $record = $result[0] ?? $result;
+            return [
+                'success' => true,
+                'action'  => 'update',
+                'record'  => $record,
+                'message' => 'Service request updated successfully.',
+                'data'    => $record
+            ];
         });
     }
 
     public function destroy(string $id): void
     {
         $this->handle(function () use ($id) {
+            $this->validateCsrf();
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_MANAGE);
+
             $existing = $this->model->find($id);
             if (!$existing) return ['success' => false, 'message' => 'Service request not found', 'code' => 404];
             $this->model->deleteById($id);
-            return ['success' => true, 'message' => 'Service request deleted successfully.'];
+            return [
+                'success' => true,
+                'action'  => 'delete',
+                'id'      => $id,
+                'record'  => ['id' => $id],
+                'message' => 'Service request deleted successfully.'
+            ];
         });
     }
 }

@@ -5,6 +5,9 @@ require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Models/Prescription.php';
 require_once __DIR__ . '/../Models/Patient.php';
 require_once __DIR__ . '/../Models/Employee.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
+
+use App\Constants\Permissions;
 
 class PrescriptionController extends BaseController
 {
@@ -21,6 +24,9 @@ class PrescriptionController extends BaseController
     
     public function index(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PRESCRIPTIONS_VIEW);
+
         $this->handle(function() {
             // Get pagination parameters
             $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
@@ -145,6 +151,9 @@ class PrescriptionController extends BaseController
     
     public function show(string $id): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PRESCRIPTIONS_VIEW);
+
         $this->handle(function() use ($id) {
             $prescription = $this->prescriptionModel->find($id);
             
@@ -168,6 +177,10 @@ class PrescriptionController extends BaseController
     
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PRESCRIPTIONS_CREATE);
+
         $data = $this->input();
         
         $this->handle(function() use ($data) {
@@ -245,14 +258,20 @@ class PrescriptionController extends BaseController
             return [
                 'success' => true,
                 'message' => 'Prescription created successfully',
-                'data' => $result,
-                'code' => 201
+                'data'    => $result,
+                'record'  => $result,
+                'action'  => 'create',
+                'code'    => 201
             ];
         });
     }
     
     public function update(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_EDIT);
+
         $data = $this->input();
         
         $this->handle(function() use ($id, $data) {
@@ -277,13 +296,20 @@ class PrescriptionController extends BaseController
             return [
                 'success' => true,
                 'message' => 'Prescription updated successfully',
-                'data' => $result
+                'data'    => $result,
+                'record'  => $result,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
     
     public function destroy(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_DELETE);
+
         $this->handle(function() use ($id) {
             $prescription = $this->prescriptionModel->find($id);
             
@@ -297,17 +323,25 @@ class PrescriptionController extends BaseController
             
             // Instead of hard delete, update status to cancelled
             $result = $this->prescriptionModel->updateById($id, ['status' => 'cancelled']);
-            
+            $enriched = $this->enrichPrescription($result ?: array_merge($prescription, ['status' => 'cancelled']));
+
             return [
                 'success' => true,
                 'message' => 'Prescription cancelled successfully',
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'delete',
+                'id'      => $id
             ];
         });
     }
     
     public function dispense(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_EDIT);
+
         $data = $this->input();
         
         $this->handle(function() use ($data) {
@@ -362,13 +396,19 @@ class PrescriptionController extends BaseController
             return [
                 'success' => true,
                 'message' => 'Prescription dispensed successfully',
-                'data' => $result
+                'data'    => $result,
+                'record'  => $result,
+                'action'  => 'dispense',
+                'id'      => $data['id']
             ];
         });
     }
     
     public function search(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PRESCRIPTIONS_VIEW);
+
         $query = $_GET['q'] ?? '';
         
         $this->handle(function() use ($query) {

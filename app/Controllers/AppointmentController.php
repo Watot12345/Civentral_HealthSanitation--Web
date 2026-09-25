@@ -2,9 +2,12 @@
 // app/Controllers/AppointmentController.php
 
 require_once __DIR__ . '/../../Core/BaseController.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
 require_once __DIR__ . '/../Models/Appointment.php';
 require_once __DIR__ . '/../Models/Patient.php';
 require_once __DIR__ . '/../Models/Employee.php';
+
+use App\Constants\Permissions;
 
 class AppointmentController extends BaseController
 {
@@ -21,6 +24,9 @@ class AppointmentController extends BaseController
 
     public function index(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_VIEW);
+
         $rawAppointments = $this->appointmentModel->all(['order' => 'appointment_date.desc,appointment_time.asc,created_at.desc']);
         $patientsMap = $this->getPatientsMap();
         $employeesMap = $this->getEmployeesMap();
@@ -40,6 +46,9 @@ class AppointmentController extends BaseController
 
     public function show(string $id): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_VIEW);
+
         $appointment = $this->appointmentModel->find($id);
 
         $this->handle(function() use ($appointment) {
@@ -63,6 +72,10 @@ class AppointmentController extends BaseController
 
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_CREATE);
+
         $data = $this->input();
 
         $this->handle(function() use ($data) {
@@ -113,6 +126,9 @@ class AppointmentController extends BaseController
             }
 
             $result = $this->appointmentModel->create($dbData);
+            if (is_array($result) && isset($result[0]) && is_array($result[0])) {
+                $result = $result[0];
+            }
 
             if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
                 require_once __DIR__ . '/../Models/ActivityLog.php';
@@ -128,17 +144,32 @@ class AppointmentController extends BaseController
                 } catch (Throwable $e) {}
             }
 
+            $patientsMap = $this->getPatientsMap();
+            $employeesMap = $this->getEmployeesMap();
+            $merged = array_merge($dbData, is_array($result) ? $result : []);
+            if (!empty($result['id'])) {
+                $merged['id'] = $result['id'];
+            }
+            $enriched = $this->enrichAppointment($merged, $patientsMap, $employeesMap);
+
             return [
                 'success' => true,
                 'message' => 'Appointment created successfully',
-                'data' => $result,
-                'code' => 201
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'create',
+                'id'      => $enriched['id'] ?? null,
+                'code'    => 201
             ];
         });
     }
 
     public function update(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_EDIT);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -153,17 +184,32 @@ class AppointmentController extends BaseController
 
             $dbData = $this->prepareDbData($data, true);
             $result = $this->appointmentModel->updateById($id, $dbData);
+            if (is_array($result) && isset($result[0]) && is_array($result[0])) {
+                $result = $result[0];
+            }
+
+            $patientsMap = $this->getPatientsMap();
+            $employeesMap = $this->getEmployeesMap();
+            $updated = $this->appointmentModel->find($id) ?: array_merge($appointment, $dbData, is_array($result) ? $result : []);
+            $enriched = $this->enrichAppointment($updated, $patientsMap, $employeesMap);
 
             return [
                 'success' => true,
                 'message' => 'Appointment updated successfully',
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function updateStatus(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_EDIT);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -188,16 +234,28 @@ class AppointmentController extends BaseController
 
             $result = $this->appointmentModel->updateStatus($id, $status);
 
+            $patientsMap = $this->getPatientsMap();
+            $employeesMap = $this->getEmployeesMap();
+            $updated = $this->appointmentModel->find($id);
+            $enriched = $this->enrichAppointment($updated ?: array_merge($appointment, ['status' => $status]), $patientsMap, $employeesMap);
+
             return [
                 'success' => true,
                 'message' => 'Appointment status updated to ' . ucfirst($status),
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function destroy(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_DELETE);
+
         $this->handle(function() use ($id) {
             $appointment = $this->appointmentModel->find($id);
             if (!$appointment) {
@@ -212,13 +270,18 @@ class AppointmentController extends BaseController
 
             return [
                 'success' => $success,
-                'message' => $success ? 'Appointment deleted successfully' : 'Failed to delete appointment'
+                'message' => $success ? 'Appointment deleted successfully' : 'Failed to delete appointment',
+                'action'  => 'delete',
+                'id'      => $id
             ];
         });
     }
 
     public function search(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_VIEW);
+
         $query = strtolower($_GET['q'] ?? '');
 
         $this->handle(function() use ($query) {

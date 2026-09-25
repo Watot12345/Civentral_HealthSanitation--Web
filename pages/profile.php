@@ -314,10 +314,6 @@ $pageTitle = 'My Profile';
                 if (typeof toast !== 'undefined') {
                     toast.success('Profile settings saved successfully.', { title: 'Profile' });
                 }
-
-                setTimeout(() => {
-                    window.location.reload();
-                }, 400);
             } catch (error) {
                 console.error('Profile save failed:', error);
                 if (typeof toast !== 'undefined') {
@@ -327,3 +323,4 @@ $pageTitle = 'My Profile';
         });
     })();
 </script>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

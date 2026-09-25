@@ -1,12 +1,17 @@
 <?php
 // app/Controllers/PermitDocumentController.php
 
+require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../../Core/Response.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../Models/PermitDocument.php';
 require_once __DIR__ . '/../Models/Employee.php';
+require_once __DIR__ . '/../Models/ActivityLog.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
 
-class PermitDocumentController
+use App\Constants\Permissions;
+
+class PermitDocumentController extends BaseController
 {
     private PermitDocument $documentModel;
     private Employee $employeeModel;
@@ -47,6 +52,9 @@ class PermitDocumentController
     
     public function index(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+        
         $documents = $this->documentModel->all(['order' => 'uploaded_at.desc']);
         $formatted = $this->formatDocuments($documents);
         
@@ -57,6 +65,9 @@ class PermitDocumentController
     
     public function paginated(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+        
         $page = max(1, (int)($this->getQueryParam('page', '1')));
         $limit = max(1, min(self::MAX_LIMIT, (int)($this->getQueryParam('limit', (string)self::DEFAULT_LIMIT))));
         $offset = ($page - 1) * $limit;
@@ -82,6 +93,9 @@ class PermitDocumentController
     
     public function show(string $id): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+        
         $document = $this->documentModel->find($id);
         
         if (!$document) {
@@ -93,6 +107,10 @@ class PermitDocumentController
     
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_CREATE);
+
         try {
             $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
 
@@ -154,7 +172,18 @@ class PermitDocumentController
                 Response::error('Failed to create document - no data returned', 500);
             }
             
-            Response::success('Document uploaded successfully', $this->formatDocument($result), 201);
+            $formatted = $this->formatDocument($result);
+            if (class_exists('ActivityLog')) {
+                try {
+                    $logger = new ActivityLog();
+                    $logger->log("Uploaded Document", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Document ID: #{$result['id']} | Permit ID: #{$preparedData['permit_id']} | Type: {$preparedData['document_type']}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+            $this->crudSuccess('create', $formatted, 'Document uploaded successfully', 201);
         } catch (\Throwable $e) {
             error_log('Store error: ' . $e->getMessage());
             Response::error('Failed to upload document: ' . $e->getMessage(), 500);
@@ -163,13 +192,17 @@ class PermitDocumentController
     
     public function update(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+        
         $document = $this->documentModel->find($id);
         
         if (!$document) {
             Response::error('Document not found', 404);
         }
         
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
         
         if (empty($data)) {
             Response::error('No data provided', 400);
@@ -178,18 +211,33 @@ class PermitDocumentController
         $preparedData = $this->prepareDbData($data, true);
         $result = $this->documentModel->update($id, $preparedData);
         
-        Response::success('Document updated successfully', $this->formatDocument($result));
+        $formatted = $this->formatDocument($result);
+        if (class_exists('ActivityLog')) {
+            try {
+                $logger = new ActivityLog();
+                $logger->log("Updated Document", [
+                    'module'  => 'Sanitation Permits',
+                    'details' => "Document ID: #{$id}",
+                    'status'  => 'Success'
+                ]);
+            } catch (\Throwable $e) {}
+        }
+        $this->crudSuccess('update', $formatted, 'Document updated successfully');
     }
     
     public function verify(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+        
         $document = $this->documentModel->find($id);
         
         if (!$document) {
             Response::error('Document not found', 404);
         }
         
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
         
         $updateData = [
             'verified' => true,
@@ -204,11 +252,26 @@ class PermitDocumentController
         
         $result = $this->documentModel->update($id, $updateData);
         
-        Response::success('Document verified successfully', $this->formatDocument($result));
+        $formatted = $this->formatDocument($result);
+        if (class_exists('ActivityLog')) {
+            try {
+                $logger = new ActivityLog();
+                $logger->log("Verified Document", [
+                    'module'  => 'Sanitation Permits',
+                    'details' => "Document ID: #{$id} | Permit ID: #" . ($document['permit_id'] ?? 'N/A'),
+                    'status'  => 'Success'
+                ]);
+            } catch (\Throwable $e) {}
+        }
+        $this->crudSuccess('update', $formatted, 'Document verified successfully');
     }
     
     public function destroy(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+        
         $document = $this->documentModel->find($id);
         
         if (!$document) {
@@ -218,7 +281,17 @@ class PermitDocumentController
         $success = $this->documentModel->delete($id);
         
         if ($success) {
-            Response::success('Document deleted successfully');
+            if (class_exists('ActivityLog')) {
+                try {
+                    $logger = new ActivityLog();
+                    $logger->log("Deleted Document", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Document ID: #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+            $this->crudSuccess('delete', ['id' => $id], 'Document deleted successfully');
         } else {
             Response::error('Failed to delete document', 500);
         }
@@ -226,6 +299,9 @@ class PermitDocumentController
     
     public function search(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+        
         $query = $this->getQueryParam('q', '');
         
         if (empty($query)) {
@@ -242,12 +318,18 @@ class PermitDocumentController
     
     public function stats(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+        
         $stats = $this->documentModel->getStats();
         Response::success('Statistics retrieved successfully', $stats);
     }
     
     public function getByPermit(string $permitId): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $documents = $this->documentModel->findByPermitId($permitId);
         $formatted = $this->formatDocuments($documents);
         
@@ -258,6 +340,9 @@ class PermitDocumentController
     
     public function getExpiringSoon(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $days = max(1, (int)($this->getQueryParam('days', '30')));
         $documents = $this->documentModel->getExpiringSoon($days);
         $formatted = $this->formatDocuments($documents);

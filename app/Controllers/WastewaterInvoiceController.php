@@ -3,6 +3,9 @@
 
 require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Models/WastewaterInvoice.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
+
+use App\Constants\Permissions;
 
 class WastewaterInvoiceController extends BaseController
 {
@@ -16,6 +19,9 @@ class WastewaterInvoiceController extends BaseController
     public function index(): void
     {
         $this->handle(function () {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             $invoices = $this->model->all(['order' => 'created_at.desc']);
             return ['success' => true, 'data' => $invoices, 'total' => count($invoices)];
         });
@@ -24,6 +30,9 @@ class WastewaterInvoiceController extends BaseController
     public function stats(): void
     {
         $this->handle(function () {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             return ['success' => true, 'data' => $this->model->countByStatus()];
         });
     }
@@ -38,6 +47,9 @@ class WastewaterInvoiceController extends BaseController
         $type   = trim($_GET['service_type'] ?? '');
 
         $this->handle(function () use ($page, $limit, $offset, $search, $status, $type) {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             $all = $this->model->all(['order' => 'created_at.desc']);
             $filtered = array_values(array_filter($all, function ($inv) use ($search, $status, $type) {
                 $matchSearch = !$search ||
@@ -63,6 +75,9 @@ class WastewaterInvoiceController extends BaseController
     public function show(string $id): void
     {
         $this->handle(function () use ($id) {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             $inv = $this->model->find($id);
             if (!$inv) return ['success' => false, 'message' => 'Invoice not found', 'code' => 404];
             return ['success' => true, 'data' => $inv];
@@ -72,6 +87,10 @@ class WastewaterInvoiceController extends BaseController
     public function store(): void
     {
         $this->handle(function () {
+            $this->validateCsrf();
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_CREATE);
+
             $d = $this->input();
             if (empty($d['client_name']))  return ['success' => false, 'message' => 'Client name is required',   'code' => 422];
             if (empty($d['service_type'])) return ['success' => false, 'message' => 'Service type is required',  'code' => 422];
@@ -102,13 +121,25 @@ class WastewaterInvoiceController extends BaseController
             }
 
             $result = $this->model->create($data);
-            return ['success' => true, 'message' => 'Invoice created successfully.', 'data' => $result[0] ?? $result];
+            $record = $result[0] ?? $result;
+            return [
+                'success' => true,
+                'action'  => 'create',
+                'record'  => $record,
+                'message' => 'Invoice created successfully.',
+                'data'    => $record,
+                'code'    => 201
+            ];
         });
     }
 
     public function update(string $id): void
     {
         $this->handle(function () use ($id) {
+            $this->validateCsrf();
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_EDIT);
+
             $existing = $this->model->find($id);
             if (!$existing) return ['success' => false, 'message' => 'Invoice not found', 'code' => 404];
 
@@ -130,13 +161,24 @@ class WastewaterInvoiceController extends BaseController
             }
 
             $result = $this->model->updateById($id, $data);
-            return ['success' => true, 'message' => 'Invoice updated successfully.', 'data' => $result[0] ?? $result];
+            $record = $result[0] ?? $result;
+            return [
+                'success' => true,
+                'action'  => 'update',
+                'record'  => $record,
+                'message' => 'Invoice updated successfully.',
+                'data'    => $record
+            ];
         });
     }
 
     public function markPaid(string $id): void
     {
         $this->handle(function () use ($id) {
+            $this->validateCsrf();
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_EDIT);
+
             $existing = $this->model->find($id);
             if (!$existing) return ['success' => false, 'message' => 'Invoice not found', 'code' => 404];
 
@@ -156,6 +198,7 @@ class WastewaterInvoiceController extends BaseController
                 'payment_reference' => $ref ?: null,
             ];
             $result = $this->model->updateById($id, $data);
+            $record = $result[0] ?? $result;
 
             // Automatically complete any linked active service request or maintenance record upon payment
             try {
@@ -180,17 +223,33 @@ class WastewaterInvoiceController extends BaseController
                 error_log('WastewaterInvoiceController markPaid sync error: ' . $e->getMessage());
             }
 
-            return ['success' => true, 'message' => 'Invoice marked as paid.', 'data' => $result[0] ?? $result];
+            return [
+                'success' => true,
+                'action'  => 'update',
+                'record'  => $record,
+                'message' => 'Invoice marked as paid.',
+                'data'    => $record
+            ];
         });
     }
 
     public function destroy(string $id): void
     {
         $this->handle(function () use ($id) {
+            $this->validateCsrf();
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_MANAGE);
+
             $existing = $this->model->find($id);
             if (!$existing) return ['success' => false, 'message' => 'Invoice not found', 'code' => 404];
             $this->model->deleteById($id);
-            return ['success' => true, 'message' => 'Invoice deleted successfully.'];
+            return [
+                'success' => true,
+                'action'  => 'delete',
+                'id'      => $id,
+                'record'  => ['id' => $id],
+                'message' => 'Invoice deleted successfully.'
+            ];
         });
     }
 }

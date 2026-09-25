@@ -1148,10 +1148,15 @@ async function saveReferral(event) {
     };
 
     try {
+        const csrfToken = CrudAjax.getCsrfToken();
         const res    = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ ...payload, csrf_token: csrfToken })
         });
         const result = await res.json();
         if (!result.success) throw new Error(result.message || 'Failed');
@@ -1197,10 +1202,15 @@ async function saveEditedReferral(event) {
     };
 
     try {
+        const csrfToken = CrudAjax.getCsrfToken();
         const res    = await fetch(`${API_URL}/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ ...payload, csrf_token: csrfToken })
         });
         const result = await res.json();
         if (!result.success) throw new Error(result.message || 'Failed');
@@ -1223,7 +1233,16 @@ function deleteReferral(id) {
         `Delete referral ${r.referral_id}? This cannot be undone.`,
         async () => {
             try {
-                const res  = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                const csrfToken = CrudAjax.getCsrfToken();
+                const res  = await fetch(`${API_URL}/${id}`, { 
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ csrf_token: csrfToken })
+                });
                 const data = await res.json();
                 if (!data.success) throw new Error(data.message || 'Failed');
                 ModalSystem.toast.success('Referral deleted successfully');

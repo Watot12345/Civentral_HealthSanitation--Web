@@ -8,7 +8,7 @@ require_once __DIR__ . '/../app/Controllers/PrescriptionController.php';
 // Handle CORS
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token, X-Requested-With');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -18,16 +18,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 header('Content-Type: application/json');
 
 try {
-    // Skipping auth for now since AuthMiddleware is not fully implemented
-    
     $controller = new PrescriptionController();
     $method = $_SERVER['REQUEST_METHOD'];
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $parts = explode('/', trim($path, '/'));
     
     // Get prescription ID from URL — scan all path parts for a trailing numeric segment
-    // e.g. /capstone/api/prescriptions.php/42  →  parts = [capstone, api, prescriptions.php, 42]
-    // e.g. /api/prescriptions.php/42           →  parts = [api, prescriptions.php, 42]
     $prescriptionId = null;
     foreach (array_reverse($parts) as $part) {
         if (is_numeric($part)) {
@@ -40,6 +36,8 @@ try {
     if (!$prescriptionId && isset($_GET['id']) && is_numeric($_GET['id'])) {
         $prescriptionId = $_GET['id'];
     }
+
+    $action = $_GET['action'] ?? $_POST['action'] ?? '';
     
     switch ($method) {
         case 'GET':
@@ -53,9 +51,12 @@ try {
             break;
             
         case 'POST':
-            // Check if this is a dispense action
-            if (isset($_POST['action']) && $_POST['action'] === 'dispense') {
+            if ($action === 'dispense') {
                 $controller->dispense();
+            } elseif ($action === 'update' && $prescriptionId) {
+                $controller->update($prescriptionId);
+            } elseif ($action === 'delete' && $prescriptionId) {
+                $controller->destroy($prescriptionId);
             } else {
                 $controller->store();
             }

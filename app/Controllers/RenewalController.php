@@ -1,12 +1,16 @@
 <?php
 // app/Controllers/RenewalController.php
 
+require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../../Core/Response.php';
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
 require_once __DIR__ . '/../Models/Renewal.php';
 require_once __DIR__ . '/../Models/Permit.php';
 
-class RenewalController
+use App\Constants\Permissions;
+
+class RenewalController extends BaseController
 {
     private Renewal $renewalModel;
     private Permit $permitModel;
@@ -47,6 +51,9 @@ class RenewalController
 
     public function index(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $renewals = $this->renewalModel->all();
         Response::success('Renewals retrieved successfully', $renewals, 200, [
             'total' => count($renewals)
@@ -55,6 +62,9 @@ class RenewalController
 
     public function paginated(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $page = max(1, (int)($this->getQueryParam('page', '1')));
         $limit = max(1, min(self::MAX_LIMIT, (int)($this->getQueryParam('limit', (string)self::DEFAULT_LIMIT))));
         $offset = ($page - 1) * $limit;
@@ -99,6 +109,9 @@ class RenewalController
 
     public function show(string $id): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $renewal = $this->renewalModel->find($id);
 
         if (!$renewal) {
@@ -110,6 +123,10 @@ class RenewalController
 
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_CREATE);
+
         try {
             $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
 
@@ -132,7 +149,24 @@ class RenewalController
                 Response::error('Failed to create renewal', 500);
             }
 
-            Response::success('Renewal application submitted successfully', $result, 201);
+            $record = is_array($result) && isset($result[0]) ? $result[0] : $result;
+
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $renCode = $record['renewal_id'] ?? 'REN';
+                    $applicant = $record['applicant'] ?? 'Establishment';
+                    $fee = number_format((float)($record['renewal_fee'] ?? 0), 2);
+                    $logger->log("Submitted Sanitary Permit Renewal ({$renCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Establishment: {$applicant} | Fee: ₱{$fee}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+
+            Response::crudSuccess('create', $record, 'Renewal application submitted successfully', 201);
         } catch (\Throwable $e) {
             error_log('Renewal store error: ' . $e->getMessage());
             Response::error('Failed to submit renewal: ' . $e->getMessage(), 500);
@@ -141,6 +175,10 @@ class RenewalController
 
     public function update(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $renewal = $this->renewalModel->find($id);
 
         if (!$renewal) {
@@ -154,11 +192,30 @@ class RenewalController
         }
 
         $result = $this->renewalModel->update($id, $data);
-        Response::success('Renewal updated successfully', $result);
+        $record = is_array($result) && isset($result[0]) ? $result[0] : ($result ?: array_merge($renewal, $data));
+
+        if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+            require_once __DIR__ . '/../Models/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $renCode = $record['renewal_id'] ?? $renewal['renewal_id'] ?? 'REN';
+                $logger->log("Updated Sanitary Permit Renewal ({$renCode})", [
+                    'module'  => 'Sanitation Permits',
+                    'details' => "Renewal ID: #{$id}",
+                    'status'  => 'Success'
+                ]);
+            } catch (\Throwable $e) {}
+        }
+
+        Response::crudSuccess('update', $record, 'Renewal updated successfully');
     }
 
     public function approve(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $renewal = $this->renewalModel->find($id);
 
         if (!$renewal) {
@@ -194,11 +251,31 @@ class RenewalController
             'status' => 'completed'
         ]);
 
-        Response::success('Renewal approved successfully', $result);
+        $record = is_array($result) && isset($result[0]) ? $result[0] : ($result ?: array_merge($renewal, $updateData));
+
+        if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+            require_once __DIR__ . '/../Models/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $renCode = $record['renewal_id'] ?? $renewal['renewal_id'] ?? 'REN';
+                $applicant = $record['applicant'] ?? ($renewal['applicant'] ?? 'Establishment');
+                $logger->log("Approved Sanitary Permit Renewal ({$renCode})", [
+                    'module'  => 'Sanitation Permits',
+                    'details' => "Establishment: {$applicant} | New Expiry: {$newExpiry}",
+                    'status'  => 'Success'
+                ]);
+            } catch (\Throwable $e) {}
+        }
+
+        Response::crudSuccess('update', $record, 'Renewal approved successfully');
     }
 
     public function reject(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $renewal = $this->renewalModel->find($id);
 
         if (!$renewal) {
@@ -212,16 +289,37 @@ class RenewalController
             Response::error('Rejection reason is required', 422);
         }
 
-        $result = $this->renewalModel->update($id, [
+        $updateData = [
             'status' => 'rejected',
             'notes' => $reason
-        ]);
+        ];
+        $result = $this->renewalModel->update($id, $updateData);
 
-        Response::success('Renewal rejected', $result);
+        $record = is_array($result) && isset($result[0]) ? $result[0] : ($result ?: array_merge($renewal, $updateData));
+
+        if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+            require_once __DIR__ . '/../Models/ActivityLog.php';
+            try {
+                $logger = new ActivityLog();
+                $renCode = $record['renewal_id'] ?? $renewal['renewal_id'] ?? 'REN';
+                $applicant = $record['applicant'] ?? ($renewal['applicant'] ?? 'Establishment');
+                $logger->log("Rejected Sanitary Permit Renewal ({$renCode})", [
+                    'module'  => 'Sanitation Permits',
+                    'details' => "Establishment: {$applicant} | Reason: {$reason}",
+                    'status'  => 'Success'
+                ]);
+            } catch (\Throwable $e) {}
+        }
+
+        Response::crudSuccess('update', $record, 'Renewal rejected');
     }
 
     public function destroy(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $renewal = $this->renewalModel->find($id);
 
         if (!$renewal) {
@@ -231,7 +329,20 @@ class RenewalController
         $success = $this->renewalModel->delete($id);
 
         if ($success) {
-            Response::success('Renewal deleted successfully');
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $renCode = $renewal['renewal_id'] ?? 'REN';
+                    $logger->log("Deleted Sanitary Permit Renewal ({$renCode})", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Deleted Renewal ID: #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+
+            Response::crudSuccess('delete', $renewal, 'Renewal deleted successfully');
         } else {
             Response::error('Failed to delete renewal', 500);
         }
@@ -239,6 +350,9 @@ class RenewalController
 
     public function stats(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $stats = $this->renewalModel->getStats();
         $expiredPermits = count($this->renewalModel->getExpiredPermits());
         $totalRevenue = $this->renewalModel->getTotalRevenue();
@@ -260,6 +374,9 @@ class RenewalController
 
     public function history(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $permitId = $this->getQueryParamOrNull('permit_id');
 
         if ($permitId) {
@@ -275,6 +392,9 @@ class RenewalController
 
     public function expiringSoon(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $days = max(1, (int)($this->getQueryParam('days', (string)self::GRACE_PERIOD_DAYS)));
         $permits = $this->renewalModel->getExpiringSoon($days);
 
@@ -286,6 +406,9 @@ class RenewalController
 
     public function getPermits(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $permits = $this->permitModel->all(['order' => 'created_at.desc']);
         Response::success('Permits retrieved', $permits, 200, [
             'total' => count($permits)

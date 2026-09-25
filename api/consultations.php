@@ -7,7 +7,7 @@ require_once __DIR__ . '/../app/Controllers/ConsultationController.php';
 
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token, X-Requested-With');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -56,6 +56,22 @@ try {
                 $controller->destroy($consultationId);
             } else {
                 $controller->store();
+            }
+            break;
+
+        case 'PUT':
+            if ($consultationId) {
+                $controller->update($consultationId);
+            } else {
+                Response::error('Consultation ID required for update', 400);
+            }
+            break;
+
+        case 'DELETE':
+            if ($consultationId) {
+                $controller->destroy($consultationId);
+            } else {
+                Response::error('Consultation ID required for deletion', 400);
             }
             break;
 

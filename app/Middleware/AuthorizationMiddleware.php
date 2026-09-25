@@ -3,6 +3,8 @@
 
 namespace App\Middleware;
 
+require_once __DIR__ . '/../../config/paths.php';
+
 use App\Services\PermissionService;
 
 class AuthorizationMiddleware
@@ -64,8 +66,8 @@ class AuthorizationMiddleware
             @session_start();
         }
 
-        if (!canAccessDepartment($moduleDepartment)) {
-            $userDept = getCurrentUserDepartment();
+        if (!\canAccessDepartment($moduleDepartment)) {
+            $userDept = \getCurrentUserDepartment();
             $uri = $_SERVER['REQUEST_URI'] ?? '';
             $isApi = str_contains($uri, '/api/') || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
 

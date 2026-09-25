@@ -352,6 +352,8 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   </script>
   <!-- Common JS Utilities -->
   <script src="<?= site_url('assets/js/common.js'); ?>?v=<?= filemtime(__DIR__ . '/../assets/js/common.js') ?>"></script>
+  <!-- Universal AJAX CRUD Engine -->
+  <script src="<?= site_url('assets/js/crud-ajax.js'); ?>?v=<?= filemtime(__DIR__ . '/../assets/js/crud-ajax.js') ?>"></script>
   <!-- Offline Transaction Queue & Auto-Sync -->
   <script src="<?= site_url('assets/js/offline-sync.js'); ?>"></script>
   <link rel="manifest" href="<?= site_url('manifest.json'); ?>">

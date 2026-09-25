@@ -573,7 +573,7 @@ $title = 'Septic Tank Registry';
 <script src="<?= site_url('assets/js/leaflet.js'); ?>"></script>
 <script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
-    const TANKS = <?php echo json_encode(array_column($septicTanks, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+    let TANKS = <?php echo json_encode(array_column($septicTanks, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
     // Modal functions, toast, sanitizeHTML provided by common.js
 
@@ -864,6 +864,126 @@ $title = 'Septic Tank Registry';
         openModal('editTankModal');
     }
 
+    function renderTankCardHtml(tank) {
+        const statusColors = {
+            good: 'bg-emerald-100 text-emerald-700',
+            needs_maintenance: 'bg-amber-100 text-amber-700',
+            critical: 'bg-rose-100 text-rose-700'
+        };
+        const badgeClass = statusColors[tank.status] || statusColors.good;
+        const statusLabel = sanitizeHTML((tank.status || 'good').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+        const ownerName = sanitizeHTML(tank.owner_name || '');
+        const initials = sanitizeHTML((tank.owner_name || 'TK').substring(0, 2).toUpperCase());
+        const tankId = sanitizeHTML(tank.tank_id || '');
+        const address = sanitizeHTML(tank.address || '');
+        const type = sanitizeHTML(tank.type || '');
+        const capacity = sanitizeHTML(tank.capacity || '');
+        const barangayClean = sanitizeHTML((tank.barangay || '').replace('Barangay ', ''));
+        const lastMaint = tank.last_maintenance ? new Date(tank.last_maintenance).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '<span class="text-slate-400 italic">None / Unscheduled</span>';
+        const lat = (tank.latitude && !isNaN(tank.latitude)) ? Number(tank.latitude) : 14.6538;
+        const lng = (tank.longitude && !isNaN(tank.longitude)) ? Number(tank.longitude) : 120.9820;
+        const ownerEscaped = JSON.stringify(tank.owner_name || 'Septic Tank');
+
+        return `
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-sm flex-shrink-0">
+                        ${initials}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-800 text-sm">${ownerName}</p>
+                        <p class="text-xs text-slate-400">${tankId}</p>
+                    </div>
+                </div>
+                <span class="px-2 py-1 rounded-full text-xs font-semibold ${badgeClass}">
+                    ${statusLabel}
+                </span>
+            </div>
+            
+            <!-- Details -->
+            <div class="space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Address</span>
+                    <span class="text-slate-800 text-xs text-right">${address}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Type</span>
+                    <span class="text-slate-800 text-xs">${type}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Capacity</span>
+                    <span class="text-slate-800 text-xs font-semibold">${capacity}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Last Maintenance</span>
+                    <span class="text-slate-800 text-xs">${lastMaint}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Barangay</span>
+                    <span class="text-slate-800 text-xs">${barangayClean}</span>
+                </div>
+            </div>
+            
+            <!-- Location -->
+            <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-400">
+                <span>${lat}, ${lng}</span>
+                <button onclick="viewMap(${lat}, ${lng}, ${ownerEscaped})" 
+                        class="ml-auto text-brand-medium hover:text-brand-dark transition">
+                    <i class="fa-solid fa-map"></i> View Map
+                </button>
+            </div>
+            
+            <!-- Actions -->
+            <div class="mt-3 pt-3 border-t border-slate-100 flex justify-end gap-2">
+                <button onclick="viewTank(${tank.id})"
+                        class="px-3 py-1.5 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition">
+                    <i class="fa-solid fa-eye mr-1"></i> View
+                </button>
+                <button onclick="editTank(${tank.id})"
+                        class="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-lg transition">
+                    <i class="fa-solid fa-pen mr-1"></i> Edit
+                </button>
+                <button onclick="viewHistory(${tank.id})"
+                        class="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                    <i class="fa-solid fa-clock-rotate-left mr-1"></i> History
+                </button>
+            </div>
+        `;
+    }
+
+    function updateOrInsertTankCard(tank) {
+        if (!tank || !tank.id) return;
+        TANKS[tank.id] = tank;
+        const grid = document.getElementById('tanksGrid');
+        let card = document.getElementById('tank-card-' + tank.id);
+        const borderClass = tank.status === 'critical' ? 'border-l-4 border-l-rose-500' : (tank.status === 'needs_maintenance' ? 'border-l-4 border-l-amber-500' : 'border-l-4 border-l-emerald-500');
+
+        if (card) {
+            card.className = `tank-card bg-white rounded-xl shadow-xs border border-slate-200 p-4 hover:shadow-md transition-all duration-200 ${borderClass}`;
+            card.setAttribute('data-owner', (tank.owner_name || '').toLowerCase());
+            card.setAttribute('data-id', tank.tank_id || '');
+            card.setAttribute('data-status', tank.status || '');
+            card.setAttribute('data-type', tank.type || '');
+            card.setAttribute('data-barangay', tank.barangay || '');
+            card.setAttribute('data-maintenance-date', tank.last_maintenance || '');
+            card.innerHTML = renderTankCardHtml(tank);
+        } else if (grid) {
+            card = document.createElement('div');
+            card.id = 'tank-card-' + tank.id;
+            card.className = `tank-card bg-white rounded-xl shadow-xs border border-slate-200 p-4 hover:shadow-md transition-all duration-200 ${borderClass}`;
+            card.setAttribute('data-owner', (tank.owner_name || '').toLowerCase());
+            card.setAttribute('data-id', tank.tank_id || '');
+            card.setAttribute('data-row-id', tank.id);
+            card.setAttribute('data-status', tank.status || '');
+            card.setAttribute('data-type', tank.type || '');
+            card.setAttribute('data-barangay', tank.barangay || '');
+            card.setAttribute('data-maintenance-date', tank.last_maintenance || '');
+            card.innerHTML = renderTankCardHtml(tank);
+            grid.insertBefore(card, grid.firstChild);
+        }
+    }
+
     async function saveTankEdit(event) {
         event.preventDefault();
         try {
@@ -880,16 +1000,22 @@ $title = 'Septic Tank Registry';
                 notes: document.getElementById('edit_tank_notes').value.trim()
             };
 
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo csrf_token(); ?>';
             const res = await fetch(`../../api/septic_tanks.php?id=${id}&action=update`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const json = await res.json();
             if (json.success) {
                 closeModal('editTankModal');
+                const updatedRecord = json.record || json.data || { ...TANKS[id], ...payload, id: Number(id) };
+                updateOrInsertTankCard(updatedRecord);
                 showToast('Septic tank updated successfully!', 'success');
-                setTimeout(() => location.reload(), 800);
             } else {
                 showToast(json.message || 'Failed to update tank', 'danger');
             }
@@ -924,16 +1050,24 @@ $title = 'Septic Tank Registry';
                 notes: document.getElementById('tank_notes')?.value?.trim() || ''
             };
 
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo csrf_token(); ?>';
             const res = await fetch('../../api/septic_tanks.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const json = await res.json();
             if (json.success) {
+                const newRecord = json.record || json.data || { ...payload, id: Date.now() };
+                updateOrInsertTankCard(newRecord);
                 showToast('Septic tank registered successfully!', 'success');
                 closeModal('registerTankModal');
-                setTimeout(() => location.reload(), 800);
+                const form = document.getElementById('registerTankForm');
+                if (form) form.reset();
             } else {
                 showToast(json.message || 'Failed to register tank', 'danger');
             }
