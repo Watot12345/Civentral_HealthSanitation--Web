@@ -70,7 +70,7 @@ class TriageQueue
             return array_values(array_filter($all, function($item) use ($today) {
                 $raw = $item['created_at'] ?? '';
                 if (!$raw) return false;
-                $dt = new DateTime($raw, new DateTimeZone('UTC'));
+                $dt = new DateTime($raw);
                 $dt->setTimezone(new DateTimeZone('Asia/Manila'));
                 return $dt->format('Y-m-d') === $today;
             }));
@@ -114,16 +114,30 @@ class TriageQueue
 
     public function create(array $data): array
     {
-        if (empty($data['queue_number'])) {
-            $data['queue_number'] = $this->generateQueueNumber();
-        }
         if (empty($data['status'])) {
             $data['status'] = 'waiting';
         }
         if (empty($data['check_in_time'])) {
-            $data['check_in_time'] = date('Y-m-d H:i:s');
+            $dt = new DateTime('now', new DateTimeZone('Asia/Manila'));
+            $data['check_in_time'] = $dt->format('Y-m-d H:i:s');
         }
-        return $this->db->insert($this->table, $data);
+
+        $attempts = 0;
+        while ($attempts < 3) {
+            $attempts++;
+            if (empty($data['queue_number']) || $attempts > 1) {
+                $data['queue_number'] = $this->generateQueueNumber();
+            }
+            try {
+                return $this->db->insert($this->table, $data);
+            } catch (Throwable $e) {
+                if ($attempts < 3 && str_contains($e->getMessage(), 'triage_queue_queue_number_key')) {
+                    continue;
+                }
+                throw $e;
+            }
+        }
+        return [];
     }
 
     public function updateById(string|int $id, array $data): array
@@ -173,7 +187,15 @@ class TriageQueue
             $next = 1;
             while (in_array($next, $used)) $next++;
 
-            return $prefix . str_pad((string)$next, 3, '0', STR_PAD_LEFT);
+            $candidate = $prefix . str_pad((string)$next, 3, '0', STR_PAD_LEFT);
+
+            // Double check candidate doesn't exist in DB to prevent duplicate constraint violation
+            while ($this->findByQueueNumber($candidate)) {
+                $next++;
+                $candidate = $prefix . str_pad((string)$next, 3, '0', STR_PAD_LEFT);
+            }
+
+            return $candidate;
         } catch (Throwable $e) {
             return 'Q-' . date('Ymd') . '-' . rand(100, 999);
         }

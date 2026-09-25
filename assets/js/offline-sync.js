@@ -661,6 +661,9 @@ const CiventralOfflineSync = (function() {
     function patchGlobalFetch() {
         if (window._nativeFetch) return; // Prevent double patch
         window._nativeFetch = window.fetch;
+        
+        // Bypassed offline sync as requested
+        return;
 
         window.fetch = async function(resource, init) {
             const url = typeof resource === 'string' ? resource : (resource ? resource.url : '');

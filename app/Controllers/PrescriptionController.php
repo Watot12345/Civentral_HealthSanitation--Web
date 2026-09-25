@@ -273,6 +273,7 @@ class PrescriptionController extends BaseController
         $this->requireCapability(Permissions::PATIENTS_EDIT);
 
         $data = $this->input();
+        unset($data['csrf_token']);
         
         $this->handle(function() use ($id, $data) {
             $prescription = $this->prescriptionModel->find($id);
@@ -612,6 +613,8 @@ class PrescriptionController extends BaseController
     private function mapToDb(array $data): array
     {
         $dbData = $data;
+        unset($dbData['csrf_token']);
+        unset($dbData['action']);
         
         // Map frontend fields to DB fields
         $fieldMapping = [

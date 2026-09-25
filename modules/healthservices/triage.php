@@ -376,8 +376,7 @@ foreach ($waitingCheckins as $c) {
             $raw = $c['check_in_time'] ?? ($c['created_at'] ?? '');
             if (empty($raw)) return date('h:i A');
             try {
-                $dt = new DateTime($raw, new DateTimeZone('UTC'));
-                $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+                $dt = new DateTime($raw);
                 return $dt->format('h:i A');
             } catch (Throwable $e) { return date('h:i A'); }
         })(),

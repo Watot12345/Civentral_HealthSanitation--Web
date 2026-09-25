@@ -855,9 +855,9 @@ function renderTable() {
                                 class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition">
                             <i class="fa-solid fa-pen text-sm"></i>
                         </button>
-                        <button onclick="deleteReferral(${r.id})" title="Delete"
-                                class="p-1.5 text-rose-400 hover:bg-rose-50 rounded-lg transition">
-                            <i class="fa-solid fa-trash-can text-sm"></i>
+                        <button onclick="cancelReferral(${r.id})" title="Cancel Referral"
+                                class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition">
+                            <i class="fa-solid fa-ban text-sm"></i>
                         </button>
                     </div>
                 </td>
@@ -1094,15 +1094,26 @@ function updateStatus(id, status) {
 
     ModalSystem.confirm(c.msg, async () => {
         try {
+            const csrfToken = CrudAjax.getCsrfToken();
             const res  = await fetch(`${API_URL}/${id}?action=status`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status })
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ status, csrf_token: csrfToken })
             });
             const data = await res.json();
             if (!data.success) throw new Error(data.message || 'Failed');
             ModalSystem.toast.success(`Referral ${r.referral_id} marked as ${status}`);
-            await loadInitialData();
+            
+            // Realtime update
+            r.status = status;
+            const fr = filteredReferrals.find(fr => String(fr.id) === String(id));
+            if (fr) fr.status = status;
+            updateStats();
+            renderTable();
         } catch (e) {
             ModalSystem.toast.error('Failed to update status: ' + e.message);
         }
@@ -1163,7 +1174,19 @@ async function saveReferral(event) {
         ModalSystem.toast.success('Referral created successfully!');
         ModalSystem.close('newReferralModal');
         document.getElementById('newReferralForm').reset();
-        await loadInitialData();
+        
+        // Realtime update
+        const newRef = enrichLocally(result.record || result.data);
+        if (newRef) {
+            allReferrals.unshift(newRef);
+            if (typeof filterReferrals === 'function') {
+                filterReferrals();
+            } else {
+                filteredReferrals = [...allReferrals];
+                updateStats();
+                renderTable();
+            }
+        }
     } catch (e) {
         ModalSystem.toast.error('Failed to create referral: ' + e.message);
     }
@@ -1216,42 +1239,63 @@ async function saveEditedReferral(event) {
         if (!result.success) throw new Error(result.message || 'Failed');
         ModalSystem.toast.success('Referral updated successfully!');
         ModalSystem.close('editReferralModal');
-        await loadInitialData();
+        
+        // Realtime update
+        const updatedRef = enrichLocally(result.record || result.data);
+        if (updatedRef) {
+            const idx = allReferrals.findIndex(r => String(r.id) === String(id));
+            if (idx > -1) {
+                Object.assign(allReferrals[idx], updatedRef);
+            }
+            if (typeof filterReferrals === 'function') {
+                filterReferrals();
+            } else {
+                filteredReferrals = [...allReferrals];
+                updateStats();
+                renderTable();
+            }
+        }
     } catch (e) {
         ModalSystem.toast.error('Failed to update referral: ' + e.message);
     }
 }
 
 // ============================================================
-// DELETE REFERRAL
+// CANCEL REFERRAL
 // ============================================================
-function deleteReferral(id) {
+function cancelReferral(id) {
     const r = allReferrals.find(r => r.id === id);
     if (!r) return;
 
     ModalSystem.confirm(
-        `Delete referral ${r.referral_id}? This cannot be undone.`,
+        `Cancel referral ${r.referral_id}? This will mark it as cancelled.`,
         async () => {
             try {
                 const csrfToken = CrudAjax.getCsrfToken();
-                const res  = await fetch(`${API_URL}/${id}`, { 
-                    method: 'DELETE',
+                const res  = await fetch(`${API_URL}/${id}?action=status`, {
+                    method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-Token': csrfToken,
                         'X-Requested-With': 'XMLHttpRequest'
                     },
-                    body: JSON.stringify({ csrf_token: csrfToken })
+                    body: JSON.stringify({ status: 'cancelled', csrf_token: csrfToken })
                 });
                 const data = await res.json();
                 if (!data.success) throw new Error(data.message || 'Failed');
-                ModalSystem.toast.success('Referral deleted successfully');
-                await loadInitialData();
+                ModalSystem.toast.success('Referral cancelled successfully');
+                
+                // Realtime update
+                r.status = 'cancelled';
+                const fr = filteredReferrals.find(fr => String(fr.id) === String(id));
+                if (fr) fr.status = 'cancelled';
+                updateStats();
+                renderTable();
             } catch (e) {
-                ModalSystem.toast.error('Failed to delete referral: ' + e.message);
+                ModalSystem.toast.error('Failed to cancel referral: ' + e.message);
             }
         },
-        { title: 'Delete Referral', confirmText: 'Delete', type: 'danger' }
+        { title: 'Cancel Referral', confirmText: 'Yes, Cancel', type: 'danger' }
     );
 }
 

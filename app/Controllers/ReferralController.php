@@ -124,6 +124,8 @@ class ReferralController extends BaseController
             $data['status'] = $data['status'] ?? 'pending';
             $data['referral_type'] = $data['referral_type'] ?? 'specialist';
             
+            unset($data['csrf_token']);
+            
             $result = $this->referralModel->create($data);
             $enriched = $this->enrichReferral($result);
             
@@ -157,6 +159,8 @@ class ReferralController extends BaseController
                 $data['urgency'] = 'emergency';
             }
             
+            unset($data['csrf_token']);
+            
             $result = $this->referralModel->update($id, $data);
             $enriched = $this->enrichReferral($this->referralModel->find($id) ?: array_merge($existing, $data));
             
@@ -181,7 +185,7 @@ class ReferralController extends BaseController
         $status = $data['status'] ?? null;
         
         $this->handle(function() use ($id, $status) {
-            if (!$status || !in_array($status, ['pending', 'accepted', 'completed', 'rejected'])) {
+            if (!$status || !in_array($status, ['pending', 'accepted', 'completed', 'rejected', 'cancelled'])) {
                 return ['success' => false, 'message' => 'Invalid status', 'code' => 400];
             }
             

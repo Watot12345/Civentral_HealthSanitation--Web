@@ -123,7 +123,7 @@ class Database
         $cacheKey = '';
 
         // Bypass cache for system tables where real-time accuracy is critical
-        $skipCache = in_array($table, ['system_settings', 'settings', 'setting_categories', 'feature_flags', 'settings_versions', 'audit_logs', 'system_logs', 'activity_logs', 'scheduler_logs', 'ai_analytics_logs', 'employees', 'roles', 'role_permissions', 'user_sessions']);
+        $skipCache = in_array($table, ['system_settings', 'settings', 'setting_categories', 'feature_flags', 'settings_versions', 'audit_logs', 'system_logs', 'activity_logs', 'scheduler_logs', 'ai_analytics_logs', 'employees', 'roles', 'role_permissions', 'user_sessions', 'triage_queue']);
 
         if (!$skipCache && $method === 'GET') {
             $settingsCache = $cacheManager->get('all_settings_dictionary');

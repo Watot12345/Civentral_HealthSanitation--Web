@@ -104,23 +104,31 @@ class TriageQueueController extends BaseController
 
             $queueData = [
                 'patient_id' => $patientId,
-                'queue_number' => $data['queue_number'] ?? $this->queueModel->generateQueueNumber(),
                 'reason_for_visit' => !empty($data['reason_for_visit']) ? trim($data['reason_for_visit']) : 'Medical Consultation',
                 'check_in_time' => date('Y-m-d H:i:s'),
                 'status' => 'waiting'
             ];
+            if (!empty($data['queue_number'])) {
+                $queueData['queue_number'] = $data['queue_number'];
+            }
 
             $result = $this->queueModel->create($queueData);
+            if (is_array($result) && isset($result[0]) && is_array($result[0])) {
+                $result = $result[0];
+            }
             $merged = array_merge($queueData, is_array($result) ? $result : []);
             if (!empty($result['id'])) {
                 $merged['id'] = $result['id'];
+            }
+            if (!empty($result['queue_number'])) {
+                $merged['queue_number'] = $result['queue_number'];
             }
             $enriched = $this->enrichQueueItem($merged);
 
             return [
                 'success' => true,
                 'message' => 'Patient checked in successfully',
-                'queue_number' => $result['queue_number'] ?? $queueData['queue_number'],
+                'queue_number' => $result['queue_number'] ?? ($merged['queue_number'] ?? null),
                 'data' => $enriched,
                 'record' => $enriched,
                 'action' => 'create',

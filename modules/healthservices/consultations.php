@@ -561,7 +561,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                     <div class="flex items-center gap-1.5 flex-wrap">
                         <button onclick="viewConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye mr-1"></i> View</button>
                         <button onclick="editConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Record"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
-                        <button onclick="deleteConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Delete Record"><i class="fa-solid fa-trash mr-1"></i> Delete</button>
+                        <button onclick="cancelConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Cancel Record"><i class="fa-solid fa-ban mr-1"></i> Cancel</button>
                     </div>
                     <div class="flex items-center gap-1 flex-wrap">
                         <button onclick="openPatientProfile(<?php echo $c['patient_id']; ?>)" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="View Patient Profile"><i class="fa-solid fa-address-card text-xs"></i></button>
@@ -836,7 +836,7 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         <div class="flex items-center gap-1.5 flex-wrap">
             <button onclick="viewConsultation(${id})" class="px-2 py-1 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye mr-1"></i> View</button>
             <button onclick="editConsultation(${id})" class="px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Record"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
-            <button onclick="deleteConsultation(${id})" class="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Delete Record"><i class="fa-solid fa-trash mr-1"></i> Delete</button>
+            <button onclick="cancelConsultation(${id})" class="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Cancel Record"><i class="fa-solid fa-ban mr-1"></i> Cancel</button>
         </div>
         <div class="flex items-center gap-1 flex-wrap">
             <button onclick="openPatientProfile(${c.patient_id})" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="View Patient Profile"><i class="fa-solid fa-address-card text-xs"></i></button>
@@ -1461,29 +1461,38 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     }
 
     // ============================================================
-    // DELETE CONSULTATION
+    // CANCEL CONSULTATION
     // ============================================================
-    async function deleteConsultation(id) {
-        ModalSystem.confirm('This consultation record will be permanently removed.', async () => {
+    async function cancelConsultation(id) {
+        ModalSystem.confirm('This consultation record will be cancelled.', async () => {
             try {
                 const csrfToken = CrudAjax.getCsrfToken();
-                const res = await fetch('<?php echo site_url('api/consultations.php?action=delete&id='); ?>' + id, { 
-                    method:'POST',
+                const res = await fetch('<?php echo site_url('api/consultations.php/'); ?>' + id, { 
+                    method:'PUT',
                     headers:{
                         'Content-Type':'application/json',
                         'X-CSRF-Token': csrfToken,
                         'X-Requested-With': 'XMLHttpRequest'
                     },
-                    body: JSON.stringify({ csrf_token: csrfToken })
+                    body: JSON.stringify({ status: 'cancelled', csrf_token: csrfToken })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    ModalSystem.toast.success('Consultation deleted!');
-                    removeConsultationCard(id);
+                    ModalSystem.toast.success('Consultation cancelled!');
+                    const updatedRef = data.record || data.data;
+                    if (updatedRef) {
+                        const idx = allConsultations.findIndex(c => String(c.id) === String(id));
+                        if (idx > -1) allConsultations[idx] = updatedRef;
+                        filteredConsultations = [...allConsultations];
+                        updateStats();
+                        renderTable();
+                    } else {
+                        setTimeout(() => window.location.reload(), 1000);
+                    }
                 }
                 else { ModalSystem.toast.error(data.message || 'Failed'); }
-            } catch (err) { ModalSystem.toast.error('Error deleting consultation'); }
-        }, { title:'Delete Consultation', confirmText:'Delete', type:'danger' });
+            } catch (err) { ModalSystem.toast.error('Error cancelling consultation'); }
+        }, { title:'Cancel Consultation', confirmText:'Yes, Cancel', type:'danger' });
     }
 
     // ============================================================
