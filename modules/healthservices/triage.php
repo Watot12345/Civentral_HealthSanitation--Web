@@ -372,7 +372,15 @@ foreach ($waitingCheckins as $c) {
         'queue_number' => $c['queue_number'] ?? ('Q-' . $c['id']),
         'reason_for_visit' => $c['reason_for_visit'] ?? 'Medical Consultation',
         'status' => $checkinStatus,
-        'arrival_time' => isset($c['check_in_time']) ? date('h:i A', strtotime($c['check_in_time'])) : (isset($c['created_at']) ? date('h:i A', strtotime($c['created_at'])) : date('h:i A')),
+        'arrival_time' => (function() use ($c) {
+            $raw = $c['check_in_time'] ?? ($c['created_at'] ?? '');
+            if (empty($raw)) return date('h:i A');
+            try {
+                $dt = new DateTime($raw, new DateTimeZone('UTC'));
+                $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+                return $dt->format('h:i A');
+            } catch (Throwable $e) { return date('h:i A'); }
+        })(),
     ];
 }
 
@@ -577,6 +585,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
     </div>
 
     <!-- Check-in Queue (waiting patients from queue display) -->
+    <div id="checkin-queue-section">
     <?php if (!empty($checkinDisplayQueue)): ?>
     <div class="bg-white rounded-xl shadow-xs border border-amber-200 mb-6 overflow-hidden">
         <div class="p-4 border-b border-amber-200/80 flex items-center justify-between">
@@ -636,6 +645,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         </div>
     </div>
     <?php endif; ?>
+    </div><!-- end #checkin-queue-section -->
 
     <!-- Search & Filter -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
@@ -1469,12 +1479,91 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         const cur = parseInt(statEl.textContent) || 0;
                         statEl.textContent = cur + 1;
                     }
+                    refreshCheckinQueue();
                 }
             } else {
                 ModalSystem.toast.error((data && data.message) ? data.message : 'Check-in failed');
             }
         } catch (err) {
             ModalSystem.toast.error('Network error during check-in');
+        }
+    }
+
+    async function refreshCheckinQueue() {
+        try {
+            const res = await fetch('../../api/triage-queue.php');
+            const data = await res.json();
+            if (!data.success) return;
+
+            const queue = (data.data || []).filter(item => {
+                if ((item.status || '').toLowerCase() === 'completed') return false;
+                const raw = item.check_in_time || item.created_at || '';
+                if (!raw) return false;
+                const d = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T') + '+00:00');
+                const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+                return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }) === today;
+            });
+
+            const section = document.getElementById('checkin-queue-section');
+            if (!section) return;
+
+            if (queue.length === 0) {
+                section.innerHTML = '';
+                return;
+            }
+
+            const rows = queue.map(item => {
+                const pid = String(item.patient_id || '').padStart(4, '0');
+                const name = item.patient_name || ('Patient #' + item.patient_id);
+                const initials = name.split(' ').map(w => w[0] || '').join('').substring(0, 2).toUpperCase();
+                const reason = item.reason_for_visit || 'Medical Consultation';
+                const raw = item.check_in_time || item.created_at || '';
+                const time = raw ? new Date(raw.includes('T') ? raw : raw.replace(' ', 'T') + '+00:00')
+                    .toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Manila' }) : '';
+                const status = (item.status || 'waiting').toLowerCase();
+                const statusHtml = status === 'in_triage'
+                    ? '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-brand-light text-brand-dark border border-brand-border">In Assessment</span>'
+                    : '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Checked In</span>';
+                return `<tr class="border-b border-slate-100 hover:bg-amber-50/30 transition-colors">
+                    <td class="px-4 py-3 font-mono text-xs font-bold text-amber-700">P-${pid}</td>
+                    <td class="px-4 py-3"><div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-[10px]">${initials}</div>
+                        <span class="font-semibold text-slate-800 text-sm">${name}</span>
+                    </div></td>
+                    <td class="px-4 py-3"><span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1"><i class="fa-solid fa-stethoscope text-[10px] text-amber-600"></i>${reason}</span></td>
+                    <td class="px-4 py-3 text-slate-600 text-xs">${time}</td>
+                    <td class="px-4 py-3">${statusHtml}</td>
+                    <td class="px-4 py-3 text-center"><button onclick="startTriageForPatient(${item.patient_id})" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition"><i class="fa-solid fa-heart-pulse mr-1"></i> Start Assessment</button></td>
+                </tr>`;
+            }).join('');
+
+            section.innerHTML = `
+                <div class="bg-white rounded-xl shadow-xs border border-amber-200 mb-6 overflow-hidden">
+                    <div class="p-4 border-b border-amber-200/80 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-clipboard-list text-amber-600"></i>
+                            <h3 class="text-sm font-bold text-amber-800">Today's Patient Visits</h3>
+                        </div>
+                        <span class="px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-bold">${queue.length} waiting for assessment</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-amber-50/60 border-b border-amber-200/70 text-slate-600 text-xs">
+                                <tr>
+                                    <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Patient ID</th>
+                                    <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Patient</th>
+                                    <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Reason for Visit</th>
+                                    <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Check-in Time</th>
+                                    <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Status</th>
+                                    <th class="px-4 py-2.5 text-center font-bold text-[11px] uppercase tracking-wider text-amber-900">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+        } catch (e) {
+            console.warn('refreshCheckinQueue error:', e);
         }
     }
 

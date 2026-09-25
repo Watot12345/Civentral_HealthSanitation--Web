@@ -65,11 +65,14 @@ class TriageQueue
     {
         try {
             $all = $this->all(['order' => 'created_at.asc']);
-            $today = date('Y-m-d');
-            
+            $today = (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+
             return array_values(array_filter($all, function($item) use ($today) {
-                return isset($item['created_at']) && 
-                       date('Y-m-d', strtotime($item['created_at'])) === $today;
+                $raw = $item['created_at'] ?? '';
+                if (!$raw) return false;
+                $dt = new DateTime($raw, new DateTimeZone('UTC'));
+                $dt->setTimezone(new DateTimeZone('Asia/Manila'));
+                return $dt->format('Y-m-d') === $today;
             }));
         } catch (Throwable $e) {
             error_log('TriageQueue Model Error (getTodayQueue): ' . $e->getMessage());
@@ -155,8 +158,22 @@ class TriageQueue
     {
         try {
             $todayQueue = $this->getTodayQueue();
-            $count = count($todayQueue) + 1;
-            return 'Q-' . date('Ymd') . '-' . str_pad((string)$count, 3, '0', STR_PAD_LEFT);
+            $today = (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('Ymd');
+            $prefix = 'Q-' . $today . '-';
+
+            // Collect all used numbers for today
+            $used = [];
+            foreach ($todayQueue as $item) {
+                if (!empty($item['queue_number']) && str_starts_with($item['queue_number'], $prefix)) {
+                    $used[] = (int)substr($item['queue_number'], strlen($prefix));
+                }
+            }
+
+            // Find next available number
+            $next = 1;
+            while (in_array($next, $used)) $next++;
+
+            return $prefix . str_pad((string)$next, 3, '0', STR_PAD_LEFT);
         } catch (Throwable $e) {
             return 'Q-' . date('Ymd') . '-' . rand(100, 999);
         }

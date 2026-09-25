@@ -1,6 +1,8 @@
 <?php
 // Core/bootstrap.php new
 
+date_default_timezone_set('Asia/Manila');
+
 require_once __DIR__ . '/Env.php';
 require_once __DIR__ . '/Response.php';
 require_once __DIR__ . '/BaseController.php';

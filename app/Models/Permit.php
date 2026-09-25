@@ -57,7 +57,11 @@ class Permit
     {
         $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
         $updated = $this->db->update($this->table, $encryptedData, ['id' => $id]);
-        return is_array($updated) ? EncryptionHelper::decryptRows($this->table, $updated) : $updated;
+        if (is_array($updated)) {
+            $row = isset($updated[0]) && is_array($updated[0]) ? $updated[0] : $updated;
+            return EncryptionHelper::decryptModel($this->table, $row);
+        }
+        return $updated;
     }
 
     public function deleteById(string|int $id): bool

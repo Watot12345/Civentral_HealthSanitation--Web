@@ -1018,14 +1018,22 @@ td .text-slate-600.maskable.masked::after {
                     csrf_token: csrfToken
                 })
             });
-            const data = await response.json();
-            if (data.success || response.ok) {
+            const data = await response.json().catch(() => ({}));
+
+            if (response.status === 409 || data?.code === 409) {
+                ModalSystem.toast.warning(data?.message || 'Patient already has an active check-in for this reason today.');
+                return;
+            }
+
+            if (response.ok && data?.success) {
                 ModalSystem.toast.success(`✅ Patient checked in successfully for ${reasonForVisit}!`);
                 ModalSystem.close('checkInModal');
-            } else {
-                ModalSystem.toast.error(data.message || 'Failed to check in patient');
+                return;
             }
+
+            ModalSystem.toast.error(data?.message || 'Failed to check in patient');
         } catch (e) {
+            console.error('Check-in request failed:', e);
             ModalSystem.toast.error('Network error during check-in');
         } finally {
             if (submitBtn) {

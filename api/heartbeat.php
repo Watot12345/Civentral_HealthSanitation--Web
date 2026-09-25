@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 require_once __DIR__ . '/../config/paths.php';
 
 // The session is validated by paths.php on inclusion.

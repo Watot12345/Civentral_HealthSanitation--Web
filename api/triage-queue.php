@@ -1,6 +1,7 @@
 <?php
 // api/triage-queue.php
 
+date_default_timezone_set('Asia/Manila');
 require_once __DIR__ . '/../Core/Env.php';
 require_once __DIR__ . '/../Core/Response.php';
 require_once __DIR__ . '/../app/Controllers/TriageQueueController.php';

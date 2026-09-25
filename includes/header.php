@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 if (ob_get_level() === 0) {
     ob_start();
 }

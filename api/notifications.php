@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 // api/notifications.php
 
 if (session_status() === PHP_SESSION_NONE) {

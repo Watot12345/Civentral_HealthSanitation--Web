@@ -495,7 +495,7 @@ class PermissionService
             'Doctor' => [
                 'dashboard.view', 'dashboard.health_center', 'reports.view', 'reports.health_center',
                 'patients.view',
-                'consultations.view', 'consultations.create', 'triage.view',
+                'consultations.view', 'consultations.create', 'triage.view', 'triage.create',
                 'prescriptions.view', 'prescriptions.create'
             ],
             'Nurse' => [
@@ -520,7 +520,7 @@ class PermissionService
             ],
             'Appointment Clerk' => [
                 'dashboard.view', 'dashboard.health_center',
-                'patients.view', 'patients.create', 'triage.view'
+                'patients.view', 'patients.create', 'triage.view', 'triage.create'
             ],
             'Sanitation Director' => [
                 'dashboard.view', 'dashboard.sanitation',
