@@ -1105,116 +1105,11 @@
 
 
 
-        <!-- Performance Metrics (Restyled to match System Overview KPIs) -->
-        <div class="rounded-2xl mb-10 border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift fade-in delay-4">
-            <div class="flex items-center justify-between mb-5">
-                <div class="flex items-center gap-2.5">
-                    <div class="p-1.5 bg-blue-50 border border-blue-100 rounded-lg transition-all">
-                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                    </div>
-                    <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Performance Metrics</h2>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="text-[10px] font-semibold text-zinc-400">vs last month</span>
-                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse no-print"></span>
-                    <span class="text-[10px] font-bold text-blue-500 uppercase tracking-wider no-print">Hover for details</span>
-                </div>
-            </div>
-            <div class="metrics-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4" id="metricsGrid">
-                <!-- Skeletal Loading State for Performance Metrics -->
-                <div class="rounded-xl border border-zinc-200/80 p-4 bg-white/70 animate-pulse">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="w-20 h-3 bg-zinc-200 rounded"></div>
-                        <div class="w-5 h-5 rounded-md bg-zinc-200"></div>
-                    </div>
-                    <div class="w-16 h-6 bg-zinc-200 rounded mb-2"></div>
-                    <div class="w-24 h-3 bg-zinc-200 rounded"></div>
-                </div>
-                <div class="rounded-xl border border-zinc-200/80 p-4 bg-white/70 animate-pulse">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="w-20 h-3 bg-zinc-200 rounded"></div>
-                        <div class="w-5 h-5 rounded-md bg-zinc-200"></div>
-                    </div>
-                    <div class="w-16 h-6 bg-zinc-200 rounded mb-2"></div>
-                    <div class="w-24 h-3 bg-zinc-200 rounded"></div>
-                </div>
-                <div class="rounded-xl border border-zinc-200/80 p-4 bg-white/70 animate-pulse">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="w-20 h-3 bg-zinc-200 rounded"></div>
-                        <div class="w-5 h-5 rounded-md bg-zinc-200"></div>
-                    </div>
-                    <div class="w-16 h-6 bg-zinc-200 rounded mb-2"></div>
-                    <div class="w-24 h-3 bg-zinc-200 rounded"></div>
-                </div>
-                <div class="rounded-xl border border-zinc-200/80 p-4 bg-white/70 animate-pulse">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="w-20 h-3 bg-zinc-200 rounded"></div>
-                        <div class="w-5 h-5 rounded-md bg-zinc-200"></div>
-                    </div>
-                    <div class="w-16 h-6 bg-zinc-200 rounded mb-2"></div>
-                    <div class="w-24 h-3 bg-zinc-200 rounded"></div>
-                </div>
-                <div class="rounded-xl border border-zinc-200/80 p-4 bg-white/70 animate-pulse">
-                    <div class="flex items-center justify-between mb-2">
-                        <div class="w-20 h-3 bg-zinc-200 rounded"></div>
-                        <div class="w-5 h-5 rounded-md bg-zinc-200"></div>
-                    </div>
-                    <div class="w-16 h-6 bg-zinc-200 rounded mb-2"></div>
-                    <div class="w-24 h-3 bg-zinc-200 rounded"></div>
-                </div>
-            </div>
-        </div>
 
 
 
-        <?php
-        $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? '');
-        $userRole     = trim($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '');
-        $permService  = \App\Services\PermissionService::getInstance();
-        // System Admin sees every department (including heads & coordinators).
-        $isAdminView = $permService->isAdminRole($userRoleDesc) || $permService->isAdminRole($userRole);
-        // Department Heads & Coordinators see only the staff under their own department.
-        $canViewStaffPerformance = $isAdminView
-            || $permService->isHeadOrAdminRole($userRoleDesc)
-            || $permService->isHeadOrAdminRole($userRole);
-        ?>
 
-        <?php if ($canViewStaffPerformance): ?>
-        <!-- Staff Performance (Department Heads, Coordinators & Admins Only) -->
-        <div class="mt-8 rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift fade-in delay-4">
-            <div class="flex items-center justify-between mb-1">
-                <div class="flex items-center gap-2.5">
-                    <div class="p-1.5 bg-indigo-50 rounded-lg">
-                        <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                        </svg>
-                    </div>
-                    <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Staff Performance</h2>
-                    <span id="staffCountBadge" class="text-[10px] font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100"><?php echo $isAdminView ? 'All Departments' : 'Department View'; ?></span>
-                </div>
-                <div class="flex items-center gap-2 no-print">
-                    <select id="staffSort" class="text-xs font-semibold bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-zinc-100 cursor-pointer">
-                        <option value="desc" selected>Highest First</option>
-                        <option value="asc">Lowest First</option>
-                    </select>
-                </div>
-            </div>
-            <p class="text-xs font-semibold text-zinc-400 mt-1 mb-2"><?php echo $isAdminView
-                ? 'Overall performance score for every staff member across all departments · includes department heads &amp; coordinators · hover for detail'
-                : 'Overall performance score for the staff under your department · heads &amp; coordinators are excluded from the ranking · hover for detail'; ?></p>
-            <?php if ($isAdminView): ?>
-            <div class="flex items-center gap-4 mb-3 text-[10px] font-semibold text-zinc-500">
-                <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#f59e0b;"></span> Department Head / Coordinator</span>
-                <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#6366f1;"></span> Field Staff</span>
-            </div>
-            <?php endif; ?>
-            <div class="max-h-[380px] overflow-y-auto pr-2 overflow-x-hidden rounded-xl border border-zinc-100/80 bg-zinc-50/40 p-2" style="scrollbar-width: thin; scrollbar-color: #cbd5e1 #f1f5f9;">
-                <div id="staffChart"></div>
-            </div>
-        </div>
-        <?php endif; ?>
+
 
         <!-- Footer -->
         <div class="mt-12 pt-6 border-t border-zinc-200 flex items-center justify-between flex-wrap gap-4 text-[10px] text-zinc-400 font-semibold tracking-wide">

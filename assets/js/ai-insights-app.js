@@ -576,7 +576,7 @@ document.addEventListener('DOMContentLoaded', function () {
             animations: { enabled: true, easing: 'easeinout', speed: 600 }
         },
         colors: ['#ef4444', '#14b8a6', '#f59e0b', '#3b82f6', '#9333ea'],
-        stroke: { curve: 'smooth', width: 3 },
+        stroke: { curve: 'smooth', width: [3, 3, 3.5, 3, 3], dashArray: [0, 0, 4, 0, 0] },
         xaxis: {
             categories: [],
             labels: { style: { colors: '#a1a1aa', fontSize: '10px', fontWeight: '500' } },
@@ -607,10 +607,11 @@ document.addEventListener('DOMContentLoaded', function () {
                         var val = (s.data && s.data[dataPointIndex] !== undefined) ? s.data[dataPointIndex] : null;
                         if (val !== null && val !== undefined && Number(val) > 0) {
                             hasNonZero = true;
+                            var displayVal = Math.round(Number(val));
                             var color = colors[idx % colors.length];
                             html += '<div class="flex items-center justify-between py-1 border-b border-zinc-50 last:border-0">';
                             html += '<span class="flex items-center gap-1.5 text-zinc-600 font-medium"><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:' + color + '"></span> ' + s.name + '</span>';
-                            html += '<span class="font-extrabold text-zinc-900">' + val + '</span>';
+                            html += '<span class="font-extrabold text-zinc-900">' + displayVal + '</span>';
                             html += '</div>';
                         }
                     });
@@ -625,7 +626,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return html;
             }
         },
-        markers: { size: 3.5, hover: { size: 6 } }
+        markers: { size: [3.5, 3.5, 5, 3.5, 3.5], hover: { size: 7 } }
     };
     var predictiveChart = new ApexCharts(document.querySelector("#predictiveLineChart"), predictiveOptions);
     predictiveChart.render();
@@ -772,7 +773,24 @@ document.addEventListener('DOMContentLoaded', function () {
 
             var seriesColors = (data.predictive.colors && data.predictive.colors.length > 0)
                 ? data.predictive.colors
-                : ['#14b8a6', '#3b82f6', '#10b981', '#f59e0b', '#9333ea'];
+                : ['#ef4444', '#14b8a6', '#f59e0b', '#3b82f6', '#9333ea'];
+
+            // Micro-offset overlapping series so all 5 series lines remain 100% visible
+            var processedSeries = (data.predictive.series || []).map(function (s, sIdx) {
+                var newData = (s.data || []).map(function (val, pIdx) {
+                    var numVal = Number(val || 0);
+                    var isDuplicate = false;
+                    for (var prev = 0; prev < sIdx; prev++) {
+                        var prevVal = Number(((data.predictive.series[prev] || {}).data || [])[pIdx] || 0);
+                        if (prevVal > 0 && Math.abs(prevVal - numVal) < 0.05) {
+                            isDuplicate = true;
+                            break;
+                        }
+                    }
+                    return isDuplicate ? (numVal + 0.15) : numVal;
+                });
+                return { name: s.name, data: newData };
+            });
 
             if (totalPredPoints === 0 || !data.predictive.series || data.predictive.series.length === 0) {
                 if (document.getElementById('predictiveEmptyState')) document.getElementById('predictiveEmptyState').classList.remove('hidden');
@@ -781,8 +799,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (document.getElementById('predictiveEmptyState')) document.getElementById('predictiveEmptyState').classList.add('hidden');
                 if (document.getElementById('predictiveLineChart')) document.getElementById('predictiveLineChart').style.opacity = '1';
                 predictiveChart.updateOptions({
-                    series: data.predictive.series,
+                    series: processedSeries,
                     colors: seriesColors,
+                    stroke: { curve: 'smooth', width: [3, 3, 3.5, 3, 3], dashArray: [0, 0, 4, 0, 0] },
+                    markers: { size: [3.5, 3.5, 5, 3.5, 3.5], hover: { size: 7 } },
                     xaxis: { categories: data.predictive.categories }
                 });
             }
