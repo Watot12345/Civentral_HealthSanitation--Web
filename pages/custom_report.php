@@ -59,9 +59,7 @@ if (empty($assignedFacility)) {
 // Export Formats
 $exportFormats = [
     'pdf' => 'PDF Document (.pdf)',
-    'excel' => 'Excel Spreadsheet (.xlsx)',
-    'word' => 'Word Document (.docx)',
-    'csv' => 'CSV Data (.csv)'
+    'word' => 'Word Document (.docx)'
 ];
 
 // Available report types per role tier
@@ -134,7 +132,7 @@ if ($isAdmin) {
                     <span class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#176B87] to-[#86B6F6] text-white flex items-center justify-center text-lg shadow-md shadow-[#176B87]/20">
                         <i class="fa-solid fa-chart-pie"></i>
                     </span>
-                    AI Generated Reports
+                    Compliance & Operations Reports
                 </h1>
                 <p class="text-xs text-slate-500 mt-1">South Caloocan City Health &amp; Sanitation Management Information System</p>
             </div>

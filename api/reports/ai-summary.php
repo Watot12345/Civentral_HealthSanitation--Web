@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../../config/database.php';
-require_once __DIR__ . '/../../app/services/GeminiAiService.php';
+require_once __DIR__ . '/../../app/services/GroqAiService.php';
 require_once __DIR__ . '/../../app/services/PermissionService.php';
 
 use App\Services\PermissionService;
@@ -127,7 +127,7 @@ try {
     }
 
     // Accept overrides from frontend payload if passed explicitly
-    if (isset($_REQUEST['total']) && (int)$_REQUEST['total'] > 0) {
+    if (isset($_REQUEST['total']) && $_REQUEST['total'] !== '') {
         $total = (int)$_REQUEST['total'];
         $compliant = (int)($_REQUEST['compliant'] ?? $compliant);
         $urgent = (int)($_REQUEST['urgent'] ?? $urgent);
@@ -144,8 +144,8 @@ try {
         'compliance_rate' => $complianceRate
     ];
 
-    $gemini = new GeminiAiService();
-    $summary = $gemini->generateReportSummary($dept, $metrics, $range, $bypassCache);
+    $groq = new GroqAiService();
+    $summary = $groq->generateReportSummary($dept, $metrics, $range, $bypassCache);
 
     echo json_encode([
         'success' => true,
@@ -157,6 +157,9 @@ try {
         'recommendations' => $summary['recommendations'],
         'risk_level' => $summary['risk_level'],
         'ai_generated' => $summary['ai_generated'],
+        'rate_limited' => $summary['rate_limited'] ?? false,
+        'message' => $summary['message'] ?? '',
+        'requests_left' => $groq->getRemainingRequests(),
         'timestamp' => date('Y-m-d H:i:s')
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
