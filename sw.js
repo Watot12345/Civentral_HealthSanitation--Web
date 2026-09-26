@@ -1,67 +1,30 @@
-const CACHE_NAME = 'civentral-cache-v4';
-const ASSETS_TO_CACHE = [
-    './',
+const CACHE_NAME = 'civentral-cache-v6';
+const STATIC_ASSETS = [
     './manifest.json',
     './offline.html',
+
+    // Core JS
     './assets/js/offline-sync.js',
+    './assets/js/modal-system.js',
+    './assets/js/common.js',
+    './assets/js/app.js',
+    './assets/js/apexcharts.min.js',
+    './assets/js/leaflet.js',
+    './assets/js/leaflet-heat.js',
+    './assets/js/export.js',
+
+    // Core CSS
     './assets/css/style.css',
-    
-    // Core Pages
-    './pages/dashboard.php',
-    './pages/ai_insights.php',
-    './pages/custom_report.php',
-    './pages/compliance_monitoring.php',
-    './management/system_logs.php',
-    './management/settings.php',
-    './management/user_management.php',
-    
-    // Health Services Module
-    './modules/healthservices/medical_records.php',
-    './modules/healthservices/appointments.php',
-    './modules/healthservices/consultations.php',
-    './modules/healthservices/patients.php',
-    './modules/healthservices/triage.php',
-    './modules/healthservices/prescriptions.php',
-    './modules/healthservices/referrals.php',
-    
-    // Sanitation Module
-    './modules/sanitation/documents.php',
-    './modules/sanitation/renewals.php',
-    './modules/sanitation/permit_certificate.php',
-    './modules/sanitation/payments.php',
-    './modules/sanitation/inspections.php',
-    './modules/sanitation/permit_applications.php',
-    './modules/sanitation/verify_permit.php',
-    './modules/sanitation/permit_records.php',
-    
-    // Immunization Module
-    './modules/immunization/nutrition_assessment.php',
-    './modules/immunization/child_records.php',
-    './modules/immunization/vaccine_inventory.php',
-    './modules/immunization/vaccination_tracking.php',
-    './modules/immunization/growth_charts.php',
-    
-    // Surveillance Module
-    './modules/surveillence/outbreak_detection.php',
-    './modules/surveillence/alerts.php',
-    './modules/surveillence/case_reports.php',
-    './modules/surveillence/mapping.php',
-    './modules/surveillence/outbreak_command.php',
-    
-    // Services Module
-    './modules/services/maintenance.php',
-    './modules/services/providers.php',
-    './modules/services/service_requests.php',
-    './modules/services/wastewater_billing.php',
-    './modules/services/septic_tanks.php'
+    './assets/css/output.css',
+    './assets/css/leaflet.css'
 ];
 
-// Install Event: Cache essential assets
+// Install Event: Cache only static assets
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
-                return cache.addAll(ASSETS_TO_CACHE).catch(err => console.warn('Cache addAll failed', err));
+                return cache.addAll(STATIC_ASSETS).catch(err => console.warn('Cache addAll failed:', err));
             })
     );
     self.skipWaiting();
@@ -83,34 +46,58 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// Fetch Event: Stale-while-revalidate for assets, Network First for HTML
+// Fetch Event: Network-first for PHP/HTML/API, cache-first for static assets
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
 
-    // Skip API requests and mutations, let offline-sync.js handle them
-    if (url.pathname.includes('/api/') || event.request.method !== 'GET') {
+    // Skip non-GET requests entirely — let offline-sync.js handle mutations
+    if (event.request.method !== 'GET') {
         return;
     }
 
+    // Skip API endpoints (both /api/ paths and *_api.php files)
+    if (url.pathname.includes('/api/') || url.pathname.endsWith('_api.php')) {
+        return;
+    }
+
+    // Skip PHP pages — they require auth/sessions and should never be served from cache
+    if (url.pathname.endsWith('.php')) {
+        event.respondWith(
+            fetch(event.request).catch(() => {
+                return caches.match('./offline.html');
+            })
+        );
+        return;
+    }
+
+    // Static assets: cache-first with network fallback
     event.respondWith(
-        caches.match(event.request, { ignoreSearch: true })
+        caches.match(event.request)
             .then(cachedResponse => {
-                const networkFetch = fetch(event.request).then(response => {
-                    // Update cache dynamically
+                if (cachedResponse) {
+                    // Serve from cache, update in background
+                    fetch(event.request).then(response => {
+                        if (response.ok && response.type === 'basic') {
+                            caches.open(CACHE_NAME).then(cache => {
+                                cache.put(event.request, response);
+                            });
+                        }
+                    }).catch(() => {});
+                    return cachedResponse;
+                }
+                // Not in cache — fetch from network, cache if successful
+                return fetch(event.request).then(response => {
                     if (response.ok && response.type === 'basic') {
-                        const responseClone = response.clone();
+                        const clone = response.clone();
                         caches.open(CACHE_NAME).then(cache => {
-                            cache.put(event.request, responseClone);
+                            cache.put(event.request, clone);
                         });
                     }
                     return response;
                 }).catch(() => {
-                    // If network fails and no cache, return the beautiful fallback offline page
+                    // If network fails and no cache, return the offline fallback page
                     return caches.match('./offline.html');
                 });
-
-                // Return cached response immediately if available, while network fetch updates cache
-                return cachedResponse || networkFetch;
             })
     );
 });

@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 // api/renewals.php
 
 require_once __DIR__ . '/../config/database.php';
@@ -10,7 +11,7 @@ require_once __DIR__ . '/../app/Controllers/RenewalController.php';
 // Handle CORS
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token, X-Requested-With');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -36,8 +37,11 @@ try {
     if ($scriptPos !== false && isset($parts[$scriptPos + 1]) && is_numeric($parts[$scriptPos + 1])) {
         $renewalId = $parts[$scriptPos + 1];
     }
+    if (!$renewalId && isset($_GET['id']) && is_numeric($_GET['id'])) {
+        $renewalId = (string)(int)$_GET['id'];
+    }
 
-    $action = ($scriptPos !== false && isset($parts[$scriptPos + 2])) ? $parts[$scriptPos + 2] : null;
+    $action = ($scriptPos !== false && isset($parts[$scriptPos + 2])) ? $parts[$scriptPos + 2] : ($_GET['action'] ?? null);
 
     switch ($method) {
         case 'GET':
@@ -49,8 +53,6 @@ try {
                 $controller->expiringSoon();
             } elseif (isset($_GET['permits'])) {
                 $controller->getPermits();
-            } elseif (isset($_GET['id']) && is_numeric($_GET['id'])) {
-                $controller->show((string)(int)$_GET['id']);
             } elseif ($renewalId) {
                 $controller->show($renewalId);
             } elseif (isset($_GET['page'])) {
@@ -61,10 +63,21 @@ try {
             break;
 
         case 'POST':
-            $controller->store();
+            if ($renewalId && $action === 'approve') {
+                $controller->approve($renewalId);
+            } elseif ($renewalId && $action === 'reject') {
+                $controller->reject($renewalId);
+            } elseif ($renewalId && ($action === 'update' || $action === 'edit')) {
+                $controller->update($renewalId);
+            } elseif ($renewalId && ($action === 'delete' || $action === 'cancel')) {
+                $controller->destroy($renewalId);
+            } else {
+                $controller->store();
+            }
             break;
 
         case 'PATCH':
+        case 'PUT':
             if (!$renewalId) {
                 Response::error('Renewal ID is required', 400);
             }

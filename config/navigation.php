@@ -33,14 +33,6 @@ return [
                     'permission'  => Permissions::REPORTS_VIEW,
                     'match_paths' => ['custom_report.php', 'export.php', 'report_templates.php'],
                 ],
-                [
-                    'key'         => 'compliance',
-                    'label'       => 'Compliance & Violations',
-                    'icon'        => 'fa-solid fa-gavel',
-                    'route'       => 'pages/compliance_monitoring.php',
-                    'permission'  => Permissions::COMPLIANCE_VIEW,
-                    'match_paths' => ['compliance_monitoring.php', 'violation_tracking.php', 'corrective_actions.php', 'regulatory_compliance.php'],
-                ],
             ],
         ],
         [
@@ -208,7 +200,7 @@ return [
                     'label'       => 'Health Surveillance',
                     'icon'        => 'fa-solid fa-shield-virus',
                     'match_path'  => 'modules/surveillence',
-                    'permissions' => [Permissions::SURVEILLANCE_VIEW, Permissions::SURVEILLANCE_MANAGE, Permissions::COMPLIANCE_VIEW, Permissions::ANALYTICS_VIEW],
+                    'permissions' => [Permissions::SURVEILLANCE_VIEW, Permissions::SURVEILLANCE_MANAGE, Permissions::ANALYTICS_VIEW],
                     'children'    => [
                         [
                             'label'      => 'Case Reports',

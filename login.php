@@ -142,7 +142,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // If this device already has an active verified session/cookie and 2FA is not forced on every login, bypass OTP
                 $userCookieToken = $_COOKIE['civentral_session_' . $user['id']] ?? ($_COOKIE['civentral_session'] ?? '');
                 $deviceRemembered = false;
-                if (!empty($userCookieToken)) {
+
+                // 1. Check cryptographically signed Remember Me device cookie
+                if (class_exists('App\Services\RememberMeService') && \App\Services\RememberMeService::isDeviceRememberedForUser((int)$user['id'])) {
+                    $deviceRemembered = true;
+                }
+
+                // 2. Fallback check active session cookie for this user
+                if (!$deviceRemembered && !empty($userCookieToken)) {
                     $deviceRemembered = $authService->validateActiveToken($userCookieToken);
                     if ($deviceRemembered && isset($_SESSION['user_id']) && $_SESSION['user_id'] != $user['id']) {
                         $deviceRemembered = false;
@@ -163,6 +170,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['role']             = $functionalRole;
                     $_SESSION['role_description'] = $functionalRole;
                     $_SESSION['user_role']        = $functionalRole;
+                    $_SESSION['email']            = $user['email'] ?? '';
+                    $contactVal = $user['contact_number'] ?? ($user['contact'] ?? '');
+                    $_SESSION['contact']          = $contactVal;
+                    $_SESSION['contact_number']   = $contactVal;
+                    $_SESSION['phone']            = $contactVal;
                     $_SESSION['logged_in']        = true;
                     $_SESSION['last_activity']    = time();
 
@@ -240,9 +252,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $otpResult   = $authService->generateAndSendOtp($user, $rememberMe);
 
                 // Mask recipient email for security
-                $rawEmail = $user['email'] ?? 'staff@health.gov.ph';
-                $parts    = explode('@', $rawEmail);
-                $maskedEmail = (strlen($parts[0]) > 2 ? substr($parts[0], 0, 2) . '***' : $parts[0]) . '@' . ($parts[1] ?? 'lgu.gov.ph');
+                $maskedEmail = EncryptionHelper::maskEmail($user['email'] ?? null, 'lgu.gov.ph');
 
                 $responsePayload = [
                     'success'       => true,
@@ -362,7 +372,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 }
 
-                $user = $employees[0];
+                $user = EncryptionHelper::decryptModel('employees', $employees[0]);
                 $status = strtolower(trim($user['status'] ?? 'active'));
 
                 // Check if employee is active vs resigned / inactive / terminated
@@ -378,9 +388,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['forgot_lookup_' . $lookupToken] = (int)$user['id'];
 
                 // Mask email for user preview
-                $rawEmail = $user['email'] ?? 'staff@caloocan.gov.ph';
-                $parts = explode('@', $rawEmail);
-                $maskedEmail = (strlen($parts[0]) > 2 ? substr($parts[0], 0, 2) . '***' : $parts[0]) . '@' . ($parts[1] ?? 'lgu.gov.ph');
+                $maskedEmail = EncryptionHelper::maskEmail($user['email'] ?? null, 'lgu.gov.ph');
 
                 // Return ONLY Name and Department (and masked email for confirmation)
                 echo json_encode([
@@ -422,7 +430,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exit;
                 }
 
-                $user = $employees[0];
+                $user = EncryptionHelper::decryptModel('employees', $employees[0]);
                 $resetToken = bin2hex(random_bytes(32));
                 $otpCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
                 $otpExpiresAt = date('Y-m-d H:i:s', strtotime('+3 minutes'));
@@ -441,14 +449,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 require_once __DIR__ . '/app/services/MailService.php';
                 $mailService = new MailService();
                 $email = $user['email'] ?? '';
+                if (!empty($email) && EncryptionHelper::isEncrypted($email)) {
+                    $email = EncryptionHelper::decrypt($email) ?? $email;
+                }
                 $name = $user['full_name'] ?? ($user['username'] ?? 'Employee');
 
-                if (!empty($email)) {
+                if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $mailService->sendOtpEmail($email, $name, $otpCode, 3);
                 }
 
-                $parts = explode('@', $email ?: 'staff@health.gov.ph');
-                $maskedEmail = (strlen($parts[0]) > 2 ? substr($parts[0], 0, 2) . '***' : $parts[0]) . '@' . ($parts[1] ?? 'lgu.gov.ph');
+                $maskedEmail = EncryptionHelper::maskEmail($email, 'lgu.gov.ph');
 
                 $payload = [
                     'success'      => true,
@@ -583,13 +593,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newPassword     = $_POST['new_password'] ?? '';
             $confirmPassword = $_POST['confirm_password'] ?? '';
 
-            if (empty($verifiedToken) || empty($newPassword)) {
+            if (empty($verifiedToken) || empty($newPassword) || empty($confirmPassword)) {
                 echo json_encode(['success' => false, 'message' => 'All fields are required.']);
                 exit;
             }
 
-            if (strlen($newPassword) < 6) {
-                echo json_encode(['success' => false, 'message' => 'New password must be at least 6 characters long.']);
+            if (strlen($newPassword) < 8) {
+                echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters long.']);
+                exit;
+            }
+
+            if (!preg_match('/[A-Z]/', $newPassword)) {
+                echo json_encode(['success' => false, 'message' => 'Password must contain at least one uppercase letter (A-Z).']);
+                exit;
+            }
+
+            if (!preg_match('/[a-z]/', $newPassword)) {
+                echo json_encode(['success' => false, 'message' => 'Password must contain at least one lowercase letter (a-z).']);
+                exit;
+            }
+
+            if (!preg_match('/[0-9]/', $newPassword)) {
+                echo json_encode(['success' => false, 'message' => 'Password must contain at least one number (0-9).']);
                 exit;
             }
 
@@ -615,16 +640,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $empId = (int)$session['employee_id'];
                 $hashedPassword = password_hash($newPassword, PASSWORD_BCRYPT);
-                $db->update('employees', ['password' => $hashedPassword, 'updated_at' => date('Y-m-d H:i:sP')], ['id' => $empId], true);
+                // Note: employees table does not have an updated_at column in schema
+                $db->update('employees', ['password' => $hashedPassword], ['id' => $empId], true);
 
                 // Clean up reset session
                 try {
-                    $db->delete('user_sessions', ['id' => $session['id']]);
+                    $db->delete('user_sessions', ['id' => $session['id']], true);
                 } catch (\Throwable $ignored) {}
 
                 $logModel = new ActivityLog();
                 $employees = $db->select('employees', ['id' => $empId]);
-                $empRecord = $employees[0] ?? [];
+                $empRecord = !empty($employees) ? EncryptionHelper::decryptModel('employees', $employees[0]) : [];
 
                 $logModel->log("Password Reset Completed", [
                     'user_id'   => $empId,
@@ -648,6 +674,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
         }
+    }
+}
+
+// Clear session if explicitly redirected from logout or session expiration
+if (isset($_GET['session_expired']) || isset($_GET['logout'])) {
+    $_SESSION = [];
+    if (ini_get("session.use_cookies")) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000,
+            $params["path"], $params["domain"],
+            $params["secure"], $params["httponly"]
+        );
+    }
+    setcookie('civentral_session', '', time() - 42000, '/');
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        @session_destroy();
     }
 }
 
@@ -1103,19 +1145,6 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                 </div>
 
                 <form id="verifyCodeForm" class="space-y-4" onsubmit="handleForgotVerifyCode(event)">
-                    <!-- Dev Mode Code Display -->
-                    <div id="forgotDevOtpBox" class="hidden p-3 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900 items-center justify-between gap-2 shadow-xs">
-                        <div class="flex items-center gap-2">
-                            <span class="px-2 py-0.5 rounded bg-amber-200 text-amber-900 font-mono font-bold text-[10px] uppercase tracking-wider flex items-center gap-1">
-                                <i class="fa-solid fa-flask"></i> DEV CODE
-                            </span>
-                            <span><strong id="forgotDevOtpCodeValue" class="font-mono text-base font-black tracking-widest text-amber-950">------</strong></span>
-                        </div>
-                        <button type="button" onclick="autofillForgotDevOtp()" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-bold transition shadow-xs cursor-pointer flex items-center gap-1">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-fill
-                        </button>
-                    </div>
-
                     <div>
                         <label class="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-1 text-center">Enter 6-Digit Code</label>
                         <input
@@ -1167,9 +1196,10 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                             <input
                                 type="password"
                                 id="forgotNewPass"
-                                placeholder="At least 6 characters"
+                                placeholder="Create new password"
                                 required
-                                minlength="6"
+                                minlength="8"
+                                oninput="validatePasswordRequirements()"
                                 class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:border-brand-medium focus:ring-2 focus:ring-brand-medium/20 transition pr-10"
                             />
                             <button
@@ -1190,7 +1220,8 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                                 id="forgotConfirmPass"
                                 placeholder="Re-type new password"
                                 required
-                                minlength="6"
+                                minlength="8"
+                                oninput="validatePasswordRequirements()"
                                 class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-800 placeholder-gray-400 focus:outline-none focus:border-brand-medium focus:ring-2 focus:ring-brand-medium/20 transition pr-10"
                             />
                             <button
@@ -1200,6 +1231,33 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                             >
                                 <i id="forgotConfirmPassIcon" class="fa-solid fa-eye-slash text-xs"></i>
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Password Requirements Checklist -->
+                    <div class="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-1.5 text-xs">
+                        <p class="font-bold text-gray-600 text-[11px] uppercase tracking-wider">Password Requirements:</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-1 text-[11px]">
+                            <div id="reqLength" class="flex items-center gap-1.5 text-gray-500 transition-colors">
+                                <i class="fa-regular fa-circle text-gray-400 text-[10px]" id="reqLengthIcon"></i>
+                                <span>Min. 8 characters</span>
+                            </div>
+                            <div id="reqUpper" class="flex items-center gap-1.5 text-gray-500 transition-colors">
+                                <i class="fa-regular fa-circle text-gray-400 text-[10px]" id="reqUpperIcon"></i>
+                                <span>One uppercase letter (A-Z)</span>
+                            </div>
+                            <div id="reqLower" class="flex items-center gap-1.5 text-gray-500 transition-colors">
+                                <i class="fa-regular fa-circle text-gray-400 text-[10px]" id="reqLowerIcon"></i>
+                                <span>One lowercase letter (a-z)</span>
+                            </div>
+                            <div id="reqNumber" class="flex items-center gap-1.5 text-gray-500 transition-colors">
+                                <i class="fa-regular fa-circle text-gray-400 text-[10px]" id="reqNumberIcon"></i>
+                                <span>At least one number (0-9)</span>
+                            </div>
+                            <div id="reqMatch" class="flex items-center gap-1.5 text-gray-500 transition-colors sm:col-span-2">
+                                <i class="fa-regular fa-circle text-gray-400 text-[10px]" id="reqMatchIcon"></i>
+                                <span>Passwords must match</span>
+                            </div>
                         </div>
                     </div>
 
@@ -1398,6 +1456,9 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
         document.getElementById('forgotStep2ErrorBanner')?.classList.add('hidden');
         document.getElementById('forgotStep3ErrorBanner')?.classList.add('hidden');
         document.getElementById('resetErrorBanner')?.classList.add('hidden');
+        if (document.getElementById('forgotNewPass')) document.getElementById('forgotNewPass').value = '';
+        if (document.getElementById('forgotConfirmPass')) document.getElementById('forgotConfirmPass').value = '';
+        if (typeof validatePasswordRequirements === 'function') validatePasswordRequirements();
 
         const stepLabel = document.getElementById('forgotModalStepLabel');
         if (stepLabel) stepLabel.textContent = 'Step 1 of 4: Enter Employee ID';
@@ -1512,17 +1573,6 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                 const stepLabel = document.getElementById('forgotModalStepLabel');
                 if (stepLabel) stepLabel.textContent = 'Step 3 of 4: Verify 6-Digit Code';
 
-                // Handle Dev Mode code display
-                if (data.dev_otp_code) {
-                    const devBox = document.getElementById('forgotDevOtpBox');
-                    const devVal = document.getElementById('forgotDevOtpCodeValue');
-                    if (devBox && devVal) {
-                        devVal.textContent = data.dev_otp_code;
-                        devBox.classList.remove('hidden');
-                        devBox.classList.add('flex');
-                    }
-                }
-
                 setTimeout(() => document.getElementById('forgotOtpInput')?.focus(), 200);
 
             } else {
@@ -1582,6 +1632,9 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                 document.getElementById('forgotStep3')?.classList.add('hidden');
                 document.getElementById('forgotStep4')?.classList.remove('hidden');
                 document.getElementById('verifiedTokenHidden').value = data.verified_token;
+                if (document.getElementById('forgotNewPass')) document.getElementById('forgotNewPass').value = '';
+                if (document.getElementById('forgotConfirmPass')) document.getElementById('forgotConfirmPass').value = '';
+                validatePasswordRequirements();
 
                 const stepLabel = document.getElementById('forgotModalStepLabel');
                 if (stepLabel) stepLabel.textContent = 'Step 4 of 4: Set New Password';
@@ -1605,28 +1658,99 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
         }
     }
 
+    // Password requirements live validation
+    function validatePasswordRequirements() {
+        const newPass = document.getElementById('forgotNewPass')?.value || '';
+        const confirmPass = document.getElementById('forgotConfirmPass')?.value || '';
+
+        const hasLength = newPass.length >= 8;
+        const hasUpper = /[A-Z]/.test(newPass);
+        const hasLower = /[a-z]/.test(newPass);
+        const hasNumber = /[0-9]/.test(newPass);
+        const hasMatch = confirmPass.length > 0 && newPass === confirmPass;
+
+        updateRequirementUI('reqLength', 'reqLengthIcon', hasLength);
+        updateRequirementUI('reqUpper', 'reqUpperIcon', hasUpper);
+        updateRequirementUI('reqLower', 'reqLowerIcon', hasLower);
+        updateRequirementUI('reqNumber', 'reqNumberIcon', hasNumber);
+        updateRequirementUI('reqMatch', 'reqMatchIcon', hasMatch);
+
+        return hasLength && hasUpper && hasLower && hasNumber && hasMatch;
+    }
+
+    function updateRequirementUI(containerId, iconId, isValid) {
+        const container = document.getElementById(containerId);
+        const icon = document.getElementById(iconId);
+        if (!container || !icon) return;
+
+        if (isValid) {
+            container.classList.remove('text-gray-500');
+            container.classList.add('text-emerald-700', 'font-semibold');
+            icon.className = 'fa-solid fa-circle-check text-emerald-500 text-[10px]';
+        } else {
+            container.classList.remove('text-emerald-700', 'font-semibold');
+            container.classList.add('text-gray-500');
+            icon.className = 'fa-regular fa-circle text-gray-400 text-[10px]';
+        }
+    }
+
     // STEP 4: Set New Password & Confirm
     async function handleResetPassword(event) {
         event.preventDefault();
         const verifiedToken = document.getElementById('verifiedTokenHidden')?.value.trim();
-        const newPassword = document.getElementById('forgotNewPass')?.value;
-        const confirmPassword = document.getElementById('forgotConfirmPass')?.value;
+        const newPassword = document.getElementById('forgotNewPass')?.value || '';
+        const confirmPassword = document.getElementById('forgotConfirmPass')?.value || '';
         const submitBtn = document.getElementById('resetSubmitBtn');
         const btnText = document.getElementById('resetBtnText');
         const errorBanner = document.getElementById('resetErrorBanner');
         const errorMsg = document.getElementById('resetErrorMessage');
 
         if (!newPassword || !confirmPassword) {
+            if (errorBanner && errorMsg) {
+                errorMsg.textContent = 'Please fill in both password fields.';
+                errorBanner.classList.remove('hidden');
+            }
             toast.error('Please fill in both password fields.', { title: 'Missing Information' });
             return;
         }
 
-        if (newPassword.length < 6) {
+        if (newPassword.length < 8) {
             if (errorBanner && errorMsg) {
-                errorMsg.textContent = 'New password must be at least 6 characters long.';
+                errorMsg.textContent = 'Password must be at least 8 characters long.';
                 errorBanner.classList.remove('hidden');
             }
-            toast.error('Password too short. Must be at least 6 characters.', { title: 'Validation Error' });
+            toast.error('Password too short. Must be at least 8 characters.', { title: 'Validation Error' });
+            document.getElementById('forgotNewPass')?.focus();
+            return;
+        }
+
+        if (!/[A-Z]/.test(newPassword)) {
+            if (errorBanner && errorMsg) {
+                errorMsg.textContent = 'Password must contain at least one uppercase letter (A-Z).';
+                errorBanner.classList.remove('hidden');
+            }
+            toast.error('Password must contain at least one uppercase letter (A-Z).', { title: 'Validation Error' });
+            document.getElementById('forgotNewPass')?.focus();
+            return;
+        }
+
+        if (!/[a-z]/.test(newPassword)) {
+            if (errorBanner && errorMsg) {
+                errorMsg.textContent = 'Password must contain at least one lowercase letter (a-z).';
+                errorBanner.classList.remove('hidden');
+            }
+            toast.error('Password must contain at least one lowercase letter (a-z).', { title: 'Validation Error' });
+            document.getElementById('forgotNewPass')?.focus();
+            return;
+        }
+
+        if (!/[0-9]/.test(newPassword)) {
+            if (errorBanner && errorMsg) {
+                errorMsg.textContent = 'Password must contain at least one number (0-9).';
+                errorBanner.classList.remove('hidden');
+            }
+            toast.error('Password must contain at least one number (0-9).', { title: 'Validation Error' });
+            document.getElementById('forgotNewPass')?.focus();
             return;
         }
 
@@ -1636,6 +1760,7 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                 errorBanner.classList.remove('hidden');
             }
             toast.error('Passwords do not match.', { title: 'Validation Error' });
+            document.getElementById('forgotConfirmPass')?.focus();
             return;
         }
 
@@ -1685,16 +1810,6 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
         } finally {
             submitBtn.disabled = false;
             btnText.textContent = 'Save New Password & Sign In';
-        }
-    }
-
-    function autofillForgotDevOtp() {
-        const code = document.getElementById('forgotDevOtpCodeValue')?.textContent?.trim();
-        const input = document.getElementById('forgotOtpInput');
-        if (code && input && code !== '------') {
-            input.value = code;
-            input.focus();
-            toast.info('Reset code auto-filled!', { title: 'Dev Mode' });
         }
     }
 
@@ -2022,6 +2137,11 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        try {
+            localStorage.removeItem('civentral_last_activity');
+            localStorage.removeItem('civentral_session_expired');
+        } catch (e) {}
+
         const loginForm = document.getElementById('loginForm');
         if (loginForm) loginForm.addEventListener('submit', handleLogin);
 

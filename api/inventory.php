@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 // api/inventory.php
 
 require_once __DIR__ . '/../config/database.php';

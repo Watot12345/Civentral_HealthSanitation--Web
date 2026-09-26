@@ -540,12 +540,19 @@ $title = 'System Logs';
 
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-                <h3 class="font-semibold text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i>
-                    Scheduled Job Runs &amp; Background Execution Logs
-                    <span class="text-xs font-normal text-slate-400">(<?php echo $totalScheduler; ?> entries)</span>
-                </h3>
-                <span class="text-xs text-slate-400">Automated permit renewal notices, surveillance outbreak checks &amp; reports</span>
+                <div>
+                    <h3 class="font-semibold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-indigo-600"></i>
+                        Scheduled Job Runs &amp; Background Execution Logs
+                        <span class="text-xs font-normal text-slate-400">(<?php echo $totalScheduler; ?> entries)</span>
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Automated permit renewal notices, surveillance outbreak checks &amp; reports</p>
+                </div>
+                <?php if ($totalScheduler > 0): ?>
+                <button onclick="confirmClearSchedulerLogs()" class="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition text-xs font-semibold flex items-center gap-1.5" title="Clear all scheduler logs">
+                    <i class="fa-solid fa-trash-can text-red-500"></i> Clear Scheduler Logs
+                </button>
+                <?php endif; ?>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -765,6 +772,34 @@ $title = 'System Logs';
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
             }
+        });
+    }
+
+    // ============================================================
+    // CLEAR SCHEDULER LOGS
+    // ============================================================
+    function confirmClearSchedulerLogs() {
+        if (!confirm('Are you sure you want to permanently clear all background scheduler logs?')) return;
+        const body = new URLSearchParams();
+        body.append('action', 'clear_scheduler_logs');
+        fetch('user_management_api.php', {
+            method: 'POST',
+            body: body
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showToast('🧹 ' + data.message, 'info');
+                setTimeout(() => {
+                    window.location.href = window.location.pathname + '?tab=scheduler';
+                }, 600);
+            } else {
+                showToast('⚠️ ' + data.message, 'danger');
+            }
+        })
+        .catch(err => {
+            showToast('❌ Error clearing scheduler logs', 'danger');
+            console.error(err);
         });
     }
 
@@ -1089,8 +1124,20 @@ $title = 'System Logs';
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showToast('🧹 ' + data.message, 'info');
-                setTimeout(() => location.reload(), 600);
+                const tbody = document.getElementById('logsTableBody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">
+                                <div class="flex flex-col items-center gap-2">
+                                    <i class="fa-solid fa-inbox text-lg text-slate-300"></i>
+                                    <span>No log entries available.</span>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }
+                showToast('🧹 ' + data.message, 'success');
             } else {
                 showToast('⚠️ ' + data.message, 'danger');
             }

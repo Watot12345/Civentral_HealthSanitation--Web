@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 // api/export.php
 // Server-side Data Export Endpoint (CSV, Excel, PDF)
 

@@ -731,7 +731,7 @@ $title = 'Service Requests';
 <script src="<?= site_url('assets/js/leaflet.js'); ?>"></script>
 <script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
-    const REQUESTS = <?php echo json_encode(array_column($serviceRequests, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+    let REQUESTS = <?php echo json_encode(array_column($serviceRequests, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
     const TANKS_GEO = <?php echo json_encode($tankLookup, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
     // Modal functions, toast, sanitizeHTML provided by common.js
@@ -842,9 +842,14 @@ $title = 'Service Requests';
             }
             
             updateRequestRow(r);
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo csrf_token(); ?>';
             await fetch(`../../api/service_requests.php?id=${id}&action=update`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify({
                     status: r.status,
                     notes: r.notes,
@@ -1281,16 +1286,127 @@ $title = 'Service Requests';
                 notes: document.getElementById('edit_request_notes').value.trim()
             };
 
+    function renderNewRequestRowHtml(r) {
+        const statusColors = {
+            pending:     'bg-amber-100 text-amber-700',
+            in_progress: 'bg-blue-100 text-blue-700',
+            completed:   'bg-emerald-100 text-emerald-700',
+            cancelled:   'bg-slate-100 text-slate-500'
+        };
+        const priorityColors = {
+            low:    'bg-slate-100 text-slate-500',
+            medium: 'bg-amber-100 text-amber-700',
+            high:   'bg-rose-100 text-rose-700'
+        };
+        const stClass = r.service_type === 'desludging' ? 'bg-violet-100 text-violet-700' : (r.service_type === 'maintenance' ? 'bg-blue-100 text-blue-700' : (r.service_type === 'inspection' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'));
+        const createdDate = new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+
+        return `
+            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${sanitizeHTML(r.request_id || '')}</td>
+            <td class="px-4 py-3">
+                <div>
+                    <p class="font-semibold text-slate-800 text-sm">${sanitizeHTML(r.owner_name || '')}</p>
+                    <p class="text-xs text-slate-400">${sanitizeHTML(r.tank_id || '')}</p>
+                </div>
+            </td>
+            <td class="px-4 py-3">
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${stClass}">
+                    ${sanitizeHTML(r.service_type ? r.service_type.charAt(0).toUpperCase() + r.service_type.slice(1) : '')}
+                </span>
+            </td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${sanitizeHTML(r.assigned_to || 'Unassigned')}</td>
+            <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[r.status] || statusColors.pending}">
+                    ${sanitizeHTML((r.status || 'pending').replace('_', ' ').toUpperCase())}
+                </span>
+            </td>
+            <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded-full text-xs font-semibold ${priorityColors[r.priority] || priorityColors.medium}">
+                    ${sanitizeHTML(r.priority ? r.priority.charAt(0).toUpperCase() + r.priority.slice(1) : 'Medium')}
+                </span>
+            </td>
+            <td class="px-4 py-3 text-slate-500 text-xs">${createdDate}</td>
+            <td class="px-4 py-3">
+                <div class="flex items-center justify-center gap-1">
+                    <button onclick="viewRequest(${r.id})"
+                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                        <i class="fa-solid fa-eye text-sm"></i>
+                    </button>
+                    <button onclick="viewRequestRoute(${r.id})"
+                            class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="Route / Location Map">
+                        <i class="fa-solid fa-route text-sm"></i>
+                    </button>
+                    <button onclick="updateRequestStatus(${r.id}, 'in_progress')"
+                            class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start">
+                        <i class="fa-solid fa-play text-sm"></i>
+                    </button>
+                    <button onclick="updateRequestStatus(${r.id}, 'cancelled')"
+                            class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Cancel">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
+                    <button onclick="editRequest(${r.id})"
+                            class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
+                        <i class="fa-solid fa-pen text-sm"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+    }
+
+    function insertNewRequestRow(r) {
+        if (!r || !r.id) return;
+        REQUESTS[r.id] = r;
+        const tbody = document.getElementById('requestTableBody');
+        if (!tbody) return;
+        const tr = document.createElement('tr');
+        tr.id = 'request-row-' + r.id;
+        tr.className = 'border-b border-slate-100 hover:bg-brand-light/40 transition-colors request-row bg-amber-50/30';
+        tr.setAttribute('data-request-id', (r.request_id || '').toLowerCase());
+        tr.setAttribute('data-owner', (r.owner_name || '').toLowerCase());
+        tr.setAttribute('data-tank', r.tank_id || '');
+        tr.setAttribute('data-technician', (r.assigned_to || '').toLowerCase());
+        tr.setAttribute('data-status', r.status || 'pending');
+        tr.setAttribute('data-type', r.service_type || '');
+        tr.setAttribute('data-priority', r.priority || 'medium');
+        tr.setAttribute('data-preferred-date', r.preferred_date || '');
+        tr.setAttribute('data-row-id', r.id);
+        tr.setAttribute('data-id', r.id);
+        tr.innerHTML = renderNewRequestRowHtml(r);
+        tbody.insertBefore(tr, tbody.firstChild);
+    }
+
+    async function saveRequestEdit(event) {
+        event.preventDefault();
+        try {
+            const id = document.getElementById('edit_request_id').value;
+            const timeRaw = document.getElementById('edit_request_time').value;
+            const payload = {
+                owner_name: document.getElementById('edit_request_owner').value.trim(),
+                service_type: document.getElementById('edit_request_type').value,
+                preferred_date: document.getElementById('edit_request_date').value,
+                preferred_time: formatTime24to12(timeRaw),
+                priority: document.getElementById('edit_request_priority').value,
+                status: document.getElementById('edit_request_status').value,
+                notes: document.getElementById('edit_request_notes').value.trim()
+            };
+
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo csrf_token(); ?>';
             const res = await fetch(`../../api/service_requests.php?id=${id}&action=update`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const json = await res.json();
             if (json.success) {
                 closeModal('editRequestModal');
+                const updated = json.record || json.data || { ...REQUESTS[id], ...payload, id: Number(id) };
+                REQUESTS[id] = updated;
+                updateRequestRow(updated);
                 showToast('Service request updated successfully!', 'success');
-                setTimeout(() => location.reload(), 800);
             } else {
                 showToast(json.message || 'Failed to update service request', 'danger');
             }
@@ -1336,16 +1452,24 @@ $title = 'Service Requests';
                 notes: document.getElementById('req_notes')?.value?.trim() || ''
             };
 
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo csrf_token(); ?>';
             const res = await fetch('../../api/service_requests.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const json = await res.json();
             if (json.success) {
+                const newRecord = json.record || json.data || { ...payload, id: Date.now() };
+                insertNewRequestRow(newRecord);
                 showToast('Service request submitted successfully!', 'success');
                 closeModal('newRequestModal');
-                setTimeout(() => location.reload(), 800);
+                const form = document.getElementById('newRequestForm');
+                if (form) form.reset();
             } else {
                 showToast(json.message || 'Failed to submit request', 'danger');
             }

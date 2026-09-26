@@ -491,6 +491,11 @@
     .report-section {
         animation: fadeInSlide 0.35s ease-in-out;
     }
+    .chart-container {
+        position: relative;
+        width: 100%;
+    }
+
     .status-badge-pill {
         display: inline-flex;
         align-items: center;

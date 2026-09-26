@@ -520,7 +520,7 @@ $barangayOptions = $barangayModel->allForSurveillance();
     // ============================================================
     // PERMIT API CLIENT
     // ============================================================
-    const API_BASE = '../../api/permits.php';
+    const API_BASE = '../../api/permitrecord.php';
     const BARANGAYS = <?php echo json_encode($barangayOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
     let activeDateFrom = '';
     let activeDateTo = '';
@@ -528,12 +528,16 @@ $barangayOptions = $barangayModel->allForSurveillance();
     let activeZone = '';
 
     async function apiRequest(url, options = {}) {
+        const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+            ...(options.headers || {})
+        };
         try {
             const response = await fetch(url, {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
                 ...options,
+                headers
             });
             const data = await response.json();
             if (!response.ok) {

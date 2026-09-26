@@ -96,29 +96,28 @@ class PermitDocument
             $data['uploaded_at'] = date('Y-m-d H:i:sP');
             $data['updated_at'] = date('Y-m-d H:i:sP');
             
-            $this->db->insert($this->table, $data, true);
+            $inserted = $this->db->insert($this->table, $data, true);
+            $row = is_array($inserted) && isset($inserted[0]) && is_array($inserted[0]) ? $inserted[0] : (is_array($inserted) ? $inserted : []);
             
-            // Always return a predictable structured array from the input data
-            // The DB insert side effect is what matters; the return format must be consistent
             return [
-                'id' => $data['id'] ?? 0,
-                'document_id' => $data['document_id'] ?? '',
-                'permit_id' => $data['permit_id'] ?? 0,
-                'applicant' => $data['applicant'] ?? '',
-                'document_type' => $data['document_type'] ?? '',
-                'file_name' => $data['file_name'] ?? '',
-                'file_path' => $data['file_path'] ?? '',
-                'file_size' => $data['file_size'] ?? 0,
-                'file_type' => $data['file_type'] ?? '',
-                'mime_type' => $data['mime_type'] ?? '',
-                'uploaded_by' => $data['uploaded_by'] ?? 0,
-                'status' => $data['status'] ?? 'pending',
-                'verified' => $data['verified'] ?? false,
-                'qr_code' => $data['qr_code'] ?? null,
-                'notes' => $data['notes'] ?? '',
-                'expiry_date' => $data['expiry_date'] ?? null,
-                'uploaded_at' => $data['uploaded_at'] ?? date('Y-m-d H:i:sP'),
-                'updated_at' => $data['updated_at'] ?? date('Y-m-d H:i:sP')
+                'id' => (int)($row['id'] ?? ($data['id'] ?? 0)),
+                'document_id' => $row['document_id'] ?? ($data['document_id'] ?? ''),
+                'permit_id' => (int)($row['permit_id'] ?? ($data['permit_id'] ?? 0)),
+                'applicant' => $row['applicant'] ?? ($data['applicant'] ?? ''),
+                'document_type' => $row['document_type'] ?? ($data['document_type'] ?? ''),
+                'file_name' => $row['file_name'] ?? ($data['file_name'] ?? ''),
+                'file_path' => $row['file_path'] ?? ($data['file_path'] ?? ''),
+                'file_size' => (int)($row['file_size'] ?? ($data['file_size'] ?? 0)),
+                'file_type' => $row['file_type'] ?? ($data['file_type'] ?? ''),
+                'mime_type' => $row['mime_type'] ?? ($data['mime_type'] ?? ''),
+                'uploaded_by' => $row['uploaded_by'] ?? ($data['uploaded_by'] ?? 0),
+                'status' => $row['status'] ?? ($data['status'] ?? 'pending'),
+                'verified' => (bool)($row['verified'] ?? ($data['verified'] ?? false)),
+                'qr_code' => $row['qr_code'] ?? ($data['qr_code'] ?? null),
+                'notes' => $row['notes'] ?? ($data['notes'] ?? ''),
+                'expiry_date' => $row['expiry_date'] ?? ($data['expiry_date'] ?? null),
+                'uploaded_at' => $row['uploaded_at'] ?? ($data['uploaded_at'] ?? date('Y-m-d H:i:sP')),
+                'updated_at' => $row['updated_at'] ?? ($data['updated_at'] ?? date('Y-m-d H:i:sP'))
             ];
         } catch (Exception $e) {
             error_log('PermitDocument::create() Error: ' . $e->getMessage());

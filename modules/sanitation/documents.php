@@ -782,6 +782,8 @@ $title = 'Documents';
             fd.append('applicant', applicantInput.value.trim());
             fd.append('notes', notesTextarea.value || '');
             fd.append('status', 'pending');
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo csrf_token(); ?>';
+            fd.append('csrf_token', csrfToken);
 
             console.log('Uploading document...');
 
@@ -791,6 +793,10 @@ $title = 'Documents';
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
+                headers: {
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 // Omit Content-Type so browser sets multipart/form-data with boundary
                 body: fd
             });

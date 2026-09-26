@@ -46,6 +46,9 @@ class Appointment
             $data['appointment_id'] = $this->generateAppointmentId();
         }
         $res = $this->db->insert($this->table, $data, true);
+        if (is_array($res) && isset($res[0]) && is_array($res[0])) {
+            $res = $res[0];
+        }
         if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
             require_once __DIR__ . '/ActivityLog.php';
             try {
@@ -61,12 +64,15 @@ class Appointment
                 error_log('Appointment::create ActivityLog error: ' . $e->getMessage());
             }
         }
-        return $res;
+        return is_array($res) ? $res : $res;
     }
 
     public function updateById(string|int $id, array $data): array
     {
         $updated = $this->db->update($this->table, $data, ['id' => 'eq.' . $id], true);
+        if (is_array($updated) && isset($updated[0]) && is_array($updated[0])) {
+            $updated = $updated[0];
+        }
         if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
             require_once __DIR__ . '/ActivityLog.php';
             try {
@@ -80,12 +86,15 @@ class Appointment
                 error_log('Appointment::updateById ActivityLog error: ' . $e->getMessage());
             }
         }
-        return $updated;
+        return is_array($updated) ? $updated : $updated;
     }
 
     public function updateStatus(string|int $id, string $status): array
     {
         $updated = $this->db->update($this->table, ['status' => $status], ['id' => 'eq.' . $id], true);
+        if (is_array($updated) && isset($updated[0]) && is_array($updated[0])) {
+            $updated = $updated[0];
+        }
         if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
             require_once __DIR__ . '/ActivityLog.php';
             try {
@@ -99,7 +108,7 @@ class Appointment
                 error_log('Appointment::updateStatus ActivityLog error: ' . $e->getMessage());
             }
         }
-        return $updated;
+        return is_array($updated) ? $updated : $updated;
     }
 
     public function deleteById(string|int $id): bool

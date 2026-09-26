@@ -223,7 +223,7 @@ class GeminiAiService
     /**
      * Generates a high-level executive report summary for a specific department or overall system.
      */
-    public function generateReportSummary(string $department = 'all', array $metrics = [], string $dateRange = '30d'): array
+    public function generateReportSummary(string $department = 'all', array $metrics = [], string $dateRange = '30d', bool $bypassCache = false): array
     {
         $deptTitle = match(strtolower($department)) {
             'health_center', 'health center', 'health center services' => 'Health Center Services',
@@ -257,9 +257,11 @@ class GeminiAiService
             'ai_generated' => false
         ];
 
-        // Check report summary file cache (30 mins TTL)
+        // Report summary file cache (5 mins TTL for live data agility)
         $cacheFile = $this->cacheDir . '/report_summary_' . md5(strtolower($department) . '_' . $dateRange . '_' . json_encode($metrics)) . '.json';
-        if (file_exists($cacheFile)) {
+        if ($bypassCache && file_exists($cacheFile)) {
+            @unlink($cacheFile);
+        } elseif (!$bypassCache && file_exists($cacheFile)) {
             $raw = @file_get_contents($cacheFile);
             $cached = json_decode($raw, true);
             if ($cached && isset($cached['expires_at']) && time() < $cached['expires_at'] && !empty($cached['data'])) {
@@ -282,8 +284,6 @@ class GeminiAiService
                       json_encode($sanitizedMetrics) . "\n" .
                       "</untrusted_metrics>";
 
-            $endpoint = $this->baseUrl . urlencode($this->model) . ':generateContent?key=' . urlencode($this->apiKey);
-
             $payload = [
                 'contents' => [
                     [
@@ -298,33 +298,56 @@ class GeminiAiService
                 ]
             ];
 
-            $ch = curl_init($endpoint);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-            curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+            // Try primary model first, followed by configured fallback models (e.g. on 429 quota exhaustion)
+            $modelsToTry = array_unique(array_filter(array_merge(
+                [$this->model],
+                $this->fallbackModels,
+                ['gemini-2.5-flash', 'gemini-1.5-flash']
+            )));
 
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+            foreach ($modelsToTry as $candidateModel) {
+                $endpoint = $this->baseUrl . urlencode($candidateModel) . ':generateContent?key=' . urlencode($this->apiKey);
 
-            if ($httpCode === 200 && $response) {
-                $result = json_decode($response, true);
-                $rawText = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
-                
-                $jsonStart = strpos($rawText, '{');
-                $jsonEnd = strrpos($rawText, '}');
-                if ($jsonStart !== false && $jsonEnd !== false) {
-                    $jsonStr = substr($rawText, $jsonStart, $jsonEnd - $jsonStart + 1);
-                    $aiData = json_decode($jsonStr, true);
+                $ch = curl_init($endpoint);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+                curl_setopt($ch, CURLOPT_TIMEOUT, 5);
 
-                    if (is_array($aiData) && !empty($aiData['executive_summary'])) {
-                        $this->recordApiCall();
-                        $finalData = array_merge($fallback, $aiData, ['ai_generated' => true]);
-                        $this->saveToCache($cacheFile, $finalData);
-                        return $finalData;
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($httpCode === 200 && $response) {
+                    $result = json_decode($response, true);
+                    $rawText = $result['candidates'][0]['content']['parts'][0]['text'] ?? '';
+
+                    $jsonStart = strpos($rawText, '{');
+                    $jsonEnd = strrpos($rawText, '}');
+                    if ($jsonStart !== false && $jsonEnd !== false) {
+                        $jsonStr = substr($rawText, $jsonStart, $jsonEnd - $jsonStart + 1);
+                        $aiData = json_decode($jsonStr, true);
+
+                        if (is_array($aiData) && !empty($aiData['executive_summary'])) {
+                            $this->recordApiCall();
+                            $finalData = array_merge($fallback, $aiData, [
+                                'ai_generated' => true,
+                                'model_used'   => $candidateModel
+                            ]);
+                            // Cache for 5 minutes (300 seconds)
+                            $cachePayload = [
+                                'created_at' => time(),
+                                'expires_at' => time() + 300,
+                                'data'       => $finalData
+                            ];
+                            @file_put_contents($cacheFile, json_encode($cachePayload, JSON_PRETTY_PRINT));
+                            return $finalData;
+                        }
                     }
+                } elseif ($httpCode === 429) {
+                    error_log("Gemini Report Summary [{$candidateModel}] hit quota (429), attempting next fallback model.");
+                    continue;
                 }
             }
         } catch (Throwable $e) {

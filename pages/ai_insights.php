@@ -976,7 +976,7 @@
                 </div>
                 <div class="relative min-h-[224px] mt-2">
                     <!-- Trend Skeletal Loader -->
-                    <div id="trendSkeleton" class="absolute inset-0 flex flex-col justify-between p-4 bg-zinc-50/70 rounded-xl border border-dashed border-zinc-200 animate-pulse">
+                    <div id="trendSkeleton" class="hidden absolute inset-0 flex flex-col justify-between p-4 bg-zinc-50/70 rounded-xl border border-dashed border-zinc-200 animate-pulse">
                         <div class="flex items-center justify-between">
                             <div class="w-24 h-4 bg-zinc-200 rounded"></div>
                             <div class="w-16 h-4 bg-zinc-200 rounded"></div>
@@ -1032,7 +1032,7 @@
                 
                 <!-- ApexCharts Line Graph Container with Skeleton -->
                 <div class="relative min-h-[224px] mt-2">
-                    <div id="predictiveSkeleton" class="absolute inset-0 flex flex-col justify-between p-4 bg-zinc-50/70 rounded-xl border border-dashed border-zinc-200 animate-pulse">
+                    <div id="predictiveSkeleton" class="hidden absolute inset-0 flex flex-col justify-between p-4 bg-zinc-50/70 rounded-xl border border-dashed border-zinc-200 animate-pulse">
                         <div class="flex items-center justify-between">
                             <div class="w-24 h-4 bg-zinc-200 rounded"></div>
                             <div class="w-16 h-4 bg-zinc-200 rounded"></div>
@@ -1173,11 +1173,16 @@
         $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? '');
         $userRole     = trim($_SESSION['role'] ?? $_SESSION['user']['role'] ?? '');
         $permService  = \App\Services\PermissionService::getInstance();
-        $canViewStaffPerformance = $permService->isHeadOrAdminRole($userRoleDesc) || $permService->isHeadOrAdminRole($userRole);
+        // System Admin sees every department (including heads & coordinators).
+        $isAdminView = $permService->isAdminRole($userRoleDesc) || $permService->isAdminRole($userRole);
+        // Department Heads & Coordinators see only the staff under their own department.
+        $canViewStaffPerformance = $isAdminView
+            || $permService->isHeadOrAdminRole($userRoleDesc)
+            || $permService->isHeadOrAdminRole($userRole);
         ?>
 
         <?php if ($canViewStaffPerformance): ?>
-        <!-- Staff Performance (Department Heads & Admins Only) -->
+        <!-- Staff Performance (Department Heads, Coordinators & Admins Only) -->
         <div class="mt-8 rounded-2xl border border-zinc-200 bg-white/80 backdrop-blur-md p-6 shadow-[0_4px_25px_-5px_rgba(0,0,0,0.02)] hover-lift fade-in delay-4">
             <div class="flex items-center justify-between mb-1">
                 <div class="flex items-center gap-2.5">
@@ -1187,7 +1192,7 @@
                         </svg>
                     </div>
                     <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-500">Staff Performance</h2>
-                    <span id="staffCountBadge" class="text-[10px] font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">Leadership View</span>
+                    <span id="staffCountBadge" class="text-[10px] font-bold px-2.5 py-0.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100"><?php echo $isAdminView ? 'All Departments' : 'Department View'; ?></span>
                 </div>
                 <div class="flex items-center gap-2 no-print">
                     <select id="staffSort" class="text-xs font-semibold bg-zinc-50 text-zinc-700 border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-zinc-100 cursor-pointer">
@@ -1196,7 +1201,15 @@
                     </select>
                 </div>
             </div>
-            <p class="text-xs font-semibold text-zinc-400 mt-1 mb-3">Overall performance score by staff member · scrollable list · hover for detail</p>
+            <p class="text-xs font-semibold text-zinc-400 mt-1 mb-2"><?php echo $isAdminView
+                ? 'Overall performance score for every staff member across all departments · includes department heads &amp; coordinators · hover for detail'
+                : 'Overall performance score for the staff under your department · heads &amp; coordinators are excluded from the ranking · hover for detail'; ?></p>
+            <?php if ($isAdminView): ?>
+            <div class="flex items-center gap-4 mb-3 text-[10px] font-semibold text-zinc-500">
+                <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#f59e0b;"></span> Department Head / Coordinator</span>
+                <span class="flex items-center gap-1.5"><span class="inline-block h-2.5 w-2.5 rounded-sm" style="background:#6366f1;"></span> Field Staff</span>
+            </div>
+            <?php endif; ?>
             <div class="max-h-[380px] overflow-y-auto pr-2 overflow-x-hidden rounded-xl border border-zinc-100/80 bg-zinc-50/40 p-2" style="scrollbar-width: thin; scrollbar-color: #cbd5e1 #f1f5f9;">
                 <div id="staffChart"></div>
             </div>

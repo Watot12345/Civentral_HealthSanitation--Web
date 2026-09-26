@@ -457,7 +457,8 @@ $title = 'Vaccination Tracking';
                         data-date="<?php echo htmlspecialchars($immunization['date'] ?? ''); ?>"
                         data-next-due="<?php echo htmlspecialchars($immunization['next_due'] ?? ''); ?>"
                         data-batch="<?php echo htmlspecialchars(strtolower($immunization['batch_number'] ?? '')); ?>"
-                        data-dose="<?php echo (int)$immunization['dose']; ?>">
+                        data-dose="<?php echo (int)$immunization['dose']; ?>"
+                        data-record-id="<?php echo (int)$immunization['id']; ?>">
                         <td class="px-4 py-3">
                             <div>
                                 <p class="font-semibold text-slate-800 text-sm"><?php echo $immunization['child_name']; ?></p>
@@ -1154,16 +1155,25 @@ $title = 'Vaccination Tracking';
         };
 
         try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '<?php echo $_SESSION['csrf_token'] ?? ''; ?>';
             const res = await fetch('<?php echo site_url('api/immunization.php?action=record'); ?>', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const data = await res.json();
             if (data.success) {
                 closeModal('recordVaccinationModal');
+                const saved = data.record || data.data || { ...payload, id: Date.now() };
+                if (saved.id) {
+                    IMMUNIZATIONS[saved.id] = saved;
+                    upsertVaccinationRow(saved);
+                }
                 showToast('Vaccination recorded successfully!', 'success');
-                setTimeout(() => location.reload(), 1000);
             } else {
                 showToast(data.message || 'Failed to record vaccination.', 'danger');
             }
@@ -1171,6 +1181,74 @@ $title = 'Vaccination Tracking';
             console.error('Record vaccination error:', err);
             showToast('Error sending vaccination record to server.', 'danger');
         }
+    }
+
+    function upsertVaccinationRow(i) {
+        if (!i || !i.id) return;
+        const row = document.querySelector(`.vaccination-row[data-record-id="${i.id}"]`);
+        if (row) {
+            const statusColors = { completed: 'bg-emerald-100 text-emerald-700', pending: 'bg-amber-100 text-amber-700', missed: 'bg-rose-100 text-rose-700' };
+            const childCell = row.children[0];
+            const vaccineCell = row.children[1];
+            const doseCell = row.children[2];
+            const dateCell = row.children[3];
+            const nextCell = row.children[4];
+            const batchCell = row.children[5];
+            const statusCell = row.children[6];
+            if (childCell) {
+                const nameEl = childCell.querySelector('.font-semibold');
+                if (nameEl) nameEl.textContent = i.child_name || 'Unknown';
+            }
+            if (vaccineCell) vaccineCell.textContent = i.vaccine || '';
+            if (doseCell) doseCell.textContent = `Dose ${i.dose ?? 1}`;
+            if (dateCell) {
+                const value = i.date ? new Date(i.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not administered';
+                dateCell.innerHTML = value === 'Not administered' ? '<span class="text-slate-400 italic text-[11px]">Not administered</span>' : `<span class="font-medium text-slate-800">${value}</span>`;
+            }
+            if (nextCell) {
+                const nextDue = i.next_due || '';
+                nextCell.innerHTML = nextDue ? new Date(nextDue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '<span class="text-slate-400">—</span>';
+            }
+            if (batchCell) {
+                batchCell.innerHTML = i.batch_number ? i.batch_number : '<span class="text-slate-400 font-sans italic text-[11px]">—</span>';
+            }
+            if (statusCell) {
+                const badge = statusCell.querySelector('span');
+                const status = (i.status || 'pending').toLowerCase();
+                if (badge) {
+                    badge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[status] || statusColors.pending}`;
+                    badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+                }
+            }
+            row.dataset.status = i.status || 'pending';
+            row.dataset.date = i.date || '';
+            row.dataset.nextDue = i.next_due || '';
+            row.dataset.batch = i.batch_number || '';
+            row.dataset.dose = i.dose || 1;
+            row.classList.toggle('bg-rose-50/50', (i.status || '').toLowerCase() === 'missed');
+            return;
+        }
+
+        const tbody = document.getElementById('vaccinationTableBody');
+        if (!tbody) return;
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-100 hover:bg-brand-light/40 transition-colors vaccination-row ' + ((i.status || '').toLowerCase() === 'missed' ? 'bg-rose-50/50' : '');
+        tr.dataset.recordId = i.id;
+        tr.dataset.status = i.status || 'pending';
+        tr.dataset.date = i.date || '';
+        tr.dataset.nextDue = i.next_due || '';
+        tr.dataset.batch = i.batch_number || '';
+        tr.dataset.dose = i.dose || 1;
+        tr.innerHTML = `
+            <td class="px-4 py-3"><div><p class="font-semibold text-slate-800 text-sm">${i.child_name || 'Unknown'}</p><p class="text-xs text-slate-400">${i.child_id || ''}</p></div></td>
+            <td class="px-4 py-3 font-medium text-slate-700 text-xs">${i.vaccine || ''}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs">Dose ${i.dose ?? 1}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs"><span class="font-medium text-slate-800">${i.date ? new Date(i.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '<span class="text-slate-400 italic text-[11px]">Not administered</span>'}</span></td>
+            <td class="px-4 py-3 text-slate-600 text-xs"><span class="${i.next_due ? 'text-slate-500' : 'text-slate-400'}">${i.next_due ? new Date(i.next_due).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span></td>
+            <td class="px-4 py-3 text-slate-500 text-xs font-mono">${i.batch_number ? i.batch_number : '<span class="text-slate-400 font-sans italic text-[11px]">—</span>'}</td>
+            <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${((i.status || 'pending').toLowerCase() === 'completed' ? 'bg-emerald-100 text-emerald-700' : (i.status || 'pending').toLowerCase() === 'missed' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700')}">${(i.status || 'Pending').charAt(0).toUpperCase() + String(i.status || 'Pending').slice(1)}</span></td>
+            <td class="px-4 py-3"><div class="flex items-center justify-center gap-1"><button onclick="viewImmunization(${i.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View"><i class="fa-solid fa-eye text-sm"></i></button></div></td>`;
+        tbody.insertBefore(tr, tbody.firstChild);
     }
 
     // ============================================================

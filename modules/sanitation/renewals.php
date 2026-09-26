@@ -762,10 +762,12 @@ $title = 'Renewals';
         try {
             // Map status to API action: 'approved' -> 'approve', 'rejected' -> 'reject'
             const action = status === 'approved' ? 'approve' : status;
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
             const response = await fetch(API_BASE + '/' + id + '/' + action, {
                 method: 'PATCH',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
                 }
             });
             const result = await response.json();
@@ -926,13 +928,16 @@ $title = 'Renewals';
         submitBtn.disabled = true;
 
         try {
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
             const response = await fetch(API_BASE + '/' + currentRejectId + '/reject', {
                 method: 'PATCH',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
                 },
                 body: JSON.stringify({
-                    rejection_reason: reason
+                    rejection_reason: reason,
+                    csrf_token: csrfToken
                 })
             });
             const result = await response.json();
@@ -1044,16 +1049,19 @@ $title = 'Renewals';
         submitBtn.disabled = true;
 
         try {
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
             const response = await fetch(API_BASE, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {})
                 },
                 body: JSON.stringify({
                     permit_id: parseInt(permitId),
                     renewal_fee: renewalFeeValue,
                     payment_method: paymentMethod,
-                    notes: notes || ''
+                    notes: notes || '',
+                    csrf_token: csrfToken
                 })
             });
             const result = await response.json();
@@ -1067,8 +1075,8 @@ $title = 'Renewals';
             }
             closeModal('newRenewalModal');
             event.target.reset();
-            // Reload page to show new renewal
-            setTimeout(() => window.location.reload(), 1000);
+            // Refresh table dynamically in real time without reloading page
+            await refreshRenewalList();
         } catch (err) {
             if (typeof toast !== 'undefined') {
                 toast.error('Error: ' + err.message);

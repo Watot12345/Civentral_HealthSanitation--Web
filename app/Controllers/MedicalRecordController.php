@@ -5,6 +5,9 @@ require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Models/MedicalRecord.php';
 require_once __DIR__ . '/../Models/Patient.php';
 require_once __DIR__ . '/../Models/Employee.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
+
+use App\Constants\Permissions;
 
 class MedicalRecordController extends BaseController
 {
@@ -21,6 +24,9 @@ class MedicalRecordController extends BaseController
 
     public function index(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_VIEW);
+
         $this->handle(function() {
             $records = $this->recordModel->all(['order' => 'date.desc,created_at.desc']);
             return [
@@ -33,6 +39,9 @@ class MedicalRecordController extends BaseController
 
     public function show(string|int $id): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_VIEW);
+
         $this->handle(function() use ($id) {
             $record = $this->recordModel->find($id);
             if (!$record) {
@@ -45,6 +54,10 @@ class MedicalRecordController extends BaseController
 
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_CREATE);
+
         $data = $this->input();
 
         $this->handle(function() use ($data) {
@@ -60,14 +73,20 @@ class MedicalRecordController extends BaseController
             return [
                 'success' => true,
                 'message' => 'Medical record created successfully',
-                'data' => $record,
-                'code' => 201
+                'data'    => $record,
+                'record'  => $record,
+                'action'  => 'create',
+                'code'    => 201
             ];
         });
     }
 
     public function update(string|int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_EDIT);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -85,19 +104,35 @@ class MedicalRecordController extends BaseController
             $result = $this->recordModel->updateById($id, $dbData);
             $record = !empty($result[0]) ? $this->mapToFrontend($result[0]) : $result;
 
-            return ['success' => true, 'message' => 'Medical record updated successfully', 'data' => $record];
+            return [
+                'success' => true,
+                'message' => 'Medical record updated successfully',
+                'data'    => $record,
+                'record'  => $record,
+                'action'  => 'update',
+                'id'      => $id
+            ];
         });
     }
 
     public function destroy(string|int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_DELETE);
+
         $this->handle(function() use ($id) {
             if (!$this->recordModel->find($id)) {
                 return ['success' => false, 'message' => 'Medical record not found', 'code' => 404];
             }
 
             $this->recordModel->deleteById($id);
-            return ['success' => true, 'message' => 'Medical record deleted successfully'];
+            return [
+                'success' => true,
+                'message' => 'Medical record deleted successfully',
+                'action'  => 'delete',
+                'id'      => $id
+            ];
         });
     }
 

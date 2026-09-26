@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 // api/drugs.php - Complete Health Center Drug Formulary
 
 // Handle CORS

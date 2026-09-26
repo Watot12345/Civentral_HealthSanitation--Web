@@ -3,6 +3,9 @@
 
 require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Models/SepticTank.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
+
+use App\Constants\Permissions;
 
 class SepticTankController extends BaseController
 {
@@ -17,6 +20,9 @@ class SepticTankController extends BaseController
     public function index(): void
     {
         $this->handle(function () {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             $tanks = $this->model->all(['order' => 'created_at.desc']);
             return ['success' => true, 'data' => $tanks, 'total' => count($tanks)];
         });
@@ -26,6 +32,9 @@ class SepticTankController extends BaseController
     public function stats(): void
     {
         $this->handle(function () {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             return ['success' => true, 'data' => $this->model->countByStatus()];
         });
     }
@@ -42,6 +51,9 @@ class SepticTankController extends BaseController
         $brgy    = trim($_GET['barangay'] ?? '');
 
         $this->handle(function () use ($page, $limit, $offset, $search, $status, $type, $brgy) {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             $all = $this->model->all(['order' => 'created_at.desc']);
             $filtered = array_values(array_filter($all, function ($t) use ($search, $status, $type, $brgy) {
                 $matchSearch = !$search ||
@@ -69,6 +81,9 @@ class SepticTankController extends BaseController
     public function show(string $id): void
     {
         $this->handle(function () use ($id) {
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_VIEW);
+
             $tank = $this->model->find($id);
             if (!$tank) return ['success' => false, 'message' => 'Septic tank not found', 'code' => 404];
             return ['success' => true, 'data' => $tank];
@@ -79,6 +94,10 @@ class SepticTankController extends BaseController
     public function store(): void
     {
         $this->handle(function () {
+            $this->validateCsrf();
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_CREATE);
+
             $d = $this->input();
             if (empty($d['owner_name'])) return ['success' => false, 'message' => 'Owner name is required', 'code' => 422];
             if (empty($d['address']))    return ['success' => false, 'message' => 'Address is required',    'code' => 422];
@@ -89,7 +108,15 @@ class SepticTankController extends BaseController
             $data = array_intersect_key($d, array_flip($allowed));
 
             $result = $this->model->create($data);
-            return ['success' => true, 'message' => 'Septic tank registered successfully.', 'data' => $result[0] ?? $result];
+            $record = $result[0] ?? $result;
+            return [
+                'success' => true,
+                'action'  => 'create',
+                'record'  => $record,
+                'message' => 'Septic tank registered successfully.',
+                'data'    => $record,
+                'code'    => 201
+            ];
         });
     }
 
@@ -97,6 +124,10 @@ class SepticTankController extends BaseController
     public function update(string $id): void
     {
         $this->handle(function () use ($id) {
+            $this->validateCsrf();
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_EDIT);
+
             $existing = $this->model->find($id);
             if (!$existing) return ['success' => false, 'message' => 'Septic tank not found', 'code' => 404];
 
@@ -108,7 +139,14 @@ class SepticTankController extends BaseController
             if (empty($data)) return ['success' => false, 'message' => 'No valid fields to update', 'code' => 422];
 
             $result = $this->model->updateById($id, $data);
-            return ['success' => true, 'message' => 'Septic tank updated successfully.', 'data' => $result[0] ?? $result];
+            $record = $result[0] ?? $result;
+            return [
+                'success' => true,
+                'action'  => 'update',
+                'record'  => $record,
+                'message' => 'Septic tank updated successfully.',
+                'data'    => $record
+            ];
         });
     }
 
@@ -116,10 +154,20 @@ class SepticTankController extends BaseController
     public function destroy(string $id): void
     {
         $this->handle(function () use ($id) {
+            $this->validateCsrf();
+            $this->requireDepartment('wastewater services');
+            $this->requireCapability(Permissions::WASTEWATER_MANAGE);
+
             $existing = $this->model->find($id);
             if (!$existing) return ['success' => false, 'message' => 'Septic tank not found', 'code' => 404];
             $this->model->deleteById($id);
-            return ['success' => true, 'message' => 'Septic tank deleted successfully.'];
+            return [
+                'success' => true,
+                'action'  => 'delete',
+                'id'      => $id,
+                'record'  => ['id' => $id],
+                'message' => 'Septic tank deleted successfully.'
+            ];
         });
     }
 }

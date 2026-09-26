@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 // api/maintenance.php
 
 require_once __DIR__ . '/../Core/Env.php';

@@ -1,20 +1,25 @@
 <?php
 // logout.php
-session_start();
+if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+    @session_start();
+}
 
-// Log logout event BEFORE session is destroyed
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/paths.php';
 require_once __DIR__ . '/app/Models/ActivityLog.php';
+
+$isExpired = isset($_GET['session_expired']) || isset($_GET['expired']);
+
+// Log logout event BEFORE session is destroyed
 try {
     if (!empty($_SESSION['logged_in'])) {
         $logModel = new ActivityLog();
-        $logModel->log("User logged out", [
+        $logModel->log($isExpired ? "Session expired due to inactivity" : "User logged out", [
             'user_id'   => $_SESSION['user_id']   ?? null,
             'user_name' => $_SESSION['full_name']  ?? 'Unknown',
             'role'      => $_SESSION['role_description'] ?? $_SESSION['role'] ?? 'Employee',
             'module'    => 'Authentication',
-            'details'   => "Session ended for: " . ($_SESSION['employee_id'] ?? ''),
+            'details'   => $isExpired ? ("Session timed out for: " . ($_SESSION['employee_id'] ?? '')) : ("Session ended for: " . ($_SESSION['employee_id'] ?? '')),
             'status'    => 'Success',
         ]);
     }
@@ -38,17 +43,35 @@ if (ini_get("session.use_cookies")) {
 
 // Clear active session cookie
 setcookie('civentral_session', '', time() - 42000, '/');
-session_destroy();
+if (session_status() === PHP_SESSION_ACTIVE) {
+    @session_destroy();
+}
+
+$targetUrl = site_url($isExpired ? 'login.php?session_expired=1' : 'login.php?logout=1');
+
+// Handle AJAX/JSON requests
+if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true, 'redirect' => $targetUrl]);
+    exit;
+}
+
+if (!headers_sent()) {
+    header('Location: ' . $targetUrl);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html>
 <head>
     <title>Logging out...</title>
     <script>
-        // Reset data masking to hidden
-        localStorage.setItem('data_masking_enabled', 'true');
-        // Redirect to login with logout flag so user stays on login page
-        window.location.href = '<?= site_url('login.php?logout=1'); ?>';
+        try {
+            localStorage.setItem('data_masking_enabled', 'true');
+            localStorage.removeItem('civentral_last_activity');
+            localStorage.removeItem('civentral_session_expired');
+        } catch (e) {}
+        window.location.href = '<?= $targetUrl; ?>';
     </script>
 </head>
 <body>

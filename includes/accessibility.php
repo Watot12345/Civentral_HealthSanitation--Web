@@ -5,8 +5,12 @@
  * - Brand-aligned floating toggle button (#176B87 / #86B6F6 / #EEF5FF)
  * - Compact bottom-right popover (short modal, non-centered)
  * - Interactive hover states on toggle rows and keyboard shortcut keys
- * - WCAG 2.1 AAA high-contrast keyboard navigation focus rings
- * - Persistent preferences via localStorage and Alt + A hotkey
+ * - 3 working display options with live On/Off status pills:
+ *     1. High-Contrast Focus Rings  -> bold ring on mouse AND keyboard focus
+ *     2. Enlarged Text Scale (+12%) -> body font scale
+ *     3. Reduce Motion & Effects    -> freezes CSS animations/transitions AND
+ *        chart (ApexCharts) draw-in animation, which CSS alone cannot stop
+ * - Persistent preferences via localStorage and Alt + K / Alt + A hotkey
  */
 ?>
 <style>
@@ -14,18 +18,29 @@
    CIVENTRAL BRAND ACCESSIBILITY STYLES (#176B87 & #86B6F6)
    ============================================================ */
 
-/* 1. Enhanced High-Contrast Keyboard Focus Mode (Subtle & Clean) */
+/* 1. Enhanced High-Contrast Focus Mode
+   Targets :focus as well as :focus-visible so the ring is unmistakably
+   visible for BOTH mouse clicks and keyboard (Tab) navigation. */
+body.a11y-focus-enhanced *:focus,
 body.a11y-focus-enhanced *:focus-visible {
-  outline: 2px solid #176B87 !important;
+  outline: 3px solid #0d4f64 !important;
   outline-offset: 2px !important;
-  box-shadow: 0 0 0 1.5px rgba(134, 182, 246, 0.3) !important;
+  box-shadow: 0 0 0 4px rgba(134, 182, 246, 0.55) !important;
+}
+/* Focused text fields keep a readable tint (checkboxes/radios untouched) */
+body.a11y-focus-enhanced input:not([type="checkbox"]):not([type="radio"]):focus,
+body.a11y-focus-enhanced select:focus,
+body.a11y-focus-enhanced textarea:focus {
+  background-color: #EEF5FF !important;
 }
 
 /* Keep floating trigger button clean without heavy rings */
+#a11yFloatingWidget button:focus,
 #a11yFloatingWidget button:focus-visible {
   outline: 2px solid #86B6F6 !important;
   outline-offset: 2px !important;
   box-shadow: none !important;
+  background-color: #0d4f64 !important;
 }
 
 /* 2. Large Text Mode */
@@ -36,14 +51,55 @@ body.a11y-large-text h1, body.a11y-large-text h2, body.a11y-large-text h3 {
   letter-spacing: 0.01em !important;
 }
 
-/* 3. Reduced Motion Mode */
+/* 3. Reduced Motion Mode
+   Duration-based (0.001ms instead of "none") on purpose: animations and
+   transitions still fire their end events, so components that rely on
+   animationend/transitionend are never left hanging. */
+html.a11y-reduced-motion {
+  scroll-behavior: auto !important;
+}
 body.a11y-reduced-motion *,
 body.a11y-reduced-motion *::before,
 body.a11y-reduced-motion *::after {
   animation-duration: 0.001ms !important;
+  animation-delay: 0ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
+  transition-delay: 0ms !important;
   scroll-behavior: auto !important;
+}
+
+/* 4. Live On/Off Status Pill (option feedback inside the popover) */
+.a11y-state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  transition: all 0.2s ease;
+}
+.a11y-state-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background-color: #94a3b8;
+}
+.a11y-state-pill[data-on="true"] {
+  background-color: #176B87;
+  color: #ffffff;
+  border-color: #176B87;
+  box-shadow: 0 2px 6px rgba(23, 107, 135, 0.3);
+}
+.a11y-state-pill[data-on="true"]::before {
+  background-color: #86B6F6;
 }
 
 /* Floating Accessibility Widget Positioning */
@@ -137,30 +193,31 @@ body.a11y-reduced-motion *::after {
   <div class="p-4 space-y-3 text-slate-700 overflow-y-auto max-h-[calc(80vh-110px)] text-xs">
     
     <!-- Option 1: Enhanced Keyboard Focus Mode -->
-    <label class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none">
+    <label class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none has-[:checked]:border-brand-medium has-[:checked]:bg-brand-light/40">
       <div class="pr-3 flex-1">
         <div class="flex items-center gap-2 font-bold text-xs text-slate-900 group-hover:text-[#176B87] transition-colors">
           <i class="fa-solid fa-keyboard text-[#176B87] group-hover:scale-110 transition-transform" aria-hidden="true"></i>
           <span>High-Contrast Focus Rings</span>
         </div>
         <p class="text-[11px] text-slate-500 mt-1 leading-snug">
-          Vivid brand outline on focused links &amp; buttons for keyboard navigation.
+          Bold brand ring on every focused link, button, or field &mdash; with the mouse or the keyboard.
         </p>
-        <!-- Interactive Hover Preview Indicator -->
-        <div class="mt-2 text-[10px] font-semibold text-[#176B87] flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <i class="fa-solid fa-circle-check text-[9px]"></i> Hovering highlights keyboard mode
+        <!-- Live status feedback for this option -->
+        <div class="mt-2 flex items-center gap-2">
+          <span class="a11y-state-pill" id="a11yStateFocus" data-on="false">Off</span>
+          <span class="text-[10px] font-semibold text-slate-400">Click any control to see the ring</span>
         </div>
       </div>
       <div class="pt-0.5">
         <input type="checkbox"
                id="a11yToggleFocus"
                onchange="CiventralA11y.toggleFocus(this.checked)"
-               class="w-5 h-5 text-[#176B87] rounded border-slate-300 focus:ring-2 focus:ring-[#86B6F6] cursor-pointer group-hover:scale-105 transition-transform" />
+               class="w-5 h-5 accent-brand-dark rounded border-slate-300 focus:ring-2 focus:ring-[#86B6F6] cursor-pointer group-hover:scale-105 transition-transform" />
       </div>
     </label>
 
     <!-- Option 2: Large Text Mode -->
-    <label class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none">
+    <label class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none has-[:checked]:border-brand-medium has-[:checked]:bg-brand-light/40">
       <div class="pr-3 flex-1">
         <div class="flex items-center gap-2 font-bold text-xs text-slate-900 group-hover:text-[#176B87] transition-colors">
           <i class="fa-solid fa-text-height text-[#176B87] group-hover:scale-110 transition-transform" aria-hidden="true"></i>
@@ -169,31 +226,39 @@ body.a11y-reduced-motion *::after {
         <p class="text-[11px] text-slate-500 mt-1 leading-snug">
           Expands typography sizing across tables, cards, and forms.
         </p>
+        <div class="mt-2 flex items-center gap-2">
+          <span class="a11y-state-pill" id="a11yStateText" data-on="false">Off</span>
+          <span class="text-[10px] font-semibold text-slate-400">Scales the whole interface</span>
+        </div>
       </div>
       <div class="pt-0.5">
         <input type="checkbox"
                id="a11yToggleText"
                onchange="CiventralA11y.toggleLargeText(this.checked)"
-               class="w-5 h-5 text-[#176B87] rounded border-slate-300 focus:ring-2 focus:ring-[#86B6F6] cursor-pointer group-hover:scale-105 transition-transform" />
+               class="w-5 h-5 accent-brand-dark rounded border-slate-300 focus:ring-2 focus:ring-[#86B6F6] cursor-pointer group-hover:scale-105 transition-transform" />
       </div>
     </label>
 
     <!-- Option 3: Reduced Motion -->
-    <label class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none">
+    <label class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none has-[:checked]:border-brand-medium has-[:checked]:bg-brand-light/40">
       <div class="pr-3 flex-1">
         <div class="flex items-center gap-2 font-bold text-xs text-slate-900 group-hover:text-[#176B87] transition-colors">
           <i class="fa-solid fa-person-walking-dashed-line-arrow-right text-[#176B87] group-hover:scale-110 transition-transform" aria-hidden="true"></i>
           <span>Reduce Motion &amp; Effects</span>
         </div>
         <p class="text-[11px] text-slate-500 mt-1 leading-snug">
-          Disables non-essential animations and transitions.
+          Freezes CSS animations, transitions, and chart draw-in motion instantly.
         </p>
+        <div class="mt-2 flex items-center gap-2">
+          <span class="a11y-state-pill" id="a11yStateMotion" data-on="false">Off</span>
+          <span class="text-[10px] font-semibold text-slate-400">Spinners, pulses &amp; charts settle</span>
+        </div>
       </div>
       <div class="pt-0.5">
         <input type="checkbox"
                id="a11yToggleMotion"
                onchange="CiventralA11y.toggleReducedMotion(this.checked)"
-               class="w-5 h-5 text-[#176B87] rounded border-slate-300 focus:ring-2 focus:ring-[#86B6F6] cursor-pointer group-hover:scale-105 transition-transform" />
+               class="w-5 h-5 accent-brand-dark rounded border-slate-300 focus:ring-2 focus:ring-[#86B6F6] cursor-pointer group-hover:scale-105 transition-transform" />
       </div>
     </label>
 
@@ -279,14 +344,133 @@ window.CiventralA11y = (function() {
     motion: 'civentral_a11y_motion'
   };
 
-  function applySettings() {
-    var enhancedFocus = localStorage.getItem(STORAGE_KEYS.focus) === 'true';
-    var largeText = localStorage.getItem(STORAGE_KEYS.text) === 'true';
-    var reducedMotion = localStorage.getItem(STORAGE_KEYS.motion) === 'true';
+  /* Charts (ApexCharts) animate their draw-in with timers/SVG paths, which CSS
+     cannot stop - so every chart instance is remembered and its resolved
+     config is frozen while Reduce Motion is on. */
+  var chartInstances = [];
+  var chartHookInstalled = false;
+  var chartHookAttempts = 0;
 
-    document.body.classList.toggle('a11y-focus-enhanced', enhancedFocus);
-    document.body.classList.toggle('a11y-large-text', largeText);
-    document.body.classList.toggle('a11y-reduced-motion', reducedMotion);
+  function readSetting(key) {
+    return localStorage.getItem(key) === 'true';
+  }
+
+  /* ===== Option feedback, chart motion & in-flight animation helpers ===== */
+
+  function setStatePill(id, isOn) {
+    var pill = document.getElementById(id);
+    if (!pill) return;
+    pill.setAttribute('data-on', isOn ? 'true' : 'false');
+    pill.textContent = isOn ? 'On' : 'Off';
+  }
+
+  /**
+   * Freeze motion on a single ApexCharts instance. ApexCharts reads
+   * chart.w.config while drawing and while running dynamic (updateSeries)
+   * animations, so patching that object is what actually stops the motion.
+   */
+  function freezeChartMotion(instance) {
+    var config = instance && instance.w && instance.w.config;
+    if (!config || !config.chart) return;
+    var anim = config.chart.animations || (config.chart.animations = {});
+    anim.enabled = false;
+    anim.animateGradually = Object.assign({}, anim.animateGradually, { enabled: false });
+    anim.dynamicAnimation = Object.assign({}, anim.dynamicAnimation, { enabled: false });
+    anim.chartTypeMorph = Object.assign({}, anim.chartTypeMorph, { enabled: false });
+  }
+
+  /** Register (and freeze, when needed) every chart as soon as it renders. */
+  function hookChartLibrary() {
+    if (chartHookInstalled) return true;
+    if (typeof window.ApexCharts !== 'function' ||
+        !window.ApexCharts.prototype ||
+        typeof window.ApexCharts.prototype.render !== 'function') {
+      return false;
+    }
+    var originalRender = window.ApexCharts.prototype.render;
+    window.ApexCharts.prototype.render = function () {
+      try {
+        if (chartInstances.indexOf(this) === -1) chartInstances.push(this);
+        if (readSetting(STORAGE_KEYS.motion)) freezeChartMotion(this);
+      } catch (e) { /* never break chart rendering */ }
+      return originalRender.apply(this, arguments);
+    };
+    chartHookInstalled = true;
+    return true;
+  }
+
+  /**
+   * Watch window.ApexCharts so the hook is installed the moment the chart
+   * library lands on the page. Pages load ApexCharts after this file (from the
+   * header CDN tag with `defer`, or inline in the page body), so intercepting
+   * the global assignment closes every timing gap.
+   */
+  function watchForChartLibrary() {
+    if (hookChartLibrary()) return;
+    try {
+      var libraryRef = window.ApexCharts;
+      Object.defineProperty(window, 'ApexCharts', {
+        configurable: true,
+        enumerable: true,
+        get: function () { return libraryRef; },
+        set: function (value) {
+          libraryRef = value;
+          if (value) hookChartLibrary();
+        }
+      });
+    } catch (e) { /* fall back to the polling retries below */ }
+  }
+
+  /** Retry briefly: page-level chart libraries load after this script. */
+  function ensureChartHook() {
+    watchForChartLibrary();
+    if (chartHookInstalled) return;
+    if (chartHookAttempts++ < 100) setTimeout(ensureChartHook, 50); // up to ~5s
+  }
+
+  function applyChartMotionPreference(reducedMotion) {
+    if (!reducedMotion) return; // never force motion back onto live charts
+    for (var i = 0; i < chartInstances.length; i++) {
+      try { freezeChartMotion(chartInstances[i]); } catch (e) {}
+    }
+  }
+
+  /**
+   * Jump any animation running right now straight to its end state
+   * (Web Animations API motion such as in-flight fades and slides).
+   */
+  function settleRunningAnimations() {
+    if (typeof document.getAnimations !== 'function') return;
+    var settle = function () {
+      var running = document.getAnimations();
+      for (var i = 0; i < running.length; i++) {
+        try {
+          if (running[i].playState === 'running') running[i].finish();
+        } catch (e) { /* infinite animations cannot be finished - ignore */ }
+      }
+    };
+    settle();
+    setTimeout(settle, 150);
+    setTimeout(settle, 600);
+  }
+
+  function applySettings() {
+    // Re-attempt the chart hook on every settings change (covers libraries or
+    // charts that were created long after page load).
+    ensureChartHook();
+
+    var enhancedFocus = readSetting(STORAGE_KEYS.focus);
+    var largeText = readSetting(STORAGE_KEYS.text);
+    var reducedMotion = readSetting(STORAGE_KEYS.motion);
+
+    var body = document.body;
+    if (body) {
+      body.classList.toggle('a11y-focus-enhanced', enhancedFocus);
+      body.classList.toggle('a11y-large-text', largeText);
+      body.classList.toggle('a11y-reduced-motion', reducedMotion);
+    }
+    // html-level class keeps page scroll-behavior instant in reduce-motion mode
+    document.documentElement.classList.toggle('a11y-reduced-motion', reducedMotion);
 
     var focusCb = document.getElementById('a11yToggleFocus');
     if (focusCb) focusCb.checked = enhancedFocus;
@@ -297,6 +481,10 @@ window.CiventralA11y = (function() {
     var motionCb = document.getElementById('a11yToggleMotion');
     if (motionCb) motionCb.checked = reducedMotion;
 
+    setStatePill('a11yStateFocus', enhancedFocus);
+    setStatePill('a11yStateText', largeText);
+    setStatePill('a11yStateMotion', reducedMotion);
+
     var badge = document.getElementById('a11yActiveBadge');
     if (badge) {
       if (enhancedFocus || largeText || reducedMotion) {
@@ -305,24 +493,29 @@ window.CiventralA11y = (function() {
         badge.classList.add('hidden');
       }
     }
+
+    // Motion lives outside CSS too: freeze charts and settle animations already
+    // on screen so switching the option on has an immediate visible effect.
+    applyChartMotionPreference(reducedMotion);
+    if (reducedMotion) settleRunningAnimations();
   }
 
   function toggleFocus(enable) {
     localStorage.setItem(STORAGE_KEYS.focus, enable ? 'true' : 'false');
     applySettings();
-    notify(enable ? 'High-contrast focus rings enabled (#176B87)' : 'Default focus rings restored');
+    notify(enable ? 'High-contrast focus rings enabled - click or Tab to see the ring' : 'Default focus rings restored');
   }
 
   function toggleLargeText(enable) {
     localStorage.setItem(STORAGE_KEYS.text, enable ? 'true' : 'false');
     applySettings();
-    notify(enable ? 'Large text mode enabled (+12%)' : 'Standard text mode restored');
+    notify(enable ? 'Enlarged text scale enabled (+12%)' : 'Standard text size restored');
   }
 
   function toggleReducedMotion(enable) {
     localStorage.setItem(STORAGE_KEYS.motion, enable ? 'true' : 'false');
     applySettings();
-    notify(enable ? 'Reduced motion mode enabled' : 'Motion animations restored');
+    notify(enable ? 'Reduced motion enabled - animations and chart motion frozen' : 'Motion animations restored');
   }
 
   function resetDefaults() {
@@ -423,6 +616,12 @@ window.CiventralA11y = (function() {
     }
   });
 
+  // Charts animate on their own before the panel is ever opened, so hook the
+  // chart library as early as possible (page-level scripts load after this one).
+  ensureChartHook();
+  document.addEventListener('DOMContentLoaded', ensureChartHook);
+  window.addEventListener('load', ensureChartHook);
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', applySettings);
   } else {
@@ -439,6 +638,8 @@ window.CiventralA11y = (function() {
     toggleFocus: toggleFocus,
     toggleLargeText: toggleLargeText,
     toggleReducedMotion: toggleReducedMotion,
+    isReducedMotion: function() { return readSetting(STORAGE_KEYS.motion); },
+    settleAnimations: settleRunningAnimations,
     resetDefaults: resetDefaults,
     applySettings: applySettings,
     announce: announce

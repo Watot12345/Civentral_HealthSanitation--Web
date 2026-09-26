@@ -2,7 +2,10 @@
 // app/Controllers/PermitController.php
 
 require_once __DIR__ . '/../../Core/BaseController.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
 require_once __DIR__ . '/../Models/Permit.php';
+
+use App\Constants\Permissions;
 
 class PermitController extends BaseController
 {
@@ -15,6 +18,9 @@ class PermitController extends BaseController
 
     public function index(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $this->handle(function() {
             $rawPermits = $this->permitModel->all(['order' => 'created_at.desc']);
 
@@ -32,6 +38,9 @@ class PermitController extends BaseController
 
     public function paginated(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $page = max(1, (int)($_GET['page'] ?? 1));
         $limit = max(1, min(100, (int)($_GET['limit'] ?? 10)));
         $offset = ($page - 1) * $limit;
@@ -106,6 +115,9 @@ class PermitController extends BaseController
 
     public function show(string $id): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $this->handle(function() use ($id) {
             $permit = $this->permitModel->find($id);
 
@@ -126,6 +138,10 @@ class PermitController extends BaseController
 
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_CREATE);
+
         $data = $this->input();
 
         $this->handle(function() use ($data) {
@@ -183,17 +199,31 @@ class PermitController extends BaseController
                 } catch (Throwable $e) {}
             }
 
+            $resultRow = is_array($result) && isset($result[0]) && is_array($result[0]) ? $result[0] : (is_array($result) ? $result : []);
+            $merged = array_merge($dbData, $resultRow);
+            if (!empty($resultRow['id'])) {
+                $merged['id'] = $resultRow['id'];
+            }
+            $enriched = $this->enrichPermit($merged);
+
             return [
                 'success' => true,
                 'message' => 'Permit application submitted successfully',
-                'data' => $result,
-                'code' => 201
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'create',
+                'id'      => $enriched['id'] ?? null,
+                'code'    => 201
             ];
         });
     }
 
     public function update(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_CREATE);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -217,16 +247,26 @@ class PermitController extends BaseController
             $dbData = $this->prepareDbData($data, true);
             $result = $this->permitModel->updateById($id, $dbData);
 
+            $updated = $this->permitModel->find($id);
+            $enriched = $this->enrichPermit($updated ?: array_merge($permit, $dbData));
+
             return [
                 'success' => true,
                 'message' => 'Permit updated successfully',
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function updateStatus(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -305,16 +345,26 @@ class PermitController extends BaseController
                 } catch (Throwable $e) {}
             }
 
+            $updated = $this->permitModel->find($id);
+            $enriched = $this->enrichPermit($updated ?: array_merge($permit, $updateData));
+
             return [
                 'success' => true,
                 'message' => 'Permit status updated to ' . ucfirst(str_replace('_', ' ', $status)),
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function review(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -369,16 +419,26 @@ class PermitController extends BaseController
                 );
             }
 
+            $updated = $this->permitModel->find($id);
+            $enriched = $this->enrichPermit($updated ?: array_merge($permit, $updateData));
+
             return [
                 'success' => true,
                 'message' => 'Permit #' . $permit['permit_id'] . ' reviewed successfully' . ($status === 'under_review' ? ' and inspection scheduled in Inspections module' : ''),
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function assignInspector(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -440,19 +500,29 @@ class PermitController extends BaseController
                 } catch (Throwable $e) {}
             }
 
+            $updated = $this->permitModel->find($id);
+            $enriched = $this->enrichPermit($updated ?: array_merge($permit, $updateData));
+
             return [
                 'success' => true,
                 'message' => 'Inspector assigned successfully! Inspection scheduled in Inspections module.',
-                'data' => [
-                    'permit' => $result,
+                'data'    => [
+                    'permit'     => $enriched,
                     'inspection' => $inspection
-                ]
+                ],
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function destroy(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_APPROVE);
+
         $this->handle(function() use ($id) {
             $permit = $this->permitModel->find($id);
             if (!$permit) {
@@ -467,13 +537,18 @@ class PermitController extends BaseController
 
             return [
                 'success' => $success,
-                'message' => $success ? 'Permit application cancelled successfully' : 'Failed to cancel permit application'
+                'message' => $success ? 'Permit application cancelled successfully' : 'Failed to cancel permit application',
+                'action'  => 'delete',
+                'id'      => $id
             ];
         });
     }
 
     public function search(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $query = strtolower($_GET['q'] ?? '');
 
         $this->handle(function() use ($query) {
@@ -509,6 +584,9 @@ class PermitController extends BaseController
 
     public function stats(): void
     {
+        $this->requireDepartment('sanitation');
+        $this->requireCapability(Permissions::PERMITS_VIEW);
+
         $this->handle(function() {
             $rawPermits = $this->permitModel->all();
 

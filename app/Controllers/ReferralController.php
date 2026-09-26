@@ -5,6 +5,9 @@ require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Models/Referral.php';
 require_once __DIR__ . '/../Models/Patient.php';
 require_once __DIR__ . '/../Models/Employee.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
+
+use App\Constants\Permissions;
 
 class ReferralController extends BaseController
 {
@@ -21,6 +24,9 @@ class ReferralController extends BaseController
 
     public function index(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::CONSULTATIONS_VIEW);
+
         $this->handle(function() {
             try {
                 // Get all referrals
@@ -66,6 +72,9 @@ class ReferralController extends BaseController
 
     public function show(string|int $id): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::CONSULTATIONS_VIEW);
+
         $this->handle(function() use ($id) {
             $referral = $this->referralModel->find($id);
             
@@ -88,6 +97,10 @@ class ReferralController extends BaseController
 
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::CONSULTATIONS_CREATE);
+
         $data = $this->input();
         
         $this->handle(function() use ($data) {
@@ -111,19 +124,28 @@ class ReferralController extends BaseController
             $data['status'] = $data['status'] ?? 'pending';
             $data['referral_type'] = $data['referral_type'] ?? 'specialist';
             
+            unset($data['csrf_token']);
+            
             $result = $this->referralModel->create($data);
+            $enriched = $this->enrichReferral($result);
             
             return [
                 'success' => true,
                 'message' => 'Referral created successfully',
-                'data' => $result,
-                'code' => 201
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'create',
+                'code'    => 201
             ];
         });
     }
 
     public function update(string|int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_EDIT);
+
         $data = $this->input();
         
         $this->handle(function() use ($id, $data) {
@@ -137,23 +159,33 @@ class ReferralController extends BaseController
                 $data['urgency'] = 'emergency';
             }
             
+            unset($data['csrf_token']);
+            
             $result = $this->referralModel->update($id, $data);
+            $enriched = $this->enrichReferral($this->referralModel->find($id) ?: array_merge($existing, $data));
             
             return [
                 'success' => true,
                 'message' => 'Referral updated successfully',
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function updateStatus(string|int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_EDIT);
+
         $data = $this->input();
         $status = $data['status'] ?? null;
         
         $this->handle(function() use ($id, $status) {
-            if (!$status || !in_array($status, ['pending', 'accepted', 'completed', 'rejected'])) {
+            if (!$status || !in_array($status, ['pending', 'accepted', 'completed', 'rejected', 'cancelled'])) {
                 return ['success' => false, 'message' => 'Invalid status', 'code' => 400];
             }
             
@@ -172,17 +204,25 @@ class ReferralController extends BaseController
             }
             
             $result = $this->referralModel->update($id, $updateData);
+            $enriched = $this->enrichReferral($this->referralModel->find($id) ?: array_merge($existing, $updateData));
             
             return [
                 'success' => true,
                 'message' => 'Referral status updated to ' . $status,
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function destroy(string|int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_DELETE);
+
         $this->handle(function() use ($id) {
             $existing = $this->referralModel->find($id);
             if (!$existing) {
@@ -193,7 +233,9 @@ class ReferralController extends BaseController
             
             return [
                 'success' => $success,
-                'message' => $success ? 'Referral deleted successfully' : 'Failed to delete referral'
+                'message' => $success ? 'Referral deleted successfully' : 'Failed to delete referral',
+                'action'  => 'delete',
+                'id'      => $id
             ];
         });
     }

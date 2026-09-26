@@ -6,6 +6,9 @@ require_once __DIR__ . '/../Models/Consultation.php';
 require_once __DIR__ . '/../Models/Patient.php';
 require_once __DIR__ . '/../Models/Employee.php';
 require_once __DIR__ . '/../Models/Appointment.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
+
+use App\Constants\Permissions;
 
 class ConsultationController extends BaseController
 {
@@ -24,6 +27,9 @@ class ConsultationController extends BaseController
 
     public function index(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::CONSULTATIONS_VIEW);
+
         $rawConsultations = $this->consultationModel->all(['order' => 'date.desc,created_at.desc']);
         $patientsMap = $this->getPatientsMap();
         $employeesMap = $this->getEmployeesMap();
@@ -43,6 +49,9 @@ class ConsultationController extends BaseController
 
     public function show(string $id): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::CONSULTATIONS_VIEW);
+
         $consultation = $this->consultationModel->find($id);
         
         $this->handle(function() use ($consultation) {
@@ -66,6 +75,10 @@ class ConsultationController extends BaseController
 
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::CONSULTATIONS_CREATE);
+
         $data = $this->input();
         
         error_log('STORE called with: ' . json_encode($data));
@@ -114,6 +127,9 @@ class ConsultationController extends BaseController
             }
 
             $result = $this->consultationModel->create($dbData);
+            if (is_array($result) && isset($result[0]) && is_array($result[0])) {
+                $result = $result[0];
+            }
             
             error_log('STORE result: ' . json_encode($result));
 
@@ -162,11 +178,26 @@ class ConsultationController extends BaseController
                 error_log('Consultation Health Surveillance Bridge error: ' . $e->getMessage());
             }
 
-            return ['success' => true, 'message' => 'Consultation created successfully', 'data' => $result, 'code' => 201];
+            $patientsMap = $this->getPatientsMap();
+            $employeesMap = $this->getEmployeesMap();
+            $enriched = $this->enrichConsultation($result, $patientsMap, $employeesMap);
+
+            return [
+                'success' => true,
+                'message' => 'Consultation created successfully',
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'create',
+                'code'    => 201
+            ];
         });
     }
     public function update(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_EDIT);
+
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
@@ -194,27 +225,42 @@ class ConsultationController extends BaseController
 
             $dbData = $this->prepareDbData($data, true);
             $result = $this->consultationModel->updateById($id, $dbData);
+            if (is_array($result) && isset($result[0]) && is_array($result[0])) {
+                $result = $result[0];
+            }
 
             // Primary Source Health Surveillance Bridge (Auto-update or remove surveillance case on diagnosis change)
             try {
                 require_once __DIR__ . '/../services/ClinicalSurveillanceService.php';
                 $survService = new ClinicalSurveillanceService();
-                $mergedData = array_merge($consultation, $dbData);
+                $mergedData = array_merge($consultation, $dbData, is_array($result) ? $result : []);
                 $survService->syncConsultation($mergedData);
             } catch (Throwable $e) {
                 error_log('Consultation Health Surveillance update bridge error: ' . $e->getMessage());
             }
 
+            $patientsMap = $this->getPatientsMap();
+            $employeesMap = $this->getEmployeesMap();
+            $updated = $this->consultationModel->find($id) ?: array_merge($consultation, $dbData, is_array($result) ? $result : []);
+            $enriched = $this->enrichConsultation($updated, $patientsMap, $employeesMap);
+
             return [
                 'success' => true,
                 'message' => 'Consultation updated successfully',
-                'data' => $result
+                'data'    => $enriched,
+                'record'  => $enriched,
+                'action'  => 'update',
+                'id'      => $id
             ];
         });
     }
 
     public function destroy(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_DELETE);
+
         $this->handle(function() use ($id) {
             $consultation = $this->consultationModel->find($id);
             if (!$consultation) {
@@ -238,13 +284,18 @@ class ConsultationController extends BaseController
 
             return [
                 'success' => $success,
-                'message' => $success ? 'Consultation deleted successfully' : 'Failed to delete consultation'
+                'message' => $success ? 'Consultation deleted successfully' : 'Failed to delete consultation',
+                'action'  => 'delete',
+                'id'      => $id
             ];
         });
     }
 
     public function search(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::CONSULTATIONS_VIEW);
+
         $query = strtolower($_GET['q'] ?? '');
 
         $this->handle(function() use ($query) {

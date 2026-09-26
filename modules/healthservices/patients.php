@@ -554,7 +554,7 @@ $title = 'Patient Management';
 </form></div></div>
 
 <!-- IMPORT MODAL -->
-<div id="importModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-lg"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200"><h3 class="font-bold text-slate-900">Import Patients</h3><button onclick="ModalSystem.close('importModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div><div class="p-6 space-y-4"><div id="importDropzone" class="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:border-brand-medium hover:bg-brand-light/30 transition" onclick="document.getElementById('importFileInput').click()"><input type="file" id="importFileInput" accept=".csv" class="hidden" onchange="handleImportFile(this.files[0])"><div class="w-12 h-12 rounded-full bg-brand-light border border-brand-border flex items-center justify-center mx-auto mb-3"><i class="fa-solid fa-cloud-arrow-up text-brand-dark text-lg"></i></div><p class="text-sm font-semibold text-slate-700">Drag & drop your CSV file here</p><p class="text-xs text-slate-400 mt-1">or click to browse — .csv only, max 5MB</p></div><div id="importFileInfo" class="hidden bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-file-csv text-emerald-600"></i></div><div class="min-w-0"><p id="importFileName" class="text-sm font-semibold text-slate-800 truncate"></p><p id="importFileSummary" class="text-xs text-slate-400"></p></div></div><button onclick="clearImportFile()" class="w-7 h-7 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition flex-shrink-0" title="Remove file"><i class="fa-solid fa-xmark text-sm"></i></button></div><div id="importError" class="hidden bg-rose-50 border border-rose-100 text-rose-600 text-xs rounded-lg p-3"></div><details class="text-xs text-slate-500"><summary class="cursor-pointer font-semibold text-brand-medium hover:text-brand-dark select-none">Expected column format</summary><p class="mt-2 leading-relaxed">first_name, last_name, email, contact, gender, age, blood_type, barangay, address, status</p></details></div><div class="flex justify-end gap-2 px-6 pb-6"><button type="button" onclick="ModalSystem.close('importModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button><button type="button" id="importConfirmBtn" onclick="confirmImport()" disabled class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-dark"><i class="fa-solid fa-file-import mr-1.5"></i> Import Patients</button></div></div></div>
+<div id="importModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-lg"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200"><h3 class="font-bold text-slate-900">Import Patients</h3><button onclick="ModalSystem.close('importModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div><div class="p-6 space-y-4"><div id="importDropzone" class="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center cursor-pointer hover:border-brand-medium hover:bg-brand-light/30 transition" onclick="document.getElementById('importFileInput').click()" ondragover="event.preventDefault(); this.classList.add('border-brand-medium','bg-brand-light/30')" ondragleave="this.classList.remove('border-brand-medium','bg-brand-light/30')" ondrop="handleImportDrop(event)"><input type="file" id="importFileInput" accept=".csv" class="hidden" onchange="handleImportFile(this.files[0])"><div class="w-12 h-12 rounded-full bg-brand-light border border-brand-border flex items-center justify-center mx-auto mb-3"><i class="fa-solid fa-cloud-arrow-up text-brand-dark text-lg"></i></div><p class="text-sm font-semibold text-slate-700">Drag & drop your CSV file here</p><p class="text-xs text-slate-400 mt-1">or click to browse — .csv only, max 5MB</p></div><div id="importFileInfo" class="hidden bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between"><div class="flex items-center gap-3 min-w-0"><div class="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-file-csv text-emerald-600"></i></div><div class="min-w-0"><p id="importFileName" class="text-sm font-semibold text-slate-800 truncate"></p><p id="importFileSummary" class="text-xs text-slate-400"></p></div></div><button onclick="clearImportFile()" class="w-7 h-7 rounded-lg hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600 transition flex-shrink-0" title="Remove file"><i class="fa-solid fa-xmark text-sm"></i></button></div><div id="importError" class="hidden bg-rose-50 border border-rose-100 text-rose-600 text-xs rounded-lg p-3"></div><div class="flex items-center justify-between gap-3 bg-brand-light/40 border border-brand-border rounded-lg p-3"><div class="flex items-start gap-2 min-w-0"><i class="fa-solid fa-file-csv text-brand-dark mt-0.5"></i><div class="min-w-0"><p class="text-xs font-semibold text-slate-700">New here? Start with the CSV template</p><p class="text-[11px] text-slate-500 mt-0.5">Download it, fill in your patient rows, then import the same file back.</p></div></div><button type="button" id="importTemplateBtn" onclick="downloadImportTemplate()" class="px-3 py-2 bg-white border border-brand-border text-brand-dark rounded-lg hover:bg-brand-light transition text-xs font-semibold flex items-center gap-1.5 flex-shrink-0"><i class="fa-solid fa-download text-[10px]"></i> Download Template</button></div><details class="text-xs text-slate-500"><summary class="cursor-pointer font-semibold text-brand-medium hover:text-brand-dark select-none">Expected column format</summary><p class="mt-2 leading-relaxed">first_name, last_name, email, contact, gender, age, blood_type, barangay, address, status</p><p class="mt-1 leading-relaxed text-slate-400">Required: <span class="font-semibold text-slate-500">first_name, last_name</span>. All other columns are optional. Columns are matched by name, so the order can be changed.</p></details></div><div class="flex justify-end gap-2 px-6 pb-6"><button type="button" onclick="ModalSystem.close('importModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button><button type="button" id="importConfirmBtn" onclick="confirmImport()" disabled class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-brand-dark"><i class="fa-solid fa-file-import mr-1.5"></i> Import Patients</button></div></div></div>
 
 <!-- EXPORT MODAL -->
 <div id="exportModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-md"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200"><h3 class="font-bold text-slate-900">Export Patients</h3><button onclick="ModalSystem.close('exportModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div><div class="p-6 space-y-5"><div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Format</p><div class="grid grid-cols-3 gap-2" id="exportFormatGroup"><button type="button" data-format="csv" onclick="selectExportFormat('csv')" class="export-format-btn px-3 py-2.5 rounded-lg border text-xs font-semibold flex flex-col items-center gap-1.5 transition"><i class="fa-solid fa-file-csv text-base"></i> CSV</button><button type="button" data-format="excel" onclick="selectExportFormat('excel')" class="export-format-btn px-3 py-2.5 rounded-lg border text-xs font-semibold flex flex-col items-center gap-1.5 transition"><i class="fa-solid fa-file-excel text-base"></i> Excel</button><button type="button" data-format="pdf" onclick="selectExportFormat('pdf')" class="export-format-btn px-3 py-2.5 rounded-lg border text-xs font-semibold flex flex-col items-center gap-1.5 transition"><i class="fa-solid fa-file-pdf text-base"></i> PDF</button></div></div><div><p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Scope</p><div class="space-y-2"><label class="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer has-[:checked]:border-brand-medium has-[:checked]:bg-brand-light/40"><input type="radio" name="exportScope" value="all" checked class="accent-brand-dark"><span class="text-sm text-slate-700">All patients <span class="text-slate-400">(<span id="exportCountAll"></span>)</span></span></label><label class="flex items-center gap-2.5 p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer has-[:checked]:border-brand-medium has-[:checked]:bg-brand-light/40"><input type="radio" name="exportScope" value="filtered" class="accent-brand-dark"><span class="text-sm text-slate-700">Current filtered view <span class="text-slate-400">(<span id="exportCountFiltered"></span>)</span></span></label></div></div></div><div class="flex justify-end gap-2 px-6 pb-6"><button type="button" onclick="ModalSystem.close('exportModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button><button type="button" onclick="runExport()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-download mr-1.5"></i> Export</button></div></div></div>
@@ -785,8 +785,188 @@ td .text-slate-600.maskable.masked::after {
     // ============================================================
     const API_BASE = '<?php echo site_url('api'); ?>';
     const PATIENTS = <?php echo json_encode(array_column($patients, null, 'id'), JSON_PRETTY_PRINT); ?>;
+    const CAN_EDIT_PATIENT = <?php echo $canEditPatient ? 'true' : 'false'; ?>;
     let pendingDeleteId = null;
     let selectedExportFormat = 'csv';
+
+    // ============================================================
+    // DYNAMIC ROW BUILDER (mirrors PHP table row template)
+    // ============================================================
+    function buildPatientRowHtml(p) {
+        const id = p.id || '';
+        const patientId = p.patient_id || '';
+        const firstName = p.first_name || '';
+        const lastName = p.last_name || '';
+        const email = p.email || '';
+        const gender = p.gender || '';
+        const age = p.age || 0;
+        const bloodType = p.blood_type || '';
+        const barangay = p.barangay || '';
+        const status = p.status || 'active';
+        const lastVisit = p.last_visit || new Date().toISOString().slice(0, 10);
+        const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase();
+
+        const genderIcon = gender === 'Male' ? 'fa-mars text-sky-500' : 'fa-venus text-pink-500';
+        const statusClass = status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500';
+        const visitFormatted = formatDate(lastVisit);
+
+        const maskedId = maskPatientCode(patientId);
+        const maskedFirst = maskPatientName(firstName);
+        const maskedLast = maskPatientName(lastName);
+        const maskedEmail = maskPatientName(email);
+        const maskedBarangay = maskPatientName(barangay);
+
+        const editBtn = CAN_EDIT_PATIENT
+            ? `<button onclick="editPatient(${id})" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Patient"><i class="fa-solid fa-pen-to-square text-sm"></i></button>`
+            : '';
+
+        return `
+<tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors patient-row" 
+    data-row-id="${id}" 
+    data-name="${(firstName + ' ' + lastName).toLowerCase()}" 
+    data-id="${patientId}" 
+    data-barangay="${barangay}" 
+    data-status="${status}" 
+    data-last-visit="${lastVisit}">
+    
+    <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold maskable" 
+        data-real="${patientId}"
+        data-masked="${maskedId}">
+        ${maskedId}
+    </td>
+    
+    <td class="px-4 py-3">
+        <div class="flex items-center gap-2.5">
+            <div class="cell-avatar w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
+                ${initials}
+            </div>
+            <div>
+                <p class="cell-name font-semibold text-slate-800 maskable" 
+                   data-real="${firstName} ${lastName}"
+                   data-masked="${maskedFirst} ${maskedLast}">
+                    ${maskedFirst} ${maskedLast}
+                </p>
+                <p class="cell-email text-xs text-slate-400 maskable" 
+                   data-real="${email}"
+                   data-masked="${maskedEmail}">
+                    ${maskedEmail}
+                </p>
+            </div>
+        </div>
+    </td>
+    
+    <td class="px-4 py-3">
+        <span class="cell-gender text-slate-600 text-xs">
+            <i class="fa-solid ${genderIcon}"></i>
+            ${gender}
+        </span>
+    </td>
+    
+    <td class="px-4 py-3 text-slate-600 cell-age">${age}</td>
+    <td class="px-4 py-3">
+        <span class="cell-blood px-2 py-1 bg-rose-50 text-rose-600 rounded text-xs font-semibold">${bloodType}</span>
+    </td>
+    
+    <td class="px-4 py-3 text-slate-600 cell-barangay maskable" 
+        data-real="${barangay}"
+        data-masked="${maskedBarangay}">
+        ${maskedBarangay}
+    </td>
+    
+    <td class="px-4 py-3">
+        <span class="cell-status px-2 py-1 rounded-full text-xs font-semibold ${statusClass}">
+            ${status.charAt(0).toUpperCase() + status.slice(1)}
+        </span>
+    </td>
+    
+    <td class="px-4 py-3 text-slate-500 text-xs cell-visit">${visitFormatted}</td>
+    
+    <td class="px-4 py-3">
+        <div class="flex items-center justify-center gap-1">
+            <button onclick="viewPatient(${id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye text-sm"></i></button>
+            ${editBtn}
+            <button onclick="scheduleAppointment(${id})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Schedule Appointment"><i class="fa-solid fa-calendar-plus text-sm"></i></button>
+            <button onclick="checkInPatient(${id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Check-in / Queue"><i class="fa-solid fa-receipt text-sm"></i></button>
+            <button onclick="openMedicalRecord(${id})" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Medical Record"><i class="fa-solid fa-folder-open text-sm"></i></button>
+        </div>
+    </td>
+</tr>`;
+    }
+
+    function insertPatientRow(patientData) {
+        if (!patientData) return;
+        if (patientData[0]) patientData = patientData[0];
+        // Compute age from birth_date if missing
+        if (!patientData.age && patientData.birth_date) {
+            const dob = new Date(patientData.birth_date);
+            const now = new Date();
+            patientData.age = now.getFullYear() - dob.getFullYear() - (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+        }
+        if (!patientData.last_visit) {
+            patientData.last_visit = new Date().toISOString().slice(0, 10);
+        }
+
+        // Update JS data store
+        PATIENTS[patientData.id] = patientData;
+
+        const tbody = document.getElementById('patientTableBody');
+        if (!tbody) return;
+
+        // Build and insert row at the top
+        const temp = document.createElement('tbody');
+        temp.innerHTML = buildPatientRowHtml(patientData);
+        const newRow = temp.firstElementChild;
+        newRow.style.opacity = '0';
+        newRow.style.transform = 'translateY(-10px)';
+        tbody.insertBefore(newRow, tbody.firstChild);
+
+        // Animate in
+        requestAnimationFrame(() => {
+            newRow.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            newRow.style.opacity = '1';
+            newRow.style.transform = 'translateY(0)';
+        });
+
+        // Update "All Patients" count badge
+        const allBtn = document.getElementById('dateFilterBtnAll');
+        if (allBtn) {
+            const count = document.querySelectorAll('.patient-row').length;
+            allBtn.innerHTML = `<i class="fa-solid fa-users mr-1"></i> All Patients (${count})`;
+        }
+    }
+
+    function updatePatientRow(id, patientData) {
+        if (!patientData) return;
+        if (patientData[0]) patientData = patientData[0];
+        // Compute age from birth_date if missing
+        if (!patientData.age && patientData.birth_date) {
+            const dob = new Date(patientData.birth_date);
+            const now = new Date();
+            patientData.age = now.getFullYear() - dob.getFullYear() - (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+        }
+        if (!patientData.last_visit) {
+            patientData.last_visit = new Date().toISOString().slice(0, 10);
+        }
+
+        // Update JS data store
+        PATIENTS[id] = { ...PATIENTS[id], ...patientData };
+        const p = PATIENTS[id];
+
+        const oldRow = document.querySelector(`tr[data-row-id="${id}"]`);
+        if (!oldRow) return;
+
+        const temp = document.createElement('tbody');
+        temp.innerHTML = buildPatientRowHtml(p);
+        const newRow = temp.firstElementChild;
+
+        // Flash highlight effect
+        newRow.style.backgroundColor = 'rgba(20, 128, 122, 0.12)';
+        oldRow.replaceWith(newRow);
+        setTimeout(() => {
+            newRow.style.transition = 'background-color 1s ease';
+            newRow.style.backgroundColor = '';
+        }, 50);
+    }
 
     // ============================================================
     // WORKFLOW SHORTCUT NAVIGATION HELPERS
@@ -824,22 +1004,36 @@ td .text-slate-600.maskable.masked::after {
         }
 
         try {
+            const csrfToken = CrudAjax.getCsrfToken();
             const response = await fetch(`${API_BASE}/triage-queue.php`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify({
                     patient_id: parseInt(patientId),
-                    reason_for_visit: reasonForVisit
+                    reason_for_visit: reasonForVisit,
+                    csrf_token: csrfToken
                 })
             });
-            const data = await response.json();
-            if (data.success || response.ok) {
+            const data = await response.json().catch(() => ({}));
+
+            if (response.status === 409 || data?.code === 409) {
+                ModalSystem.toast.warning(data?.message || 'Patient already has an active check-in for this reason today.');
+                return;
+            }
+
+            if (response.ok && data?.success) {
                 ModalSystem.toast.success(`✅ Patient checked in successfully for ${reasonForVisit}!`);
                 ModalSystem.close('checkInModal');
-            } else {
-                ModalSystem.toast.error(data.message || 'Failed to check in patient');
+                return;
             }
+
+            ModalSystem.toast.error(data?.message || 'Failed to check in patient');
         } catch (e) {
+            console.error('Check-in request failed:', e);
             ModalSystem.toast.error('Network error during check-in');
         } finally {
             if (submitBtn) {
@@ -1086,13 +1280,16 @@ td .text-slate-600.maskable.masked::after {
     console.log('📤 Sending payload:', payload);
     
     try {
+        const csrfToken = CrudAjax.getCsrfToken();
         const res = await fetch(API_BASE + '/patients.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'X-CSRF-Token': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ ...payload, csrf_token: csrfToken })
         });
         
         const text = await res.text();
@@ -1110,10 +1307,13 @@ td .text-slate-600.maskable.masked::after {
         if (res.ok && data.success) {
             ModalSystem.toast.success('Patient added successfully!');
             ModalSystem.close('addPatientModal');
-            // Reset the form
             document.getElementById('addPatientForm').reset();
-            // Reload after a moment to show the new patient
-            setTimeout(() => window.location.reload(), 1000);
+            // Dynamically insert new row instead of reloading
+            let rec = data.record || data.data;
+            if (rec && rec[0]) rec = rec[0];
+            if (rec) {
+                insertPatientRow(rec);
+            }
         } else if (data.is_duplicate || res.status === 409) {
             ModalSystem.close('addPatientModal');
             const searchVal = (firstName + ' ' + lastName).trim();
@@ -1194,15 +1394,13 @@ td .text-slate-600.maskable.masked::after {
             age
         });
         
-        // Use existing birth_date from database, or calculate from age
+        // Recalculate birth_date from the edited age so the age field stays in sync.
         let birthDate = p.birth_date || '';
-        
-        // If birth_date is empty but we have age, calculate it
-        if (!birthDate && age > 0) {
+        if (age > 0) {
             const now = new Date();
             const birthYear = now.getFullYear() - age;
             birthDate = birthYear + '-01-01';
-            console.log('📅 Calculated birth_date from age:', birthDate);
+            console.log('📅 Calculated birth_date from edited age:', birthDate);
         }
         
         const payload = {
@@ -1212,6 +1410,7 @@ td .text-slate-600.maskable.masked::after {
             contact: contact,
             gender: document.getElementById('edit_gender').value,
             birth_date: birthDate,
+            age: age,
             blood_type: document.getElementById('edit_blood_type').value,
             status: document.getElementById('edit_status').value,
             barangay: document.getElementById('edit_barangay').value,
@@ -1223,10 +1422,15 @@ td .text-slate-600.maskable.masked::after {
         console.log('📤 Sending payload:', payload);
 
         try {
+            const csrfToken = CrudAjax.getCsrfToken();
             const res = await fetch(API_BASE + '/patients.php?id=' + id, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             
             const text = await res.text();
@@ -1244,7 +1448,29 @@ td .text-slate-600.maskable.masked::after {
             if (res.ok && data.success) {
                 ModalSystem.toast.success('Patient updated successfully!');
                 ModalSystem.close('editPatientModal');
-                setTimeout(() => window.location.reload(), 800);
+
+                let rec = data.record ?? data.data ?? data;
+                if (Array.isArray(rec)) {
+                    rec = rec[0] ?? null;
+                } else if (rec && rec.record) {
+                    rec = rec.record;
+                } else if (rec && rec.data) {
+                    rec = rec.data;
+                }
+
+                const merged = {
+                    ...(PATIENTS[id] || {}),
+                    ...(rec || {}),
+                    ...payload,
+                    age: age,
+                    birth_date: birthDate,
+                    id: Number(id)
+                };
+
+                if (merged && typeof merged === 'object') {
+                    PATIENTS[id] = merged;
+                    updatePatientRow(Number(id), merged);
+                }
             } else {
                 ModalSystem.toast.error(data.message || 'Failed to update patient');
             }
@@ -1261,19 +1487,103 @@ td .text-slate-600.maskable.masked::after {
     // ============================================================
     // IMPORT / EXPORT
     // ============================================================
+    // Column order used by the import template and the server-side importer.
+    const IMPORT_COLUMNS = ['first_name', 'last_name', 'email', 'contact', 'gender', 'age', 'blood_type', 'barangay', 'address', 'status'];
+
+    // Minimal RFC-4180 CSV parser (handles quoted fields, escaped quotes, CRLF/LF).
+    function parseCsv(text) {
+        const rows = []; let row = []; let field = ''; let inQuotes = false;
+        for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+            if (inQuotes) {
+                if (ch === '"') {
+                    if (text[i + 1] === '"') { field += '"'; i++; } else { inQuotes = false; }
+                } else { field += ch; }
+            } else if (ch === '"') {
+                inQuotes = true;
+            } else if (ch === ',') {
+                row.push(field); field = '';
+            } else if (ch === '\n' || ch === '\r') {
+                if (ch === '\r' && text[i + 1] === '\n') i++;
+                row.push(field); field = ''; rows.push(row); row = [];
+            } else { field += ch; }
+        }
+        row.push(field); rows.push(row);
+        return rows.filter(r => r.some(c => String(c).trim() !== ''));
+    }
+
+    // Download a ready-to-fill CSV template (headers + one sample row).
+    function downloadImportTemplate() {
+        const sample = {
+            first_name: 'Juan', last_name: 'Dela Cruz', email: 'juan.delacruz@example.com',
+            contact: '09171234567', gender: 'Male', age: '34', blood_type: 'O+',
+            barangay: 'Poblacion', address: '123 Rizal St.', status: 'active'
+        };
+        const escapeCsv = v => {
+            let s = String(v ?? '');
+            if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+            return '"' + s.replace(/"/g, '""') + '"';
+        };
+        const lines = [IMPORT_COLUMNS.join(',')];
+        lines.push(IMPORT_COLUMNS.map(k => escapeCsv(sample[k])).join(','));
+        const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'patients_import_template.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        ModalSystem.toast.success('CSV template downloaded. Fill it in and import it back.');
+    }
+
     let pendingImportRows = null;
+    function handleImportDrop(evt) {
+        evt.preventDefault();
+        evt.currentTarget.classList.remove('border-brand-medium', 'bg-brand-light/30');
+        const file = evt.dataTransfer?.files?.[0];
+        if (file) handleImportFile(file);
+    }
+    function clearImportFile() {
+        pendingImportRows = null;
+        const input = document.getElementById('importFileInput');
+        if (input) input.value = '';
+        const info = document.getElementById('importFileInfo');
+        if (info) info.classList.add('hidden');
+        const errorBox = document.getElementById('importError');
+        if (errorBox) { errorBox.classList.add('hidden'); errorBox.textContent = ''; }
+        const btn = document.getElementById('importConfirmBtn');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-file-import mr-1.5"></i> Import Patients'; }
+    }
     function handleImportFile(file) {
         const errorBox = document.getElementById('importError'); errorBox.classList.add('hidden');
-        if (!file||!file.name.toLowerCase().endsWith('.csv')) { errorBox.textContent='Please choose a .csv file.'; errorBox.classList.remove('hidden'); return; }
+        if (!file || !file.name.toLowerCase().endsWith('.csv')) { errorBox.textContent = 'Please choose a .csv file.'; errorBox.classList.remove('hidden'); return; }
         const reader = new FileReader();
         reader.onload = e => {
             try {
-                const rows = e.target.result.trim().split(/\r?\n/).filter(l=>l.trim().length).slice(1).map(l=>{const c=l.split(',').map(x=>x.trim()); return {first_name:c[0]||'',last_name:c[1]||'',email:c[2]||'',contact:c[3]||'',gender:c[4]||'',age:c[5]||'',blood_type:c[6]||'',barangay:c[7]||'',address:c[8]||'',status:c[9]||'active'}; });
-                if(!rows.length)throw new Error('No data rows found.');
-                pendingImportRows=rows; document.getElementById('importFileName').textContent=file.name;
-                document.getElementById('importFileSummary').textContent=rows.length+' patient(s) ready';
-                document.getElementById('importFileInfo').classList.remove('hidden'); document.getElementById('importConfirmBtn').disabled=false;
-            } catch(err){ pendingImportRows=null; document.getElementById('importConfirmBtn').disabled=true; errorBox.textContent='Error: '+err.message; errorBox.classList.remove('hidden'); }
+                const parsed = parseCsv(String(e.target.result).replace(/^\uFEFF/, ''));
+                if (!parsed.length) throw new Error('The file is empty.');
+                // If the first row names known columns, map by header (order-independent).
+                const header = parsed[0].map(h => String(h).trim().toLowerCase().replace(/\s+/g, '_'));
+                const useHeaderMap = header.some(h => IMPORT_COLUMNS.includes(h));
+                const dataRows = useHeaderMap ? parsed.slice(1) : parsed;
+                const rows = dataRows.map(cells => {
+                    const row = {};
+                    IMPORT_COLUMNS.forEach((key, idx) => {
+                        const col = useHeaderMap ? header.indexOf(key) : idx;
+                        row[key] = col === -1 ? '' : String(cells[col] ?? '').trim();
+                    });
+                    if (!row.status) row.status = 'active';
+                    return row;
+                }).filter(r => r.first_name || r.last_name);
+                if (!rows.length) throw new Error('No data rows found.');
+                pendingImportRows = rows;
+                document.getElementById('importFileName').textContent = file.name;
+                document.getElementById('importFileSummary').textContent = rows.length + ' patient(s) ready';
+                document.getElementById('importFileInfo').classList.remove('hidden');
+                document.getElementById('importConfirmBtn').disabled = false;
+            } catch (err) { pendingImportRows = null; document.getElementById('importConfirmBtn').disabled = true; errorBox.textContent = 'Error: ' + err.message; errorBox.classList.remove('hidden'); }
         };
         reader.readAsText(file);
     }
@@ -1283,10 +1593,15 @@ td .text-slate-600.maskable.masked::after {
         if (btn) { btn.disabled = true; btn.textContent = 'Importing...'; }
         
         try {
+            const csrfToken = CrudAjax.getCsrfToken();
             const resp = await fetch('../../api/patients.php?action=import', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rows: pendingImportRows })
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ rows: pendingImportRows, csrf_token: csrfToken })
             });
             const json = await resp.json();
             ModalSystem.close('importModal');
@@ -1295,7 +1610,10 @@ td .text-slate-600.maskable.masked::after {
             if (json.success) {
                 const msg = `Successfully imported ${json.imported_count || 0} patient(s)` + (json.skipped_count ? ` (${json.skipped_count} skipped)` : '');
                 ModalSystem.toast.success(msg);
-                setTimeout(() => window.location.reload(), 1200);
+                const records = json.records || json.data;
+                if (Array.isArray(records)) {
+                    records.forEach(p => insertPatientRow(p));
+                }
             } else {
                 ModalSystem.toast.error('Import failed: ' + (json.message || 'Server error'));
             }
@@ -1304,7 +1622,7 @@ td .text-slate-600.maskable.masked::after {
             clearImportFile();
             ModalSystem.toast.error('Network error during import: ' + err.message);
         } finally {
-            if (btn) { btn.disabled = false; btn.textContent = 'Import Patients'; }
+            if (btn) { btn.disabled = !pendingImportRows?.length; btn.innerHTML = '<i class="fa-solid fa-file-import mr-1.5"></i> Import Patients'; }
         }
     }
     function prepExportModal(){ document.getElementById('exportCountAll').textContent=Object.keys(PATIENTS).length; document.getElementById('exportCountFiltered').textContent=document.querySelectorAll('.patient-row:not([style*="display: none"])').length; selectExportFormat('csv'); }

@@ -172,10 +172,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     'symptoms'          => trim($_POST['symptoms'] ?? ''),
                     'onset_date'        => trim($_POST['onset_date'] ?? ''),
                     'reporting_facility'=> trim($_POST['reporting_facility'] ?? ''),
+                    'status'            => strtolower(trim($_POST['status'] ?? '')),
                     'severity'          => strtolower(trim($_POST['severity'] ?? '')),
+                    'updated_at'        => date('Y-m-d H:i:s'),
                 ], fn($v) => $v !== '' && $v !== 0);
                 $caseModel->updateById($id, $updateData);
-                $response = ['success' => true, 'message' => 'Case #' . $id . ' updated successfully!'];
+                $response = ['success' => true, 'message' => 'Case #' . $id . ' updated successfully!', 'data' => $updateData];
                 break;
 
             case 'update_status':
@@ -328,13 +330,13 @@ $title = 'Case Reports';
                         <i class="fa-solid fa-notes-medical text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-slate-900"><?php echo $totalCases; ?></p>
+                        <p id="kpiTotalCases" class="text-2xl font-black text-slate-900"><?php echo $totalCases; ?></p>
                         <p class="text-xs font-medium text-slate-500">Total Cases</p>
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
                     <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">📋 All cases</span>
-                    <span class="text-[10px] text-slate-400">Including <?php echo $resolvedCount; ?> resolved</span>
+                    <span id="kpiResolvedSubtitle" class="text-[10px] text-slate-400">Including <?php echo $resolvedCount; ?> resolved</span>
                 </div>
             </div>
         </div>
@@ -348,7 +350,7 @@ $title = 'Case Reports';
                         <i class="fa-solid fa-flag text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-amber-600"><?php echo $reportedCount; ?></p>
+                        <p id="kpiReportedCount" class="text-2xl font-black text-amber-600"><?php echo $reportedCount; ?></p>
                         <p class="text-xs font-medium text-slate-500">Reported</p>
                     </div>
                 </div>
@@ -368,7 +370,7 @@ $title = 'Case Reports';
                         <i class="fa-solid fa-check-circle text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-emerald-600"><?php echo $confirmedCount; ?></p>
+                        <p id="kpiConfirmedCount" class="text-2xl font-black text-emerald-600"><?php echo $confirmedCount; ?></p>
                         <p class="text-xs font-medium text-slate-500">Confirmed</p>
                     </div>
                 </div>
@@ -388,7 +390,7 @@ $title = 'Case Reports';
                         <i class="fa-solid fa-triangle-exclamation text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-rose-600"><?php echo $criticalCount; ?></p>
+                        <p id="kpiCriticalCount" class="text-2xl font-black text-rose-600"><?php echo $criticalCount; ?></p>
                         <p class="text-xs font-medium text-slate-500">Critical</p>
                     </div>
                 </div>
@@ -408,7 +410,7 @@ $title = 'Case Reports';
                         <i class="fa-solid fa-flag-checkered text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-slate-600"><?php echo $resolvedCount; ?></p>
+                        <p id="kpiResolvedCount" class="text-2xl font-black text-slate-600"><?php echo $resolvedCount; ?></p>
                         <p class="text-xs font-medium text-slate-500">Resolved</p>
                     </div>
                 </div>
@@ -1183,7 +1185,16 @@ $title = 'Case Reports';
             if (res.success) {
                 closeModal('importCasesModal');
                 showToast(res.message || 'Cases successfully imported to database!', 'success');
-                setTimeout(() => location.reload(), 1200);
+                if (Array.isArray(res.records)) {
+                    res.records.forEach(record => {
+                        if (record && record.id) {
+                            CASES[record.id] = record;
+                            insertCaseRow(record);
+                        }
+                    });
+                }
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Confirm & Import to Database';
             } else {
                 showToast(res.message || 'Failed to import cases', 'danger');
                 submitBtn.disabled = false;
@@ -1378,8 +1389,8 @@ $title = 'Case Reports';
         c.barangay = document.getElementById('edit_barangay').value;
         c.contact = contact;
         c.onset_date = document.getElementById('edit_onset').value;
-        c.status = document.getElementById('edit_status').value;
-        c.severity = document.getElementById('edit_severity').value;
+        c.status = (document.getElementById('edit_status').value || 'reported').toLowerCase();
+        c.severity = (document.getElementById('edit_severity').value || 'moderate').toLowerCase();
         c.updated_at = new Date().toISOString().replace('T', ' ').slice(0, 19);
 
         postCaseApi('update', {
@@ -1440,7 +1451,7 @@ $title = 'Case Reports';
             return fetch('api/cases.php', {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-Token': getCsrfToken(),
+                    'X-CSRF-Token': fetchCsrfToken(),
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: formData
@@ -1461,11 +1472,11 @@ $title = 'Case Reports';
                     if (c) {
                         c.status = 'investigating';
                         c.investigation_notes = notes;
+                        c.investigator_id = investigator;
                         updateCaseRow(c);
                     }
                     closeModal('investigateModal');
-                    showToast(res.message || 'Investigation submitted successfully!', 'success');
-                    setTimeout(() => location.reload(), 1000);
+                    showToast(res.message || 'Investigation submitted successfully in real-time!', 'success');
                 } else {
                     showToast(res.message || 'Error saving investigation', 'danger');
                 }
@@ -1481,13 +1492,16 @@ $title = 'Case Reports';
         postCaseApi('update_status', { id: c?.db_id || id, status: 'Confirmed' })
             .then(res => {
                 if (res.success) {
-                    if (c) { c.status = 'confirmed'; updateCaseRow(c); }
-                    showToast(res.message || 'Case confirmed!', 'success');
-                    setTimeout(() => location.reload(), 1000);
+                    if (c) { 
+                        c.status = 'confirmed'; 
+                        updateCaseRow(c); 
+                    }
+                    showToast(res.message || 'Case confirmed in real-time!', 'success');
                 } else {
                     showToast(res.message || 'Error confirming case', 'danger');
                 }
-            });
+            })
+            .catch(err => showToast('Error confirming case: ' + err.message, 'danger'));
     }
 
     // ============================================================
@@ -1498,13 +1512,16 @@ $title = 'Case Reports';
         postCaseApi('update_status', { id: c?.db_id || id, status: 'Resolved' })
             .then(res => {
                 if (res.success) {
-                    if (c) { c.status = 'resolved'; updateCaseRow(c); }
-                    showToast(res.message || 'Case resolved!', 'success');
-                    setTimeout(() => location.reload(), 1000);
+                    if (c) { 
+                        c.status = 'resolved'; 
+                        updateCaseRow(c); 
+                    }
+                    showToast(res.message || 'Case resolved in real-time!', 'success');
                 } else {
                     showToast(res.message || 'Error resolving case', 'danger');
                 }
-            });
+            })
+            .catch(err => showToast('Error resolving case: ' + err.message, 'danger'));
     }
 
     // ============================================================
@@ -1515,29 +1532,183 @@ $title = 'Case Reports';
     }
 
     // ============================================================
-    // UPDATE CASE ROW
+    // UPDATE CASE ROW & REALTIME DOM SYNC
     // ============================================================
     function updateCaseRow(c) {
-        const rows = document.querySelectorAll('.case-row');
-        rows.forEach(row => {
-            if (row.dataset.dbId == c.id || row.dataset.patient === c.patient_name) {
-                row.dataset.patient = c.patient_name.toLowerCase();
-                row.dataset.status = c.status;
-                row.dataset.severity = c.severity;
-                row.dataset.barangay = c.barangay;
-                const statusBadge = row.querySelector('.px-2.py-1.rounded-full');
-                if (statusBadge) {
-                    const statusColors = {
-                        reported: 'bg-blue-100 text-blue-700',
-                        investigating: 'bg-amber-100 text-amber-700',
-                        confirmed: 'bg-emerald-100 text-emerald-700',
-                        resolved: 'bg-slate-100 text-slate-500'
-                    };
-                    statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[c.status] || statusColors.reported}`;
-                    statusBadge.textContent = c.status.charAt(0).toUpperCase() + c.status.slice(1);
-                }
+        if (!c) return;
+        const targetId = c.id || c.db_id;
+        const row = document.querySelector(`.case-row[data-db-id="${targetId}"]`) 
+                 || Array.from(document.querySelectorAll('.case-row')).find(r => r.getAttribute('data-db-id') == targetId);
+        
+        // Also keep in-memory CASES cache synced
+        if (targetId && CASES[targetId]) {
+            Object.assign(CASES[targetId], c);
+        }
+
+        if (!row) {
+            updateKPICardsJS();
+            return;
+        }
+
+        // 1. Update dataset attributes for Search & Filters
+        row.dataset.patient = (c.patient_name || '').toLowerCase();
+        row.dataset.disease = (c.disease || '').toLowerCase();
+        row.dataset.status = (c.status || '').toLowerCase();
+        row.dataset.severity = (c.severity || '').toLowerCase();
+        row.dataset.barangay = c.barangay || '';
+
+        // 2. Update Column 1: Patient info (Name, Age, Gender)
+        const patientCol = row.children[1];
+        if (patientCol) {
+            const nameEl = patientCol.querySelector('p.font-semibold');
+            if (nameEl) nameEl.textContent = c.patient_name;
+            const metaEl = patientCol.querySelector('p.text-xs.text-slate-400');
+            if (metaEl) metaEl.textContent = `${c.age} yrs • ${c.gender}`;
+        }
+
+        // 3. Update Column 2: Disease
+        const diseaseCol = row.children[2];
+        if (diseaseCol) {
+            const diseaseSpan = diseaseCol.querySelector('span');
+            if (diseaseSpan) diseaseSpan.textContent = c.disease;
+        }
+
+        // 4. Update Column 3: Barangay
+        const barangayCol = row.children[3];
+        if (barangayCol) {
+            barangayCol.textContent = (c.barangay || '').replace(/^Barangay\s+/i, '');
+        }
+
+        // 5. Update Column 4: Status Badge
+        const statusColors = {
+            reported: 'bg-blue-100 text-blue-700',
+            suspected: 'bg-blue-100 text-blue-700',
+            investigating: 'bg-amber-100 text-amber-700',
+            confirmed: 'bg-emerald-100 text-emerald-700',
+            resolved: 'bg-slate-100 text-slate-500'
+        };
+        const statusCol = row.children[4];
+        if (statusCol) {
+            const statusBadge = statusCol.querySelector('span');
+            if (statusBadge) {
+                const s = (c.status || 'reported').toLowerCase();
+                statusBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[s] || statusColors.reported}`;
+                statusBadge.textContent = s.charAt(0).toUpperCase() + s.slice(1);
             }
+        }
+
+        // 6. Update Column 5: Severity Badge & row background
+        const severityColors = {
+            low: 'bg-green-100 text-green-700',
+            moderate: 'bg-yellow-100 text-yellow-700',
+            high: 'bg-orange-100 text-orange-700',
+            critical: 'bg-rose-100 text-rose-700'
+        };
+        const severityCol = row.children[5];
+        if (severityCol) {
+            const severityBadge = severityCol.querySelector('span');
+            if (severityBadge) {
+                const sev = (c.severity || 'moderate').toLowerCase();
+                severityBadge.className = `px-2 py-1 rounded-full text-xs font-semibold ${severityColors[sev] || severityColors.moderate}`;
+                severityBadge.textContent = sev.charAt(0).toUpperCase() + sev.slice(1);
+            }
+        }
+        if ((c.severity || '').toLowerCase() === 'critical') {
+            row.classList.add('bg-rose-50/50');
+        } else {
+            row.classList.remove('bg-rose-50/50');
+        }
+
+        // 7. Update Column 7: Action Buttons matching the current status
+        const actionCol = row.children[7];
+        if (actionCol) {
+            const actionContainer = actionCol.querySelector('div');
+            if (actionContainer) {
+                const s = (c.status || '').toLowerCase();
+                let buttonsHtml = `
+                    <button onclick="viewCase(${targetId})"
+                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                        <i class="fa-solid fa-eye text-sm"></i>
+                    </button>
+                `;
+                if (s === 'reported' || s === 'suspected' || s === 'investigating') {
+                    buttonsHtml += `
+                        <button onclick="investigateCase(${targetId})"
+                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Investigate">
+                            <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                        </button>
+                        <button onclick="showConfirm('Confirm Case', 'Are you sure you want to confirm this case?', 'confirm', ${targetId})"
+                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Confirm">
+                            <i class="fa-solid fa-check text-sm"></i>
+                        </button>
+                    `;
+                } else if (s === 'confirmed') {
+                    buttonsHtml += `
+                        <button onclick="showConfirm('Resolve Case', 'Are you sure you want to mark this case as resolved?', 'resolve', ${targetId})"
+                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Resolve">
+                            <i class="fa-solid fa-flag-checkered text-sm"></i>
+                        </button>
+                    `;
+                }
+                buttonsHtml += `
+                    <button onclick="openEditModal(${targetId})"
+                            class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
+                        <i class="fa-solid fa-pen text-sm"></i>
+                    </button>
+                `;
+                actionContainer.innerHTML = buttonsHtml;
+            }
+        }
+
+        // 8. Elegant visual feedback: subtle emerald highlight flash
+        row.classList.add('bg-emerald-50', 'ring-1', 'ring-emerald-300');
+        row.style.transition = 'all 0.5s ease';
+        setTimeout(() => {
+            row.classList.remove('bg-emerald-50', 'ring-1', 'ring-emerald-300');
+            if ((c.severity || '').toLowerCase() === 'critical') {
+                row.classList.add('bg-rose-50/50');
+            }
+        }, 1200);
+
+        // 9. Update KPI summaries & re-apply active filters
+        updateKPICardsJS();
+        if (typeof filterCases === 'function') {
+            filterCases();
+        }
+    }
+
+    // ============================================================
+    // REALTIME KPI CARDS UPDATE
+    // ============================================================
+    function updateKPICardsJS() {
+        const caseList = Object.values(CASES);
+        const total = caseList.length;
+        let reported = 0;
+        let confirmed = 0;
+        let critical = 0;
+        let resolved = 0;
+
+        caseList.forEach(c => {
+            const s = (c.status || '').toLowerCase();
+            const sev = (c.severity || '').toLowerCase();
+            if (s === 'reported' || s === 'suspected') reported++;
+            else if (s === 'confirmed') confirmed++;
+            else if (s === 'resolved') resolved++;
+            if (sev === 'critical') critical++;
         });
+
+        const elTotal = document.getElementById('kpiTotalCases');
+        if (elTotal) elTotal.textContent = total;
+        const elReported = document.getElementById('kpiReportedCount');
+        if (elReported) elReported.textContent = reported;
+        const elConfirmed = document.getElementById('kpiConfirmedCount');
+        if (elConfirmed) elConfirmed.textContent = confirmed;
+        const elCritical = document.getElementById('kpiCriticalCount');
+        if (elCritical) elCritical.textContent = critical;
+        const elResolved = document.getElementById('kpiResolvedCount');
+        if (elResolved) elResolved.textContent = resolved;
+        const elSubResolved = document.getElementById('kpiResolvedSubtitle');
+        if (elSubResolved) elSubResolved.textContent = `Including ${resolved} resolved`;
     }
 
     // ============================================================
@@ -1573,15 +1744,57 @@ $title = 'Case Reports';
             reporting_facility: facility
         }).then(res => {
             if (res.success) {
+                const created = res.record || res.data || {
+                    id: Date.now(),
+                    case_id: 'NEW',
+                    patient_name: patientName,
+                    disease: disease,
+                    age: age,
+                    gender: gender,
+                    barangay: barangay,
+                    address: address,
+                    contact: contact,
+                    onset_date: onsetDate,
+                    severity: 'moderate',
+                    status: 'reported'
+                };
+                if (created.id) {
+                    CASES[created.id] = created;
+                    insertCaseRow(created);
+                }
                 showToast(res.message || 'Case reported successfully!', 'success');
                 closeModal('reportCaseModal');
-                setTimeout(() => location.reload(), 1000);
             } else {
                 showToast(res.message || 'Failed to submit case report', 'danger');
             }
         }).catch(err => showToast('Server connection error', 'danger'));
     }
 
+    function insertCaseRow(c) {
+        if (!c || !c.id) return;
+        const tbody = document.getElementById('caseTableBody');
+        if (!tbody) return;
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-100 hover:bg-brand-light/40 transition-colors case-row ' + ((c.severity || '').toLowerCase() === 'critical' ? 'bg-rose-50/50' : '');
+        tr.dataset.patient = (c.patient_name || '').toLowerCase();
+        tr.dataset.disease = (c.disease || '').toLowerCase();
+        tr.dataset.status = (c.status || 'reported').toLowerCase();
+        tr.dataset.severity = (c.severity || 'moderate').toLowerCase();
+        tr.dataset.barangay = c.barangay || '';
+        tr.dataset.dbId = c.id;
+        tr.dataset.caseId = (c.case_id || '').toLowerCase();
+        tr.dataset.createdDate = (c.created_at || new Date().toISOString().slice(0, 10));
+        tr.innerHTML = `
+            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${c.case_id || 'NEW'}</td>
+            <td class="px-4 py-3"><div><p class="font-semibold text-slate-800 text-sm">${c.patient_name || ''}</p><p class="text-xs text-slate-400">${c.age || 0} yrs • ${c.gender || ''}</p></div></td>
+            <td class="px-4 py-3"><span class="font-medium text-slate-800 text-xs">${c.disease || ''}</span></td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${(c.barangay || '').replace(/^Barangay\s+/i, '')}</td>
+            <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${((c.status || 'reported').toLowerCase() === 'reported' || (c.status || 'reported').toLowerCase() === 'suspected' ? 'bg-blue-100 text-blue-700' : (c.status || 'reported').toLowerCase() === 'investigating' ? 'bg-amber-100 text-amber-700' : (c.status || 'reported').toLowerCase() === 'confirmed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500')}">${String(c.status || 'Reported').charAt(0).toUpperCase() + String(c.status || 'Reported').slice(1)}</span></td>
+            <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${((c.severity || 'moderate').toLowerCase() === 'low' ? 'bg-green-100 text-green-700' : (c.severity || 'moderate').toLowerCase() === 'moderate' ? 'bg-yellow-100 text-yellow-700' : (c.severity || 'moderate').toLowerCase() === 'high' ? 'bg-orange-100 text-orange-700' : 'bg-rose-100 text-rose-700')}">${String(c.severity || 'Moderate').charAt(0).toUpperCase() + String(c.severity || 'Moderate').slice(1)}</span></td>
+            <td class="px-4 py-3 text-slate-500 text-xs">${new Date(c.created_at || new Date()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+            <td class="px-4 py-3"><div class="flex items-center justify-center gap-1"><button onclick="viewCase(${c.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View"><i class="fa-solid fa-eye text-sm"></i></button><button onclick="showConfirm('Confirm Case', 'Are you sure you want to confirm this case?', 'confirm', ${c.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Confirm"><i class="fa-solid fa-check text-sm"></i></button><button onclick="openEditModal(${c.id})" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen text-sm"></i></button></div></td>`;
+        tbody.insertBefore(tr, tbody.firstChild);
+    }
 
     // ============================================================
     // TOAST NOTIFICATIONS

@@ -41,6 +41,9 @@ class Patient
     {
         $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
         $res = $this->db->insert($this->table, $encryptedData, true);
+        if (is_array($res) && isset($res[0]) && is_array($res[0])) {
+            $res = $res[0];
+        }
         if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
             require_once __DIR__ . '/ActivityLog.php';
             try {
@@ -63,6 +66,9 @@ class Patient
     {
         $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
         $updated = $this->db->update($this->table, $encryptedData, ['id' => 'eq.' . $id], true);
+        if (is_array($updated) && isset($updated[0]) && is_array($updated[0])) {
+            $updated = $updated[0];
+        }
         if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
             require_once __DIR__ . '/ActivityLog.php';
             try {
@@ -77,7 +83,7 @@ class Patient
                 error_log('Patient::updateById ActivityLog error: ' . $e->getMessage());
             }
         }
-        return is_array($updated) ? EncryptionHelper::decryptRows($this->table, $updated) : $updated;
+        return is_array($updated) ? EncryptionHelper::decryptModel($this->table, $updated) : $updated;
     }
 
     public function deleteById(string $id): bool

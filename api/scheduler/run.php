@@ -69,6 +69,16 @@ if ($method === 'GET' && isset($_GET['stats'])) {
     exit;
 }
 
+// ─── DELETE or action=clear: Clear scheduler execution logs ──────
+if ($method === 'DELETE' || (isset($_GET['action']) && $_GET['action'] === 'clear') || (isset($input['action']) && $input['action'] === 'clear')) {
+    $logModel->clearAll();
+    echo json_encode([
+        'success' => true,
+        'message' => 'Scheduler logs cleared successfully.'
+    ]);
+    exit;
+}
+
 // ─── POST / GET: Execute scheduled jobs ───────────────────────────
 $rawInput = file_get_contents('php://input');
 $input = json_decode($rawInput, true) ?? $_POST;

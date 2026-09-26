@@ -47,17 +47,17 @@ class SettingsService
         'general.language' => 'English',
         'maintenance.mode' => false,
 
-        'security.session_timeout' => 3600,
-        'security.max_login_attempts' => 5,
-        'security.password_expiry' => 90,
+        'security.session_timeout' => 120,
+        'security.max_login_attempts' => 3,
+        'security.password_expiry' => 30,
         'security.two_factor_auth' => false,
         'security.ssl_enforced' => true,
         'security.audit_logging' => true,
 
         'performance.cache_enabled' => true,
-        'performance.cache_duration' => 3600,
+        'performance.cache_duration' => 60,
         'performance.log_retention_days' => 30,
-        'performance.max_upload_size' => 50,
+        'performance.max_upload_size' => 10,
 
         'modules.health_center.enabled' => true,
         'modules.health_center.enable_online_appointments' => true,
@@ -307,7 +307,8 @@ class SettingsService
         $errors = [];
         foreach ($settings as $key => $val) {
             if (isset($rulesMap[$key])) {
-                $fieldErrors = $this->validator->validateField($key, $val, $rulesMap[$key]);
+                $dataType = $existingMap[$key]['data_type'] ?? null;
+                $fieldErrors = $this->validator->validateField($key, $val, $rulesMap[$key], $dataType);
                 if (!empty($fieldErrors)) {
                     $errors[$key] = $fieldErrors;
                 }
@@ -320,7 +321,13 @@ class SettingsService
 
         // Process updates
         $snapshot = [];
+        $hasChanges = false;
         foreach ($settings as $key => $val) {
+            // Skip non-editable settings
+            if (isset($existingMap[$key]['is_editable']) && $existingMap[$key]['is_editable'] === false) {
+                continue;
+            }
+
             $meta = [];
             if (isset($existingMap[$key])) {
                 $meta = [
@@ -328,20 +335,37 @@ class SettingsService
                     'is_encrypted' => $existingMap[$key]['is_encrypted'],
                     'is_editable' => $existingMap[$key]['is_editable'],
                     'validation_rules' => $existingMap[$key]['validation_rules'],
+                    'existing' => $existingMap[$key],
                 ];
             }
 
-            // Encrypt if sensitive
-            $dbValue = $val;
-            if ($this->isSensitiveKey($key) || !empty($meta['is_encrypted'])) {
+            // Determine if value actually changed to avoid redundant HTTP requests
+            $isSensitive = $this->isSensitiveKey($key) || !empty($meta['is_encrypted']);
+            $currentDbVal = $existingMap[$key]['value'] ?? null;
+
+            if ($isSensitive) {
                 $meta['is_encrypted'] = true;
+                $currentDecrypted = $currentDbVal !== null ? $this->encryption->decrypt((string)$currentDbVal) : null;
+                if ((string)$currentDecrypted === (string)$val) {
+                    $snapshot[$key] = $val;
+                    continue; // Skip unchanged encrypted setting
+                }
                 $dbValue = $this->encryption->encrypt((string)$val);
+            } else {
+                $currentFormatted = is_array($currentDbVal) ? json_encode($currentDbVal) : (is_bool($currentDbVal) ? ($currentDbVal ? 'true' : 'false') : (string)$currentDbVal);
+                $newFormatted = is_array($val) ? json_encode($val) : (is_bool($val) ? ($val ? 'true' : 'false') : (string)$val);
+                if ($currentFormatted === $newFormatted && isset($existingMap[$key])) {
+                    $snapshot[$key] = $val;
+                    continue; // Skip unchanged setting
+                }
+                $dbValue = $val;
             }
 
+            $hasChanges = true;
             try {
                 $this->repository->saveKey($key, $dbValue, $meta);
             } catch (Throwable $e) {
-                // Ignore DB error if table pending
+                error_log("SettingsService::bulkUpdate failed for key [{$key}]: " . $e->getMessage());
             }
 
             $snapshot[$key] = $val;
@@ -352,16 +376,19 @@ class SettingsService
             }
         }
 
-        // Create Version Snapshot
-        $createdBy = $userContext['username'] ?? $_SESSION['full_name'] ?? 'System Admin';
-        try {
-            $this->repository->createVersionSnapshot($snapshot, $createdBy, 'Bulk update of ' . count($settings) . ' settings.');
-        } catch (Throwable $e) {
-            // Ignore
+        // Create Version Snapshot if changes occurred
+        if ($hasChanges) {
+            $createdBy = $userContext['username'] ?? $_SESSION['full_name'] ?? 'System Admin';
+            try {
+                $this->repository->createVersionSnapshot($snapshot, $createdBy, 'Bulk update of settings.');
+            } catch (Throwable $e) {
+                // Ignore snapshot error
+            }
         }
 
-        // Re-warm single dictionary cache
-        self::$settingsMap = array_merge($this->loadMap(), $snapshot);
+        // Force reload map from database and re-warm single dictionary cache
+        $this->clearCache();
+        self::$settingsMap = $this->loadMap(true);
         $this->cache->set('all_settings_dictionary', self::$settingsMap, 86400);
 
         return true;
@@ -469,7 +496,7 @@ class SettingsService
     {
         if ($value === null) return null;
 
-        if ($dataType === 'boolean' || is_bool($value) || $value === 'true' || $value === 'false') {
+        if ($dataType === 'boolean' || is_bool($value) || $value === 'true' || $value === 'false' || $value === '1' || $value === '0') {
             return filter_var($value, FILTER_VALIDATE_BOOLEAN);
         }
         if ($dataType === 'integer' || (is_string($value) && ctype_digit($value))) {

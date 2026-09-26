@@ -24,103 +24,112 @@ class AiAnalyticsService
     public function getAnalyticsData(string $range = '6m', string $filter = 'disease', bool $yoy = false, bool $bypassCache = false, string $scope = 'admin'): array
     {
         $cacheKey = 'analytics_' . md5($range . '_' . $filter . '_' . ($yoy ? '1' : '0') . '_' . $scope);
-        $ttlSeconds = 300; // 5-minute cost-free cache
+        $ttlSeconds = 15; // 15-second fast reactive cache
 
         if ($bypassCache) {
             $this->cache->delete($cacheKey);
+        } else {
+            $cached = $this->cache->get($cacheKey);
+            if ($cached !== null) {
+                $cached['cache_status'] = 'HIT';
+                return $cached;
+            }
         }
 
-        $result = $this->cache->remember($cacheKey, $ttlSeconds, function() use ($range, $filter, $yoy, $scope) {
-            // Targeted Fast DB Snapshot (All 5 modules interconnected from live Supabase tables)
-            $tablesToFetch = match ($scope) {
-                'sanitation'   => ['permits', 'inspections', 'renewals', 'employees', 'activity_logs'],
-                'health_center'=> ['patients', 'consultations', 'appointments', 'triage_queue', 'prescriptions', 'medical_records', 'employees'],
-                'immunization' => ['children', 'immunization_assessments', 'patients', 'prescriptions', 'consultations', 'employees'],
-                'surveillance' => ['surveillance_cases', 'surveillance_alerts', 'surveillance_contacts', 'surveillance_interventions', 'surveillance_resources', 'surveillance_response_teams', 'employees'],
-                'wastewater'   => ['septic_tanks', 'wastewater_invoices', 'service_requests', 'surveillance_resources', 'permits', 'employees'],
-                default        => [
-                    'surveillance_cases', 'surveillance_alerts', 'surveillance_contacts', 'surveillance_interventions', 'surveillance_resources', 'surveillance_response_teams',
-                    'patients', 'consultations', 'appointments', 'triage_queue', 'prescriptions', 'medical_records',
-                    'permits', 'inspections', 'renewals',
-                    'children', 'immunization_assessments',
-                    'septic_tanks', 'wastewater_invoices', 'service_requests',
-                    'employees', 'activity_logs'
-                ]
-            };
+        // Targeted Fast DB Snapshot (All 5 modules interconnected from live Supabase tables)
+        $tablesToFetch = match ($scope) {
+            'sanitation'   => ['permits', 'inspections', 'renewals', 'employees', 'activity_logs'],
+            'health_center'=> ['patients', 'consultations', 'appointments', 'triage_queue', 'prescriptions', 'medical_records', 'employees'],
+            'immunization' => ['children', 'immunization_assessments', 'patients', 'prescriptions', 'consultations', 'employees'],
+            'surveillance' => ['surveillance_cases', 'surveillance_alerts', 'surveillance_contacts', 'surveillance_interventions', 'surveillance_resources', 'surveillance_response_teams', 'employees'],
+            'wastewater'   => ['septic_tanks', 'wastewater_invoices', 'service_requests', 'surveillance_resources', 'permits', 'employees'],
+            default        => [
+                'surveillance_cases', 'surveillance_alerts', 'surveillance_contacts', 'surveillance_interventions', 'surveillance_resources', 'surveillance_response_teams',
+                'patients', 'consultations', 'appointments', 'triage_queue', 'prescriptions', 'medical_records',
+                'permits', 'inspections', 'renewals',
+                'children', 'immunization_assessments',
+                'septic_tanks', 'wastewater_invoices', 'service_requests',
+                'employees', 'activity_logs'
+            ]
+        };
 
-            $fetched = $this->db->multiSelect($tablesToFetch);
+        $fetched = $this->db->multiSelect($tablesToFetch);
 
-            $snap = [
-                // Module 1: Disease Surveillance & Response
-                'cases'          => $fetched['surveillance_cases'] ?? [],
-                'alerts'         => $fetched['surveillance_alerts'] ?? [],
-                'contacts'       => $fetched['surveillance_contacts'] ?? [],
-                'interventions'  => $fetched['surveillance_interventions'] ?? [],
-                'resources'      => $fetched['surveillance_resources'] ?? [],
-                'response_teams' => $fetched['surveillance_response_teams'] ?? [],
-                // Module 2: Health Center Services
-                'patients'       => $fetched['patients'] ?? [],
-                'consultations'  => $fetched['consultations'] ?? [],
-                'appointments'   => $fetched['appointments'] ?? [],
-                'triage'         => $fetched['triage_queue'] ?? [],
-                'prescriptions'  => $fetched['prescriptions'] ?? [],
-                'medical_records'=> $fetched['medical_records'] ?? [],
-                // Module 3: Sanitation Permits & Inspection
-                'permits'        => $fetched['permits'] ?? [],
-                'inspections'    => $fetched['inspections'] ?? [],
-                'renewals'       => $fetched['renewals'] ?? [],
-                // Module 4: Immunization & Nutrition
-                'children'       => $fetched['children'] ?? [],
-                'vaccines'       => $fetched['immunization_assessments'] ?? [],
-                // Module 5: Wastewater Management
-                'septic_tanks'   => $fetched['septic_tanks'] ?? [],
-                'invoices'       => $fetched['wastewater_invoices'] ?? [],
-                'requests'       => $fetched['service_requests'] ?? [],
-                // System & Activity
-                'employees'      => $fetched['employees'] ?? [],
-                'activity_logs'  => $fetched['activity_logs'] ?? []
-            ];
+        $snap = [
+            // Module 1: Disease Surveillance & Response
+            'cases'          => $fetched['surveillance_cases'] ?? [],
+            'alerts'         => $fetched['surveillance_alerts'] ?? [],
+            'contacts'       => $fetched['surveillance_contacts'] ?? [],
+            'interventions'  => $fetched['surveillance_interventions'] ?? [],
+            'resources'      => $fetched['surveillance_resources'] ?? [],
+            'response_teams' => $fetched['surveillance_response_teams'] ?? [],
+            // Module 2: Health Center Services
+            'patients'       => $fetched['patients'] ?? [],
+            'consultations'  => $fetched['consultations'] ?? [],
+            'appointments'   => $fetched['appointments'] ?? [],
+            'triage'         => $fetched['triage_queue'] ?? [],
+            'prescriptions'  => $fetched['prescriptions'] ?? [],
+            'medical_records'=> $fetched['medical_records'] ?? [],
+            // Module 3: Sanitation Permits & Inspection
+            'permits'        => $fetched['permits'] ?? [],
+            'inspections'    => $fetched['inspections'] ?? [],
+            'renewals'       => $fetched['renewals'] ?? [],
+            // Module 4: Immunization & Nutrition
+            'children'       => $fetched['children'] ?? [],
+            'vaccines'       => $fetched['immunization_assessments'] ?? [],
+            // Module 5: Wastewater Management
+            'septic_tanks'   => $fetched['septic_tanks'] ?? [],
+            'invoices'       => $fetched['wastewater_invoices'] ?? [],
+            'requests'       => $fetched['service_requests'] ?? [],
+            // System & Activity
+            'employees'      => $fetched['employees'] ?? [],
+            'activity_logs'  => $fetched['activity_logs'] ?? []
+        ];
 
-            $kpis          = $this->calculateKPIs($snap, $scope);
-            $insights      = $this->generateAiInsights($snap, $scope);
-            $predictive    = $this->generatePredictiveForecast($range, $snap, $scope);
-            $trend         = $this->generateTrendSeries($filter, $range, $yoy, $snap, $scope);
-            $modules       = $this->calculateModuleDistribution($snap, $scope);
-            $metrics       = $this->calculatePerformanceMetrics($snap, $scope);
-            $staff         = $this->getStaffPerformance($snap, $scope);
-            $ruleInsights  = $this->generateRuleBasedCallouts($predictive, $modules, $trend, $scope);
-            $execOverview  = $this->generateExecutiveOverview($snap, $scope);
-            $situational   = $this->generateSituationalAwareness($snap, $scope);
-            $prescriptive  = $this->generatePrescriptiveAnalytics($snap, $scope);
-            $correlations  = $this->generateCorrelationAnalysis($snap, $scope);
-            $modelMetrics  = $this->calculateModelMetrics($predictive, $snap);
+        $kpis          = $this->calculateKPIs($snap, $scope);
+        $insights      = $this->generateAiInsights($snap, $scope);
+        $predictive    = $this->generatePredictiveForecast($range, $snap, $scope);
+        $trend         = $this->generateTrendSeries($filter, $range, $yoy, $snap, $scope);
+        $modules       = $this->calculateModuleDistribution($snap, $scope);
+        $metrics       = $this->calculatePerformanceMetrics($snap, $scope);
+        $staff         = $this->getStaffPerformance($snap, $scope);
+        $ruleInsights  = $this->generateRuleBasedCallouts($predictive, $modules, $trend, $scope);
+        $execOverview  = $this->generateExecutiveOverview($snap, $scope);
+        $situational   = $this->generateSituationalAwareness($snap, $scope);
+        $prescriptive  = $this->generatePrescriptiveAnalytics($snap, $scope);
+        $correlations  = $this->generateCorrelationAnalysis($snap, $scope);
+        $modelMetrics  = $this->calculateModelMetrics($predictive, $snap);
 
-            return [
-                'success' => true,
-                'timestamp' => date('Y-m-d H:i:s'),
-                'range' => $range,
-                'scope' => $scope,
-                'exec_overview' => $execOverview,
-                'situational' => $situational,
-                'prescriptive' => $prescriptive,
-                'correlations' => $correlations,
-                'model_quality' => $modelMetrics,
-                'kpis' => $kpis,
-                'insights' => $insights,
-                'predictive' => $predictive,
-                'trend' => $trend,
-                'modules' => $modules,
-                'metrics' => $metrics,
-                'staff' => $staff,
-                'forecast_insight' => $ruleInsights['forecast_insight'],
-                'module_insight' => $ruleInsights['module_insight'],
-                'correlation_insight' => $ruleInsights['correlation_insight']
-            ];
-        });
+        $payload = [
+            'success' => true,
+            'timestamp' => date('Y-m-d H:i:s'),
+            'range' => $range,
+            'scope' => $scope,
+            'exec_overview' => $execOverview,
+            'situational' => $situational,
+            'prescriptive' => $prescriptive,
+            'correlations' => $correlations,
+            'model_quality' => $modelMetrics,
+            'kpis' => $kpis,
+            'insights' => $insights,
+            'predictive' => $predictive,
+            'trend' => $trend,
+            'modules' => $modules,
+            'metrics' => $metrics,
+            'staff' => $staff,
+            'forecast_insight' => $ruleInsights['forecast_insight'],
+            'module_insight' => $ruleInsights['module_insight'],
+            'correlation_insight' => $ruleInsights['correlation_insight'],
+            'cache_status' => 'MISS'
+        ];
 
-        $data = $result['data'];
-        $data['cache_status'] = $result['hit'] ? 'HIT' : 'MISS';
-        return $data;
+        // Only save to disk cache if database returned actual records (never cache an empty/offline snapshot)
+        $totalRecords = count($snap['cases'] ?? []) + count($snap['patients'] ?? []) + count($snap['permits'] ?? []) + count($snap['children'] ?? []) + count($snap['septic_tanks'] ?? []);
+        if ($totalRecords > 0) {
+            $this->cache->set($cacheKey, $payload, $ttlSeconds);
+        }
+
+        return $payload;
     }
 
     /**
@@ -772,7 +781,7 @@ class AiAnalyticsService
         }
 
         // Default Admin Scope: All 5 Municipal Modules
-        $historicalCases      = $this->countRecordsPerBucket(array_merge($snap['cases'] ?? [], $snap['contacts'] ?? []), 'created_at', $buckets, '6m');
+        $historicalCases      = $this->countRecordsPerBucket($snap['cases'] ?? [], 'created_at', $buckets, '6m');
         $historicalConsults   = $this->countRecordsPerBucket(array_merge($snap['patients'] ?? [], $snap['consultations'] ?? []), 'created_at', $buckets, '6m');
         $historicalPermits    = $this->countRecordsPerBucket(array_merge($snap['permits'] ?? [], $snap['inspections'] ?? []), 'created_at', $buckets, '6m');
         $historicalVaccines   = $this->countRecordsPerBucket(array_merge($snap['children'] ?? [], $snap['prescriptions'] ?? []), 'created_at', $buckets, '6m');
@@ -887,8 +896,8 @@ class AiAnalyticsService
             return [
                 'current'    => 0,
                 'forecast'   => array_fill(0, $steps + 1, 0),
-                'confidence' => 88,
-                'r_squared'  => 0.85,
+                'confidence' => 50,
+                'r_squared'  => 0.0,
                 'slope'      => 0.0,
                 'growth_pct' => 0.0
             ];
@@ -901,6 +910,50 @@ class AiAnalyticsService
         // Baseline recent moving average
         $recentSlice = array_slice($historicalValues, max(0, $n - 3));
         $recentAvg = count($recentSlice) > 0 ? (array_sum($recentSlice) / count($recentSlice)) : $currentVal;
+
+        // Helper: compute R² from OLS regression
+        $computeRSquared = function(array $vals) {
+            $cnt = count($vals);
+            if ($cnt < 2) return 0.0;
+            $mean = array_sum($vals) / $cnt;
+            if ($mean == 0) return 0.0;
+
+            $ssTot = 0; $ssRes = 0;
+            $sumX = 0; $sumY = 0; $sumXY = 0; $sumXX = 0;
+            foreach ($vals as $i => $y) {
+                $sumX += $i; $sumY += $y; $sumXY += $i * $y; $sumXX += $i * $i;
+            }
+            $denom = ($cnt * $sumXX) - ($sumX * $sumX);
+            $slope = $denom != 0 ? (($cnt * $sumXY) - ($sumX * $sumY)) / $denom : 0;
+            $intercept = ($sumY - $slope * $sumX) / $cnt;
+
+            foreach ($vals as $i => $y) {
+                $predicted = $intercept + $slope * $i;
+                $ssRes += ($y - $predicted) ** 2;
+                $ssTot += ($y - $mean) ** 2;
+            }
+            return $ssTot > 0 ? max(0.0, round(1 - ($ssRes / $ssTot), 4)) : 0.0;
+        };
+
+        // Helper: compute data-driven confidence (0-100)
+        $computeConfidence = function(array $vals, float $rSquared) {
+            $cnt = count($vals);
+            // Base confidence from R²: higher fit = higher confidence
+            $fitScore = $rSquared * 60; // 0-60 points from model fit
+            // Data quantity bonus: more data = more confidence (up to 25 points)
+            $dataScore = min(25, $cnt * 5);
+            // Stability bonus: lower coefficient of variation = higher confidence (up to 15 points)
+            $mean = $cnt > 0 ? array_sum($vals) / $cnt : 0;
+            $variance = 0;
+            foreach ($vals as $v) { $variance += ($v - $mean) ** 2; }
+            $stddev = $cnt > 1 ? sqrt($variance / ($cnt - 1)) : 0;
+            $cv = ($mean > 0) ? ($stddev / $mean) : 1.0;
+            $stabilityScore = max(0, 15 - ($cv * 15));
+
+            return (int)max(30, min(99, round($fitScore + $dataScore + $stabilityScore)));
+        };
+
+        $rSquared = $computeRSquared($historicalValues);
 
         // If dataset has few data points, use damped baseline trajectory
         if ($nonZeroCount <= 2 && $currentVal <= 10) {
@@ -915,11 +968,12 @@ class AiAnalyticsService
             }
             $lastProj = end($trajectory);
             $growthPct = $currentVal > 0 ? round((($lastProj - $currentVal) / $currentVal) * 100, 1) : 0.0;
+            $confidence = $computeConfidence($historicalValues, $rSquared);
             return [
                 'current'    => $currentVal,
                 'forecast'   => $trajectory,
-                'confidence' => 91,
-                'r_squared'  => 0.88,
+                'confidence' => $confidence,
+                'r_squared'  => round($rSquared, 2),
                 'slope'      => round($baseGrowth, 3),
                 'growth_pct' => $growthPct
             ];
@@ -949,19 +1003,20 @@ class AiAnalyticsService
             $cumulativeGrowth += $stepDelta;
             $predVal = $currentVal + $cumulativeGrowth;
 
-            // Municipal ceiling clamp: prevent spikes higher than 1.6x of recent baseline
-            $ceiling = max(8, (int)round(max($currentVal, $recentAvg) * 1.6) + 4);
+            // Municipal ceiling clamp: allow up to 2.5x of recent baseline for outbreak detection
+            $ceiling = max(8, (int)round(max($currentVal, $recentAvg) * 2.5) + 4);
             $trajectory[] = min($ceiling, max(0, (int)round($predVal)));
         }
 
         $lastProj = end($trajectory);
         $growthPct = $currentVal > 0 ? round((($lastProj - $currentVal) / $currentVal) * 100, 1) : 0.0;
+        $confidence = $computeConfidence($historicalValues, $rSquared);
 
         return [
             'current'    => $currentVal,
             'forecast'   => $trajectory,
-            'confidence' => 93,
-            'r_squared'  => 0.90,
+            'confidence' => $confidence,
+            'r_squared'  => round($rSquared, 2),
             'slope'      => round($dampedSlope, 3),
             'growth_pct' => $growthPct
         ];
@@ -1219,14 +1274,14 @@ class AiAnalyticsService
         } else { // combined (admin)
             $subtitle = 'All 5 Municipal Modules System Activity';
             $colors = ['#ef4444', '#176b87', '#d97706', '#2563eb', '#9333ea'];
-            $survCnt  = count($snap['cases'] ?? []) + count($snap['contacts'] ?? []);
+            $survCnt  = count($snap['cases'] ?? []);
             $healthCnt= count($snap['patients'] ?? []) + count($snap['consultations'] ?? []);
             $sanCnt   = count($snap['permits'] ?? []) + count($snap['inspections'] ?? []);
             $immuCnt  = count($snap['children'] ?? []) + count($snap['prescriptions'] ?? []);
             $wasteCnt = count($snap['septic_tanks'] ?? []) + count($snap['invoices'] ?? []);
 
             $series = [
-                ['name' => 'Surveillance', 'data' => $this->countRecordsPerBucket(array_merge($snap['cases'] ?? [], $snap['contacts'] ?? []), 'created_at', $buckets, $rangeKey)],
+                ['name' => 'Surveillance', 'data' => $this->countRecordsPerBucket($snap['cases'] ?? [], 'created_at', $buckets, $rangeKey)],
                 ['name' => 'Health Center', 'data' => $this->countRecordsPerBucket(array_merge($snap['patients'] ?? [], $snap['consultations'] ?? []), 'created_at', $buckets, $rangeKey)],
                 ['name' => 'Sanitation', 'data' => $this->countRecordsPerBucket(array_merge($snap['permits'] ?? [], $snap['inspections'] ?? []), 'created_at', $buckets, $rangeKey)],
                 ['name' => 'Immunization', 'data' => $this->countRecordsPerBucket(array_merge($snap['children'] ?? [], $snap['prescriptions'] ?? []), 'created_at', $buckets, $rangeKey)],
@@ -1402,7 +1457,7 @@ class AiAnalyticsService
         }
 
         // 2. City-Wide Admin Overview (All 5 Municipal Modules Dynamically Computed)
-        $survCount   = count($snap['cases'] ?? []) + count($snap['contacts'] ?? []) + count($snap['interventions'] ?? []);
+        $survCount   = count($snap['cases'] ?? []);
         $healthCount = count($snap['patients'] ?? []) + count($snap['consultations'] ?? []) + count($snap['triage'] ?? []);
         $sanCount    = count($snap['permits'] ?? []) + count($snap['inspections'] ?? []) + count($snap['renewals'] ?? []);
         $immuCount   = count($snap['children'] ?? []) + count($snap['vaccines'] ?? []) + count($snap['prescriptions'] ?? []);
@@ -1613,6 +1668,9 @@ class AiAnalyticsService
         $isAdmin = ($scope === 'admin');
         $mappedDept = $deptMap[$scope] ?? null;
 
+        // Single source of truth for department head / coordinator detection (resolved once).
+        $permService = \App\Services\PermissionService::getInstance();
+
         $employees = $snap['employees'] ?? [];
         if (empty($employees)) {
             $empFilters = (!$isAdmin && !empty($mappedDept)) ? ['department' => 'ilike.%' . $mappedDept . '%'] : [];
@@ -1705,23 +1763,33 @@ class AiAnalyticsService
 
             $dept = trim($emp['department'] ?? 'Health Center Services');
             $role = trim($emp['role'] ?? $emp['role_description'] ?? 'Staff');
+            $position = trim($emp['role_description'] ?? $emp['role'] ?? $role);
+
+            // The runtime session role is the descriptive position (role_description) with the
+            // role column as fallback — see login.php. Use the same precedence here so the
+            // ranking matches what the app considers this employee to be.
+            $effectiveRole = $position !== '' ? $position : $role;
+            $roleKey = strtolower($effectiveRole);
 
             // Department key mapping for scope filtering
             $deptLower = strtolower($dept);
             $roleLower = strtolower($role);
 
-            // Exclude Admins, Directors, Heads, and Leads from subordinate staff ranking
-            $isLeadership = str_contains($roleLower, 'admin')
-                || str_contains($roleLower, 'director')
-                || str_contains($roleLower, 'head')
-                || str_contains($roleLower, 'lead')
-                || str_contains($roleLower, 'chief')
-                || str_contains($roleLower, 'manager')
-                || str_contains($roleLower, 'supervisor')
-                || str_contains($roleLower, 'officer-in-charge')
-                || str_contains($roleLower, 'oic');
+            // System Administrator accounts are never part of the departmental ranking.
+            if (str_contains($roleKey, 'admin') || str_contains($roleKey, 'administrator')) {
+                continue;
+            }
 
-            if ($isLeadership) {
+            // Single source of truth for department head / coordinator detection.
+            // The Wastewater head title ("Wastewater Officer") carries no head keyword,
+            // so it is matched explicitly alongside its "Lead" alias.
+            $isLeadership = $permService->isHeadOrAdminRole($effectiveRole)
+                || in_array($roleKey, ['wastewater officer', 'wastewater lead'], true);
+
+            // A Head / Coordinator only ranks the staff UNDER them, so leadership peers
+            // (other heads, coordinators, directors) are excluded from their view.
+            // The System Admin sees everyone, including department heads & coordinators.
+            if ($isLeadership && !$isAdmin) {
                 continue;
             }
 
@@ -1758,14 +1826,16 @@ class AiAnalyticsService
             $responseTime = round(max(1.5, 5.5 - ($taskCount * 0.1)), 1);
 
             $allStaff[] = [
-                'id'         => $empId,
-                'name'       => $name,
-                'role'       => $role,
-                'score'      => $score,
-                'department' => $dept,
-                'dept_key'   => $deptKey,
-                'cases'      => $taskCount,
-                'response'   => $responseTime
+                'id'            => $empId,
+                'name'          => $name,
+                'role'          => $role,
+                'position'      => $position,
+                'is_leadership' => $isLeadership,
+                'score'         => $score,
+                'department'    => $dept,
+                'dept_key'      => $deptKey,
+                'cases'         => $taskCount,
+                'response'      => $responseTime
             ];
         }
 
@@ -1780,11 +1850,11 @@ class AiAnalyticsService
         if (empty($allStaff)) {
             // Fallback safety if no employees exist in DB
             return [
-                ['name' => 'Default Staff', 'score' => 85, 'department' => 'Health Center', 'dept_key' => 'health_center', 'cases' => 10, 'response' => 3.5]
+                ['name' => 'Default Staff', 'role' => 'Staff', 'position' => 'Staff', 'is_leadership' => false, 'score' => 85, 'department' => 'Health Center', 'dept_key' => 'health_center', 'cases' => 10, 'response' => 3.5]
             ];
         }
 
-        // Admin bypass: sees all staff across all 5 municipal departments (unchanged)
+        // Admin bypass: sees every staff member, including department heads & coordinators
         if ($isAdmin) {
             return $allStaff;
         }
@@ -2162,16 +2232,30 @@ class AiAnalyticsService
             foreach ($predictive['cards'] as $c) {
                 if (isset($c['r_squared'])) {
                     $rSquaredSum += (float)$c['r_squared'];
+                    $rVal = (float)str_replace('%', '', $c['r_squared']);
+                    // Normalize: if stored as percentage string like "0.85", it's already a ratio
+                    if ($rVal > 1) $rVal = $rVal / 100;
+                    $rSquaredSum += $rVal;
                     $rSquaredCount++;
                 }
             }
         }
         $avgRSquared = $rSquaredCount > 0 ? ($rSquaredSum / $rSquaredCount) : 0.92;
+        // Use 0.0 as fallback instead of inflated 0.92 — show honest metrics
+        $avgRSquared = $rSquaredCount > 0 ? ($rSquaredSum / $rSquaredCount) : 0.0;
         
         $mae = round(max(0.8, (1 - $avgRSquared) * 12.0 + 1.2), 2);
         $rmse = round(sqrt($mae * 2.4) + 0.6, 2);
         $mape = round(max(2.5, min(14.0, (1 - $avgRSquared) * 40)), 1) . '%';
         $healthScore = round(min(99.4, max(82.0, ($avgRSquared * 100))), 1) . '% (' . ($avgRSquared >= 0.85 ? 'High Precision' : 'Calibrating') . ')';
+
+        $precisionLabel = match(true) {
+            $avgRSquared >= 0.85 => 'High Precision',
+            $avgRSquared >= 0.60 => 'Moderate Precision',
+            $avgRSquared >= 0.30 => 'Low Precision',
+            default              => 'Insufficient Data'
+        };
+        $healthScore = round(min(99.4, max(0.0, ($avgRSquared * 100))), 1) . '% (' . $precisionLabel . ')';
 
         return [
             'r_squared'        => round($avgRSquared, 3),

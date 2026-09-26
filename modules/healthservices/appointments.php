@@ -499,7 +499,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                         <i class="fa-solid fa-calendar-check text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-slate-900"><?php echo $totalAppointments; ?></p>
+                        <p class="text-2xl font-black text-slate-900" id="kpiTotalAppointments"><?php echo $totalAppointments; ?></p>
                         <p class="text-xs font-medium text-slate-500">Total Bookings</p>
                     </div>
                 </div>
@@ -519,7 +519,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                         <i class="fa-solid fa-check-circle text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-emerald-600"><?php echo $totalApproved; ?></p>
+                        <p class="text-2xl font-black text-emerald-600" id="kpiApprovedAppointments"><?php echo $totalApproved; ?></p>
                         <p class="text-xs font-medium text-slate-500">Approved</p>
                     </div>
                 </div>
@@ -539,7 +539,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                         <i class="fa-solid fa-clock text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-amber-600"><?php echo $totalPending; ?></p>
+                        <p class="text-2xl font-black text-amber-600" id="kpiPendingAppointments"><?php echo $totalPending; ?></p>
                         <p class="text-xs font-medium text-slate-500">Pending</p>
                     </div>
                 </div>
@@ -559,7 +559,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                         <i class="fa-solid fa-calendar-day text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-sky-600"><?php echo $todayAppointments; ?></p>
+                        <p class="text-2xl font-black text-sky-600" id="kpiTodayAppointments"><?php echo $todayAppointments; ?></p>
                         <p class="text-xs font-medium text-slate-500">Today's Schedule</p>
                     </div>
                 </div>
@@ -650,6 +650,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                             $maskedCode = substr($code, 0, 2) . str_repeat('*', max(0, strlen($code) - 2));
                         ?>
                         <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors appointment-row"
+                            data-id="<?php echo $a['id']; ?>"
                             data-patient="<?php echo htmlspecialchars(strtolower($a['patient_name'])); ?>"
                             data-doctor="<?php echo htmlspecialchars(strtolower($a['doctor_name'])); ?>"
                             data-service="<?php echo htmlspecialchars(strtolower($a['service_type'])); ?>"
@@ -1378,6 +1379,153 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
         window.location.href = `consultations.php?${params.toString()}`;
     }
 
+    function renderSingleAppointmentRow(a) {
+        const safeId = CrudAjax.escapeHtml(a.id);
+        const safeAptId = CrudAjax.escapeHtml(a.appointment_id || ('APT-' + a.id));
+        const safePatientName = CrudAjax.escapeHtml(a.patient_name || 'Patient');
+        const safePatientCode = CrudAjax.escapeHtml(a.patient_code || ('P-' + (a.patient_id || '')));
+        const safeAvatar = CrudAjax.escapeHtml(a.patient_avatar || 'P');
+        const safeDoctorName = CrudAjax.escapeHtml(a.doctor_name || a.employee_name || 'Staff');
+        const safeServiceType = CrudAjax.escapeHtml(a.service_type || 'Consultation');
+        const safePriority = CrudAjax.escapeHtml((a.priority || 'medium').toLowerCase());
+        const safeStatus = CrudAjax.escapeHtml((a.status || 'pending').toLowerCase());
+        const rawDate = a.date || a.appointment_date || '';
+        const safeTime = CrudAjax.escapeHtml(a.time || a.appointment_time || '');
+        const dateFormatted = rawDate ? new Date(rawDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '';
+
+        const priorityClass = safePriority === 'critical' ? 'bg-rose-100 text-rose-700' :
+            (safePriority === 'high' ? 'bg-amber-100 text-amber-700' :
+            (safePriority === 'medium' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'));
+
+        const statusClass = ['approved', 'confirmed'].includes(safeStatus) ? 'bg-emerald-100 text-emerald-700' :
+            (safeStatus === 'pending' ? 'bg-amber-100 text-amber-700' :
+            (safeStatus === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'));
+
+        const nameParts = (a.patient_name || '').split(' ');
+        let maskedName = '';
+        nameParts.forEach(p => {
+            if (p) maskedName += p[0].toUpperCase() + '*'.repeat(Math.max(0, p.length - 1)) + ' ';
+        });
+        maskedName = maskedName.trim();
+        const maskedCode = (a.patient_code || '').substring(0, 2) + '*'.repeat(Math.max(0, (a.patient_code || '').length - 2));
+
+        const checkInBtn = ['approved', 'confirmed', 'pending'].includes(safeStatus) ? `
+            <button onclick="checkInScheduledPatient('${safeId}')"
+                    class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient for Today's Visit">
+                <i class="fa-solid fa-user-check text-sm"></i>
+            </button>` : '';
+
+        const cancelBtn = !['cancelled', 'completed'].includes(safeStatus) ? `
+            <button onclick="changeAppointmentStatus('${safeId}', 'cancelled')"
+                    class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Cancel Appointment">
+                <i class="fa-solid fa-ban text-sm"></i>
+            </button>` : '';
+
+        const consultBtn = (safeStatus === 'approved' || safeStatus === 'confirmed') ? `
+            <button onclick="startConsultationFromAppointment('${safeId}')"
+                    class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start Consultation">
+                <i class="fa-solid fa-user-doctor text-sm"></i>
+            </button>` : '';
+
+        return `
+        <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors appointment-row"
+            data-id="${safeId}"
+            data-patient="${safePatientName.toLowerCase()}"
+            data-doctor="${safeDoctorName.toLowerCase()}"
+            data-service="${safeServiceType.toLowerCase()}"
+            data-status="${safeStatus}"
+            data-priority="${safePriority}"
+            data-date="${rawDate}">
+            
+            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-bold">${safeAptId}</td>
+            
+            <td class="px-4 py-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
+                        ${safeAvatar}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-slate-800 text-sm maskable" 
+                           data-masked="${CrudAjax.escapeHtml(maskedName)}"
+                           data-real="${safePatientName}">
+                            ${safePatientName}
+                        </p>
+                        <p class="text-xs text-slate-400 font-mono maskable" 
+                           data-masked="${CrudAjax.escapeHtml(maskedCode)}"
+                           data-real="${safePatientCode}">
+                            ${safePatientCode}
+                        </p>
+                    </div>
+                </div>
+            </td>
+
+            <td class="px-4 py-3">
+                <p class="font-medium text-slate-800 text-xs">${safeDoctorName}</p>
+            </td>
+
+            <td class="px-4 py-3">
+                <p class="text-xs font-semibold text-slate-800">${dateFormatted}</p>
+                <p class="text-[10px] text-slate-400 font-medium">${safeTime}</p>
+            </td>
+
+            <td class="px-4 py-3">
+                <span class="px-2 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-medium">
+                    ${safeServiceType}
+                </span>
+            </td>
+
+            <td class="px-4 py-3">
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${priorityClass}">
+                    ${safePriority.charAt(0).toUpperCase() + safePriority.slice(1)}
+                </span>
+            </td>
+
+            <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusClass}">
+                    ${safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1)}
+                </span>
+            </td>
+
+            <td class="px-4 py-3 text-center">
+                <div class="flex items-center justify-center gap-1">
+                    <button onclick="viewAppointment('${safeId}')"
+                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details">
+                        <i class="fa-solid fa-eye text-sm"></i>
+                    </button>
+                    ${checkInBtn}
+                    ${cancelBtn}
+                    ${consultBtn}
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    async function updateAppointmentKpis() {
+        try {
+            const res = await fetch('<?php echo site_url('api/appointments.php'); ?>');
+            const data = await res.json();
+            if (data.success && Array.isArray(data.data)) {
+                const all = data.data;
+                const total = all.length;
+                const approved = all.filter(a => ['approved', 'confirmed'].includes((a.status || '').toLowerCase())).length;
+                const pending = all.filter(a => (a.status || '').toLowerCase() === 'pending').length;
+                const todayStr = new Date().toISOString().split('T')[0];
+                const todayCount = all.filter(a => (a.date || a.appointment_date || '') === todayStr).length;
+
+                const elTot = document.getElementById('kpiTotalAppointments');
+                const elApp = document.getElementById('kpiApprovedAppointments');
+                const elPen = document.getElementById('kpiPendingAppointments');
+                const elTod = document.getElementById('kpiTodayAppointments');
+                if (elTot) elTot.textContent = total;
+                if (elApp) elApp.textContent = approved;
+                if (elPen) elPen.textContent = pending;
+                if (elTod) elTod.textContent = todayCount;
+            }
+        } catch (e) {
+            console.warn('Failed to update appointment KPIs:', e);
+        }
+    }
+
     // ============================================================
     // FORM VALIDATION
     // ============================================================
@@ -1424,17 +1572,28 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                 };
 
                 try {
+                    const csrfToken = CrudAjax.getCsrfToken();
                     const res = await fetch('../../api/appointments.php', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ ...payload, csrf_token: csrfToken })
                     });
                     const data = await res.json();
                     
                     if (data.success) {
                         ModalSystem.toast.success('Appointment scheduled!', { title: 'Success', duration: 3000 });
                         ModalSystem.close('addAppointmentModal');
-                        setTimeout(() => window.location.reload(), 1000);
+                        const form = document.getElementById('addAppointmentModal')?.querySelector('form');
+                        if (form) form.reset();
+                        const rec = data.record || data.data;
+                        if (rec) {
+                            CrudAjax.upsertRow('appointmentTableBody', rec, (r) => renderSingleAppointmentRow(r), 'create');
+                        }
+                        updateAppointmentKpis();
                     } else {
                         ModalSystem.toast.error(data.message || 'Failed to schedule appointment', { title: 'Error', duration: 6000 });
                     }
@@ -1476,10 +1635,15 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                 };
 
                 try {
+                    const csrfToken = CrudAjax.getCsrfToken();
                     const res = await fetch('../../api/appointments.php?action=update&id=' + id, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ ...payload, csrf_token: csrfToken })
                     });
                     
                     const data = await res.json();
@@ -1487,7 +1651,11 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                     if (data.success) {
                         ModalSystem.toast.success('Appointment updated!');
                         ModalSystem.close('editAppointmentModal');
-                        setTimeout(() => window.location.reload(), 800);
+                        const rec = data.record || data.data;
+                        if (rec) {
+                            CrudAjax.upsertRow('appointmentTableBody', rec, (r) => renderSingleAppointmentRow(r), 'update');
+                        }
+                        updateAppointmentKpis();
                     } else {
                         ModalSystem.toast.error(data.message || 'Failed to update', { title: 'Error' });
                     }
@@ -1564,17 +1732,32 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
 
         ModalSystem.confirm(cfg.msg, async () => {
             try {
+                const csrfToken = CrudAjax.getCsrfToken();
                 const res = await fetch('<?php echo site_url('api/appointments.php?action=status&id='); ?>' + id, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: newStatus })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ status: newStatus, csrf_token: csrfToken })
                 });
                 
                 const data = await res.json();
                 
                 if (data.success) {
                     ModalSystem.toast.success('Appointment ' + newStatus + '!');
-                    setTimeout(() => window.location.reload(), 800);
+                    const rec = data.record || data.data;
+                    if (rec) {
+                        CrudAjax.upsertRow('appointmentTableBody', rec, (r) => renderSingleAppointmentRow(r), 'update');
+                        if (typeof APPOINTMENTS_DATA !== 'undefined') {
+                            APPOINTMENTS_DATA[id] = rec;
+                        }
+                    } else if (typeof APPOINTMENTS_DATA !== 'undefined' && APPOINTMENTS_DATA[id]) {
+                        APPOINTMENTS_DATA[id].status = newStatus;
+                        CrudAjax.upsertRow('appointmentTableBody', APPOINTMENTS_DATA[id], (r) => renderSingleAppointmentRow(r), 'update');
+                    }
+                    updateAppointmentKpis();
                 } else {
                     ModalSystem.toast.error(data.message || 'Failed');
                 }
@@ -1591,13 +1774,24 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
     async function deleteAppointment(id) {
         ModalSystem.confirm('Cancel this appointment?', async () => {
             try {
+                const csrfToken = CrudAjax.getCsrfToken();
                 const res = await fetch('<?php echo site_url('api/appointments.php?action=delete&id='); ?>' + id, {
                     method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ csrf_token: csrfToken })
                 });
                 const data = await res.json();
                 if (data.success) {
                     ModalSystem.toast.success('Cancelled!');
-                    setTimeout(() => window.location.reload(), 800);
+                    CrudAjax.deleteRow('appointmentTableBody', id);
+                    if (typeof APPOINTMENTS_DATA !== 'undefined' && APPOINTMENTS_DATA[id]) {
+                        delete APPOINTMENTS_DATA[id];
+                    }
+                    updateAppointmentKpis();
                 } else {
                     ModalSystem.toast.error(data.message || 'Failed');
                 }
@@ -1675,7 +1869,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
     // ============================================================
     // REAL-TIME TRIAGE ASSIGNMENT POLLING
     // Every 30 seconds, check if new triage assignments have come
-    // in and auto-refresh the table to show the doctor's new queue
+    // in and show notification without full page reload
     // ============================================================
     (function startTriagePolling() {
         let lastTriageCount = <?php
@@ -1696,14 +1890,12 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                 const newCount = data.count ?? data.total ?? null;
                 if (newCount !== null && newCount !== lastTriageCount) {
                     lastTriageCount = newCount;
-                    // Show a small toast then reload to reflect new assignments
                     if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
-                        ModalSystem.toast.info('New patient assignment received — refreshing your queue.', {
+                        ModalSystem.toast.info('New patient assignment received in queue.', {
                             title: '🔄 Queue Updated',
-                            duration: 2500
+                            duration: 3500
                         });
                     }
-                    setTimeout(() => window.location.reload(), 2600);
                 }
             } catch (e) {
                 // Silent fail — polling is best-effort
@@ -1725,19 +1917,37 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
         const urlParams = new URLSearchParams(window.location.search);
         const targetPatientId = urlParams.get('patient_id') || urlParams.get('patient');
         const autoOpenNew = urlParams.get('from_consultation') !== null || urlParams.get('action') === 'new' || urlParams.get('new') === 'true';
+        const patientLookup = Array.isArray(PATIENTS) ? PATIENTS : (Array.isArray(window.PATIENTS_DATA) ? window.PATIENTS_DATA : []);
 
         if (autoOpenNew || targetPatientId) {
             setTimeout(() => {
                 ModalSystem.open('addAppointmentModal');
-                if (targetPatientId && typeof PATIENTS_DATA !== 'undefined') {
-                    const p = PATIENTS_DATA.find(pt => pt.id == targetPatientId);
+
+                if (targetPatientId) {
+                    const p = patientLookup.find(pt => String(pt.id) === String(targetPatientId));
                     if (p && typeof selectPatient === 'function') {
-                        selectPatient(p.id, p.name, p.patient_id);
+                        const patientName = p.name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || `Patient #${p.id}`;
+                        const patientCode = p.patient_id || `P-${p.id}`;
+                        selectPatient(p.id, patientName, patientCode);
                     } else {
                         const hiddenId = document.getElementById('add_patient_id');
                         if (hiddenId) hiddenId.value = targetPatientId;
+
+                        const searchInput = document.getElementById('add_patient_search');
+                        if (searchInput && patientLookup.length) {
+                            const fallbackPatient = patientLookup.find(pt => String(pt.id) === String(targetPatientId));
+                            if (fallbackPatient) {
+                                const patientName = fallbackPatient.name || `${fallbackPatient.first_name || ''} ${fallbackPatient.last_name || ''}`.trim() || `Patient #${fallbackPatient.id}`;
+                                const patientCode = fallbackPatient.patient_id || `P-${fallbackPatient.id}`;
+                                searchInput.value = getMaskedDisplay(patientName, patientCode);
+                                searchInput.dataset.real = getRealDisplay(patientName, patientCode);
+                                searchInput.dataset.masked = getMaskedDisplay(patientName, patientCode);
+                                searchInput.classList.add('maskable');
+                            }
+                        }
                     }
                 }
+
                 if (LOGGED_IN_DOCTOR_ID && LOGGED_IN_DOCTOR_NAME && typeof selectDoctor === 'function') {
                     selectDoctor('add', LOGGED_IN_DOCTOR_ID, LOGGED_IN_DOCTOR_NAME);
                 }

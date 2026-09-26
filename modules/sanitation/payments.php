@@ -413,9 +413,11 @@ $limit = 5;
         async request(params = {}, options = {}) {
             const query = new URLSearchParams(params).toString();
             const url = query ? `${this.baseUrl}?${query}` : this.baseUrl;
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
             const config = {
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
                     ...(this.token && {
                         'Authorization': `Bearer ${this.token}`
                     }),
@@ -479,9 +481,11 @@ $limit = 5;
         async request(params = {}, options = {}) {
             const query = new URLSearchParams(params).toString();
             const url = query ? `${this.baseUrl}?${query}` : this.baseUrl;
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
             const config = {
                 headers: {
                     'Content-Type': 'application/json',
+                    ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
                     ...(this.token && {
                         'Authorization': `Bearer ${this.token}`
                     }),
@@ -700,31 +704,35 @@ $limit = 5;
             const permitInfo = payment.permits || {};
             const applicant = permitInfo.applicant || 'Unknown';
             const permitId = permitInfo.permit_id || '—';
+            const maskedApplicant = maskName(applicant);
+            const maskedPermitId = maskId(permitId);
+            const maskedRef = maskId(payment.reference_number || '—');
+            const formattedAmount = '₱' + parseFloat(payment.amount).toLocaleString('en-PH', {minimumFractionDigits: 2});
 
             return `
         <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors payment-row"
             data-id="${payment.id}">
-            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${payment.payment_id}</td>
+            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${escapeHtml(payment.payment_id || '')}</td>
             <td class="px-4 py-3">
                 <div>
-                    <p class="font-semibold text-slate-800 text-sm maskable">${applicant}</p>
-                    <p class="text-xs text-slate-400 maskable">${permitId}</p>
+                    <p class="font-semibold text-slate-800 text-sm maskable" data-real="${escapeHtml(applicant)}" data-masked="${escapeHtml(maskedApplicant)}">${escapeHtml(applicant)}</p>
+                    <p class="text-xs text-slate-400 maskable" data-real="${escapeHtml(permitId)}" data-masked="${escapeHtml(maskedPermitId)}">${escapeHtml(permitId)}</p>
                 </div>
             </td>
             <td class="px-4 py-3">
-                <span class="text-sm font-bold text-slate-800 maskable">₱${parseFloat(payment.amount).toLocaleString('en-PH', {minimumFractionDigits: 2})}</span>
+                <span class="text-sm font-bold text-slate-800 maskable" data-real="${escapeHtml(formattedAmount)}" data-masked="₱••••••">${escapeHtml(formattedAmount)}</span>
             </td>
             <td class="px-4 py-3 text-slate-600 text-xs">
                 <i class="fa-solid ${methodIcons[payment.method] || 'fa-credit-card'} ${methodColors[payment.method] || ''} mr-1"></i>
-                ${methodNames[payment.method] || payment.method}
+                ${escapeHtml(methodNames[payment.method] || payment.method || '')}
             </td>
-            <td class="px-4 py-3 text-slate-500 text-xs font-mono maskable">${payment.reference_number || '—'}</td>
+            <td class="px-4 py-3 text-slate-500 text-xs font-mono maskable" data-real="${escapeHtml(payment.reference_number || '—')}" data-masked="${escapeHtml(maskedRef)}">${escapeHtml(payment.reference_number || '—')}</td>
             <td class="px-4 py-3">
                 <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[payment.status] || statusColors.pending}">
-                    ${payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                    ${escapeHtml((payment.status || '').charAt(0).toUpperCase() + (payment.status || '').slice(1))}
                 </span>
             </td>
-            <td class="px-4 py-3 text-slate-500 text-xs">${new Date(payment.created_at).toLocaleString()}</td>
+            <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(new Date(payment.created_at).toLocaleString())}</td>
             <td class="px-4 py-3">
                 <div class="flex items-center justify-center gap-1">
                     <button onclick="viewPayment(${payment.id})"
@@ -926,29 +934,37 @@ $limit = 5;
                 refunded: 'bg-purple-100 text-purple-700'
             };
 
+            const modalApplicant = permitInfo.applicant || 'Unknown';
+            const maskedModalApplicant = maskName(modalApplicant);
+            const modalPermitId = permitInfo.permit_id || '—';
+            const maskedModalPermitId = maskId(modalPermitId);
+            const modalAmount = '₱' + parseFloat(p.amount).toLocaleString('en-PH', {minimumFractionDigits: 2});
+            const maskedModalRef = maskId(p.reference_number || '—');
+            const maskedPaidBy = maskName(p.paid_by || '—');
+
             document.getElementById('paymentDetailsContent').innerHTML = `
             <div class="space-y-4">
                 <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
                     <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-2xl flex-shrink-0">
-                        ${(permitInfo.applicant || 'P').charAt(0)}
+                        ${escapeHtml((permitInfo.applicant || 'P').charAt(0))}
                     </div>
                     <div>
-                        <h4 class="text-lg font-bold text-slate-900 maskable">${permitInfo.applicant || 'Unknown'}</h4>
-                        <p class="text-sm text-slate-500">${p.payment_id} • ${permitInfo.permit_id || '—'}</p>
+                        <h4 class="text-lg font-bold text-slate-900 maskable" data-real="${escapeHtml(modalApplicant)}" data-masked="${escapeHtml(maskedModalApplicant)}">${escapeHtml(modalApplicant)}</h4>
+                        <p class="text-sm text-slate-500">${escapeHtml(p.payment_id || '')} • ${escapeHtml(modalPermitId)}</p>
                         <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[p.status] || statusColors.pending}">
-                            ${p.status.toUpperCase()}
+                            ${escapeHtml((p.status || '').toUpperCase())}
                         </span>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div><p class="text-xs text-slate-400 font-semibold">Amount</p><p class="text-sm font-bold text-slate-800 maskable">₱${parseFloat(p.amount).toLocaleString('en-PH', {minimumFractionDigits: 2})}</p></div>
-                    <div><p class="text-xs text-slate-400 font-semibold">Method</p><p class="text-sm text-slate-800 capitalize">${p.method.replace('_', ' ')}</p></div>
-                    <div><p class="text-xs text-slate-400 font-semibold">Reference</p><p class="text-sm text-slate-800 font-mono maskable">${p.reference_number || '—'}</p></div>
-                    <div><p class="text-xs text-slate-400 font-semibold">Date</p><p class="text-sm text-slate-800">${new Date(p.created_at).toLocaleString()}</p></div>
-                    ${p.paid_at ? `<div><p class="text-xs text-slate-400 font-semibold">Paid At</p><p class="text-sm text-slate-800">${new Date(p.paid_at).toLocaleString()}</p></div>` : ''}
-                    <div><p class="text-xs text-slate-400 font-semibold">Paid By</p><p class="text-sm text-slate-800 maskable">${p.paid_by || '—'}</p></div>
+                    <div><p class="text-xs text-slate-400 font-semibold">Amount</p><p class="text-sm font-bold text-slate-800 maskable" data-real="${escapeHtml(modalAmount)}" data-masked="₱••••••">${escapeHtml(modalAmount)}</p></div>
+                    <div><p class="text-xs text-slate-400 font-semibold">Method</p><p class="text-sm text-slate-800 capitalize">${escapeHtml((p.method || '').replace('_', ' '))}</p></div>
+                    <div><p class="text-xs text-slate-400 font-semibold">Reference</p><p class="text-sm text-slate-800 font-mono maskable" data-real="${escapeHtml(p.reference_number || '—')}" data-masked="${escapeHtml(maskedModalRef)}">${escapeHtml(p.reference_number || '—')}</p></div>
+                    <div><p class="text-xs text-slate-400 font-semibold">Date</p><p class="text-sm text-slate-800">${escapeHtml(new Date(p.created_at).toLocaleString())}</p></div>
+                    ${p.paid_at ? `<div><p class="text-xs text-slate-400 font-semibold">Paid At</p><p class="text-sm text-slate-800">${escapeHtml(new Date(p.paid_at).toLocaleString())}</p></div>` : ''}
+                    <div><p class="text-xs text-slate-400 font-semibold">Paid By</p><p class="text-sm text-slate-800 maskable" data-real="${escapeHtml(p.paid_by || '—')}" data-masked="${escapeHtml(maskedPaidBy)}">${escapeHtml(p.paid_by || '—')}</p></div>
                 </div>
-                ${p.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">📝 Notes</h5><p class="text-sm text-slate-800">${p.notes}</p></div>` : ''}
+                ${p.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">📝 Notes</h5><p class="text-sm text-slate-800">${escapeHtml(p.notes)}</p></div>` : ''}
                 <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                     <button onclick="closeModal('viewPaymentModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
                     ${p.status === 'pending' ? `<button onclick="closeModal('viewPaymentModal'); completePayment(${p.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-check mr-1.5"></i> Complete</button>` : ''}
@@ -1012,6 +1028,27 @@ $limit = 5;
             return;
         }
         console.log('[' + type + '] ' + message);
+    }
+
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function maskName(name) {
+        if (!name || name === '—') return name || '';
+        return name.split(' ').map(function(p) {
+            if (!p) return '';
+            return p.charAt(0).toUpperCase() + '*'.repeat(Math.max(0, p.length - 1));
+        }).join(' ');
+    }
+
+    function maskId(id) {
+        if (!id || id === '—') return id || '—';
+        if (id.length <= 2) return id;
+        return id.substring(0, 2) + '*'.repeat(id.length - 2);
     }
 
     // ============================================================

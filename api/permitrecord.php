@@ -1,10 +1,11 @@
 <?php
+date_default_timezone_set('Asia/Manila');
 // api/permits.php
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token, X-Requested-With');
 
 // Handle preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -16,27 +17,47 @@ require_once __DIR__ . '/../Core/BaseController.php';
 require_once __DIR__ . '/../Core/Response.php';
 require_once __DIR__ . '/../app/Controllers/PermitRecordsController.php';
 
-// Parse the request
-$method = $_SERVER['REQUEST_METHOD'];
-$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+// Parse path segments after api/permitrecord(.php)
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$parts = explode('/', trim($path, '/'));
 
-// Remove base path
-$basePath = '/api/permits';
-$path = substr($uri, strlen($basePath));
-$path = trim($path, '/');
+$subSegments = [];
+$foundEndpoint = false;
+foreach ($parts as $p) {
+    if ($foundEndpoint) {
+        $subSegments[] = $p;
+    } elseif (str_contains($p, 'permitrecord') || str_contains($p, 'permits')) {
+        $foundEndpoint = true;
+    }
+}
 
-// Parse path segments
-$segments = $path ? explode('/', $path) : [];
-$id = isset($segments[0]) && is_numeric($segments[0]) ? (int)$segments[0] : null;
-$action = $segments[1] ?? null;
+$id = null;
+$action = $_GET['action'] ?? null;
 
-$controller = new PermitController();
+if (!empty($subSegments)) {
+    if (is_numeric($subSegments[0])) {
+        $id = (int)$subSegments[0];
+        $action = $subSegments[1] ?? $action;
+    } elseif ($subSegments[0] === 'stats') {
+        $action = 'stats';
+    }
+}
+
+// Also support ?id=... and ?stats=true
+if ($id === null && isset($_GET['id']) && is_numeric($_GET['id'])) {
+    $id = (int)$_GET['id'];
+}
+if ((isset($_GET['stats']) && $_GET['stats'] === 'true') || (isset($_GET['action']) && $_GET['action'] === 'stats')) {
+    $action = 'stats';
+}
+
+$controller = new PermitRecordsController();
 
 // Route the request
 try {
     switch ($method) {
         case 'GET':
-            if ($path === 'stats') {
+            if ($action === 'stats') {
                 $controller->stats();
             } elseif ($id && $action === 'documents') {
                 $controller->documents($id);
@@ -52,6 +73,10 @@ try {
                 $controller->renew($id);
             } elseif ($id && $action === 'documents') {
                 $controller->uploadDocument($id);
+            } elseif ($id && ($action === 'update')) {
+                $controller->update($id);
+            } elseif ($id && ($action === 'delete')) {
+                $controller->destroy($id);
             } else {
                 $controller->store();
             }
@@ -60,7 +85,11 @@ try {
         case 'PUT':
         case 'PATCH':
             if ($id) {
-                $controller->update($id);
+                if ($action === 'renew') {
+                    $controller->renew($id);
+                } else {
+                    $controller->update($id);
+                }
             } else {
                 Response::error('Permit ID required', 400);
             }

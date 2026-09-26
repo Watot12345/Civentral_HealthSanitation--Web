@@ -195,6 +195,9 @@ class ActivityLog
     {
         try {
             $this->db->delete($this->table, ['id' => 'gt.0'], true);
+            if (class_exists('\\App\\Cache\\CacheManager')) {
+                (new \App\Cache\CacheManager())->clear();
+            }
         } catch (Throwable $e) {
             error_log('ActivityLog::clearAll() error: ' . $e->getMessage());
         }

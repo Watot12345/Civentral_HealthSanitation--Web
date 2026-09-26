@@ -1106,7 +1106,7 @@ $title = 'Wastewater Billing';
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
 <script>
-    const INVOICES = <?php echo json_encode(array_column($invoices, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+    let INVOICES = <?php echo json_encode(array_column($invoices, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
 
     // Modal functions, toast, sanitizeHTML provided by common.js
 
@@ -1443,16 +1443,26 @@ $title = 'Wastewater Billing';
                 payment_reference: ref
             };
 
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo csrf_token(); ?>';
             const res = await fetch(`../../api/wastewater_billing.php?id=${id}&action=mark_paid`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const json = await res.json();
             if (json.success) {
                 closeModal('paymentModal');
+                const i = INVOICES[id] || {};
+                i.status = 'paid';
+                i.payment_method = method;
+                i.payment_reference = ref;
+                INVOICES[id] = i;
+                updateInvoiceRow(i);
                 showToast('Payment confirmed & invoice marked as Paid!', 'success');
-                setTimeout(() => location.reload(), 800);
             } else {
                 showToast(json.message || 'Failed to process payment', 'danger');
             }
@@ -1460,6 +1470,88 @@ $title = 'Wastewater Billing';
             console.error('savePayment error:', err);
             showToast('An error occurred: ' + err.message, 'danger');
         }
+    }
+
+    function renderInvoiceRowHtml(inv) {
+        const statusColors = {
+            paid: 'bg-emerald-100 text-emerald-700',
+            pending: 'bg-amber-100 text-amber-700',
+            overdue: 'bg-rose-100 text-rose-700'
+        };
+        const status = inv.status || 'pending';
+        const badgeClass = statusColors[status] || statusColors.pending;
+        const totalFormatted = (Number(inv.total_amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const dueDate = inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '—';
+        const isPaid = status === 'paid';
+        const isOverdue = status === 'overdue';
+
+        return `
+            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${sanitizeHTML(inv.invoice_id || '')}</td>
+            <td class="px-4 py-3">
+                <div>
+                    <p class="font-semibold text-slate-800 text-sm">${sanitizeHTML(inv.client_name || '')}</p>
+                    <p class="text-xs text-slate-400">${sanitizeHTML(inv.tank_id || '')}</p>
+                </div>
+            </td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${sanitizeHTML(inv.service_type || '')}</td>
+            <td class="px-4 py-3">
+                <span class="text-sm font-bold text-slate-800">₱${totalFormatted}</span>
+            </td>
+            <td class="px-4 py-3 text-slate-500 text-xs">
+                ${dueDate}
+                ${isOverdue ? '<span class="block text-[10px] text-rose-500">Overdue</span>' : ''}
+            </td>
+            <td class="px-4 py-3">
+                <span class="px-2 py-1 rounded-full text-xs font-semibold ${badgeClass}">
+                    ${sanitizeHTML(status.charAt(0).toUpperCase() + status.slice(1))}
+                </span>
+            </td>
+            <td class="px-4 py-3 text-slate-500 text-xs">
+                ${inv.payment_method ? `<span class="text-emerald-600">${sanitizeHTML(inv.payment_method)}</span>` : '<span class="text-slate-400">—</span>'}
+            </td>
+            <td class="px-4 py-3">
+                <div class="flex items-center justify-center gap-1">
+                    <button onclick="viewInvoice(${inv.id})"
+                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                        <i class="fa-solid fa-eye text-sm"></i>
+                    </button>
+                    ${!isPaid ? `
+                        <button onclick="processPayment(${inv.id})"
+                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Pay">
+                            <i class="fa-solid fa-credit-card text-sm"></i>
+                        </button>
+                    ` : ''}
+                    <button onclick="editInvoice(${inv.id})"
+                            class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
+                        <i class="fa-solid fa-pen text-sm"></i>
+                    </button>
+                    <button onclick="printInvoice(${inv.id})"
+                            class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="Print Receipt">
+                        <i class="fa-solid fa-print text-sm"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+    }
+
+    function insertNewInvoiceRow(inv) {
+        if (!inv || !inv.id) return;
+        INVOICES[inv.id] = inv;
+        const tbody = document.getElementById('invoiceTableBody');
+        if (!tbody) return;
+        const tr = document.createElement('tr');
+        tr.id = 'invoice-row-' + inv.id;
+        tr.className = 'border-b border-slate-100 hover:bg-brand-light/40 transition-colors invoice-row' + (inv.status === 'overdue' ? ' bg-rose-50/50' : '');
+        tr.setAttribute('data-client', (inv.client_name || '').toLowerCase());
+        tr.setAttribute('data-tank', (inv.tank_id || '').toLowerCase());
+        tr.setAttribute('data-service', (inv.service_type || '').toLowerCase());
+        tr.setAttribute('data-id', (inv.invoice_id || '').toLowerCase());
+        tr.setAttribute('data-row-id', inv.id);
+        tr.setAttribute('data-status', inv.status || 'pending');
+        tr.setAttribute('data-method', (inv.payment_method || '').toLowerCase());
+        tr.setAttribute('data-invoice-date', inv.invoice_date || '');
+        tr.innerHTML = renderInvoiceRowHtml(inv);
+        tbody.insertBefore(tr, tbody.firstChild);
     }
 
     function updateInvoiceRow(i) {
@@ -1480,6 +1572,11 @@ $title = 'Wastewater Billing';
 
         row.dataset.status = i.status;
         row.dataset.method = i.payment_method || '';
+
+        const tds = row.querySelectorAll('td');
+        if (tds.length >= 7) {
+            tds[6].innerHTML = i.payment_method ? `<span class="text-emerald-600">${sanitizeHTML(i.payment_method)}</span>` : '<span class="text-slate-400">—</span>';
+        }
     }
 
     // ============================================================
@@ -1714,24 +1811,27 @@ $title = 'Wastewater Billing';
                     allow_duplicate: allowDuplicate
                 };
                 const autoPay = document.getElementById('quote_auto_pay')?.checked;
+                const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo csrf_token(); ?>';
                 const res = await fetch('../../api/wastewater_billing.php', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ ...payload, csrf_token: csrfToken })
                 });
                 const json = await res.json();
                 if (json.success) {
-                    const newInv = json.data;
+                    const newInv = json.record || json.data || payload;
                     closeModal('quotationModal');
+                    insertNewInvoiceRow(newInv);
                     showToast('Quotation invoice generated successfully!', 'success');
                     
                     if (autoPay && newInv && newInv.id) {
-                        INVOICES[newInv.id] = newInv;
                         setTimeout(() => {
                             processPayment(newInv.id);
                         }, 350);
-                    } else {
-                        setTimeout(() => location.reload(), 700);
                     }
                 } else {
                     showToast(json.message || 'Failed to create invoice', 'danger');
@@ -1826,7 +1926,23 @@ $title = 'Wastewater Billing';
             if (json.success) {
                 showToast(json.message || 'Fee category added successfully!', 'success');
                 closeModal('addFeeModal');
-                setTimeout(() => location.reload(), 700);
+                const form = document.getElementById('addFeeForm');
+                if (form) form.reset();
+                const grid = document.getElementById('feeGridContainer');
+                if (grid) {
+                    const card = document.createElement('div');
+                    card.className = 'bg-slate-50 rounded-xl p-3.5 border border-slate-200 hover:shadow-xs hover:border-brand-border transition group relative';
+                    card.innerHTML = `
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="font-bold text-slate-800 text-sm">${sanitizeHTML(category)}</p>
+                                <p class="text-xs text-slate-500 mt-0.5">${sanitizeHTML(description)}</p>
+                            </div>
+                            <span class="text-sm font-black text-brand-dark">₱${parseFloat(baseFee).toFixed(2)}</span>
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                }
             } else {
                 showToast(json.message || 'Failed to add fee category', 'danger');
             }
@@ -1849,7 +1965,7 @@ $title = 'Wastewater Billing';
             return;
         }
 
-        const csrfToken = '<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>';
+        const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>';
 
         try {
             const formData = new FormData();
@@ -1860,13 +1976,18 @@ $title = 'Wastewater Billing';
 
             const res = await fetch('wastewater_billing.php', {
                 method: 'POST',
+                headers: {
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: formData
             });
 
             const json = await res.json();
             if (json.success) {
                 showToast(json.message || 'Fee updated to ₱' + parseFloat(value).toFixed(2), 'success');
-                setTimeout(() => location.reload(), 700);
+                const badge = document.getElementById('fee_display_' + index);
+                if (badge) badge.textContent = '₱' + parseFloat(value).toFixed(2);
             } else {
                 showToast(json.message || 'Failed to update fee', 'danger');
             }
@@ -1883,7 +2004,7 @@ $title = 'Wastewater Billing';
         }
 
         ModalSystem.confirm('Are you sure you want to remove this fee category?', async () => {
-            const csrfToken = '<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>';
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES, 'UTF-8'); ?>';
 
             try {
                 const formData = new FormData();
@@ -1893,13 +2014,18 @@ $title = 'Wastewater Billing';
 
                 const res = await fetch('wastewater_billing.php', {
                     method: 'POST',
+                    headers: {
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
                     body: formData
                 });
 
                 const json = await res.json();
                 if (json.success) {
                     showToast(json.message || 'Fee category removed.', 'success');
-                    setTimeout(() => location.reload(), 700);
+                    const item = document.getElementById('fee_item_' + index) || document.getElementById('fee_card_' + index);
+                    if (item) item.remove();
                 } else {
                     showToast(json.message || 'Failed to remove fee', 'danger');
                 }
@@ -1956,16 +2082,23 @@ $title = 'Wastewater Billing';
                 notes: document.getElementById('edit_invoice_notes').value.trim()
             };
 
+            const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo csrf_token(); ?>';
             const res = await fetch(`../../api/wastewater_billing.php?id=${id}&action=update`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const json = await res.json();
             if (json.success) {
                 closeModal('editInvoiceModal');
+                const updated = json.record || json.data || { ...INVOICES[id], ...payload, id: Number(id) };
+                INVOICES[id] = updated;
+                updateInvoiceRow(updated);
                 showToast('Invoice updated successfully!', 'success');
-                setTimeout(() => location.reload(), 800);
             } else {
                 showToast(json.message || 'Failed to update invoice', 'danger');
             }
@@ -2178,9 +2311,14 @@ $title = 'Wastewater Billing';
                 const autoFee = 1500; 
                 const tax = autoFee * 0.06;
 
+                const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo csrf_token(); ?>';
                 fetch('../../api/wastewater_billing.php', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
                     body: JSON.stringify({
                         client_name: client,
                         tank_id: tankId,
@@ -2192,8 +2330,9 @@ $title = 'Wastewater Billing';
                     })
                 }).then(r => r.json()).then(json => {
                     if (json.success) {
+                        const newInv = json.record || json.data;
+                        if (newInv) insertNewInvoiceRow(newInv);
                         showToast('Invoice generated successfully! Please process payment.', 'success');
-                        setTimeout(() => location.reload(), 1000);
                     } else if (json.code === 409) {
                         // Already exists
                         showToast('An active unpaid invoice already exists. Please process payment.', 'info');

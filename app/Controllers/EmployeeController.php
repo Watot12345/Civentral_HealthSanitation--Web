@@ -49,6 +49,12 @@ class EmployeeController extends BaseController
         });
     }
 
+    private function sanitizeEmployeeContactValue(array $data): string
+    {
+        $contactRaw = trim((string)($data['contact_number'] ?? $data['contact'] ?? ''));
+        return preg_replace('/\D+/', '', $contactRaw) ?? '';
+    }
+
     public function store(): void
     {
         $data = $this->input();
@@ -82,6 +88,10 @@ class EmployeeController extends BaseController
                 'status'      => $data['status'] ?? 'Active',
             ];
 
+            if (array_key_exists('contact', $data) || array_key_exists('contact_number', $data)) {
+                $dbData['contact_number'] = $this->sanitizeEmployeeContactValue($data);
+            }
+
             // Map role_id to role name if provided
             if (!empty($data['role_id'])) {
                 require_once __DIR__ . '/../Models/Role.php';
@@ -93,7 +103,18 @@ class EmployeeController extends BaseController
                 }
             }
 
-            $result = $this->employeeModel->create($dbData);
+            try {
+                $result = $this->employeeModel->create($dbData);
+            } catch (Throwable $e) {
+                if (isset($dbData['contact_number']) && (str_contains($e->getMessage(), "contact_number") || str_contains($e->getMessage(), "schema cache") || str_contains($e->getMessage(), "value too long") || str_contains($e->getMessage(), "22001"))) {
+                    $legacyData = $dbData;
+                    unset($legacyData['contact_number']);
+                    $legacyData['contact'] = $dbData['contact_number'];
+                    $result = $this->employeeModel->create($legacyData);
+                } else {
+                    throw $e;
+                }
+            }
 
             // Log activity
             $this->activityLog->log('User Created', [
@@ -129,6 +150,10 @@ class EmployeeController extends BaseController
             if (isset($data['email']))       $dbData['email']       = $data['email'];
             if (isset($data['department']))  $dbData['department']  = $data['department'];
             if (isset($data['status']))      $dbData['status']      = $data['status'];
+            if (array_key_exists('contact', $data) || array_key_exists('contact_number', $data)) {
+                $contactRaw = trim((string)($data['contact_number'] ?? $data['contact'] ?? ''));
+                $dbData['contact_number'] = preg_replace('/\D+/', '', $contactRaw);
+            }
 
             // Map role_id to role name
             if (!empty($data['role_id'])) {
@@ -142,7 +167,35 @@ class EmployeeController extends BaseController
             }
 
             if (!empty($dbData)) {
-                $this->employeeModel->updateById($id, $dbData);
+                try {
+                    $this->employeeModel->updateById($id, $dbData);
+                } catch (Throwable $e) {
+                    if (isset($dbData['contact_number']) && (str_contains($e->getMessage(), "contact_number") || str_contains($e->getMessage(), "schema cache") || str_contains($e->getMessage(), "value too long") || str_contains($e->getMessage(), "22001"))) {
+                        $legacyData = $dbData;
+                        unset($legacyData['contact_number']);
+                        $legacyData['contact'] = $dbData['contact_number'];
+                        $this->employeeModel->updateById($id, $legacyData);
+                    } else {
+                        throw $e;
+                    }
+                }
+            }
+
+            // If the updated user is currently logged in, sync session variables
+            if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+                @session_start();
+            }
+            if (!empty($_SESSION['user_id']) && (string)$_SESSION['user_id'] === (string)$id) {
+                if (isset($dbData['full_name'])) {
+                    $_SESSION['full_name'] = $dbData['full_name'];
+                    $_SESSION['user_full_name'] = $dbData['full_name'];
+                }
+                $cVal = $dbData['contact_number'] ?? ($dbData['contact'] ?? null);
+                if ($cVal !== null) {
+                    $_SESSION['contact'] = $cVal;
+                    $_SESSION['contact_number'] = $cVal;
+                    $_SESSION['phone'] = $cVal;
+                }
             }
 
             // Log activity
@@ -165,6 +218,24 @@ class EmployeeController extends BaseController
             $existing = $this->employeeModel->find($id);
             if (!$existing) {
                 return ['success' => false, 'message' => 'Employee not found', 'code' => 404];
+            }
+
+            $currentStatus = trim($existing['status'] ?? 'Active');
+            $userName = $existing['full_name'] ?? "ID #{$id}";
+            if (strcasecmp($currentStatus, 'Active') === 0) {
+                return [
+                    'success' => false,
+                    'message' => "Cannot delete active user '{$userName}'. Active users cannot be deleted; please set their status to Inactive first.",
+                    'code'    => 400
+                ];
+            }
+
+            if (strcasecmp($currentStatus, 'Inactive') !== 0) {
+                return [
+                    'success' => false,
+                    'message' => "User '{$userName}' must be Inactive before deletion. Current status: {$currentStatus}.",
+                    'code'    => 400
+                ];
             }
 
             $this->employeeModel->deleteById($id);

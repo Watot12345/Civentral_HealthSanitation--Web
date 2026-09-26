@@ -34,6 +34,8 @@ class EncryptionHelper
         ],
         'employees' => [
             'email',
+            'contact_number',
+            'contact',
         ],
         'children' => [
             'mother_contact',
@@ -390,6 +392,12 @@ class EncryptionHelper
             if (!isset($row['health_condition_notes']) && isset($row['allergies'])) {
                 $row['health_condition_notes'] = $row['allergies'];
             }
+        } elseif ($table === 'employees') {
+            if (!isset($row['contact_number']) && isset($row['contact'])) {
+                $row['contact_number'] = $row['contact'];
+            } elseif (!isset($row['contact']) && isset($row['contact_number'])) {
+                $row['contact'] = $row['contact_number'];
+            }
         }
 
         return $row;
@@ -437,5 +445,35 @@ class EncryptionHelper
         $key = self::getKey();
         $safeKey = str_replace("'", "''", $key);
         return "pgp_sym_decrypt({$column}::bytea, '{$safeKey}') AS {$column}";
+    }
+
+    /**
+     * Safely decrypt (if encrypted) and mask an email address for privacy-safe UI display.
+     * Example: 'john.doe@gmail.com' -> 'jo***@gmail.com'
+     */
+    public static function maskEmail(?string $email, string $fallbackDomain = 'lgu.gov.ph'): string
+    {
+        if (empty($email)) {
+            return '***@' . $fallbackDomain;
+        }
+
+        // If string is encrypted (e.g. \x... bytea or ENC::...), decrypt first
+        if (self::isEncrypted($email)) {
+            $decrypted = self::decrypt($email);
+            if (!empty($decrypted) && !self::isEncrypted($decrypted)) {
+                $email = $decrypted;
+            }
+        }
+
+        if (!str_contains($email, '@')) {
+            return '***@' . $fallbackDomain;
+        }
+
+        $parts = explode('@', $email, 2);
+        $local = $parts[0];
+        $domain = !empty($parts[1]) ? $parts[1] : $fallbackDomain;
+
+        $maskedLocal = strlen($local) > 2 ? substr($local, 0, 2) . '***' : $local . '***';
+        return $maskedLocal . '@' . $domain;
     }
 }

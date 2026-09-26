@@ -107,7 +107,7 @@ class DepartmentResolver
                 'Surveillance Officer', 'SL', 'Surveillance Coordinator', 'Surveillance Lead', 'Surveillance Staff'
             ],
             'Administration' => [
-                'System Administrator', 'System Admin', 'HSA'
+                'System Administrator', 'System Admin', 'HSA', 'Admin'
             ]
         ];
     }

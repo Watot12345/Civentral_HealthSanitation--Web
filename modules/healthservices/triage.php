@@ -372,7 +372,14 @@ foreach ($waitingCheckins as $c) {
         'queue_number' => $c['queue_number'] ?? ('Q-' . $c['id']),
         'reason_for_visit' => $c['reason_for_visit'] ?? 'Medical Consultation',
         'status' => $checkinStatus,
-        'arrival_time' => isset($c['check_in_time']) ? date('h:i A', strtotime($c['check_in_time'])) : (isset($c['created_at']) ? date('h:i A', strtotime($c['created_at'])) : date('h:i A')),
+        'arrival_time' => (function() use ($c) {
+            $raw = $c['check_in_time'] ?? ($c['created_at'] ?? '');
+            if (empty($raw)) return date('h:i A');
+            try {
+                $dt = new DateTime($raw);
+                return $dt->format('h:i A');
+            } catch (Throwable $e) { return date('h:i A'); }
+        })(),
     ];
 }
 
@@ -485,7 +492,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     <i class="fa-solid fa-heart-pulse text-lg"></i>
                 </div>
                 <div>
-                    <p class="text-2xl font-black text-rose-600"><?php echo $totalCritical; ?></p>
+                    <p class="text-2xl font-black text-rose-600" id="statCritical"><?php echo $totalCritical; ?></p>
                     <p class="text-xs font-medium text-slate-500">Critical Alerts</p>
                 </div>
             </div>
@@ -507,7 +514,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     <i class="fa-solid fa-user-md text-lg"></i>
                 </div>
                 <div>
-                    <p class="text-2xl font-black text-emerald-600"><?php echo $totalCompleted; ?></p>
+                    <p class="text-2xl font-black text-emerald-600" id="statCompleted"><?php echo $totalCompleted; ?></p>
                     <p class="text-xs font-medium text-slate-500">Sent to Doctor</p>
                 </div>
             </div>
@@ -529,7 +536,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     <i class="fa-solid fa-clipboard-user text-lg"></i>
                 </div>
                 <div>
-                    <p class="text-2xl font-black text-sky-600"><?php echo $totalTriageToday; ?></p>
+                    <p class="text-2xl font-black text-sky-600" id="statTotal"><?php echo $totalTriageToday; ?></p>
                     <p class="text-xs font-medium text-slate-500">Total Assessed Today</p>
                 </div>
             </div>
@@ -577,6 +584,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
     </div>
 
     <!-- Check-in Queue (waiting patients from queue display) -->
+    <div id="checkin-queue-section">
     <?php if (!empty($checkinDisplayQueue)): ?>
     <div class="bg-white rounded-xl shadow-xs border border-amber-200 mb-6 overflow-hidden">
         <div class="p-4 border-b border-amber-200/80 flex items-center justify-between">
@@ -636,6 +644,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         </div>
     </div>
     <?php endif; ?>
+    </div><!-- end #checkin-queue-section -->
 
     <!-- Search & Filter -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
@@ -1411,12 +1420,18 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         }
         
         try {
+            const csrfToken = CrudAjax.getCsrfToken();
             const res = await fetch('../../api/triage-queue.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 body: JSON.stringify({ 
                     patient_id: parseInt(patientId),
-                    reason_for_visit: reasonForVisit
+                    reason_for_visit: reasonForVisit,
+                    csrf_token: csrfToken
                 })
             });
             
@@ -1443,16 +1458,111 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     }, 1200);
                 } else {
                     ModalSystem.toast.success(navMsg);
-                    setTimeout(() => {
-                        ModalSystem.close('checkInModal');
-                        window.location.reload();
-                    }, 1000);
+                    ModalSystem.close('checkInModal');
+                    // Dynamically append option to triage dropdown if missing
+                    const triageSelect = document.getElementById('triage_patient');
+                    if (triageSelect && patientId) {
+                        let opt = triageSelect.querySelector(`option[value="${patientId}"]`);
+                        if (!opt) {
+                            const checkinSelect = document.getElementById('checkin_patient');
+                            const selOption = checkinSelect ? checkinSelect.querySelector(`option[value="${patientId}"]`) : null;
+                            const patName = selOption ? selOption.textContent.replace(' (Checked In Today)', '') : `Patient #${patientId}`;
+                            opt = document.createElement('option');
+                            opt.value = patientId;
+                            opt.textContent = patName;
+                            triageSelect.appendChild(opt);
+                        }
+                    }
+                    const statEl = document.getElementById('statWaiting');
+                    if (statEl) {
+                        const cur = parseInt(statEl.textContent) || 0;
+                        statEl.textContent = cur + 1;
+                    }
+                    refreshCheckinQueue();
                 }
             } else {
                 ModalSystem.toast.error((data && data.message) ? data.message : 'Check-in failed');
             }
         } catch (err) {
             ModalSystem.toast.error('Network error during check-in');
+        }
+    }
+
+    async function refreshCheckinQueue() {
+        try {
+            const res = await fetch('../../api/triage-queue.php');
+            const data = await res.json();
+            if (!data.success) return;
+
+            const queue = (data.data || []).filter(item => {
+                if ((item.status || '').toLowerCase() === 'completed') return false;
+                const raw = item.check_in_time || item.created_at || '';
+                if (!raw) return false;
+                const d = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T') + '+00:00');
+                const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+                return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }) === today;
+            });
+
+            const section = document.getElementById('checkin-queue-section');
+            if (!section) return;
+
+            if (queue.length === 0) {
+                section.innerHTML = '';
+                return;
+            }
+
+            const rows = queue.map(item => {
+                const pid = String(item.patient_id || '').padStart(4, '0');
+                const name = item.patient_name || ('Patient #' + item.patient_id);
+                const initials = name.split(' ').map(w => w[0] || '').join('').substring(0, 2).toUpperCase();
+                const reason = item.reason_for_visit || 'Medical Consultation';
+                const raw = item.check_in_time || item.created_at || '';
+                const time = raw ? new Date(raw.includes('T') ? raw : raw.replace(' ', 'T') + '+00:00')
+                    .toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Manila' }) : '';
+                const status = (item.status || 'waiting').toLowerCase();
+                const statusHtml = status === 'in_triage'
+                    ? '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-brand-light text-brand-dark border border-brand-border">In Assessment</span>'
+                    : '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Checked In</span>';
+                return `<tr class="border-b border-slate-100 hover:bg-amber-50/30 transition-colors">
+                    <td class="px-4 py-3 font-mono text-xs font-bold text-amber-700">P-${pid}</td>
+                    <td class="px-4 py-3"><div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-[10px]">${initials}</div>
+                        <span class="font-semibold text-slate-800 text-sm">${name}</span>
+                    </div></td>
+                    <td class="px-4 py-3"><span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1"><i class="fa-solid fa-stethoscope text-[10px] text-amber-600"></i>${reason}</span></td>
+                    <td class="px-4 py-3 text-slate-600 text-xs">${time}</td>
+                    <td class="px-4 py-3">${statusHtml}</td>
+                    <td class="px-4 py-3 text-center"><button onclick="startTriageForPatient(${item.patient_id})" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition"><i class="fa-solid fa-heart-pulse mr-1"></i> Start Assessment</button></td>
+                </tr>`;
+            }).join('');
+
+            section.innerHTML = `
+                <div class="bg-white rounded-xl shadow-xs border border-amber-200 mb-6 overflow-hidden">
+                    <div class="p-4 border-b border-amber-200/80 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-clipboard-list text-amber-600"></i>
+                            <h3 class="text-sm font-bold text-amber-800">Today's Patient Visits</h3>
+                        </div>
+                        <span class="px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-bold">${queue.length} waiting for assessment</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-amber-50/60 border-b border-amber-200/70 text-slate-600 text-xs">
+                                <tr>
+                                    <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Patient ID</th>
+                                    <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Patient</th>
+                                    <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Reason for Visit</th>
+                                    <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Check-in Time</th>
+                                    <th class="px-4 py-2.5 text-left font-bold text-[11px] uppercase tracking-wider text-amber-900">Status</th>
+                                    <th class="px-4 py-2.5 text-center font-bold text-[11px] uppercase tracking-wider text-amber-900">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+        } catch (e) {
+            console.warn('refreshCheckinQueue error:', e);
         }
     }
 
@@ -1676,16 +1786,28 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         };
 
         try {
+            const csrfToken = CrudAjax.getCsrfToken();
             const res = await fetch('../../api/triage.php?id=' + id, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const data = await res.json();
             if (data.success) {
                 ModalSystem.toast.success('Triage record updated successfully!');
                 ModalSystem.close('editTriageModal');
-                setTimeout(() => window.location.reload(), 800);
+                const rec = data.record || data.data;
+                if (rec) {
+                    TRIAGE_DATA[rec.id] = normalizeTriageRecord(rec);
+                    CrudAjax.upsertRow('triageTableBody', rec, (r) => renderSingleTriageRow(r), 'update');
+                } else {
+                    loadTriageQueue(currentTriagePage);
+                }
+                updateTriageKpis();
             } else {
                 ModalSystem.toast.error(data.message || 'Failed to update triage record');
             }
@@ -1702,15 +1824,27 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         'This will mark the assessment as complete and send the patient to the doctor queue.',
         async () => {
             try {
+                const csrfToken = CrudAjax.getCsrfToken();
                 const res = await fetch('../../api/triage.php?id=' + id + '&action=status', {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: 'triaged' })
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ status: 'triaged', csrf_token: csrfToken })
                 });
                 const data = await res.json();
                 if (data.success) {
                     ModalSystem.toast.success('Patient sent to doctor successfully!');
-                    setTimeout(() => window.location.reload(), 800);
+                    const rec = data.record || data.data;
+                    if (rec) {
+                        TRIAGE_DATA[rec.id] = normalizeTriageRecord(rec);
+                        CrudAjax.upsertRow('triageTableBody', rec, (r) => renderSingleTriageRow(r), 'update');
+                    } else {
+                        loadTriageQueue(currentTriagePage);
+                    }
+                    updateTriageKpis();
                 } else {
                     ModalSystem.toast.error(data.message || 'Failed to update triage status');
                 }
@@ -1786,10 +1920,15 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         };
 
         try {
+            const csrfToken = CrudAjax.getCsrfToken();
             const res = await fetch('../../api/triage.php', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const data = await res.json();
             if (data.success) {
@@ -1805,8 +1944,12 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         if (queueEntry) {
                             await fetch(`../../api/triage-queue.php?id=${queueEntry.id}`, {
                                 method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: 'completed' })
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-Token': csrfToken,
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                body: JSON.stringify({ status: 'completed', csrf_token: csrfToken })
                             });
                         }
                     }
@@ -1816,7 +1959,21 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
 
                 ModalSystem.toast.success('Patient added to triage queue successfully!');
                 ModalSystem.close('addTriageModal');
-                setTimeout(() => window.location.reload(), 1000);
+
+                // Remove triaged patient from dropdown
+                const triageSelect = document.getElementById('triage_patient');
+                if (triageSelect && patientId) {
+                    const opt = triageSelect.querySelector(`option[value="${patientId}"]`);
+                    if (opt) opt.remove();
+                }
+
+                // Reset add form
+                const formEl = document.getElementById('addTriageForm');
+                if (formEl) formEl.reset();
+
+                // Refresh queue and KPI counters in real-time without full page reload
+                loadTriageQueue(1);
+                updateTriageKpis();
             } else {
                 ModalSystem.toast.error(data.message || 'Failed to save triage entry');
             }
@@ -1830,7 +1987,13 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
     // ============================================================
     async function callNextPatient() {
         try {
-            const res = await fetch('../../api/triage-queue.php?action=call-next');
+            const csrfToken = CrudAjax.getCsrfToken();
+            const res = await fetch('../../api/triage-queue.php?action=call-next', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-Token': csrfToken
+                }
+            });
             const data = await res.json();
 
             if (!data.success) {
@@ -1856,7 +2019,9 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 window.speechSynthesis.speak(utter);
             }
 
-            setTimeout(() => window.location.reload(), 1500);
+            // Real-time table refresh without full reload
+            loadTriageQueue(currentTriagePage);
+            updateTriageKpis();
         } catch (err) {
             ModalSystem.toast.error('Failed to call next patient');
         }
@@ -2307,8 +2472,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         };
     }
 
-    function renderTriageTable(rawList, offset) {
-        const tbody = document.getElementById('triageTableBody');
+    function renderSingleTriageRow(raw, i = 0, offset = 0) {
         const priorityColors = {
             critical: 'bg-rose-100 text-rose-700 border-rose-200',
             high: 'bg-orange-100 text-orange-700 border-orange-200',
@@ -2323,45 +2487,86 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             completed: 'bg-slate-100 text-slate-500'
         };
 
+        const t = normalizeTriageRecord(raw, i, offset);
+        const safePatientName = CrudAjax.escapeHtml(t.patient_name);
+        const safeComplaint = CrudAjax.escapeHtml(t.chief_complaint);
+        const safeAvatar = CrudAjax.escapeHtml(t.patient_avatar);
+        const safeAge = CrudAjax.escapeHtml(t.age);
+        const safeGender = CrudAjax.escapeHtml(t.gender);
+        const safeBp = CrudAjax.escapeHtml(t.vital_signs.blood_pressure);
+        const safeHr = CrudAjax.escapeHtml(t.vital_signs.heart_rate);
+        const safeTemp = CrudAjax.escapeHtml(t.vital_signs.temperature);
+        const safeO2 = CrudAjax.escapeHtml(t.vital_signs.oxygen_saturation);
+        const safePriority = CrudAjax.escapeHtml(t.priority);
+        const safeStatus = CrudAjax.escapeHtml(t.status);
+        const safeWait = CrudAjax.escapeHtml(t.wait_time);
+        const safeQueueNum = CrudAjax.escapeHtml(t.queue_number);
+
+        return `
+        <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors triage-row ${t.priority === 'critical' ? 'bg-rose-50/50' : ''}"
+            data-id="${t.id}" data-patient="${safePatientName.toLowerCase()}" data-priority="${safePriority}" data-status="${safeStatus}">
+            <td class="px-4 py-3 font-mono text-xs font-bold ${t.priority === 'critical' ? 'text-rose-600' : 'text-slate-400'}">#${safeQueueNum}</td>
+            <td class="px-4 py-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0"><span class="maskable" data-real="${safeAvatar}" data-masked="??">${safeAvatar}</span></div>
+                    <div><p class="font-semibold text-slate-800 text-sm"><span class="maskable" data-real="${safePatientName}" data-masked="${maskPatientName(safePatientName)}">${safePatientName}</span></p><p class="text-xs text-slate-400">${safeComplaint}</p></div>
+                </div>
+            </td>
+            <td class="px-4 py-3 text-slate-600 text-xs"><span class="maskable" data-real="${safeAge} yrs" data-masked="** yrs">${safeAge} yrs</span><br><span class="maskable" data-real="${safeGender}" data-masked="***">${safeGender}</span></td>
+            <td class="px-4 py-3">
+                <div class="space-y-0.5">
+                    <div class="flex items-center gap-2 text-xs"><span class="text-slate-400">BP:</span><span class="font-medium text-slate-700">${safeBp}</span></div>
+                    <div class="flex items-center gap-2 text-xs"><span class="text-slate-400">HR:</span><span class="font-medium text-slate-700">${safeHr}</span><span class="text-slate-400 ml-1">Temp:</span><span class="font-medium text-slate-700">${safeTemp}°C</span></div>
+                    <div class="flex items-center gap-2 text-xs"><span class="text-slate-400">O2:</span><span class="font-medium text-slate-700">${safeO2}%</span></div>
+                </div>
+            </td>
+            <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold border ${priorityColors[t.priority] || priorityColors.medium}">${priorityIcons[t.priority] || ''} ${safePriority.charAt(0).toUpperCase() + safePriority.slice(1)}</span></td>
+            <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${statusClasses[t.status] || statusClasses.waiting}">${safeStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</span></td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${safeWait}</td>
+            <td class="px-4 py-3">
+                <div class="flex items-center justify-center gap-1">
+                    <button onclick="viewTriage(${t.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View"><i class="fa-solid fa-eye text-sm"></i></button>
+                    <button onclick="editTriage(${t.id})" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen text-sm"></i></button>
+                    ${(t.status === 'in_triage' || t.status === 'waiting') ? `<button onclick="completeTriage(${t.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete & Send to Doctor"><i class="fa-solid fa-check text-sm"></i></button>` : ''}
+                </div>
+            </td>
+        </tr>`;
+    }
+
+    async function updateTriageKpis() {
+        try {
+            const res = await fetch('../../api/triage.php?action=queue-stats');
+            const data = await res.json();
+            if (data.success && data.data && data.data.stats) {
+                const s = data.data.stats;
+                const elWaiting = document.getElementById('statWaiting');
+                const elCrit = document.getElementById('statCritical');
+                const elComp = document.getElementById('statCompleted');
+                const elTot = document.getElementById('statTotal');
+                if (elWaiting) elWaiting.textContent = s.total_waiting;
+                if (elCrit) elCrit.textContent = s.critical_count;
+                if (elComp) elComp.textContent = s.total_completed;
+                if (elTot) elTot.textContent = s.total;
+            }
+        } catch (e) {
+            console.warn('Failed to update KPI counters:', e);
+        }
+    }
+
+    function renderTriageTable(rawList, offset) {
+        const tbody = document.getElementById('triageTableBody');
+        if (!tbody) return;
+
         if (rawList.length === 0) {
             tbody.innerHTML = '';
-            document.getElementById('emptyState').style.display = 'flex';
+            const emptyEl = document.getElementById('emptyState');
+            if (emptyEl) emptyEl.style.display = 'flex';
             return;
         }
-        document.getElementById('emptyState').style.display = 'none';
+        const emptyEl = document.getElementById('emptyState');
+        if (emptyEl) emptyEl.style.display = 'none';
 
-        tbody.innerHTML = rawList.map((raw, i) => {
-            const t = normalizeTriageRecord(raw, i, offset);
-            return `
-            <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors triage-row ${t.priority === 'critical' ? 'bg-rose-50/50' : ''}"
-                data-patient="${t.patient_name.toLowerCase()}" data-priority="${t.priority}" data-status="${t.status}">
-                <td class="px-4 py-3 font-mono text-xs font-bold ${t.priority === 'critical' ? 'text-rose-600' : 'text-slate-400'}">#${t.queue_number}</td>
-                <td class="px-4 py-3">
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0"><span class="maskable" data-real="${t.patient_avatar}" data-masked="??">${t.patient_avatar}</span></div>
-                        <div><p class="font-semibold text-slate-800 text-sm"><span class="maskable" data-real="${t.patient_name}" data-masked="${maskPatientName(t.patient_name)}">${t.patient_name}</span></p><p class="text-xs text-slate-400">${t.chief_complaint}</p></div>
-                    </div>
-                </td>
-                <td class="px-4 py-3 text-slate-600 text-xs"><span class="maskable" data-real="${t.age} yrs" data-masked="** yrs">${t.age} yrs</span><br><span class="maskable" data-real="${t.gender}" data-masked="***">${t.gender}</span></td>
-                <td class="px-4 py-3">
-                    <div class="space-y-0.5">
-                        <div class="flex items-center gap-2 text-xs"><span class="text-slate-400">BP:</span><span class="font-medium text-slate-700">${t.vital_signs.blood_pressure}</span></div>
-                        <div class="flex items-center gap-2 text-xs"><span class="text-slate-400">HR:</span><span class="font-medium text-slate-700">${t.vital_signs.heart_rate}</span><span class="text-slate-400 ml-1">Temp:</span><span class="font-medium text-slate-700">${t.vital_signs.temperature}°C</span></div>
-                        <div class="flex items-center gap-2 text-xs"><span class="text-slate-400">O2:</span><span class="font-medium text-slate-700">${t.vital_signs.oxygen_saturation}%</span></div>
-                    </div>
-                </td>
-                <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold border ${priorityColors[t.priority] || priorityColors.medium}">${priorityIcons[t.priority] || ''} ${t.priority.charAt(0).toUpperCase() + t.priority.slice(1)}</span></td>
-                <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${statusClasses[t.status] || statusClasses.waiting}">${t.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</span></td>
-                <td class="px-4 py-3 text-slate-600 text-xs">${t.wait_time}</td>
-                <td class="px-4 py-3">
-                    <div class="flex items-center justify-center gap-1">
-                        <button onclick="viewTriage(${t.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View"><i class="fa-solid fa-eye text-sm"></i></button>
-                        <button onclick="editTriage(${t.id})" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen text-sm"></i></button>
-                        ${(t.status === 'in_triage' || t.status === 'waiting') ? `<button onclick="completeTriage(${t.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete & Send to Doctor"><i class="fa-solid fa-check text-sm"></i></button>` : ''}
-                    </div>
-                </td>
-            </tr>`;
-        }).join('');
+        tbody.innerHTML = rawList.map((raw, i) => renderSingleTriageRow(raw, i, offset)).join('');
         if (typeof ModalSystem !== 'undefined' && ModalSystem.applyMaskingToModal) {
             ModalSystem.applyMaskingToModal(tbody);
         }

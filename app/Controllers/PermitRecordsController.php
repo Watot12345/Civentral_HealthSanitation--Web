@@ -3,6 +3,9 @@
 
 require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Models/PermitRecords.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
+
+use App\Constants\Permissions;
 
 class PermitRecordsController extends BaseController
 {
@@ -20,13 +23,16 @@ class PermitRecordsController extends BaseController
     public function index(): void
     {
         $this->handle(function () {
+            $this->requireDepartment('sanitation');
+            $this->requireCapability(Permissions::PERMITS_VIEW);
+
             $page = (int)($_GET['page'] ?? 1);
             $limit = (int)($_GET['limit'] ?? 10);
             
             $filters = [
                 'status' => $_GET['status'] ?? null,
-                'business_type' => $_GET['type'] ?? null,
-                'search' => $_GET['search'] ?? null,
+                'business_type' => $_GET['type'] ?? $_GET['business_type'] ?? null,
+                'search' => $_GET['search'] ?? $_GET['q'] ?? null,
             ];
             
             // Remove null filters
@@ -52,6 +58,9 @@ class PermitRecordsController extends BaseController
     public function stats(): void
     {
         $this->handle(function () {
+            $this->requireDepartment('sanitation');
+            $this->requireCapability(Permissions::PERMITS_VIEW);
+
             $stats = $this->permitModel->getStats();
             
             return [
@@ -68,6 +77,9 @@ class PermitRecordsController extends BaseController
     public function show(int $id): void
     {
         $this->handle(function () use ($id) {
+            $this->requireDepartment('sanitation');
+            $this->requireCapability(Permissions::PERMITS_VIEW);
+
             $permit = $this->permitModel->getById($id);
             
             if (!$permit) {
@@ -92,7 +104,12 @@ class PermitRecordsController extends BaseController
     public function store(): void
     {
         $this->handle(function () {
+            $this->validateCsrf();
+            $this->requireDepartment('sanitation');
+            $this->requireCapability(Permissions::PERMITS_CREATE);
+
             $data = $this->input();
+            unset($data['csrf_token']);
             
             // Validate required fields
             $required = ['applicant', 'business_type', 'address', 'owner_name', 'contact', 'fee'];
@@ -114,11 +131,26 @@ class PermitRecordsController extends BaseController
             }
             
             $permit = $this->permitModel->create($data);
+            $record = $permit[0] ?? $permit;
+            
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $logger->log("Created Permit Record", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Permit ID: #{$record['id']} | Applicant: " . ($record['applicant'] ?? 'N/A'),
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
             
             return [
                 'success' => true,
+                'action' => 'create',
+                'record' => $record,
                 'message' => 'Permit created successfully',
-                'data' => $permit[0] ?? $permit,
+                'data' => $record,
                 'code' => 201
             ];
         });
@@ -131,6 +163,10 @@ class PermitRecordsController extends BaseController
     public function update(int $id): void
     {
         $this->handle(function () use ($id) {
+            $this->validateCsrf();
+            $this->requireDepartment('sanitation');
+            $this->requireCapability(Permissions::PERMITS_APPROVE);
+
             $permit = $this->permitModel->getById($id);
             if (!$permit) {
                 return [
@@ -141,12 +177,28 @@ class PermitRecordsController extends BaseController
             }
             
             $data = $this->input();
+            unset($data['csrf_token']);
             $updated = $this->permitModel->update($id, $data);
+            $record = $updated[0] ?? $updated;
+            
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $logger->log("Updated Permit Record", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Permit ID: #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
             
             return [
                 'success' => true,
+                'action' => 'update',
+                'record' => $record,
                 'message' => 'Permit updated successfully',
-                'data' => $updated[0] ?? $updated
+                'data' => $record
             ];
         });
     }
@@ -158,6 +210,10 @@ class PermitRecordsController extends BaseController
     public function destroy(int $id): void
     {
         $this->handle(function () use ($id) {
+            $this->validateCsrf();
+            $this->requireDepartment('sanitation');
+            $this->requireCapability(Permissions::PERMITS_APPROVE);
+
             $permit = $this->permitModel->getById($id);
             if (!$permit) {
                 return [
@@ -169,8 +225,23 @@ class PermitRecordsController extends BaseController
             
             $this->permitModel->delete($id);
             
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $logger->log("Deleted Permit Record", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Permit ID: #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+            
             return [
                 'success' => true,
+                'action' => 'delete',
+                'id' => $id,
+                'record' => ['id' => $id],
                 'message' => 'Permit deleted successfully'
             ];
         });
@@ -183,6 +254,10 @@ class PermitRecordsController extends BaseController
     public function renew(int $id): void
     {
         $this->handle(function () use ($id) {
+            $this->validateCsrf();
+            $this->requireDepartment('sanitation');
+            $this->requireCapability(Permissions::PERMITS_APPROVE);
+
             $permit = $this->permitModel->getById($id);
             if (!$permit) {
                 return [
@@ -201,12 +276,28 @@ class PermitRecordsController extends BaseController
             }
             
             $data = $this->input();
+            unset($data['csrf_token']);
             $renewed = $this->permitModel->renew($id, $data);
+            $record = $renewed[0] ?? $renewed;
+            
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $logger->log("Renewed Permit Record", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Permit ID: #{$id}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
             
             return [
                 'success' => true,
+                'action' => 'update',
+                'record' => $record,
                 'message' => 'Permit renewed successfully',
-                'data' => $renewed[0] ?? $renewed
+                'data' => $record
             ];
         });
     }
@@ -218,6 +309,9 @@ class PermitRecordsController extends BaseController
     public function documents(int $id): void
     {
         $this->handle(function () use ($id) {
+            $this->requireDepartment('sanitation');
+            $this->requireCapability(Permissions::PERMITS_VIEW);
+
             $permit = $this->permitModel->getById($id);
             if (!$permit) {
                 return [
@@ -243,6 +337,10 @@ class PermitRecordsController extends BaseController
     public function uploadDocument(int $id): void
     {
         $this->handle(function () use ($id) {
+            $this->validateCsrf();
+            $this->requireDepartment('sanitation');
+            $this->requireCapability(Permissions::PERMITS_CREATE);
+
             $permit = $this->permitModel->getById($id);
             if (!$permit) {
                 return [
@@ -253,13 +351,30 @@ class PermitRecordsController extends BaseController
             }
             
             $data = $this->input();
+            unset($data['csrf_token']);
             
             $document = $this->permitModel->addDocument($id, $data);
+            $record = $document[0] ?? $document;
+            
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new ActivityLog();
+                    $docId = $record['id'] ?? 'N/A';
+                    $logger->log("Uploaded Permit Document", [
+                        'module'  => 'Sanitation Permits',
+                        'details' => "Permit ID: #{$id} | Document ID: #{$docId}",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
             
             return [
                 'success' => true,
+                'action' => 'create',
+                'record' => $record,
                 'message' => 'Document uploaded successfully',
-                'data' => $document[0] ?? $document,
+                'data' => $record,
                 'code' => 201
             ];
         });

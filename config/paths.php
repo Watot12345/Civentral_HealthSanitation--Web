@@ -2,6 +2,9 @@
 if (ob_get_level() === 0) {
     ob_start();
 }
+if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
+    @session_start();
+}
 // Load environment variables if available
 require_once __DIR__ . '/../Core/Env.php';
 
@@ -208,8 +211,7 @@ use App\Services\NavigationService;
 use App\Services\RememberMeService;
 use App\Middleware\AuthorizationMiddleware;
 
-// Process auto-login if Keep Me Signed In cookie exists
-RememberMeService::processAutoLogin();
+// Remember device token helper loaded (auto-login disabled; password login required)
 
 if (!function_exists('getPermissionService')) {
     function getPermissionService(): PermissionService {
@@ -301,15 +303,35 @@ if (file_exists(__DIR__ . '/../app/helpers/Settings.php')) {
         }
 
         // 3. Enforce Session Inactivity Timeout
-        if (!empty($_SESSION['logged_in'])) {
-            $sessionTimeout = (int)Settings::get('security.session_timeout', 3600);
+        // Master switch: SESSION_TIMEOUT_ENABLED in .env (true = on, false = off).
+        $sessionTimeoutEnabled = !in_array(
+            strtolower((string) Env::get('SESSION_TIMEOUT_ENABLED', 'true')),
+            ['false', '0', 'off', 'no'],
+            true
+        );
+
+        if (!$sessionTimeoutEnabled) {
+            // Timeout disabled — keep last_activity fresh so that re-enabling the switch
+            // later does not instantly expire every currently active session.
+            if (!empty($_SESSION['logged_in'])) {
+                $_SESSION['last_activity'] = time();
+            }
+        } elseif (!empty($_SESSION['logged_in'])) {
+            $sessionTimeout = (int)Settings::get('security.session_timeout', 120);
             if ($sessionTimeout > 0 && isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $sessionTimeout)) {
                 $expiredUserId = $_SESSION['user_id'] ?? null;
                 $_SESSION = [];
+                if (ini_get("session.use_cookies")) {
+                    $params = session_get_cookie_params();
+                    setcookie(session_name(), '', time() - 42000,
+                        $params["path"], $params["domain"],
+                        $params["secure"], $params["httponly"]
+                    );
+                }
+                setcookie('civentral_session', '', time() - 42000, '/');
                 if (session_status() === PHP_SESSION_ACTIVE) {
                     @session_destroy();
                 }
-                setcookie('civentral_session', '', time() - 3600, '/');
                 $currentUri = $_SERVER['REQUEST_URI'] ?? '';
                 if (!str_contains($currentUri, 'login.php')) {
                     if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
@@ -324,7 +346,29 @@ if (file_exists(__DIR__ . '/../app/helpers/Settings.php')) {
                     }
                 }
             } else {
-                $_SESSION['last_activity'] = time();
+                // Do NOT update last_activity on background AJAX polls so idle time is accurately tracked
+                $isAjax = (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')
+                    || (isset($_SERVER['HTTP_ACCEPT']) && str_contains($_SERVER['HTTP_ACCEPT'], 'application/json'));
+                if (!$isAjax) {
+                    $_SESSION['last_activity'] = time();
+                } elseif (!isset($_SESSION['last_activity'])) {
+                    $_SESSION['last_activity'] = time();
+                }
+            }
+        }
+
+        // 4. Enforce SSL / HTTPS if enabled and outside localhost
+        $sslEnforced = (bool)Settings::get('security.ssl_enforced', false);
+        if ($sslEnforced && PHP_SAPI !== 'cli') {
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $isLocal = str_starts_with($host, 'localhost') || str_starts_with($host, '127.0.0.1') || str_ends_with($host, '.local');
+            if (!$isLocal) {
+                $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+                if (!$isHttps && !headers_sent()) {
+                    $redirectUrl = 'https://' . $host . ($_SERVER['REQUEST_URI'] ?? '');
+                    header('Location: ' . $redirectUrl, true, 301);
+                    exit;
+                }
             }
         }
     } catch (Throwable $e) {

@@ -27,7 +27,7 @@ class FileUploadValidator
         string $filePath,
         string $originalFilename,
         array $allowedExtensions = ['json', 'csv', 'pdf', 'xlsx'],
-        int $maxSizeBytes = 10485760 // 10MB default
+        ?int $maxSizeBytes = null
     ): array {
         if (!file_exists($filePath) || !is_readable($filePath)) {
             return [
@@ -37,7 +37,13 @@ class FileUploadValidator
             ];
         }
 
-        // 1. File size guardrail (max 10MB)
+        // Dynamically resolve max upload size from system performance settings
+        if ($maxSizeBytes === null || $maxSizeBytes <= 0) {
+            $configuredMb = class_exists('Settings') ? (int)\Settings::get('performance.max_upload_size', 50) : 50;
+            $maxSizeBytes = max(1, $configuredMb) * 1024 * 1024;
+        }
+
+        // 1. File size guardrail
         $fileSize = filesize($filePath);
         if ($fileSize > $maxSizeBytes) {
             $maxMB = round($maxSizeBytes / (1024 * 1024), 1);

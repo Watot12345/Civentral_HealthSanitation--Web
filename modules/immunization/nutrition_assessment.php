@@ -427,7 +427,8 @@ $title = 'Nutrition Assessment';
                         data-status="<?php echo $assessment['nutrition_status']; ?>"
                         data-risk="<?php echo $assessment['risk_level']; ?>"
                         data-date="<?php echo htmlspecialchars($assessment['date']); ?>"
-                        data-id="<?php echo htmlspecialchars($assessment['child_id']); ?>">
+                        data-id="<?php echo htmlspecialchars($assessment['child_id']); ?>"
+                        data-assessment-id="<?php echo (int)$assessment['id']; ?>">
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-2.5">
                                 <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
@@ -1141,16 +1142,25 @@ $title = 'Nutrition Assessment';
         };
 
         try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '<?php echo $_SESSION['csrf_token'] ?? ''; ?>';
             const res = await fetch('<?php echo site_url('api/nutrition.php'); ?>', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const data = await res.json();
             if (data.success) {
                 closeModal('nutritionScreeningModal');
+                const saved = data.record || data.data || { ...payload, id: Date.now() };
+                if (saved.id) {
+                    ASSESSMENTS[saved.id] = saved;
+                    upsertNutritionRow(saved);
+                }
                 showToast('Nutrition assessment saved successfully!', 'success');
-                setTimeout(() => location.reload(), 1000);
             } else {
                 showToast(data.message || 'Failed to save assessment.', 'danger');
             }
@@ -1158,6 +1168,90 @@ $title = 'Nutrition Assessment';
             console.error('Save assessment error:', err);
             showToast('Error saving assessment to server.', 'danger');
         }
+    }
+
+    function upsertNutritionRow(a) {
+        if (!a || !a.id) return;
+
+        const row = document.querySelector(`.nutrition-row[data-assessment-id="${a.id}"]`);
+        if (row) {
+            row.dataset.child = (a.child_name || '').toLowerCase();
+            row.dataset.status = (a.nutrition_status || '').toLowerCase();
+            row.dataset.risk = (a.risk_level || '').toLowerCase();
+            row.dataset.date = a.date || '';
+            row.dataset.id = a.child_id || '';
+
+            const cells = row.children;
+            if (cells.length >= 8) {
+                const dateCell = cells[1];
+                if (dateCell) dateCell.textContent = a.date ? new Date(a.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+                const weightCell = cells[2];
+                if (weightCell) weightCell.textContent = a.weight ?? '—';
+
+                const heightCell = cells[3];
+                if (heightCell) heightCell.textContent = a.height ?? '—';
+
+                const statusCell = cells[4];
+                const riskCell = cells[5];
+                const nextCell = cells[6];
+
+                const statusColors = {
+                    normal: 'bg-emerald-100 text-emerald-700',
+                    moderate: 'bg-amber-100 text-amber-700',
+                    critical: 'bg-rose-100 text-rose-700'
+                };
+                const riskColors = {
+                    low: 'bg-emerald-100 text-emerald-700',
+                    medium: 'bg-amber-100 text-amber-700',
+                    high: 'bg-rose-100 text-rose-700'
+                };
+                if (statusCell) {
+                    const badge = statusCell.querySelector('span');
+                    const status = (a.nutrition_status || 'normal').toLowerCase();
+                    const className = `px-2 py-1 rounded-full text-xs font-semibold ${statusColors[status] || statusColors.normal}`;
+                    if (badge) {
+                        badge.className = className;
+                        badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+                    }
+                }
+                if (riskCell) {
+                    const badge = riskCell.querySelector('span');
+                    const risk = (a.risk_level || 'low').toLowerCase();
+                    const className = `px-2 py-1 rounded-full text-xs font-semibold ${riskColors[risk] || riskColors.low}`;
+                    if (badge) {
+                        badge.className = className;
+                        badge.textContent = risk.charAt(0).toUpperCase() + risk.slice(1);
+                    }
+                }
+                if (nextCell) {
+                    nextCell.textContent = a.next_assessment ? new Date(a.next_assessment).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+                }
+            }
+            row.classList.toggle('bg-rose-50/50', (a.nutrition_status || '').toLowerCase() === 'critical');
+            return;
+        }
+
+        const tbody = document.getElementById('nutritionTableBody');
+        if (!tbody) return;
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-slate-100 hover:bg-brand-light/40 transition-colors nutrition-row ' + ((a.nutrition_status || '').toLowerCase() === 'critical' ? 'bg-rose-50/50' : '');
+        tr.dataset.assessmentId = a.id;
+        tr.dataset.child = (a.child_name || '').toLowerCase();
+        tr.dataset.status = (a.nutrition_status || '').toLowerCase();
+        tr.dataset.risk = (a.risk_level || '').toLowerCase();
+        tr.dataset.date = a.date || '';
+        tr.dataset.id = a.child_id || '';
+        tr.innerHTML = `
+            <td class="px-4 py-3"><div class="flex items-center gap-2.5"><div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">${a.child_avatar || 'N'}</div><div><p class="font-semibold text-slate-800 text-sm">${a.child_name || 'Unknown'}</p><p class="text-xs text-slate-400">${a.age || '—'}</p></div></div></td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${a.date ? new Date(a.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs font-medium">${a.weight ?? '—'}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs">${a.height ?? '—'}</td>
+            <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${((a.nutrition_status || 'normal').toLowerCase() === 'normal' ? 'bg-emerald-100 text-emerald-700' : (a.nutrition_status || '').toLowerCase() === 'moderate' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700')}">${(a.nutrition_status || 'Normal').toString().charAt(0).toUpperCase() + String(a.nutrition_status || 'Normal').slice(1)}</span></td>
+            <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${((a.risk_level || 'low').toLowerCase() === 'low' ? 'bg-emerald-100 text-emerald-700' : (a.risk_level || '').toLowerCase() === 'medium' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700')}">${(a.risk_level || 'Low').toString().charAt(0).toUpperCase() + String(a.risk_level || 'Low').slice(1)}</span></td>
+            <td class="px-4 py-3 text-slate-500 text-xs">${a.next_assessment ? new Date(a.next_assessment).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+            <td class="px-4 py-3"><div class="flex items-center justify-center gap-1"><button onclick="viewAssessment(${a.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View"><i class="fa-solid fa-eye text-sm"></i></button><button onclick="editAssessment(${a.id})" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen text-sm"></i></button>${(a.nutrition_status || '').toLowerCase() === 'critical' ? '<button onclick="emergencyIntervention(' + a.id + ')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Emergency Intervention"><i class="fa-solid fa-truck-medical text-sm"></i></button>' : ''}</div></td>`;
+        tbody.insertBefore(tr, tbody.firstChild);
     }
 
     function limitNutritionMeasurement(input) {

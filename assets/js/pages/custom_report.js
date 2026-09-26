@@ -51,20 +51,28 @@ function setDatePreset(preset) {
 
 // ─── TAB NAVIGATION ───────────────────────────────────────────
 function switchTab(tabId) {
-    document.querySelectorAll('.report-tab').forEach(tab => tab.classList.remove('active', 'text-[#176B87]', 'border-[#176B87]'));
-    document.querySelectorAll('.report-tab').forEach(tab => tab.classList.add('text-slate-500', 'border-transparent'));
+    document.querySelectorAll('.report-tab').forEach(tab => {
+        const isActive = tab.dataset.tab === tabId;
+        tab.classList.toggle('active', isActive);
+        tab.classList.toggle('text-[#176B87]', isActive);
+        tab.classList.toggle('border-[#176B87]', isActive);
+        tab.classList.toggle('text-slate-500', !isActive);
+        tab.classList.toggle('border-transparent', !isActive);
+    });
     
     document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
     
-    const targetTab = document.querySelector(`.report-tab[data-tab="${tabId}"]`);
-    if (targetTab) {
-        targetTab.classList.add('active', 'text-[#176B87]', 'border-[#176B87]');
-        targetTab.classList.remove('text-slate-500', 'border-transparent');
-    }
-    
-    const targetContent = document.getElementById('tab' + (tabId === 'summary' ? 'Summary' : tabId === 'chart' ? 'Chart' : 'Table'));
+    const targetContent = document.getElementById('tab' + (tabId === 'summary' ? 'Summary' : (tabId === 'chart' ? 'Chart' : 'Table')));
     if (targetContent) {
         targetContent.classList.remove('hidden');
+    }
+
+    if (tabId === 'chart') {
+        setTimeout(() => {
+            if (barChart && typeof barChart.resize === 'function') barChart.resize();
+            if (doughnutChart && typeof doughnutChart.resize === 'function') doughnutChart.resize();
+            if (lineChart && typeof lineChart.resize === 'function') lineChart.resize();
+        }, 60);
     }
 }
 function openTemplatesListModal() {
@@ -126,7 +134,7 @@ let activeEmployeesList = [];
 
 // ─── STATE ──────────────────────────────────────────────────────
 let currentPage = 1;
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 99999; // Removed pagination per user request
 let currentStatusFilter = 'all';
 
 // Chart instances
@@ -142,7 +150,36 @@ const FACILITY_TO_DEPT_MAP = {
 
 // ─── FILTERING ENGINE ──────────────────────────────────────────
 function getFilteredData() {
-    return allReportRows;
+    const facilitySelect = document.getElementById('facility');
+    const selectedFacility = facilitySelect ? facilitySelect.value : 'all';
+
+    return allReportRows.filter(row => {
+        // 1. Status Filter
+        if (currentStatusFilter && currentStatusFilter !== 'all') {
+            const rowStatus = String(row.status || '').toLowerCase();
+            const filter = String(currentStatusFilter).toLowerCase();
+            if (filter === 'non-compliant') {
+                if (rowStatus !== 'non-compliant' && rowStatus !== 'urgent' && rowStatus !== 'failed') return false;
+            } else if (filter === 'urgent') {
+                if (rowStatus !== 'urgent' && rowStatus !== 'emergency' && rowStatus !== 'high') return false;
+            } else if (filter === 'compliant') {
+                if (rowStatus !== 'compliant' && rowStatus !== 'passed' && rowStatus !== 'resolved') return false;
+            } else if (filter === 'pending') {
+                if (rowStatus !== 'pending' && rowStatus !== 'in_progress' && rowStatus !== 'investigating' && rowStatus !== 'scheduled') return false;
+            }
+        }
+
+        // 2. Facility Filter
+        if (selectedFacility && selectedFacility !== 'all') {
+            const rowFac = String(row.facility || '').toLowerCase();
+            const selFac = String(selectedFacility).toLowerCase();
+            if (selFac !== 'all core departments' && !rowFac.includes(selFac) && !selFac.includes(rowFac)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
 }
 
 // ─── GET CURRENT CONFIG (for templates) ──────────────────────
@@ -213,38 +250,56 @@ function refreshUI() {
         `;
     }
     
-    const sumTags = document.getElementById('summaryTags');
-    if (sumTags) {
-        sumTags.innerHTML = `
-            <span class="px-3 py-1 bg-[#B4D4FF]/30 text-[#176B87] rounded-full text-xs font-medium">🔹 Rate: ${complianceRate}%</span>
-            <span class="px-3 py-1 bg-amber-100/60 text-amber-700 rounded-full text-xs font-medium">⚠️ Pending: ${pending}</span>
-            <span class="px-3 py-1 bg-red-100/60 text-red-700 rounded-full text-xs font-medium">🚨 Urgent: ${urgent}</span>
-        `;
-    }
-    
     const mComp = document.getElementById('metricCompliance');
     if (mComp) mComp.textContent = complianceRate + '%';
-    const mBar = document.getElementById('metricComplianceBar');
-    if (mBar) mBar.style.width = complianceRate + '%';
     const coverage = total > 0 ? Math.round((facilities / 52) * 100) : 0;
-    document.getElementById('metricCoverage').textContent = coverage + '%';
-    document.getElementById('metricCoverageBar').style.width = coverage + '%';
+    const mCov = document.getElementById('metricCoverage');
+    if (mCov) mCov.textContent = coverage + '%';
     const resolution = total > 0 ? Math.round(((compliant) / total) * 100) : 0;
-    document.getElementById('metricResolution').textContent = resolution + '%';
-    document.getElementById('metricResolutionBar').style.width = resolution + '%';
-    document.getElementById('metricParticipation').textContent = total > 0 ? '100%' : '0%';
-    document.getElementById('metricParticipationBar').style.width = total > 0 ? '100%' : '0%';
+    const mRes = document.getElementById('metricResolution');
+    if (mRes) mRes.textContent = resolution + '%';
+    const mPart = document.getElementById('metricParticipation');
+    if (mPart) mPart.textContent = total > 0 ? '100%' : '0%';
 
-    // Dynamic print & export title based on module & department
     const reportTypeSelect = document.getElementById('reportType');
     const moduleName = reportTypeSelect?.selectedOptions[0]?.textContent?.trim() || 'Operational Report';
+    const modValue = reportTypeSelect?.value || 'unified';
+
+    const lbl1 = document.getElementById('labelMetric1');
+    const lbl2 = document.getElementById('labelMetric2');
+    if (lbl1 && lbl2) {
+        if (modValue === 'health_center' || modValue === 'immunization') {
+            lbl1.textContent = 'Patient Success Rate:';
+            lbl2.textContent = 'Encounter / Treatment Coverage:';
+        } else if (modValue === 'wastewater') {
+            lbl1.textContent = 'Payment Collection Rate:';
+            lbl2.textContent = 'Client Service Coverage:';
+        } else if (modValue === 'surveillance') {
+            lbl1.textContent = 'Case Resolution Rate:';
+            lbl2.textContent = 'Surveillance Area Coverage:';
+        } else {
+            lbl1.textContent = 'Compliance / Approval Rate:';
+            lbl2.textContent = 'Inspection / Enforcement Coverage:';
+        }
+    }
+
     const subTitleElem = document.getElementById('printReportSubtitle');
     if (subTitleElem) {
         subTitleElem.textContent = moduleName;
     }
+    
+    const chartBarTitle = document.getElementById('chartBarTitle');
+    if (chartBarTitle) {
+        chartBarTitle.textContent = moduleName + ' Operational Distribution';
+    }
+    const chartBarDate = document.getElementById('chartBarDate');
+    const sd = document.getElementById('startDate')?.value || '';
+    const ed = document.getElementById('endDate')?.value || '';
+    if (chartBarDate) {
+        chartBarDate.textContent = (sd && ed) ? `${sd} to ${ed}` : 'All Time';
+    }
 
     updateCharts(data);
-    renderTableView(data);
 
     // Fetch AI Executive Summary per department
     fetchAiReportSummary(false);
@@ -269,42 +324,32 @@ async function fetchAiReportSummary(isManual = false) {
     const moduleSelect = document.getElementById('reportType');
     const selectedModule = moduleSelect ? moduleSelect.value : 'unified';
 
+    const startDate = document.getElementById('startDate')?.value || '';
+    const endDate = document.getElementById('endDate')?.value || '';
+
     try {
-        const url = `${APP_CONFIG.api_ai_summary}?module=${encodeURIComponent(selectedModule)}&department=${encodeURIComponent(selectedDept)}&total=${total}&compliant=${compliant}&urgent=${urgent}&pending=${pending}`;
+        let url = `${APP_CONFIG.api_ai_summary}?module=${encodeURIComponent(selectedModule)}&department=${encodeURIComponent(selectedDept)}&total=${encodeURIComponent(total)}&compliant=${encodeURIComponent(compliant)}&urgent=${encodeURIComponent(urgent)}&pending=${encodeURIComponent(pending)}`;
+        if (startDate) url += `&start_date=${encodeURIComponent(startDate)}`;
+        if (endDate) url += `&end_date=${encodeURIComponent(endDate)}`;
+        if (isManual) url += `&refresh=1`;
+
         const resp = await fetch(url);
         const res = await resp.json();
 
         if (res && res.success) {
+            const boldNumbers = (text) => (text || '').replace(/(\d+(?:\.\d+)?%?)/g, '<strong class="text-[#176B87] font-bold">$1</strong>');
+
             // Update Summary Text
             document.getElementById('summaryText').innerHTML = `
                 <p class="font-bold text-slate-800 mb-1.5 text-xs">${res.department} Executive Overview:</p>
-                <p class="leading-relaxed text-xs text-slate-700">${res.summary}</p>
-            `;
-
-            // Update Risk Badge
-            const riskBadge = document.getElementById('aiRiskBadge');
-            if (riskBadge) {
-                riskBadge.textContent = res.risk_level || 'Optimal';
-                riskBadge.className = res.risk_level === 'High Risk' 
-                    ? 'px-2.5 py-1 bg-rose-100 text-rose-700 rounded-lg text-xs font-bold'
-                    : (res.risk_level === 'Moderate Risk' ? 'px-2.5 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-bold' : 'px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-bold');
-            }
-
-            // Update Tags
-            const complianceRate = res.metrics ? res.metrics.compliance_rate : 0;
-            document.getElementById('summaryTags').innerHTML = `
-                <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold border border-indigo-100">✨ ${res.ai_generated ? 'AI Model Summary' : 'Rule Engine Summary'}</span>
-                <span class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100">🔹 Compliance ${complianceRate}%</span>
-                <span class="px-2.5 py-1 bg-amber-50 text-amber-700 rounded-full text-xs font-bold border border-amber-100">⚠️ Pending: ${pending}</span>
-                <span class="px-2.5 py-1 bg-rose-50 text-rose-700 rounded-full text-xs font-bold border border-rose-100">🚨 Urgent: ${urgent}</span>
+                <p class="leading-relaxed text-xs text-slate-700">${boldNumbers(res.summary)}</p>
             `;
 
             // Update Key Findings
             if (res.key_findings && res.key_findings.length > 0) {
                 const findingsHtml = res.key_findings.map(f => `
                     <div class="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-100 text-indigo-950 font-semibold flex items-start gap-2 text-xs">
-                        <i class="fas fa-circle-info text-indigo-600 mt-0.5 flex-shrink-0"></i>
-                        <span>${f}</span>
+                        <span>${boldNumbers(f)}</span>
                     </div>
                 `).join('');
                 document.getElementById('aiKeyFindings').innerHTML = findingsHtml;
@@ -313,12 +358,23 @@ async function fetchAiReportSummary(isManual = false) {
             // Update Actionable Recommendations
             if (res.recommendations && res.recommendations.length > 0) {
                 const recsHtml = res.recommendations.map(r => `
-                    <li class="flex items-start gap-2 font-medium text-slate-700 text-xs">
-                        <i class="fas fa-check-circle text-emerald-500 text-xs mt-0.5 flex-shrink-0"></i>
-                        <span>${r}</span>
+                    <li class="font-medium text-slate-700 text-xs">
+                        <span>${boldNumbers(r)}</span>
                     </li>
                 `).join('');
                 document.getElementById('aiRecommendationsList').innerHTML = recsHtml;
+            }
+
+            if (res.requests_left !== undefined) {
+                const badge = document.getElementById('aiQuotaBadge');
+                if (badge) {
+                    badge.innerHTML = `🤖 ${res.requests_left} requests left`;
+                    if (res.requests_left > 2) {
+                        badge.className = 'px-2.5 py-1 bg-cyan-100 text-cyan-700 rounded-full text-xs font-bold shadow-sm';
+                    } else {
+                        badge.className = 'px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold shadow-sm';
+                    }
+                }
             }
 
             if (isManual && typeof showToast === 'function') {
@@ -339,105 +395,86 @@ async function fetchAiReportSummary(isManual = false) {
 function updateCharts(data) {
     if (!data || data.length === 0) {
         if (barChart) {
-            barChart.data.labels = ['No Data'];
+            barChart.data.labels = ['No Data Available'];
             barChart.data.datasets[0].data = [0];
             barChart.update();
         }
         if (doughnutChart) {
-            doughnutChart.data.labels = ['No Data'];
+            doughnutChart.data.labels = ['No Data Available'];
             doughnutChart.data.datasets[0].data = [1];
+            doughnutChart.data.datasets[0].backgroundColor = ['#e2e8f0'];
             doughnutChart.update();
         }
         if (lineChart) {
-            lineChart.data.labels = ['No Data'];
+            lineChart.data.labels = ['No Data Available'];
             lineChart.data.datasets[0].data = [0];
             lineChart.update();
         }
         return;
     }
 
-    const catMap = {};
-    data.forEach(r => {
-        const c = r.category || 'General';
-        catMap[c] = (catMap[c] || 0) + 1;
-    });
+    // 1. Bar Chart: Metric/Sub-Module Distribution
+    const moduleSelect = document.getElementById('reportType');
+    const isUnified = moduleSelect && moduleSelect.value === 'unified';
 
-    const labels = Object.keys(catMap);
-    const values = Object.values(catMap);
-    const colors = ['#176B87', '#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6', '#ec4899'];
+    const facMap = {};
+    data.forEach(r => {
+        let fac = r.metric || r.category || r.facility || 'General';
+        if (isUnified) {
+            fac = r.category || fac; // Group by main department for Unified Report
+        }
+        facMap[fac] = (facMap[fac] || 0) + 1;
+    });
+    const barLabels = Object.keys(facMap);
+    const barValues = Object.values(facMap);
+    const palette = ['#176B87', '#3b82f6', '#0ea5e9', '#6366f1', '#10b981', '#f59e0b', '#8b5cf6'];
 
     if (barChart) {
-        barChart.data.labels = labels;
-        barChart.data.datasets[0].data = values;
-        barChart.data.datasets[0].backgroundColor = colors.slice(0, labels.length);
+        barChart.data.labels = barLabels;
+        barChart.data.datasets[0].data = barValues;
+        barChart.data.datasets[0].backgroundColor = palette.slice(0, barLabels.length);
         barChart.update();
     }
 
+    // 2. Doughnut Chart: Compliance Status Distribution (Compliant, Pending, Urgent)
+    let compliantCount = 0;
+    let pendingCount = 0;
+    let urgentCount = 0;
+    data.forEach(r => {
+        const s = String(r.status || '').toLowerCase();
+        if (s === 'compliant' || s === 'passed' || s === 'resolved') compliantCount++;
+        else if (s === 'urgent' || s === 'failed' || s === 'non-compliant' || s === 'emergency') urgentCount++;
+        else pendingCount++;
+    });
+
     if (doughnutChart) {
-        doughnutChart.data.labels = labels;
-        doughnutChart.data.datasets[0].data = values;
-        doughnutChart.data.datasets[0].backgroundColor = colors.slice(0, labels.length);
+        doughnutChart.data.labels = ['Compliant', 'Pending', 'Urgent'];
+        doughnutChart.data.datasets[0].data = [compliantCount, pendingCount, urgentCount];
+        doughnutChart.data.datasets[0].backgroundColor = ['#10b981', '#f59e0b', '#ef4444'];
         doughnutChart.update();
     }
 
+    // 3. Line Chart: Timeline / Activity Trend over Dates
+    const timelineMap = {};
+    data.forEach(r => {
+        if (r.date && r.date.length >= 7) {
+            const period = r.date.substring(0, 10);
+            timelineMap[period] = (timelineMap[period] || 0) + 1;
+        }
+    });
+
+    const sortedDates = Object.keys(timelineMap).sort();
+    const lineLabels = sortedDates.length > 0 ? sortedDates : ['Active Period'];
+    const lineValues = sortedDates.length > 0 ? sortedDates.map(d => timelineMap[d]) : [data.length];
+
     if (lineChart) {
-        lineChart.data.labels = labels;
-        lineChart.data.datasets[0].data = values;
+        lineChart.data.labels = lineLabels;
+        lineChart.data.datasets[0].data = lineValues;
         lineChart.update();
     }
 }
 
-// ─── TABLE RENDER ──────────────────────────────────────────────
-function renderTableView(data) {
-    const tbody = document.getElementById('tableViewBody');
-    if (!tbody) return;
-    const total = data.length;
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
 
-    const start = (currentPage - 1) * PAGE_SIZE;
-    const pageRows = data.slice(start, start + PAGE_SIZE);
-
-    const statusBadgeClass = {
-        'Compliant': 'bg-emerald-100/70 text-emerald-700',
-        'Pending': 'bg-amber-100/70 text-amber-700',
-        'Urgent': 'bg-red-100/70 text-red-700'
-    };
-
-    tbody.innerHTML = pageRows.map((r, index) => {
-        const cat = r.category || 'General';
-        const item = r.item || r.metric || ('Record #' + (start + index + 1));
-        const details = r.details || 'Operational record';
-        const date = r.date || '-';
-        const status = r.status || 'Compliant';
-        const statusClass = statusBadgeClass[status] || 'bg-slate-100 text-slate-700';
-
-        return `
-        <tr class="table-row-hover transition-colors">
-            <td class="py-3 pr-4 font-semibold text-[#176B87] text-xs">${escapeExportHtml(cat)}</td>
-            <td class="py-3 pr-4 text-slate-800 font-medium text-xs whitespace-nowrap">${escapeExportHtml(item)}</td>
-            <td class="py-3 pr-4 text-slate-600 text-xs max-w-sm truncate" title="${escapeExportHtml(details)}">${escapeExportHtml(details)}</td>
-            <td class="py-3 pr-4 text-slate-500 text-xs whitespace-nowrap">${escapeExportHtml(date)}</td>
-            <td class="py-3 pr-4"><span class="status-badge ${statusClass} px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap">${escapeExportHtml(status)}</span></td>
-        </tr>
-    `}).join('') || '<tr><td colspan="5" class="py-8 text-center text-slate-400">No records match this filter.</td></tr>';
-
-    document.getElementById('tableViewSummary').textContent = total === 0
-        ? 'No entries match this filter'
-        : `Showing ${start + 1}-${Math.min(start + PAGE_SIZE, total)} of ${total} entries`;
-
-    document.querySelectorAll('#tablePagination [data-page]').forEach(btn => {
-        const page = parseInt(btn.dataset.page, 10);
-        const isActive = page === currentPage;
-        btn.classList.toggle('bg-[#176B87]', isActive);
-        btn.classList.toggle('text-white', isActive);
-        btn.classList.toggle('shadow-sm', isActive);
-        btn.classList.toggle('shadow-[#176B87]/20', isActive);
-        btn.classList.toggle('border', !isActive);
-        btn.classList.toggle('border-[#B4D4FF]/30', !isActive);
-    });
-}
 
 // ─── VIEW ROW ──────────────────────────────────────────────────
 function viewRow(index) {
@@ -447,12 +484,16 @@ function viewRow(index) {
         return;
     }
     const row = data[index];
-    document.getElementById('detailFacility').textContent = row.facility;
-    document.getElementById('detailInspector').textContent = row.inspector;
-    document.getElementById('detailDate').textContent = row.date;
-    document.getElementById('detailScore').textContent = row.score + ' / 100';
+    const facEl = document.getElementById('detailFacility');
+    if (facEl) facEl.textContent = row.facility || 'Central Health Facility';
+    const inspEl = document.getElementById('detailInspector');
+    if (inspEl) inspEl.textContent = row.inspector || 'Designated Officer';
+    const dateEl = document.getElementById('detailDate');
+    if (dateEl) dateEl.textContent = row.date || 'N/A';
+    const scoreEl = document.getElementById('detailScore');
+    if (scoreEl) scoreEl.textContent = (row.score !== undefined ? row.score : 85) + ' / 100';
     const statusEl = document.getElementById('detailStatus');
-    statusEl.textContent = row.status;
+    if (statusEl) statusEl.textContent = row.status || 'Compliant';
     const statusColors = {
         'Compliant': 'text-emerald-600',
         'Pending': 'text-amber-600',
@@ -594,21 +635,21 @@ function renderTemplateList() {
     
     container.innerHTML = templates.map((t, index) => `
         <div class="template-item flex items-center justify-between px-3 py-2.5 rounded-xl border border-[#B4D4FF]/20 hover:border-[#B4D4FF]/50 transition">
-            <div class="flex items-center gap-3 flex-1 min-w-0" onclick="loadTemplateByName('${t.name}')">
+            <div class="flex items-center gap-3 flex-1 min-w-0" onclick="loadLocalTemplateByName('${t.name}')">
                 <i class="fa-regular fa-file-lines text-[#176B87]"></i>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-slate-700 truncate">${t.name}</p>
                     <p class="text-[10px] text-slate-400">${new Date(t.savedAt).toLocaleDateString()}</p>
                 </div>
             </div>
-            <button onclick="deleteTemplate('${t.name}')" class="delete-btn p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition ml-2" title="Delete template">
+            <button onclick="deleteLocalTemplate('${t.name}')" class="delete-btn p-1.5 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-500 transition ml-2" title="Delete template">
                 <i class="fa-regular fa-trash-can text-xs"></i>
             </button>
         </div>
     `).join('');
 }
 
-function loadTemplateByName(name) {
+function loadLocalTemplateByName(name) {
     const templates = getSavedTemplates();
     const template = templates.find(t => t.name === name);
     if (!template) {
@@ -620,7 +661,7 @@ function loadTemplateByName(name) {
     showToast(`Template "${name}" loaded successfully!`, 'success');
 }
 
-function deleteTemplate(name) {
+function deleteLocalTemplate(name) {
     if (!confirm(`Delete template "${name}"?`)) return;
     const templates = getSavedTemplates();
     const filtered = templates.filter(t => t.name !== name);
@@ -661,7 +702,35 @@ async function logReportGeneration(reportName, format) {
 }
 
 // ─── GENERATE REPORT ──────────────────────────────────────────
-function generateReport() {
+async function generateReport() {
+    const badgeText = document.getElementById('aiQuotaBadge')?.textContent || '';
+    const quotaMatch = badgeText.match(/(\d+)/);
+    const quota = quotaMatch ? parseInt(quotaMatch[1]) : 10;
+    
+    if (quota === 0) {
+        if (typeof ModalSystem !== 'undefined' && ModalSystem.confirm) {
+            ModalSystem.confirm(
+                "Your AI Quota is currently 0. The system will continue using recent cached reports or system fallback templates. Do you want to continue?",
+                function() {
+                    _doGenerateReport();
+                },
+                {
+                    title: 'AI Quota Exceeded',
+                    confirmText: 'Continue',
+                    type: 'warning'
+                }
+            );
+        } else {
+            if (confirm("Your AI Quota is currently 0.\n\nThe system will continue using recent cached reports or system fallback templates.\n\nDo you want to continue?")) {
+                _doGenerateReport();
+            }
+        }
+    } else {
+        _doGenerateReport();
+    }
+}
+
+async function _doGenerateReport() {
     const btn = document.getElementById('generateBtn');
     const originalContent = btn ? btn.innerHTML : '';
     if (btn) {
@@ -669,63 +738,129 @@ function generateReport() {
         btn.disabled = true;
     }
 
-    const data = getFilteredData();
-    const total = data.length;
-    const compliant = data.filter(r => r.status === 'Compliant').length;
-    const nonCompliant = data.filter(r => r.status === 'Non-Compliant').length;
-    const urgent = data.filter(r => r.status === 'Urgent').length;
-    const complianceRate = total > 0 ? ((compliant / total) * 100).toFixed(1) : 0;
+    try {
+        // 1. Fetch live report records from database with current parameter selections
+        await loadLiveReportData();
 
-    // Update Summary Banner
-    const banner = document.getElementById('generatedReportSummary');
-    if (banner) {
-        document.getElementById('bannerCompliance').textContent = complianceRate + '%';
-        document.getElementById('bannerTotal').textContent = total;
-        document.getElementById('bannerNonCompliant').textContent = nonCompliant;
-        document.getElementById('bannerUrgent').textContent = urgent;
+        const data = getFilteredData();
+        const total = data.length;
+        const compliant = data.filter(r => r.status === 'Compliant').length;
+        const nonCompliant = data.filter(r => r.status === 'Non-Compliant').length;
+        const urgent = data.filter(r => r.status === 'Urgent').length;
+        const complianceRate = total > 0 ? ((compliant / total) * 100).toFixed(1) : 0;
 
-        const reportTypeSelect = document.getElementById('reportType');
-        const reportTypeText = reportTypeSelect ? reportTypeSelect.options[reportTypeSelect.selectedIndex]?.text : 'Operational Report';
-        const bannerMeta = document.getElementById('bannerMeta');
-        if (bannerMeta) {
-            bannerMeta.textContent = `${reportTypeText} · Scoped to ${CURRENT_USER.department} · Generated ${new Date().toLocaleTimeString()}`;
+        // 2. Update Summary Banner
+        const banner = document.getElementById('generatedReportSummary');
+        if (banner) {
+            const compEl = document.getElementById('bannerCompliance');
+            if (compEl) compEl.textContent = complianceRate + '%';
+            const totEl = document.getElementById('bannerTotal');
+            if (totEl) totEl.textContent = total;
+            const nonCompEl = document.getElementById('bannerNonCompliant');
+            if (nonCompEl) nonCompEl.textContent = nonCompliant;
+            const urgEl = document.getElementById('bannerUrgent');
+            if (urgEl) urgEl.textContent = urgent;
+
+            const reportTypeSelect = document.getElementById('reportType');
+            const reportTypeText = reportTypeSelect ? reportTypeSelect.options[reportTypeSelect.selectedIndex]?.text : 'Operational Report';
+            const bannerMeta = document.getElementById('bannerMeta');
+            if (bannerMeta) {
+                bannerMeta.textContent = `${reportTypeText} · Scoped to ${CURRENT_USER.department} · Generated ${new Date().toLocaleTimeString()}`;
+            }
+            const badge = document.getElementById('bannerReportBadge');
+            if (badge) {
+                badge.textContent = `Live Ready (${total} records)`;
+            }
+            banner.classList.remove('hidden');
         }
-        const badge = document.getElementById('bannerReportBadge');
-        if (badge) {
-            badge.textContent = `Live Ready (${total} records)`;
-        }
-        banner.classList.remove('hidden');
-    }
 
-    const reportTypeVal = document.getElementById('reportType')?.value || 'report';
-    logReportGeneration(`${reportTypeVal.toUpperCase()} Report Generation`, 'Custom Query Generated');
+        const reportTypeVal = document.getElementById('reportType')?.value || 'report';
+        logReportGeneration(`${reportTypeVal.toUpperCase()} Report Generation`, 'Custom Query Generated');
 
-    setTimeout(() => {
         refreshUI();
         if (btn) {
             btn.innerHTML = '<i class="fa-solid fa-check"></i> Report Ready!';
         }
         showToast('Report generated successfully!', 'success');
         
-        // 1. Automatically generate the AI summary
-        fetchAiReportSummary(true);
+        // 3. Update the AI summary (uses cache when available to prevent rate limits)
+        fetchAiReportSummary(false);
         
-        // 2. Auto-scroll to report preview
-        scrollToPreview('chart');
+        // 4. Auto-scroll to report preview
+        openReportPreviewModal();
 
+        // 5. Removed auto-trigger download to force users to review the preview first.
+        // Users can download using the prominent "Download Report" button in the preview area.
+    } catch (err) {
+        console.error('Failed to generate report:', err);
+        showToast('Failed to generate report: ' + err.message, 'danger');
+    } finally {
         setTimeout(() => {
             if (btn) {
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
             }
-        }, 2000);
-    }, 400);
+        }, 1500);
+    }
 }
 
-function scrollToPreview(tab = 'chart') {
-    switchTab(tab);
-    const elem = document.getElementById('reportPreview');
-    if (elem) elem.scrollIntoView({ behavior: 'smooth' });
+function openReportPreviewModal() {
+    const modal = document.getElementById('reportPreview');
+    if (modal) {
+        // Adapt preview content based on selected format
+        const exportFmt = document.getElementById('exportFormat')?.value || 'pdf';
+        const tabSummary = document.getElementById('tabSummary');
+        const tabChart = document.getElementById('tabChart');
+        
+        const includeVisuals = document.getElementById('includeVisuals')?.checked ?? true;
+        const tabTable = document.getElementById('tabTable');
+        
+        if (tabTable) tabTable.classList.remove('hidden');
+        
+        if (exportFmt === 'excel' || exportFmt === 'csv') {
+            if (tabSummary) tabSummary.classList.add('hidden');
+            if (tabChart) tabChart.classList.add('hidden');
+        } else {
+            if (tabSummary) tabSummary.classList.remove('hidden');
+            if (tabChart) {
+                if (includeVisuals) tabChart.classList.remove('hidden');
+                else tabChart.classList.add('hidden');
+            }
+        }
+        
+        // Update dynamic title and date in header
+        const titleEl = document.getElementById('reportHeaderTitle');
+        const reportTypeSelect = document.getElementById('reportType');
+        if (titleEl && reportTypeSelect) {
+            const selectedText = reportTypeSelect.options[reportTypeSelect.selectedIndex]?.text;
+            if (selectedText) {
+                titleEl.textContent = selectedText.includes('Report') ? selectedText : selectedText + ' Report';
+            }
+        }
+
+        const dateSpan = document.getElementById('reportDateText');
+        if (dateSpan) {
+            const now = new Date();
+            dateSpan.textContent = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        modal.classList.remove('hidden');
+        void modal.offsetWidth;
+        modal.style.opacity = '1';
+        setTimeout(() => {
+            if (barChart && typeof barChart.resize === 'function') barChart.resize();
+            if (doughnutChart && typeof doughnutChart.resize === 'function') doughnutChart.resize();
+            if (lineChart && typeof lineChart.resize === 'function') lineChart.resize();
+        }, 100);
+    }
+}
+
+function closeReportPreviewModal() {
+    const modal = document.getElementById('reportPreview');
+    if (modal) {
+        modal.style.opacity = '0';
+        setTimeout(() => modal.classList.add('hidden'), 300);
+    }
 }
 
 // ─── RESULT MODAL ─────────────────────────────────────────────
@@ -743,6 +878,14 @@ function closeResultModal() {
 }
 
 // ─── DOWNLOAD WRAPPERS ──────────────────────────────────────
+function triggerSelectedDownload() {
+    const exportFmt = document.getElementById('exportFormat')?.value || 'pdf';
+    if (exportFmt === 'excel') exportExcel();
+    else if (exportFmt === 'csv') exportCSV();
+    else if (exportFmt === 'word') exportWord();
+    else exportPDF(); 
+}
+
 function downloadPDF() {
     closeResultModal();
     exportPDF();
@@ -807,12 +950,16 @@ function getReportExportMarkup() {
         clone.style.cssText = 'display:block;opacity:1;transform:none;animation:none;';
         clone.querySelectorAll('#tablePagination, .action-btn, button, .filter-chip').forEach(el => el.remove());
 
-        // Convert canvas charts to static PNG images
+        // Convert canvas charts to static images (use JPEG 0.82 for compact payload size)
         clone.querySelectorAll('canvas').forEach(canvas => {
             const sourceCanvas = document.getElementById(canvas.id);
             if (!sourceCanvas) return;
             const image = document.createElement('img');
-            image.src = sourceCanvas.toDataURL('image/png');
+            try {
+                image.src = sourceCanvas.toDataURL('image/jpeg', 0.82);
+            } catch (e) {
+                image.src = sourceCanvas.toDataURL('image/png');
+            }
             image.alt = canvas.id;
             image.style.cssText = 'display:block;width:100%;height:auto;max-height:320px;object-fit:contain;margin:8px auto;';
             canvas.replaceWith(image);
@@ -963,7 +1110,8 @@ function exportExcel() {
     const stamp = new Date().toISOString().slice(0, 10);
 
     showToast('Generating Excel report...', 'info');
-    fetch(`../api/reports/export.php?format=excel&title=${encodeURIComponent(meta.title)}&module=${encodeURIComponent(meta.module)}`, {
+    const exportUrl = (window.APP_CONFIG && window.APP_CONFIG.api_reports_export) ? window.APP_CONFIG.api_reports_export : '../api/reports/export.php';
+    fetch(`${exportUrl}?format=excel&title=${encodeURIComponent(meta.title)}&module=${encodeURIComponent(meta.module)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ headers, rows })
@@ -1003,7 +1151,8 @@ function exportPDF() {
     const stamp = new Date().toISOString().slice(0, 10);
     showToast('Generating PDF report with charts, table & AI summary...', 'info');
 
-    fetch(`../api/reports/export.php?format=pdf&title=${encodeURIComponent(meta.title)}&module=${encodeURIComponent(meta.module)}`, {
+    const exportPdfUrl = (window.APP_CONFIG && window.APP_CONFIG.api_reports_export) ? window.APP_CONFIG.api_reports_export : '../api/reports/export.php';
+    fetch(`${exportPdfUrl}?format=pdf&title=${encodeURIComponent(meta.title)}&module=${encodeURIComponent(meta.module)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ html: visualHtml, title: meta.title })
@@ -1082,15 +1231,6 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', refreshUI);
 });
-
-// ─── TAB SWITCH ──────────────────────────────────────────────
-function switchTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    const selectedTab = document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
-    if (selectedTab) selectedTab.classList.remove('hidden');
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-}
 
 // ─── MODAL CONTROLS ───────────────────────────────────────────
 function openScheduleModal() {
@@ -1419,7 +1559,7 @@ async function useTemplate(templateId) {
     showToast(`Loading "${t.name}" live records...`, 'info');
     await loadLiveReportData();
     generateReport();
-    scrollToPreview('chart');
+    openReportPreviewModal();
     showToast(`Template applied: ${t.name}`, 'success');
 }
 
@@ -1592,22 +1732,29 @@ function renderScheduledReports(schedules) {
         return;
     }
 
-    tbody.innerHTML = schedules.map(s => `
+    tbody.innerHTML = schedules.map(s => {
+        const title = s.report_title || s.title || s.report_type || 'Automated Report';
+        const nextRun = s.next_run_at || s.next_run || (s.last_run_at ? 'Completed' : 'Pending');
+        const recipients = Array.isArray(s.recipients) ? s.recipients.join(', ') : (s.recipients || 'admin@caloocan.gov.ph');
+        const format = (s.format || 'PDF').toUpperCase();
+        const freq = s.frequency || 'Weekly';
+
+        return `
         <tr class="table-row-hover transition-colors">
             <td class="py-3 pr-4 font-medium text-[#176B87]">
                 <div class="flex items-center gap-2">
                     <i class="fa-regular fa-calendar-check text-[#86B6F6]"></i>
-                    <span>${escapeExportHtml(s.title || s.report_type || 'Automated Report')}</span>
+                    <span>${escapeExportHtml(title)}</span>
                 </div>
             </td>
-            <td class="py-3 pr-4 text-xs font-semibold text-slate-700">${escapeExportHtml(s.frequency || 'Weekly')}</td>
+            <td class="py-3 pr-4 text-xs font-semibold text-slate-700">${escapeExportHtml(freq)}</td>
             <td class="py-3 pr-4 text-xs font-bold text-slate-600">
-                <span class="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">${escapeExportHtml(s.format || 'PDF')}</span>
+                <span class="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">${escapeExportHtml(format)}</span>
             </td>
-            <td class="py-3 pr-4 text-xs text-slate-500 max-w-[180px] truncate" title="${escapeExportHtml(s.recipients || 'admin@caloocan.gov.ph')}">
-                ${escapeExportHtml(s.recipients || 'admin@caloocan.gov.ph')}
+            <td class="py-3 pr-4 text-xs text-slate-500 max-w-[180px] truncate" title="${escapeExportHtml(recipients)}">
+                ${escapeExportHtml(recipients)}
             </td>
-            <td class="py-3 pr-4 text-xs text-slate-600 whitespace-nowrap">${escapeExportHtml(s.next_run || 'Pending')}</td>
+            <td class="py-3 pr-4 text-xs text-slate-600 whitespace-nowrap">${escapeExportHtml(nextRun)}</td>
             <td class="py-3 pr-4">
                 <span class="status-badge-pill bg-emerald-100 text-emerald-700 border border-emerald-200">
                     <i class="fa-solid fa-circle-dot text-[8px]"></i> Active
@@ -1619,7 +1766,7 @@ function renderScheduledReports(schedules) {
                 </button>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
 }
 
 async function saveSchedule() {
@@ -1948,12 +2095,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ctxBar) {
         barChart = new Chart(ctxBar, {
             type: 'bar',
-            data: { labels: [], datasets: [{ label: 'Compliance Score', data: [], backgroundColor: [], borderRadius: 8, borderSkipped: false }] },
+            data: { labels: [], datasets: [{ label: 'Total Records', data: [], backgroundColor: [], borderRadius: 6, borderSkipped: false, barPercentage: 0.6, hoverBackgroundColor: '#86B6F6' }] },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true, max: 100, grid: { color: 'rgba(180, 212, 255, 0.2)' } }, x: { grid: { display: false } } }
+                animation: { duration: 1500, easing: 'easeOutQuart' },
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleFont: { size: 13 }, bodyFont: { size: 12 }, padding: 12, cornerRadius: 8, displayColors: false }
+                },
+                scales: { 
+                    y: { beginAtZero: true, grid: { color: 'rgba(180, 212, 255, 0.2)', borderDash: [4, 4] }, border: { display: false } }, 
+                    x: { grid: { display: false }, border: { display: false } } 
+                }
             }
         });
     }
@@ -1962,17 +2116,40 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ctxDoughnut) {
         doughnutChart = new Chart(ctxDoughnut, {
             type: 'doughnut',
-            data: { labels: [], datasets: [{ data: [], backgroundColor: ['#176B87', '#f59e0b', '#ef4444', '#f59e0b'], borderWidth: 0 }] },
-            options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+            data: { labels: [], datasets: [{ data: [], backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#f59e0b'], borderWidth: 2, borderColor: '#ffffff', hoverOffset: 6 }] },
+            options: { 
+                responsive: true, maintainAspectRatio: false, cutout: '75%', 
+                animation: { animateScale: true, animateRotate: true, duration: 1500, easing: 'easeOutQuart' },
+                plugins: { 
+                    legend: { position: 'bottom', labels: { font: { size: 12 }, usePointStyle: true, padding: 20 } },
+                    tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleFont: { size: 13 }, bodyFont: { size: 12 }, padding: 12, cornerRadius: 8 }
+                } 
+            }
         });
     }
 
     const ctxLine = document.getElementById('lineChart');
     if (ctxLine) {
+        let gradientLine = ctxLine.getContext('2d').createLinearGradient(0, 0, 0, 200);
+        gradientLine.addColorStop(0, 'rgba(23, 107, 135, 0.4)');
+        gradientLine.addColorStop(1, 'rgba(23, 107, 135, 0.0)');
+
         lineChart = new Chart(ctxLine, {
             type: 'line',
-            data: { labels: [], datasets: [{ data: [], borderColor: '#176B87', backgroundColor: 'rgba(23, 107, 135, 0.1)', fill: true, tension: 0.4, borderWidth: 2, pointRadius: 0 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { display: false } } }
+            data: { labels: [], datasets: [{ label: 'Activity', data: [], borderColor: '#176B87', backgroundColor: gradientLine, fill: true, tension: 0.4, borderWidth: 3, pointRadius: 4, pointBackgroundColor: '#ffffff', pointBorderColor: '#176B87', pointBorderWidth: 2, pointHoverRadius: 6 }] },
+            options: { 
+                responsive: true, maintainAspectRatio: false, 
+                animation: { duration: 2000, easing: 'easeOutQuart' },
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 12, cornerRadius: 8, displayColors: false }
+                }, 
+                scales: { 
+                    y: { display: true, grid: { color: 'rgba(180, 212, 255, 0.2)', borderDash: [4, 4] }, border: { display: false }, beginAtZero: true }, 
+                    x: { display: true, grid: { display: false }, border: { display: false }, ticks: { maxTicksLimit: 7 } } 
+                },
+                interaction: { intersect: false, mode: 'index' }
+            }
         });
     }
 

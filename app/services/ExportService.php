@@ -224,8 +224,8 @@ class ExportService
             ob_end_clean();
         }
 
-        // Limit HTML payload size to prevent abuse (2MB max)
-        if (strlen($html) > 2 * 1024 * 1024) {
+        // Limit HTML payload size to prevent abuse (10MB max to accommodate embedded chart data URIs)
+        if (strlen($html) > 10 * 1024 * 1024) {
             throw new \RuntimeException('HTML payload too large for PDF generation.');
         }
 

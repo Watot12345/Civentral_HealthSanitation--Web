@@ -75,7 +75,12 @@ class CacheManager
         $json = json_encode($payload, JSON_PRETTY_PRINT);
 
         if (@file_put_contents($tmpPath, $json, LOCK_EX) !== false) {
-            return @rename($tmpPath, $filePath);
+            @chmod($tmpPath, 0666);
+            $renamed = @rename($tmpPath, $filePath);
+            if ($renamed) {
+                @chmod($filePath, 0666);
+            }
+            return $renamed;
         }
 
         return false;

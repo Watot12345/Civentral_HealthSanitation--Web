@@ -9,6 +9,7 @@
 ALTER TABLE public.employees
   ADD COLUMN IF NOT EXISTS username character varying(50) UNIQUE,
   ADD COLUMN IF NOT EXISTS email character varying(100),
+  ADD COLUMN IF NOT EXISTS contact_number character varying(20),
   ADD COLUMN IF NOT EXISTS status text DEFAULT 'Active',
   ADD COLUMN IF NOT EXISTS last_login timestamp with time zone,
   ADD COLUMN IF NOT EXISTS role_id integer REFERENCES public.roles(id) ON DELETE SET NULL;

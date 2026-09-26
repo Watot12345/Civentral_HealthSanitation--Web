@@ -47,11 +47,13 @@ All prior partial gaps—including WebGL map state vocalization, modal focus lea
   - Remediated via a dedicated `aria-live="polite"` map announcer (`#gisMapLiveRegion` via `announceGisMapState()`).
   - Layer switches (heatmaps, choropleths, cluster overlays) and case count changes are vocalized automatically to screen readers.
 
-### 3.3 Keyboard Ergonomics & Visual Assistance (WCAG 2.1.1, 2.1.2, 2.4.7)
-- **Floating Accessibility & Keyboard Widget:**
+### 3.3 Keyboard Ergonomics & Visual Assistance (WCAG 2.1.1, 2.1.2, 2.4.7, 2.3.3)
+- **Floating Accessibility & Keyboard Widget:** (`includes/accessibility.php`)
   - Accessible via global hotkey <kbd>Alt + K</kbd> (or <kbd>Alt + A</kbd>).
-  - Toggles high-contrast focus rings (`outline: 2px solid #176B87; box-shadow: 0 0 0 1.5px rgba(134,182,246,0.3)`).
-  - Offers comfortable font scale enlargement (+12%) and reduced motion modes.
+  - **Option 1 — High-Contrast Focus Rings:** applies `outline: 3px solid #0d4f64` plus a `0 0 0 4px rgba(134,182,246,0.55)` halo to every focused control. Targets `:focus` as well as `:focus-visible`, so the ring is visible for mouse **and** keyboard interaction; focused text fields also receive an `#EEF5FF` tint.
+  - **Option 2 — Enlarged Text Scale:** comfortable `+12%` font scale across tables, cards and forms.
+  - **Option 3 — Reduce Motion & Effects:** collapses CSS `animation`/`transition` durations to `0.001ms` (end events still fire, so nothing that listens to `animationend`/`transitionend` hangs), forces `scroll-behavior: auto` on `<html>`, settles any in-flight Web Animations API animation and freezes ApexCharts draw-in / dynamic animation via the chart instance config (`chart.w.config.chart.animations`), which CSS alone cannot reach.
+  - Each option shows a live `On`/`Off` status pill and announces its new state through the global live region (`#a11yLiveAnnouncer`) plus a toast when `ModalSystem` is available. Preferences persist in `localStorage` (`civentral_a11y_focus` / `_text` / `_motion`) and `Reset All` clears all three.
 - **Modal Focus Management (`assets/js/modal-system.js`):**
   - Excludes `<input type="hidden">` from tab cycles.
   - Restores focus to the triggering element upon dialog closure.

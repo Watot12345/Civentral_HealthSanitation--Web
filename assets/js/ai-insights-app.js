@@ -3,7 +3,7 @@
  * 100% Dynamic - Powered directly by live Supabase data & API analytics.
  */
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
 
     // =====================================================================
     // AI GLOW CURSOR TRACKING
@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let currentModalInsight = null;
 
-    window.openInsightModal = function(insight) {
+    window.openInsightModal = function (insight) {
         currentModalInsight = insight;
         const modal = document.getElementById('insightDetailModal');
         if (!modal) return;
@@ -161,18 +161,18 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.classList.remove('hidden');
     };
 
-    window.closeInsightModal = function() {
+    window.closeInsightModal = function () {
         const modal = document.getElementById('insightDetailModal');
         if (modal) modal.classList.add('hidden');
     };
 
-    window.navigateToInsightModule = function() {
+    window.navigateToInsightModule = function () {
         if (currentModalInsight) {
             goToModule(currentModalInsight);
         }
     };
 
-    window.goToModule = function(insight, event) {
+    window.goToModule = function (insight, event) {
         if (event) event.stopPropagation();
         let targetUrl = '../modules/surveillence/outbreak_detection.php';
 
@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'blue': 'bg-blue-50/70 text-blue-700 border-blue-100'
         };
 
-        grid.innerHTML = items.map(function(insight) {
+        grid.innerHTML = items.map(function (insight) {
             const colorKey = insight.color || insight.priorityColor || 'blue';
             const wrapperBg = bgClassMap[colorKey] || 'bg-zinc-50 border-zinc-100';
             const badgeLabel = insight.badge || insight.priority || 'Live AI Insight';
@@ -274,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'amber': 'bg-amber-50 border-amber-100 text-amber-700'
         };
 
-        container.innerHTML = items.map(function(item) {
+        container.innerHTML = items.map(function (item) {
             var unitHtml = item.unit ? ' <span class="text-xs font-normal text-zinc-400">' + item.unit + '</span>' : '';
             const confVal = parseInt(item.confidence) || 85;
             const indicatorColor = confVal >= 80 ? 'emerald' : 'amber';
@@ -315,17 +315,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }).join('');
     }
 
-    window.showPredictiveTooltip = function(event, title, rows, pieData) {
+    window.showPredictiveTooltip = function (event, title, rows, pieData) {
         showTooltip(event, title, {
             details: rows,
             pieData
         }, true);
     };
-    window.hidePredictiveTooltip = function() {
+    window.hidePredictiveTooltip = function () {
         hideTooltip();
     };
 
-    window.showModuleTooltip = function(event, label, share, trend, status, color) {
+    window.showModuleTooltip = function (event, label, share, trend, status, color) {
         const tooltip = document.getElementById('moduleTooltip');
         if (!tooltip) return;
         const rect = event.currentTarget.getBoundingClientRect();
@@ -354,12 +354,12 @@ document.addEventListener('DOMContentLoaded', function() {
         tooltip.classList.add('active');
     };
 
-    window.hideModuleTooltip = function() {
+    window.hideModuleTooltip = function () {
         const tooltip = document.getElementById('moduleTooltip');
         if (tooltip) tooltip.classList.remove('active');
     };
 
-    window.renderMetrics = function(liveMetrics) {
+    window.renderMetrics = function (liveMetrics) {
         const grid = document.getElementById('metricsGrid');
         if (!grid) return;
 
@@ -386,7 +386,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'amber': '#f59e0b'
         };
 
-        grid.innerHTML = list.map(function(m) {
+        grid.innerHTML = list.map(function (m) {
             const isPositive = (m.change || '').includes('↑');
             const changeClass = isPositive ? 'positive' : 'negative';
             const changeIcon = isPositive ? '↑' : '↓';
@@ -438,21 +438,25 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    window.showMetricTooltip = function(event, title, details, pieData) {
+    window.showMetricTooltip = function (event, title, details, pieData) {
         showTooltip(event, title, { details, pieData }, true);
     };
-    window.hideMetricTooltip = function() {
+    window.hideMetricTooltip = function () {
         hideTooltip();
     };
 
-    window.showStaffTooltip = function(event, name, score, cases, response) {
+    window.showStaffTooltip = function (event, name, score, cases, response, role, isLeadership) {
         const tooltip = document.getElementById('staffTooltip') || createStaffTooltip();
         if (!tooltip) return;
         const rect = event.currentTarget.getBoundingClientRect();
         const status = score >= 85 ? '✅ Exceeds expectations' : score >= 80 ? '✅ Meets expectations' : '⚠️ Needs improvement';
+        const roleRow = role
+            ? `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:11px;border-bottom:1px solid #f4f4f5;"><span style="color:#71717a;">Role</span><span style="font-weight:700;color:#18181b;text-align:right;max-width:150px;">${role}${isLeadership ? ' · Head/Coordinator' : ''}</span></div>`
+            : '';
 
         tooltip.innerHTML = `
-        <div style="font-weight:700;font-size:13px;color:#18181b;margin-bottom:10px;letter-spacing:-0.01em;">${name}</div>
+        <div style="font-weight:700;font-size:13px;color:#18181b;margin-bottom:10px;letter-spacing:-0.01em;">${name}${isLeadership ? ' <span style="color:#d97706;">★</span>' : ''}</div>
+        ${roleRow}
         <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:11px;border-bottom:1px solid #f4f4f5;"><span style="color:#71717a;">Overall Score</span><span style="font-weight:700;color:#18181b;">${score}%</span></div>
         <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:11px;border-bottom:1px solid #f4f4f5;"><span style="color:#71717a;">Cases Handled</span><span style="font-weight:700;color:#18181b;">${cases}</span></div>
         <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:11px;border-bottom:1px solid #f4f4f5;"><span style="color:#71717a;">Avg. Response Time</span><span style="font-weight:700;color:#18181b;">${response} hrs</span></div>
@@ -470,7 +474,7 @@ document.addEventListener('DOMContentLoaded', function() {
         tooltip.classList.add('active');
     };
 
-    window.hideStaffTooltip = function() {
+    window.hideStaffTooltip = function () {
         const tooltip = document.getElementById('staffTooltip');
         if (tooltip) tooltip.classList.remove('active');
     };
@@ -486,7 +490,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderLegend(items) {
         const legendEl = document.getElementById('trendLegend');
         if (!legendEl) return;
-        legendEl.innerHTML = (items || []).map(function(item) {
+        legendEl.innerHTML = (items || []).map(function (item) {
             return '<span class="flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full ' + (item.color || 'bg-zinc-400') + '"></span> ' + item.label + '</span>';
         }).join('');
     }
@@ -494,7 +498,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderPredictiveLegend(items) {
         const legendEl = document.getElementById('predictiveLegend');
         if (!legendEl) return;
-        legendEl.innerHTML = (items || []).map(function(item) {
+        legendEl.innerHTML = (items || []).map(function (item) {
             var color = item.color || '#14b8a6';
             var dotStyle = (color.startsWith('#') || color.startsWith('rgb')) ? 'style="background:' + color + '"' : '';
             var dotClass = (color.startsWith('#') || color.startsWith('rgb')) ? 'w-2 h-2 rounded-full inline-block' : 'w-2 h-2 rounded-full inline-block ' + color;
@@ -529,15 +533,15 @@ document.addEventListener('DOMContentLoaded', function() {
             theme: 'light',
             shared: true,
             intersect: false,
-            custom: function({series, seriesIndex, dataPointIndex, w}) {
+            custom: function ({ series, seriesIndex, dataPointIndex, w }) {
                 var category = (w.globals.categoryLabels && w.globals.categoryLabels[dataPointIndex]) || (w.globals.labels && w.globals.labels[dataPointIndex]) || 'Period';
                 var html = '<div class="p-3 bg-white/95 backdrop-blur-md rounded-xl border border-zinc-200 shadow-xl min-w-[200px] text-xs font-sans">';
                 html += '<div class="font-bold text-zinc-900 border-b border-zinc-100 pb-2 mb-2 flex items-center justify-between"><span>' + category + '</span><span class="px-2 py-0.5 bg-zinc-100 text-zinc-600 text-[10px] font-bold rounded-full border border-zinc-200">Historical Record</span></div>';
-                
+
                 var colors = w.config.colors || ['#ef4444', '#14b8a6', '#f59e0b', '#3b82f6', '#9333ea'];
                 var hasNonZero = false;
                 if (w.config.series && Array.isArray(w.config.series)) {
-                    w.config.series.forEach(function(s, idx) {
+                    w.config.series.forEach(function (s, idx) {
                         var val = (s.data && s.data[dataPointIndex] !== undefined) ? s.data[dataPointIndex] : null;
                         if (val !== null && val !== undefined && Number(val) > 0) {
                             hasNonZero = true;
@@ -572,7 +576,7 @@ document.addEventListener('DOMContentLoaded', function() {
             animations: { enabled: true, easing: 'easeinout', speed: 600 }
         },
         colors: ['#ef4444', '#14b8a6', '#f59e0b', '#3b82f6', '#9333ea'],
-        stroke: { curve: 'smooth', width: 3, dashArray: [5, 5, 5, 5, 5] },
+        stroke: { curve: 'smooth', width: 3 },
         xaxis: {
             categories: [],
             labels: { style: { colors: '#a1a1aa', fontSize: '10px', fontWeight: '500' } },
@@ -586,20 +590,20 @@ document.addEventListener('DOMContentLoaded', function() {
             theme: 'light',
             shared: true,
             intersect: false,
-            custom: function({series, seriesIndex, dataPointIndex, w}) {
+            custom: function ({ series, seriesIndex, dataPointIndex, w }) {
                 var category = (w.globals.categoryLabels && w.globals.categoryLabels[dataPointIndex]) || (w.globals.labels && w.globals.labels[dataPointIndex]) || 'Period';
                 var isBaseline = (dataPointIndex === 0);
-                var badgeTag = isBaseline 
-                    ? '<span class="ml-1.5 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-[10px] font-bold rounded-full border border-zinc-200">Current Baseline</span>' 
+                var badgeTag = isBaseline
+                    ? '<span class="ml-1.5 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-[10px] font-bold rounded-full border border-zinc-200">Current Baseline</span>'
                     : '<span class="ml-1.5 px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded-full border border-emerald-200">★ AI PROJECTION</span>';
-                
+
                 var html = '<div class="p-3 bg-white/95 backdrop-blur-md rounded-xl border border-zinc-200 shadow-xl min-w-[220px] text-xs font-sans">';
                 html += '<div class="font-bold text-zinc-900 border-b border-zinc-100 pb-2 mb-2 flex items-center justify-between"><span>' + category + '</span>' + badgeTag + '</div>';
-                
+
                 var colors = w.config.colors || ['#ef4444', '#14b8a6', '#f59e0b', '#3b82f6', '#9333ea'];
                 var hasNonZero = false;
                 if (w.config.series && Array.isArray(w.config.series)) {
-                    w.config.series.forEach(function(s, idx) {
+                    w.config.series.forEach(function (s, idx) {
                         var val = (s.data && s.data[dataPointIndex] !== undefined) ? s.data[dataPointIndex] : null;
                         if (val !== null && val !== undefined && Number(val) > 0) {
                             hasNonZero = true;
@@ -615,7 +619,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!hasNonZero) {
                     html += '<div class="py-2 text-center text-zinc-400 font-medium italic text-[11px]">No projected activity for this period</div>';
                 }
-                
+
                 html += '<div class="mt-2 pt-1.5 border-t border-zinc-100 text-[10px] text-emerald-700 font-bold text-center">Ordinary Least Squares Forward Horizon</div>';
                 html += '</div>';
                 return html;
@@ -636,7 +640,7 @@ document.addEventListener('DOMContentLoaded', function() {
             background: 'transparent',
             animations: { enabled: true, easing: 'easeinout', speed: 800 },
             events: {
-                dataPointMouseEnter: function(event, chartContext, config) {
+                dataPointMouseEnter: function (event, chartContext, config) {
                     if (moduleRawData && moduleRawData.length > 0) {
                         const m = moduleRawData[config.dataPointIndex];
                         if (m) {
@@ -645,7 +649,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
                 },
-                dataPointMouseLeave: function() {
+                dataPointMouseLeave: function () {
                     hideModuleTooltip();
                 }
             }
@@ -702,12 +706,12 @@ document.addEventListener('DOMContentLoaded', function() {
             var raw = sessionStorage.getItem(key);
             if (raw) {
                 var parsed = JSON.parse(raw);
-                // 10-minute client cache validity
-                if (parsed && parsed.data && (Date.now() - (parsed.timestamp || 0) < 600000)) {
+                // 15-second fast reactive client cache
+                if (parsed && parsed.data && (Date.now() - (parsed.timestamp || 0) < 15000)) {
                     return parsed;
                 }
             }
-        } catch (e) {}
+        } catch (e) { }
         return null;
     }
 
@@ -715,11 +719,15 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             var key = 'capstone_ai_analytics_' + range + '_' + filter + '_' + (yoy ? '1' : '0');
             sessionStorage.setItem(key, JSON.stringify({ timestamp: Date.now(), data: data }));
-        } catch (e) {}
+        } catch (e) { }
     }
 
     function renderAnalyticsPayload(data) {
         if (!data || !data.success) return;
+
+        // Ensure skeleton loaders are hidden once payload is available
+        if (document.getElementById('trendSkeleton')) document.getElementById('trendSkeleton').classList.add('hidden');
+        if (document.getElementById('predictiveSkeleton')) document.getElementById('predictiveSkeleton').classList.add('hidden');
 
         var now = new Date();
         var syncText = 'Live (' + now.toLocaleTimeString() + ')';
@@ -733,8 +741,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Handle Trend Chart & Empty State
         if (data.trend) {
-            var totalTrendPoints = (data.trend.series || []).reduce(function(acc, s) {
-                return acc + (s.data || []).reduce(function(a, b) { return a + Number(b || 0); }, 0);
+            var totalTrendPoints = (data.trend.series || []).reduce(function (acc, s) {
+                return acc + (s.data || []).reduce(function (a, b) { return a + Number(b || 0); }, 0);
             }, 0);
 
             if (totalTrendPoints === 0 || !data.trend.series || data.trend.series.length === 0) {
@@ -758,8 +766,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('predictiveSubtitle').textContent = data.predictive.subtitle;
             }
 
-            var totalPredPoints = (data.predictive.series || []).reduce(function(acc, s) {
-                return acc + (s.data || []).reduce(function(a, b) { return a + Number(b || 0); }, 0);
+            var totalPredPoints = (data.predictive.series || []).reduce(function (acc, s) {
+                return acc + (s.data || []).reduce(function (a, b) { return a + Number(b || 0); }, 0);
             }, 0);
 
             var seriesColors = (data.predictive.colors && data.predictive.colors.length > 0)
@@ -782,7 +790,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.predictive.legend && data.predictive.legend.length > 0) {
                 renderPredictiveLegend(data.predictive.legend);
             } else if (data.predictive.series && data.predictive.series.length > 0) {
-                renderPredictiveLegend(data.predictive.series.map(function(s, idx) {
+                renderPredictiveLegend(data.predictive.series.map(function (s, idx) {
                     return { label: s.name, color: seriesColors[idx % seriesColors.length] };
                 }));
             } else {
@@ -793,12 +801,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 renderPredictive(data.predictive.cards);
             }
         }
-        
+
         // Update AI Insights Grid
         if (data.insights) {
             renderInsights(data.insights);
         }
-        
+
         // Update Operational Modules & Callout Insights
         if (data.modules) {
             renderModulesView(data.modules);
@@ -813,15 +821,15 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('correlationInsightText').textContent = data.correlation_insight;
         }
         if (data.staff && typeof updateStaffData === 'function') {
-            updateStaffData(data.staff);
+            updateStaffData(data.staff, data.scope);
         }
         if (data.metrics && typeof renderMetrics === 'function') {
             renderMetrics(data.metrics);
         }
-        
+
         // Update KPI summary numbers if elements exist
         if (data.kpis && Array.isArray(data.kpis)) {
-            data.kpis.forEach(function(kpi) {
+            data.kpis.forEach(function (kpi) {
                 var el = document.getElementById('kpi-' + kpi.key);
                 if (el) el.textContent = kpi.value;
             });
@@ -868,9 +876,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (err) {
             console.log('API Fetch Error:', err);
         } finally {
-            if (!isSilent) {
-                hideLoadingState();
-            }
+            hideLoadingState();
             isFetchingAnalytics = false;
             // Execute trailing pending request if queued during in-flight fetch
             if (pendingAnalyticsFetch) {
@@ -895,7 +901,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         var isProjected = (moduleMode === 'projected');
-        
+
         var btnCurr = document.getElementById('btnModuleCurrent');
         var btnProj = document.getElementById('btnModuleProjected');
         if (btnCurr && btnProj) {
@@ -910,18 +916,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (typeof modulesChart !== 'undefined' && moduleRawData.length > 0) {
             modulesChart.updateOptions({
-                series: moduleRawData.map(function(m) { return isProjected ? m.projected_share : m.share; }),
-                labels: moduleRawData.map(function(m) { return m.label; }),
-                colors: moduleRawData.map(function(m) { return m.color; })
+                series: moduleRawData.map(function (m) { return isProjected ? m.projected_share : m.share; }),
+                labels: moduleRawData.map(function (m) { return m.label; }),
+                colors: moduleRawData.map(function (m) { return m.color; })
             });
         }
 
-        legendEl.innerHTML = moduleRawData.map(function(m) {
+        legendEl.innerHTML = moduleRawData.map(function (m) {
             var val = isProjected ? m.projected_share : m.share;
             var isLow = (m.confidence === 'low');
             var cardBorder = (isProjected && isLow) ? 'border-dashed border-amber-300 bg-amber-50/40 p-1.5 rounded-lg' : '';
             var badgeHtml = (isProjected && isLow) ? '<span title="Limited historical data (<15 logs). Projection is estimated." class="ml-1 text-[9px] px-1.5 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded font-bold">⚠️ Low Data</span>' : '';
-            
+
             return '<div class="flex items-center justify-between text-xs font-semibold ' + cardBorder + '">' +
                 '<span class="flex items-center gap-2"><span class="inline-block h-2.5 w-2.5 rounded-full" style="background:' + m.color + '"></span> ' + m.label + badgeHtml + '</span>' +
                 '<div class="flex items-center gap-2">' +
@@ -933,13 +939,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (document.getElementById('btnModuleCurrent')) {
-        document.getElementById('btnModuleCurrent').addEventListener('click', function() {
+        document.getElementById('btnModuleCurrent').addEventListener('click', function () {
             moduleMode = 'current';
             renderModulesView();
         });
     }
     if (document.getElementById('btnModuleProjected')) {
-        document.getElementById('btnModuleProjected').addEventListener('click', function() {
+        document.getElementById('btnModuleProjected').addEventListener('click', function () {
             moduleMode = 'projected';
             renderModulesView();
         });
@@ -947,7 +953,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Toggle Auto Refresh Button Handler
     if (document.getElementById('toggleAutoRefresh')) {
-        document.getElementById('toggleAutoRefresh').addEventListener('click', function() {
+        document.getElementById('toggleAutoRefresh').addEventListener('click', function () {
             isAutoRefreshEnabled = !isAutoRefreshEnabled;
             var btn = this;
             var statusText = document.getElementById('autoRefreshStatusText');
@@ -963,7 +969,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Manual Refresh Button Handler
     if (document.getElementById('btnManualRefresh')) {
-        document.getElementById('btnManualRefresh').addEventListener('click', function() {
+        document.getElementById('btnManualRefresh').addEventListener('click', function () {
             fetchLiveAnalytics(true, false);
         });
     }
@@ -971,11 +977,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Staff Performance Handling
     var staffData = [];
 
-    window.updateStaffData = function(liveStaff) {
+    window.updateStaffData = function (liveStaff, scope) {
         staffData = Array.isArray(liveStaff) ? liveStaff : [];
         const countBadge = document.getElementById('staffCountBadge');
         if (countBadge) {
-            countBadge.textContent = staffData.length > 0 ? (staffData.length + ' Personnel') : '0 Personnel';
+            // Admin scope ranks every department (heads & coordinators included);
+            // a head / coordinator sees only the staff under their own department.
+            const scopeLabel = (scope && scope !== 'admin') ? 'Department View' : 'All Departments';
+            countBadge.textContent = staffData.length > 0
+                ? (staffData.length + ' Personnel · ' + scopeLabel)
+                : ('0 Personnel');
         }
         if (typeof staffChart !== 'undefined' && staffChart && document.querySelector("#staffChart")) {
             if (staffData.length === 0) {
@@ -989,17 +1000,23 @@ document.addEventListener('DOMContentLoaded', function() {
     function sortedStaff() {
         var sortEl = document.getElementById('staffSort');
         var dir = sortEl ? sortEl.value : 'desc';
-        return staffData.slice().sort(function(a, b) {
+        return staffData.slice().sort(function (a, b) {
             return dir === 'asc' ? a.score - b.score : b.score - a.score;
         });
     }
 
     function buildStaffOptions(data) {
         const dynamicHeight = Math.max(260, (data.length || 1) * 44);
+        const staffColor = '#6366f1';
+        const leadershipColor = '#f59e0b';
+        // Bars are colour-coded: amber = department head / coordinator, indigo = field staff.
+        const barColors = data.map(function (d) {
+            return d.is_leadership ? leadershipColor : staffColor;
+        });
         return {
             series: [{
                 name: 'Performance',
-                data: data.map(function(d) { return d.score; })
+                data: data.map(function (d) { return d.score; })
             }],
             chart: {
                 type: 'bar',
@@ -1008,27 +1025,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 background: 'transparent',
                 animations: { enabled: true, easing: 'easeinout', speed: 800 },
                 events: {
-                    dataPointMouseEnter: function(event, chartContext, config) {
+                    dataPointMouseEnter: function (event, chartContext, config) {
                         clearTimeout(window.__staffHideTimer);
                         const d = data[config.dataPointIndex];
                         if (d) {
-                            showStaffTooltip(event, d.name, d.score, d.cases, d.response);
+                            showStaffTooltip(
+                                event,
+                                d.name,
+                                d.score,
+                                d.cases,
+                                d.response,
+                                d.position || d.role || '',
+                                !!d.is_leadership
+                            );
                         }
                     },
-                    dataPointMouseLeave: function() {
-                        window.__staffHideTimer = setTimeout(function() {
+                    dataPointMouseLeave: function () {
+                        window.__staffHideTimer = setTimeout(function () {
                             hideStaffTooltip();
                         }, 120);
                     }
                 }
             },
-            colors: ['#6366f1'],
+            colors: barColors,
             plotOptions: {
-                bar: { borderRadius: 6, horizontal: true, barHeight: '52%' }
+                bar: { borderRadius: 6, horizontal: true, barHeight: '52%', distributed: true }
             },
             grid: { borderColor: '#f4f4f5', strokeDashArray: 3 },
             xaxis: {
-                categories: data.map(function(d) { return d.name; }),
+                categories: data.map(function (d) { return (d.is_leadership ? '★ ' : '') + d.name; }),
                 labels: { style: { colors: '#a1a1aa', fontSize: '11px', fontWeight: '500' } },
                 max: 100,
                 axisBorder: { show: false },
@@ -1039,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             dataLabels: {
                 enabled: true,
-                formatter: function(val) { return val + '%'; },
+                formatter: function (val) { return val + '%'; },
                 style: { fontSize: '10px', fontWeight: 'bold', colors: ['#4338ca'] },
                 offsetX: 20
             },
@@ -1064,13 +1089,16 @@ document.addEventListener('DOMContentLoaded', function() {
         staffChart = new ApexCharts(staffChartEl, {
             series: [],
             noData: { text: 'Loading personnel records...', style: { color: '#a1a1aa', fontSize: '11px' } },
-            chart: { type: 'bar', height: 260, toolbar: { show: false } }
+            chart: { type: 'bar', height: 260, toolbar: { show: false } },
+            colors: ['#6366f1'],
+            // distributed lets each bar keep its own colour (amber for heads/coordinators)
+            plotOptions: { bar: { horizontal: true, distributed: true } }
         });
         staffChart.render();
 
         var staffSortEl = document.getElementById('staffSort');
         if (staffSortEl) {
-            staffSortEl.addEventListener('change', function() {
+            staffSortEl.addEventListener('change', function () {
                 if (staffData.length > 0) {
                     staffChart.updateOptions(buildStaffOptions(sortedStaff()), true, true);
                 }
@@ -1081,13 +1109,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Filter change event listeners
     var trendFilterEl = document.getElementById('trendFilter');
     if (trendFilterEl) {
-        trendFilterEl.addEventListener('change', function() { fetchLiveAnalytics(true, false); });
+        trendFilterEl.addEventListener('change', function () { fetchLiveAnalytics(true, false); });
     }
     if (document.getElementById('yoyToggle')) {
-        document.getElementById('yoyToggle').addEventListener('change', function() { fetchLiveAnalytics(true, false); });
+        document.getElementById('yoyToggle').addEventListener('change', function () { fetchLiveAnalytics(true, false); });
     }
     if (document.getElementById('dateRangeSelect')) {
-        document.getElementById('dateRangeSelect').addEventListener('change', function(e) {
+        document.getElementById('dateRangeSelect').addEventListener('change', function (e) {
             if (document.getElementById('customDateWrap')) {
                 document.getElementById('customDateWrap').classList.toggle('hidden', e.target.value !== 'custom');
                 document.getElementById('customDateWrap').classList.toggle('flex', e.target.value === 'custom');
@@ -1096,10 +1124,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     if (document.getElementById('dateFrom')) {
-        document.getElementById('dateFrom').addEventListener('change', function() { fetchLiveAnalytics(true, false); });
+        document.getElementById('dateFrom').addEventListener('change', function () { fetchLiveAnalytics(true, false); });
     }
     if (document.getElementById('dateTo')) {
-        document.getElementById('dateTo').addEventListener('change', function() { fetchLiveAnalytics(true, false); });
+        document.getElementById('dateTo').addEventListener('change', function () { fetchLiveAnalytics(true, false); });
     }
 
     // Supabase Realtime WebSocket Connection (Instant Push on DB changes)
@@ -1112,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var realtimeDebounceTimer = null;
             function debouncedRealtimeSync() {
                 clearTimeout(realtimeDebounceTimer);
-                realtimeDebounceTimer = setTimeout(function() {
+                realtimeDebounceTimer = setTimeout(function () {
                     // forceRefresh = true (fetches latest DB records), isSilent = true (smooth background update, no skeleton flash)
                     fetchLiveAnalytics(true, true);
                 }, 250);
@@ -1135,6 +1163,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Initialize live analytics immediately on page load
-    fetchLiveAnalytics(false, false);
+    // Auto-sync whenever user returns to the AI Insights tab
+    window.addEventListener('focus', function () {
+        fetchLiveAnalytics(true, true);
+    });
+
+    // 25-second continuous realtime heartbeat
+    setInterval(function () {
+        if (document.visibilityState === 'visible') {
+            fetchLiveAnalytics(true, true);
+        }
+    }, 25000);
+
+    // Initialize live analytics with fresh database pull on page load
+    fetchLiveAnalytics(true, false);
 });

@@ -3,6 +3,9 @@
 
 require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Models/Patient.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
+
+use App\Constants\Permissions;
 
 class PatientController extends BaseController
 {
@@ -15,6 +18,9 @@ class PatientController extends BaseController
     
     public function index(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_VIEW);
+
         $limit = isset($_GET['limit']) ? min((int)$_GET['limit'], 200) : 50;
         $offset = isset($_GET['offset']) ? max((int)$_GET['offset'], 0) : 0;
 
@@ -40,6 +46,9 @@ class PatientController extends BaseController
     
     public function show(string $id): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_VIEW);
+
         $patient = $this->patientModel->find($id);
         
         $this->handle(function() use ($patient) {
@@ -52,6 +61,10 @@ class PatientController extends BaseController
     
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_CREATE);
+
         $data = $this->input();
         
         // DEBUG
@@ -133,6 +146,9 @@ class PatientController extends BaseController
             error_log('📝 Store dbData: ' . json_encode($dbData));
             
             $result = $this->patientModel->create($dbData);
+            if (is_array($result) && isset($result[0]) && is_array($result[0])) {
+                $result = $result[0];
+            }
             
             if (class_exists('ActivityLog') || file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
                 require_once __DIR__ . '/../Models/ActivityLog.php';
@@ -150,12 +166,23 @@ class PatientController extends BaseController
                 }
             }
             
-            return ['success' => true, 'message' => 'Patient created successfully', 'data' => $result, 'code' => 201];
+            return [
+                'success' => true,
+                'message' => 'Patient created successfully',
+                'data'    => $this->mapToFrontend($result),
+                'record'  => $this->mapToFrontend($result),
+                'action'  => 'create',
+                'code'    => 201
+            ];
         });
     }
     
     public function update(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_EDIT);
+
         $data = $this->input();
         
         // DEBUG
@@ -181,6 +208,9 @@ class PatientController extends BaseController
             }
             
             $result = $this->patientModel->updateById($id, $dbData);
+            if (is_array($result) && isset($result[0]) && is_array($result[0])) {
+                $result = $result[0];
+            }
             
             if (class_exists('ActivityLog') || file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
                 require_once __DIR__ . '/../Models/ActivityLog.php';
@@ -197,12 +227,30 @@ class PatientController extends BaseController
                 }
             }
             
-            return ['success' => true, 'message' => 'Patient updated successfully', 'data' => $result];
+            $updated = $result ?: $this->patientModel->find($id) ?: array_merge($patient, $dbData);
+            if (is_array($updated) && isset($updated[0]) && is_array($updated[0])) {
+                $updated = $updated[0];
+            }
+            $mapped = $this->mapToFrontend($updated);
+
+            return [
+                'success' => true,
+                'message' => 'Patient updated successfully',
+                'data'    => $mapped,
+                'record'  => $mapped,
+                'action'  => 'update',
+                'id'      => $id,
+                'code'    => 200
+            ];
         });
     }
     
     public function destroy(string $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_DELETE);
+
         $this->handle(function() {
             return [
                 'success' => false, 
@@ -214,6 +262,9 @@ class PatientController extends BaseController
     
     public function search(): void
     {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_VIEW);
+
         $query = $_GET['q'] ?? '';
         $this->handle(function() use ($query) {
             if (empty($query)) {
@@ -308,6 +359,10 @@ class PatientController extends BaseController
 
     public function import(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_CREATE);
+
         $input = $this->input();
         $rows = $input['rows'] ?? (array_keys($input) === range(0, count($input) - 1) ? $input : [$input]);
 
@@ -371,7 +426,7 @@ class PatientController extends BaseController
                     $contactRaw = '63' . $contactRaw;
                 }
                 if (strlen($contactRaw) !== 12) {
-                    $contactRaw = '639' . str_pad(substr(crc32($nameKey), 0, 9), 9, '0', STR_PAD_LEFT);
+                     $contactRaw = '639' . str_pad(substr((string)crc32($nameKey), 0, 9), 9, '0', STR_PAD_LEFT);
                 }
                 $dbData['contact'] = $contactRaw;
 
@@ -408,12 +463,14 @@ class PatientController extends BaseController
                 } catch (Throwable $e) {}
             }
 
+            $mappedImported = array_map([$this, 'mapToFrontend'], $imported);
             return [
                 'success'        => true,
                 'imported_count' => count($imported),
                 'skipped_count'  => $skipped,
                 'errors'         => $errors,
-                'data'           => $imported,
+                'data'           => $mappedImported,
+                'records'        => $mappedImported,
                 'message'        => count($imported) . " patient(s) imported successfully (" . $skipped . " skipped)."
             ];
         });
