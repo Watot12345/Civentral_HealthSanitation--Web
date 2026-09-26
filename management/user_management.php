@@ -1,53 +1,38 @@
 <?php
+// management/user_management_api.php
 // ============================================================
-// COLOR PALETTE USED ON THIS PAGE
-// ============================================================
-//   'brand-dark':   '#0B4F4A',
-//   'brand-medium': '#14807A',
-//   'brand-light':  '#E6F5F3',
-//   'brand-border': '#B8E0DC',
+// Lightweight AJAX action handler for User Management CRUD.
+// Called via fetch() from the front-end JS. Returns JSON.
 // ============================================================
 
-// ============================================================
-// 1. PHP BACKEND - Fetch Data from Supabase
-// ============================================================
-require_once '../includes/header.php';
-require_once '../includes/sidebar.php';
+header('Content-Type: application/json');
 
-// Enforce RBAC Page Authorization
-requirePermission('users.view');
+// Bootstrap
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../app/Models/Employee.php';
 require_once __DIR__ . '/../app/Models/Role.php';
 require_once __DIR__ . '/../app/Models/ActivityLog.php';
 
-// Get current logged-in user identification
-$currentUserId = (int)($_SESSION['user_id'] ?? 0);
-$currentEmployeeId = $_SESSION['employee_id'] ?? 'SYS--ADMIN-2011';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// Initialize models
-$db = Database::getInstance();
-$employeeModel = new Employee($db);
-$roleModel = new Role();
-$logModel = new ActivityLog();
-
-$isSystemAdmin = getPermissionService()->isAdminRole($_SESSION['role'] ?? '') 
-    || getPermissionService()->isAdminRole($_SESSION['role_description'] ?? '') 
-    || hasPermission(\App\Constants\Permissions::ROLES_MANAGE);
-$isDeptHead    = ActivityLog::isDepartmentHeadRole($_SESSION['role_description'] ?? '') || ActivityLog::isDepartmentHeadRole($_SESSION['role'] ?? '');
-$userDept      = getDepartmentResolver()->resolveDepartmentName();
-
+$response = ['success' => false, 'message' => 'Invalid request.'];
 
 try {
-    $allUsers = $employeeModel->all(['order' => 'created_at.desc']);
+    $action = $_POST['action'] ?? $_GET['action'] ?? '';
+    $db = Database::getInstance();
+    $employeeModel = new Employee($db);
+    $roleModel = new Role();
+    $logModel = new ActivityLog();
 
-    // Departmental Scoping: Non-admin department heads only see users under their department
-    if (!$isSystemAdmin && !empty($userDept)) {
-        $users = getDepartmentResolver()->filterUsersForDepartment($allUsers, $userDept);
-    } else {
-        $users = $allUsers;
-    }
+    $isSystemAdmin = getPermissionService()->isAdminRole($_SESSION['role'] ?? '') 
+        || getPermissionService()->isAdminRole($_SESSION['role_description'] ?? '') 
+        || hasPermission(\App\Constants\Permissions::ROLES_MANAGE);
+    $userDept = getDepartmentResolver()->resolveDepartmentName();
 
+<<<<<<< HEAD
+=======
     // Sort employees: CURRENT LOGGED-IN USER ALWAYS AT THE TOP, followed by Organizational Hierarchy
     usort($users, function($a, $b) use ($currentUserId, $currentEmployeeId) {
         $isCurrentUserA = ($currentUserId > 0 && (int)($a['id'] ?? 0) === $currentUserId) ||
@@ -64,115 +49,41 @@ try {
         $getRoleRank = function($user) {
             $role = $user['role_description'] ?? $user['role'] ?? '';
             if ($role === 'System Admin' || $role === 'System Administrator' || $role === 'Admin') return 1;
+>>>>>>> f5935478c139f529884b8dd5ecc8ad716837f854
 
-            $deptHeads = [
-                'Health Center Director',
-                'Sanitation Director',
-                'Immunization Lead',
-                'Immunization Coordinator',
-                'Wastewater Lead',
-                'Surveillance Lead',
-                'Surveillance Coordinator'
-            ];
-            if (in_array($role, $deptHeads, true)) return 2;
-            return 3;
-        };
+    switch ($action) {
 
-        $rankA = $getRoleRank($a);
-        $rankB = $getRoleRank($b);
-        if ($rankA !== $rankB) return $rankA <=> $rankB;
+        // ==========================================================
+        // CREATE — Register a new user
+        // ==========================================================
+        case 'create':
+            $fullName        = trim($_POST['full_name'] ?? '');
+            $username        = trim($_POST['username'] ?? '');
+            $email           = trim($_POST['email'] ?? '');
+            $password        = $_POST['password'] ?? '';
+            $role            = trim($_POST['role'] ?? 'Health Center Staff');
+            $department      = trim($_POST['department'] ?? '');
+            $roleDescription = trim($_POST['role_description'] ?? '');
+            $status          = trim($_POST['status'] ?? 'Active');
 
-        $deptA = strtolower($a['department'] ?? '');
-        $deptB = strtolower($b['department'] ?? '');
-        if ($deptA !== $deptB) return strcmp($deptA, $deptB);
-
-        $posA = strtolower($a['role_description'] ?? '');
-        $posB = strtolower($b['role_description'] ?? '');
-        if ($posA !== $posB) return strcmp($posA, $posB);
-
-        $nameA = strtolower($a['full_name'] ?? '');
-        $nameB = strtolower($b['full_name'] ?? '');
-        return strcmp($nameA, $nameB);
-    });
-} catch (Throwable $e) {
-    error_log('User Management — users fetch error: ' . $e->getMessage());
-    $users = [];
-}
-
-// --- Fetch Roles (with permissions & user_count attached) -----------------
-try {
-    $allRoles = $roleModel->all(['order' => 'id.asc'], $users);
-
-    // Departmental Scoping: Non-admin department heads only see roles under their department
-    if (!$isSystemAdmin && !empty($userDept)) {
-        $roles = getDepartmentResolver()->filterRolesForDepartment($allRoles, $userDept);
-    } else {
-        $roles = $allRoles;
-    }
-} catch (Throwable $e) {
-    error_log('User Management — roles fetch error: ' . $e->getMessage());
-    $roles = [];
-}
-
-// Build name→color lookup for the 10 Primary Roles
-$roleColorMap = [
-    'System Admin'           => 'bg-red-100 text-red-700',
-    'Health Center Director' => 'bg-blue-100 text-blue-700',
-    'Medical Practitioner'   => 'bg-cyan-100 text-cyan-700',
-    'Health Center Staff'     => 'bg-sky-100 text-sky-700',
-    'Sanitation Director'    => 'bg-amber-100 text-amber-700',
-    'Sanitation Officer'     => 'bg-yellow-100 text-yellow-700',
-    'Immunization Lead'      => 'bg-emerald-100 text-emerald-700',
-    'Nutrition Staff'        => 'bg-teal-100 text-teal-700',
-    'Wastewater Lead'        => 'bg-purple-100 text-purple-700',
-    'Surveillance Lead'      => 'bg-indigo-100 text-indigo-700',
-    'Surveillance Staff'     => 'bg-indigo-100 text-indigo-700',
-];
-foreach ($roles as $r) {
-    if (!empty($r['name']) && !empty($r['color'])) {
-        $roleColorMap[$r['name']] = $r['color'];
-    }
-}
-
-// Build list of all distinct role options for the role filter dropdown
-$filterRoleOptions = [];
-foreach (array_keys($roleColorMap) as $roleName) {
-    $filterRoleOptions[$roleName] = $roleName;
-}
-foreach ($roles as $r) {
-    if (!empty($r['name'])) {
-        $filterRoleOptions[$r['name']] = $r['name'];
-    }
-}
-foreach ($users as $u) {
-    if (!empty($u['role'])) {
-        $filterRoleOptions[$u['role']] = $u['role'];
-    }
-    if (!empty($u['role_description'])) {
-        $filterRoleOptions[$u['role_description']] = $u['role_description'];
-    }
-}
-ksort($filterRoleOptions);
-
-// --- Fetch Activity Logs (User Management actions only, excluding login/logout) ---
-try {
-    if (!$isSystemAdmin && !$isDeptHead) {
-        $activityLogs = [];
-    } else {
-        $logOptions = ['limit' => 100, 'order' => 'created_at.desc'];
-        if (!$isSystemAdmin && !empty($userDept)) {
-            $logOptions['department'] = $userDept;
-        }
-        $allUserLogs  = $logModel->all($logOptions);
-
-        $activityLogs = array_values(array_filter($allUserLogs, function($log) use ($isSystemAdmin) {
-            $logRole = trim($log['role'] ?? '');
-
-            // Department Heads cannot view Head or Admin activity
-            if (!$isSystemAdmin && (ActivityLog::isDepartmentHeadRole($logRole) || ActivityLog::isAdminRole($logRole))) {
-                return false;
+            if (!$fullName || !$password) {
+                $response = ['success' => false, 'message' => 'Full name and password are required.'];
+                break;
             }
 
+<<<<<<< HEAD
+            // Departmental Scoping Guard: Non-admin department heads can only create users in their department
+            if (!$isSystemAdmin && !empty($userDept)) {
+                $submittedDept = trim($_POST['department'] ?? '');
+                if (!empty($submittedDept) && strcasecmp($submittedDept, $userDept) !== 0) {
+                    $response = ['success' => false, 'message' => "Access Denied: You cannot create users for another department ({$submittedDept}). Your department is {$userDept}."];
+                    break;
+                }
+                $department = $userDept;
+                $targetRoleName = $roleDescription ?: $role;
+                if (!getDepartmentResolver()->isRoleInDepartment($targetRoleName, $userDept)) {
+                    $response = ['success' => false, 'message' => "Access Denied: You can only register position roles within your department ({$userDept})."];
+=======
             $module = strtolower($log['module'] ?? '');
             $action = strtolower($log['action'] ?? '');
             return (str_contains($module, 'user management') || str_contains($action, 'user') || str_contains($action, 'employee') || str_contains($action, 'permission') || str_contains($action, 'role') || str_contains($action, 'status'))
@@ -1632,104 +1543,332 @@ $title = 'User Management';
                     || (rDescLower && optText.includes(rDescLower))
                     || (rDescNorm && optNorm.includes(rDescNorm))) {
                     matchedRoleId = opt.value;
+>>>>>>> f5935478c139f529884b8dd5ecc8ad716837f854
                     break;
                 }
             }
-        }
 
+<<<<<<< HEAD
+=======
         currentModalRoleId = matchedRoleId;
         currentModalUserId = userId;
         currentModalRoleName = targetRole;
         currentModalUserName = `${fullName}${empId ? ` (${empId})` : ''}`;
+>>>>>>> f5935478c139f529884b8dd5ecc8ad716837f854
 
-        openModal('manageUserPermissionsModal');
-
-        if (matchedRoleId) {
-            loadModalPermissions(matchedRoleId);
-        } else {
-            const body = document.getElementById('permModalBody');
-            if (body) {
-                body.innerHTML = `
-                    <div class="p-8 text-center text-slate-500 text-sm">
-                        <i class="fa-solid fa-circle-exclamation text-amber-500 text-2xl mb-2"></i>
-                        <p class="font-semibold text-slate-800">Unmapped Role Permissions</p>
-                        <p class="text-xs text-slate-400 mt-1">Role '${targetRole}' does not have a mapped permission matrix ID.</p>
-                    </div>
-                `;
+            if (empty($username)) {
+                $username = $employeeModel->generateNextEmployeeId($role, $department);
             }
-        }
-    }
 
-    function loadModalPermissions(roleId) {
-        const body = document.getElementById('permModalBody');
-        if (!body) return;
+            // Hash password
+            $hashed = password_hash($password, PASSWORD_DEFAULT);
 
-        body.innerHTML = `
-            <div class="flex items-center justify-center py-12 text-slate-400 text-sm">
-                <i class="fa-solid fa-spinner fa-spin mr-2 text-purple-600 text-base"></i> Loading permissions matrix...
-            </div>
-        `;
+            // Resolve role_id foreign key
+            $allRoles = $roleModel->all();
+            $matchedRoleId = null;
+            foreach ($allRoles as $r) {
+                if (strcasecmp($r['name'], $roleDescription) === 0 || strcasecmp($r['name'], $role) === 0) {
+                    $matchedRoleId = (int) $r['id'];
+                    break;
+                }
+            }
 
-        fetch(`user_management_api.php?action=get_role_permissions&role_id=${roleId}`)
-            .then(res => res.json())
-            .then(res => {
-                if (!res.success || !res.data) {
-                    body.innerHTML = `<div class="p-6 text-center text-rose-500 text-sm">${res.message || 'Failed to load permissions.'}</div>`;
-                    showToast(res.message || 'Failed to load permissions', 'danger', 'Permission Error');
-                    return;
+            $data = [
+                'employee_id'      => $username,
+                'full_name'        => $fullName,
+                'username'         => $username,
+                'email'            => $email,
+                'password'         => $hashed,
+                'role'             => $role,
+                'department'       => $department,
+                'role_description' => $roleDescription,
+                'role_id'          => $matchedRoleId,
+                'status'           => $status,
+            ];
+
+            $result = $employeeModel->create($data);
+
+            // Log activity
+            $logModel->log("Created user: {$fullName}", [
+                'module'  => 'User Management',
+                'details' => "Username: {$username}, Role: {$role}, Dept: {$department}",
+            ]);
+
+            $response = ['success' => true, 'message' => 'User registered successfully!', 'data' => $result];
+            break;
+
+        // ==========================================================
+        // UPDATE — Edit an existing user
+        // ==========================================================
+        case 'update':
+            $id              = (int) ($_POST['user_id'] ?? 0);
+            $fullName        = trim($_POST['full_name'] ?? '');
+            $username        = trim($_POST['username'] ?? '');
+            $email           = trim($_POST['email'] ?? '');
+            $role            = trim($_POST['role'] ?? '');
+            $department      = trim($_POST['department'] ?? '');
+            $roleDescription = trim($_POST['role_description'] ?? '');
+            $status          = trim($_POST['status'] ?? '');
+
+            $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+            if ($id && $currentUserId && $id === $currentUserId) {
+                $response = ['success' => false, 'message' => 'You cannot edit your own account from User Management.'];
+                break;
+            }
+
+            if (!$id || !$fullName || !$username) {
+                $response = ['success' => false, 'message' => 'User ID, full name, and username are required.'];
+                break;
+            }
+
+            // Departmental Scoping Guard: Non-admin department heads can only edit users within their department
+            if (!$isSystemAdmin && !empty($userDept)) {
+                $submittedDept = trim($_POST['department'] ?? '');
+                if (!empty($submittedDept) && !canAccessDepartment($submittedDept)) {
+                    $response = ['success' => false, 'message' => "Access Denied: You cannot reassign users to a different department ({$submittedDept}). Your department is {$userDept}."];
+                    break;
                 }
 
-                const grouped = res.data;
-                let html = '';
+                $targetUser = $employeeModel->find($id);
+                if (!empty($targetUser)) {
+                    $targetDept = trim($targetUser['department'] ?? '');
+                    $targetRole = trim($targetUser['role_description'] ?? $targetUser['role'] ?? '');
+                    if (!getDepartmentResolver()->isRoleInDepartment($targetRole, $userDept) && !canAccessDepartment($targetDept)) {
+                        $response = ['success' => false, 'message' => "Access Denied: You can only edit users within your department ({$userDept})."];
+                        break;
+                    }
+                }
+                $department = $userDept;
+            }
 
-                for (let moduleName in grouped) {
-                    if (!IS_SYSTEM_ADMIN) {
-                        const modLower = (moduleName || '').trim().toLowerCase();
-                        if (modLower === 'system management' || modLower === 'administration' || modLower === 'admin') {
-                            continue;
+
+            $data = [
+                'full_name'        => $fullName,
+                'username'         => $username,
+                'email'            => $email,
+                'role'             => $role,
+                'department'       => $department,
+                'role_description' => $roleDescription,
+                'status'           => $status,
+            ];
+
+            // Update password only if provided
+            $password = $_POST['password'] ?? '';
+            if (!empty($password)) {
+                $data['password'] = password_hash($password, PASSWORD_DEFAULT);
+            }
+
+            $result = $employeeModel->updateById($id, $data);
+
+            $logModel->log("Updated user: {$fullName} (ID: {$id})", [
+                'module'  => 'User Management',
+                'details' => "Role: {$role}, Status: {$status}",
+            ]);
+
+            $response = ['success' => true, 'message' => 'User updated successfully!', 'data' => $result];
+            break;
+
+        // ==========================================================
+        // DELETE — Remove a user
+        // ==========================================================
+        case 'delete':
+            $id = (int) ($_POST['user_id'] ?? 0);
+            $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+            if ($id && $currentUserId && $id === $currentUserId) {
+                $response = ['success' => false, 'message' => 'You cannot delete your own account.'];
+                break;
+            }
+
+            if (!$isSystemAdmin) {
+                $response = ['success' => false, 'message' => 'Access Denied: Only System Administrators are authorized to permanently delete employee accounts. Department Heads may set status to Inactive or Suspended instead.'];
+                break;
+            }
+
+            $user = $employeeModel->find($id);
+            if (empty($user)) {
+                $response = ['success' => false, 'message' => 'User not found.'];
+                break;
+            }
+
+            $userName = $user['full_name'] ?? "ID {$id}";
+            $employeeModel->deleteById($id);
+
+            $logModel->log("Deleted user: {$userName} (ID: {$id})", [
+                'module' => 'User Management',
+            ]);
+
+            $response = ['success' => true, 'message' => "User '{$userName}' deleted."];
+            break;
+
+        // ==========================================================
+        // TOGGLE STATUS — Active ↔ Inactive
+        // ==========================================================
+        case 'toggle_status':
+            $id = (int) ($_POST['user_id'] ?? 0);
+            $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+            if ($id && $currentUserId && $id === $currentUserId) {
+                $response = ['success' => false, 'message' => 'You cannot disable your own logged-in account.'];
+                break;
+            }
+
+            if (!$id) {
+                $response = ['success' => false, 'message' => 'User ID is required.'];
+                break;
+            }
+
+            $user = $employeeModel->find($id);
+            if (!$isSystemAdmin && !empty($userDept) && !empty($user)) {
+                $targetDept = trim($user['department'] ?? '');
+                $targetRole = trim($user['role_description'] ?? $user['role'] ?? '');
+                if (!getDepartmentResolver()->isRoleInDepartment($targetRole, $userDept) && strcasecmp($targetDept, $userDept) !== 0) {
+                    $response = ['success' => false, 'message' => "Access Denied: You can only modify status for users within your department ({$userDept})."];
+                    break;
+                }
+            }
+
+            $currentStatus = $user['status'] ?? 'Active';
+            $newStatus = ($currentStatus === 'Active') ? 'Inactive' : 'Active';
+
+            $employeeModel->updateById($id, ['status' => $newStatus]);
+
+            $userName = $user['full_name'] ?? "ID {$id}";
+            $logModel->log("Changed user status: {$userName} to {$newStatus}", [
+                'module'  => 'User Management',
+                'details' => "Status toggled from {$currentStatus} to {$newStatus}"
+            ]);
+
+            $response = ['success' => true, 'message' => "Status for {$userName} updated to {$newStatus}.", 'new_status' => $newStatus];
+            break;
+
+        // ==========================================================
+        // SET STATUS — Active, Inactive, Suspended
+        // ==========================================================
+        case 'set_status':
+            $id = (int) ($_POST['user_id'] ?? 0);
+            $newStatus = trim($_POST['new_status'] ?? '');
+            $allowed = ['Active', 'Inactive', 'Suspended'];
+
+            if (!$id || !in_array($newStatus, $allowed, true)) {
+                $response = ['success' => false, 'message' => 'Invalid status value. Allowed: Active, Inactive, Suspended.'];
+                break;
+            }
+
+            $currentUserId = (int) ($_SESSION['user_id'] ?? 0);
+            if ($id && $currentUserId && $id === $currentUserId) {
+                $response = ['success' => false, 'message' => 'You cannot change your own logged-in account status.'];
+                break;
+            }
+
+            $user = $employeeModel->find($id);
+            if (!$user) {
+                $response = ['success' => false, 'message' => 'User not found.'];
+                break;
+            }
+
+            if (!$isSystemAdmin && !empty($userDept)) {
+                $targetDept = trim($user['department'] ?? '');
+                $targetRole = trim($user['role_description'] ?? $user['role'] ?? '');
+                if (!getDepartmentResolver()->isRoleInDepartment($targetRole, $userDept) && strcasecmp($targetDept, $userDept) !== 0) {
+                    $response = ['success' => false, 'message' => "Access Denied: You can only modify status for users within your department ({$userDept})."];
+                    break;
+                }
+            }
+
+            $employeeModel->updateById($id, ['status' => $newStatus]);
+
+            $userName = $user['full_name'] ?? "ID {$id}";
+            $logModel->log("Set user status: {$userName} to {$newStatus}", [
+                'module'  => 'User Management',
+                'details' => "Status changed to {$newStatus}"
+            ]);
+
+            $response = ['success' => true, 'message' => "Status for {$userName} updated to {$newStatus}.", 'new_status' => $newStatus];
+            break;
+
+        // ==========================================================
+        // SAVE PERMISSIONS — Sync role permissions
+        // ==========================================================
+        case 'save_permissions':
+        case 'update_role_permissions':
+            $roleId = (int) ($_POST['role_id'] ?? 0);
+            $permissionIds = [];
+            if (!empty($_POST['permission_ids'])) {
+                $permissionIds = json_decode($_POST['permission_ids'], true) ?: [];
+            } elseif (!empty($_POST['permissions'])) {
+                $permissionIds = is_array($_POST['permissions']) ? $_POST['permissions'] : (json_decode($_POST['permissions'], true) ?: []);
+            }
+
+            if (!$roleId) {
+                $response = ['success' => false, 'message' => 'Role ID is required.'];
+                break;
+            }
+
+            // Departmental Scoping & Escalation Protection Guard for Heads / Directors / Leads
+            if (!$isSystemAdmin) {
+                $rolesList = $roleModel->all();
+                $targetRoleObj = null;
+                foreach ($rolesList as $r) {
+                    if ((int)($r['id'] ?? 0) === $roleId) {
+                        $targetRoleObj = $r;
+                        break;
+                    }
+                }
+
+                if ($targetRoleObj) {
+                    $targetRoleName = trim($targetRoleObj['name']);
+                    $actorRole = trim($_SESSION['role_description'] ?? $_SESSION['role'] ?? '');
+
+                    // 1. Department Boundary Check
+                    if (!empty($userDept) && !getDepartmentResolver()->isRoleInDepartment($targetRoleName, $userDept)) {
+                        $response = ['success' => false, 'message' => "Access Denied: You can only modify permission matrices for position roles within your department ({$userDept})."];
+                        break;
+                    }
+
+                    // 2. Self-Role / Director-Role Privilege Edit Restriction
+                    if (strcasecmp($targetRoleName, $actorRole) === 0 || preg_match('/director|coordinator|lead/i', $targetRoleName)) {
+                        $response = ['success' => false, 'message' => "Access Denied: Department Heads cannot edit permissions for Director/Lead roles (including their own). Only subordinate roles may be modified."];
+                        break;
+                    }
+                }
+
+                // 3. Department heads/directors/leads can ONLY set permissions on their department and Main Controls.
+                // System Management, Administration, and other departments cannot be exposed or modified by them.
+                $allDbPerms = $roleModel->getPermissionsForRole($roleId);
+                $resolver = getDepartmentResolver();
+
+                $allowedScopePermIds = [];
+                $disallowedScopeGrantedIds = [];
+
+                foreach ($allDbPerms as $p) {
+                    $pId = (int) $p['id'];
+                    $modLower = strtolower(trim($p['module'] ?? ''));
+                    $isSystem = ($modLower === 'system management' || $modLower === 'administration' || $modLower === 'admin');
+                    $isMain = ($modLower === 'main controls');
+                    $isDept = !empty($userDept) && ($resolver->normalizeDepartmentName($p['module'] ?? '') === $resolver->normalizeDepartmentName($userDept));
+
+                    if (!$isSystem && ($isMain || $isDept)) {
+                        $allowedScopePermIds[$pId] = true;
+                    } else {
+                        // Preserve existing granted state for out-of-scope permissions so non-admins cannot tamper or grant them
+                        if (!empty($p['granted'])) {
+                            $disallowedScopeGrantedIds[] = $pId;
                         }
                     }
-                    const perms = grouped[moduleName];
-                    html += `
-                        <div class="bg-slate-50/70 border border-slate-200/80 rounded-xl p-4">
-                            <div class="flex items-center justify-between mb-3 border-b border-slate-200/60 pb-2">
-                                <h4 class="font-bold text-slate-800 text-xs tracking-wide uppercase flex items-center gap-1.5">
-                                    <i class="fa-solid fa-layer-group text-purple-600 text-xs"></i>
-                                    ${moduleName}
-                                </h4>
-                                <span class="text-[10px] text-purple-700 bg-purple-100 font-bold px-2 py-0.5 rounded-full">${perms.length} Controls</span>
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    `;
-
-                    perms.forEach(p => {
-                        const checked = p.granted ? 'checked' : '';
-                        html += `
-                            <label class="flex items-center justify-between p-2.5 bg-white border border-slate-200 rounded-lg hover:border-purple-300 transition cursor-pointer shadow-2xs group">
-                                <div class="pr-2">
-                                    <span class="text-xs font-semibold text-slate-800 group-hover:text-purple-900 block">${p.name || p.slug}</span>
-                                    <span class="text-[10px] text-slate-400 block font-mono">${p.slug}</span>
-                                </div>
-                                <input type="checkbox" class="modal-perm-checkbox w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer flex-shrink-0" data-id="${p.id}" ${checked}>
-                            </label>
-                        `;
-                    });
-
-                    html += `
-                            </div>
-                        </div>
-                    `;
                 }
 
-                body.innerHTML = html;
-            })
-            .catch(err => {
-                console.error(err);
-                body.innerHTML = `<div class="p-6 text-center text-rose-500 text-sm">Error connecting to permission server.</div>`;
-                showToast('Error connecting to permission server', 'danger', 'Connection Error');
-            });
-    }
+                // Filter submitted permissions: non-admin heads can only set permissions within their allowed scope
+                $filteredSubmittedIds = [];
+                foreach ($permissionIds as $pId) {
+                    $pIdInt = (int) $pId;
+                    if (isset($allowedScopePermIds[$pIdInt])) {
+                        $filteredSubmittedIds[] = $pIdInt;
+                    }
+                }
 
+<<<<<<< HEAD
+                // Final permissions: preserved out-of-scope permissions + allowed submitted permissions
+                $permissionIds = array_values(array_unique(array_merge($disallowedScopeGrantedIds, $filteredSubmittedIds)));
+=======
     function submitModalPermissions() {
         if (!currentModalRoleId) {
             showToast('No role matrix ID resolved for permission update', 'danger', 'Error');
@@ -1973,36 +2112,78 @@ $title = 'User Management';
             if (!res.success || !res.data) {
                 if (grid) grid.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No permissions found for this role.</p>';
                 return;
+>>>>>>> f5935478c139f529884b8dd5ecc8ad716837f854
             }
 
-            let html = '';
-            for (const [module, perms] of Object.entries(res.data)) {
-                if (!IS_SYSTEM_ADMIN) {
-                    const modLower = (module || '').trim().toLowerCase();
-                    if (modLower === 'system management' || modLower === 'administration' || modLower === 'admin') {
+            $roleModel->syncPermissions($roleId, $permissionIds);
+
+            // Invalidate cache
+            if (class_exists('App\Services\PermissionService')) {
+                \App\Services\PermissionService::getInstance()->invalidateCache();
+            }
+
+            // Resolve target role name for clear audit trail
+            $targetRoleName = "Role ID #{$roleId}";
+            $rolesList = $roleModel->all();
+            foreach ($rolesList as $r) {
+                if ((int)($r['id'] ?? 0) === $roleId) {
+                    $targetRoleName = $r['name'];
+                    break;
+                }
+            }
+
+            $actorName = $_SESSION['full_name'] ?? 'Department Director';
+            $actorRole = $_SESSION['role_description'] ?? $_SESSION['role'] ?? 'Department Director';
+
+            $logModel->log("Updated permissions for role: {$targetRoleName}", [
+                'user_name' => $actorName,
+                'role'      => $actorRole,
+                'module'    => 'User Management',
+                'details'   => "Updated permission matrix for role '{$targetRoleName}' (ID: {$roleId})"
+            ]);
+
+            $response = ['success' => true, 'message' => 'Permissions saved!'];
+            break;
+
+        // ==========================================================
+        // GET ROLE PERMISSIONS — Fetch permissions for a role (AJAX)
+        // ==========================================================
+        case 'get_role_permissions':
+            $roleId = (int) ($_GET['role_id'] ?? $_POST['role_id'] ?? 0);
+            if (!$roleId) {
+                $response = ['success' => false, 'message' => 'Role ID is required.'];
+                break;
+            }
+
+            $permissions = $roleModel->getPermissionsForRole($roleId);
+
+            // Group by module & filter sections for non-admin Department Heads / Leads / Directors
+            $grouped = [];
+            $resolver = getDepartmentResolver();
+
+            foreach ($permissions as $perm) {
+                $module = $perm['module'] ?? 'Other';
+
+                if (!$isSystemAdmin) {
+                    $modLower = strtolower(trim($module));
+                    // Never expose System Management to heads, directors, or leads
+                    if ($modLower === 'system management' || $modLower === 'administration' || $modLower === 'admin') {
+                        continue;
+                    }
+
+                    $isMainControls = ($modLower === 'main controls');
+                    $isOwnDept = !empty($userDept) && ($resolver->normalizeDepartmentName($module) === $resolver->normalizeDepartmentName($userDept));
+
+                    // Only expose Main Controls and their department, nothing else
+                    if (!$isMainControls && !$isOwnDept) {
                         continue;
                     }
                 }
-                html += `
-                    <div class="border border-slate-200 rounded-lg p-3">
-                        <h4 class="font-semibold text-slate-700 text-sm flex items-center gap-2 mb-2">
-                            <i class="fa-solid fa-shield-halved text-brand-medium"></i>
-                            ${module}
-                        </h4>
-                        <div class="grid grid-cols-2 gap-2">
-                `;
-                perms.forEach(p => {
-                    const checked = p.granted ? 'checked' : '';
-                    const permName = p.label || p.name || p.slug || 'Permission';
-                    const slug = (p.slug || '').toLowerCase();
-                    
-                    const isAdminOnlySlug = ['roles.manage', 'settings.manage', 'users.delete', 'logs.view', 'dashboard.system_admin'].includes(slug);
-                    const isDisabled = (!IS_SYSTEM_ADMIN && isAdminOnlySlug);
-                    
-                    const disabledAttr = isDisabled ? 'disabled' : '';
-                    const labelClass = isDisabled ? 'text-slate-400 opacity-60 cursor-not-allowed' : 'text-slate-600 cursor-pointer';
-                    const lockBadge = isDisabled ? '<i class="fa-solid fa-lock text-[10px] text-amber-500 ml-0.5" title="Requires System Administrator Privileges"></i>' : '';
 
+<<<<<<< HEAD
+                if (!isset($grouped[$module])) {
+                    $grouped[$module] = [];
+=======
                     html += `
                         <label class="flex items-center gap-2 text-xs ${labelClass}" title="${isDisabled ? 'Requires System Administrator Privileges' : ''}">
                             <input type="checkbox" value="${p.id}" ${checked} ${disabledAttr} class="rounded border-slate-300 text-brand-dark focus:ring-brand-medium ${isDisabled ? 'bg-slate-100 cursor-not-allowed' : ''}">
@@ -2141,25 +2322,16 @@ $title = 'User Management';
                     if (statusDelBtn) {
                         statusDelBtn.title = (newStatus || '').toLowerCase() === 'active' ? 'Cannot delete active user (Must be set to Inactive first)' : 'Delete User';
                     }
+>>>>>>> f5935478c139f529884b8dd5ecc8ad716837f854
                 }
-                updateKPISummariesJS();
-                addActivityLogJS(`Set status to ${newStatus} for user: ${row ? (row.dataset.fullname || `ID ${userId}`) : `ID ${userId}`}`);
-                showToast(data.message, 'success', 'Status Updated (Realtime)');
-            } else {
-                showToast(data.message, 'danger', 'Update Failed');
+                $grouped[$module][] = $perm;
             }
-        })
-        .catch(err => {
-            closeModal('setStatusModal');
-            showToast('Error setting user status', 'danger', 'Error');
-            console.error(err);
-        });
-    }
 
-    function toggleUserStatus(userId) {
-        setUserStatus(userId);
-    }
+            $response = ['success' => true, 'data' => $grouped];
+            break;
 
+<<<<<<< HEAD
+=======
     // ============================================================
     // DELETE USER via API (REALTIME DOM UPDATE)
     // ============================================================
@@ -2201,12 +2373,24 @@ $title = 'User Management';
             }
             return;
         }
+>>>>>>> f5935478c139f529884b8dd5ecc8ad716837f854
 
-        const performDelete = () => {
-            const body = new URLSearchParams();
-            body.append('action', 'delete');
-            body.append('user_id', userId);
+        // ==========================================================
+        // GET ALL DATA — Return users, roles, and logs for live refresh
+        // ==========================================================
+        case 'get_all_data':
+            $allUsers = $employeeModel->all(['order' => 'created_at.desc']);
+            $allRoles = $roleModel->all();
+            $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['role'] ?? '');
+            $userRole     = trim($_SESSION['role'] ?? '');
+            $isDeptHead   = (bool) preg_match('/director|coordinator|lead|health center director|sanitation director|immunization coordinator|surveillance coordinator|wastewater lead/i', $userRoleDesc . ' ' . $userRole);
 
+<<<<<<< HEAD
+            if ($isSystemAdmin) {
+                $logs = $logModel->all(['limit' => 20, 'order' => 'created_at.desc']);
+            } elseif ($isDeptHead && !empty($userDept)) {
+                $logs = $logModel->all(['limit' => 20, 'order' => 'created_at.desc', 'department' => $userDept]);
+=======
             fetch('user_management_api.php', {
                 method: 'POST',
                 body: body
@@ -2322,16 +2506,55 @@ $title = 'User Management';
                     `;
                 }
                 showToast('🧹 ' + data.message, 'success');
+>>>>>>> f5935478c139f529884b8dd5ecc8ad716837f854
             } else {
-                showToast('⚠️ ' + data.message, 'danger');
+                $logs = [];
             }
-        })
-        .catch(err => {
-            showToast('❌ Error clearing logs', 'danger');
-            console.error(err);
-        });
+
+            if (!$isSystemAdmin && !empty($userDept)) {
+                $users = getDepartmentResolver()->filterUsersForDepartment($allUsers, $userDept);
+                $roles = getDepartmentResolver()->filterRolesForDepartment($allRoles, $userDept);
+            } else {
+                $users = $allUsers;
+                $roles = $allRoles;
+            }
+
+            $response = [
+                'success' => true,
+                'data' => [
+                    'users' => $users,
+                    'roles' => $roles,
+                    'logs'  => $logs,
+                ]
+            ];
+            break;
+
+        // ==========================================================
+        // CLEAR LOGS — Delete all activity logs
+        // ==========================================================
+        case 'clear_logs':
+            if (!$isSystemAdmin) {
+                $response = ['success' => false, 'message' => 'Access Denied: Only System Administrators can clear activity logs.'];
+                break;
+            }
+            $logModel->clearAll();
+            $response = ['success' => true, 'message' => 'Activity logs cleared.'];
+            break;
+
+        default:
+            $response = ['success' => false, 'message' => "Unknown action: {$action}"];
+            break;
     }
 
+<<<<<<< HEAD
+} catch (Throwable $e) {
+    error_log('user_management_api error: ' . $e->getMessage());
+    $response = ['success' => false, 'message' => $e->getMessage()];
+}
+
+echo json_encode($response);
+exit;
+=======
     // ============================================================
     // REFRESH DATA
     // ============================================================
@@ -2404,3 +2627,4 @@ $title = 'User Management';
 </div>
 
 <?php include_once '../includes/footer.php'; ?>
+>>>>>>> f5935478c139f529884b8dd5ecc8ad716837f854
