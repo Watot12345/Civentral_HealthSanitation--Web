@@ -81,6 +81,9 @@ class Triage
             'bmi'                => isset($data['bmi']) && $data['bmi'] !== '' ? (float)$data['bmi'] : null,
             'blood_sugar'        => isset($data['blood_sugar']) && $data['blood_sugar'] !== '' ? (float)$data['blood_sugar'] : null,
             'blood_sugar_type'   => !empty($data['blood_sugar_type']) ? $data['blood_sugar_type'] : null,
+            'gcs_eye'            => isset($data['gcs_eye']) && $data['gcs_eye'] !== '' ? (int)$data['gcs_eye'] : null,
+            'gcs_verbal'         => isset($data['gcs_verbal']) && $data['gcs_verbal'] !== '' ? (int)$data['gcs_verbal'] : null,
+            'gcs_motor'          => isset($data['gcs_motor']) && $data['gcs_motor'] !== '' ? (int)$data['gcs_motor'] : null,
             'doctor_id'          => isset($data['doctor_id']) && $data['doctor_id'] !== '' ? (int)$data['doctor_id'] : null,
             'doctor_assigned'    => !empty($data['doctor_assigned']) ? trim($data['doctor_assigned']) : null,
             'symptoms'           => is_array($data['symptoms'] ?? null) ? implode(', ', $data['symptoms']) : ($data['symptoms'] ?? null),
@@ -91,21 +94,28 @@ class Triage
             'status'             => $data['status'] ?? 'pending'
         ];
 
+        if (isset($assessmentData['gcs_eye']) || isset($assessmentData['gcs_verbal']) || isset($assessmentData['gcs_motor'])) {
+            $assessmentData['gcs_total'] = ($assessmentData['gcs_eye'] ?? 0) + ($assessmentData['gcs_verbal'] ?? 0) + ($assessmentData['gcs_motor'] ?? 0);
+        }
+
         $assessmentData = array_filter($assessmentData, fn($val) => $val !== null);
 
         $res = [];
         try {
             $res = $this->db->insert($this->table, $assessmentData);
+            if (is_array($res) && isset($res[0]) && is_array($res[0])) {
+                $res = $res[0];
+            }
         } catch (Throwable $e) {
             error_log('Assessment Model create exception: ' . $e->getMessage());
-            $res = array_merge($data, ['id' => rand(100, 999), 'created_at' => date('Y-m-d H:i:s')]);
+            throw $e;
         }
 
         if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
             require_once __DIR__ . '/ActivityLog.php';
             try {
                 $logger = new ActivityLog();
-                $tid = $data['triage_id'] ?? '';
+                $tid = $data['triage_id'] ?? ($res['triage_id'] ?? '');
                 $logger->log("Recorded Patient Assessment", [
                     'module'  => 'Health Center Services',
                     'details' => "Assessment ID: {$tid} | Priority: " . ($data['priority'] ?? 'Normal'),
@@ -121,6 +131,9 @@ class Triage
     public function updateById(string|int $id, array $data): array
     {
         $updated = $this->db->update($this->table, $data, ['id' => $id]);
+        if (is_array($updated) && isset($updated[0]) && is_array($updated[0])) {
+            $updated = $updated[0];
+        }
         if (class_exists('ActivityLog') || file_exists(__DIR__ . '/ActivityLog.php')) {
             require_once __DIR__ . '/ActivityLog.php';
             try {
@@ -194,7 +207,7 @@ class Triage
     public function generateTriageId(): string
     {
         try {
-            $all = $this->all(['limit' => 1000]);
+            $all = $this->db->select($this->table, [], ['order' => 'id.desc', 'limit' => 50], true);
             $maxNum = 0;
             foreach ($all as $t) {
                 if (!empty($t['triage_id']) && preg_match('/TRG-(\d+)/i', $t['triage_id'], $matches)) {

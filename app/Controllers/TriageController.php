@@ -137,6 +137,9 @@ class TriageController extends BaseController
             $patientsMap = $this->getPatientsMap();
             $employeesMap = $this->getEmployeesMap();
             $record = is_array($result) && !empty($result) ? $result : $dbData;
+            if (isset($record[0]) && is_array($record[0])) {
+                $record = $record[0];
+            }
             if (!empty($result['id'])) {
                 $record['id'] = $result['id'];
             }
@@ -179,6 +182,9 @@ class TriageController extends BaseController
 
             $dbData = $this->prepareDbData($data);
             $result = $this->triageModel->updateById($id, $dbData);
+            if (isset($result[0]) && is_array($result[0])) {
+                $result = $result[0];
+            }
 
             $patientsMap = $this->getPatientsMap();
             $employeesMap = $this->getEmployeesMap();

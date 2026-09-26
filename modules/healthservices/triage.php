@@ -1386,6 +1386,18 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
 <script>
     const TRIAGE_DATA = <?php echo json_encode(array_column($triageQueue, null, 'id'), JSON_PRETTY_PRINT); ?>;
     let selectedSymptoms = [];
+    let isSavingTriage = false;
+
+    // TOAST NOTIFICATION HELPER (Uses toast.php if loaded, falls back to ModalSystem.toast or alert)
+    function showAppToast(type, message, title = '') {
+        if (typeof toast !== 'undefined' && typeof toast[type] === 'function') {
+            toast[type](message, { title: title || (type.charAt(0).toUpperCase() + type.slice(1)) });
+        } else if (typeof ModalSystem !== 'undefined' && ModalSystem.toast && typeof ModalSystem.toast[type] === 'function') {
+            ModalSystem.toast[type](message);
+        } else {
+            alert((title ? title + ': ' : '') + message);
+        }
+    }
 
     // DATA MASKING HELPERS
     function maskPatientName(name) {
@@ -1856,41 +1868,60 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
     // ADD TRIAGE
     // ============================================================
     async function saveTriage(event) {
-        event.preventDefault();
+        if (event) event.preventDefault();
 
-        const patientId = document.getElementById('triage_patient').value;
-        const bp = document.getElementById('triage_bp').value;
-        const hr = document.getElementById('triage_hr').value;
-        const temp = document.getElementById('triage_temp').value;
-        const o2 = document.getElementById('triage_o2').value;
-        const rr = document.getElementById('triage_rr').value;
-        const weight = document.getElementById('triage_weight').value;
-        const height = document.getElementById('triage_height').value;
-        const bloodSugar = document.getElementById('triage_blood_sugar').value;
-        const bloodSugarType = document.getElementById('triage_blood_sugar_type').value;
-        const gcsEye = document.getElementById('triage_gcs_eye').value;
-        const gcsVerbal = document.getElementById('triage_gcs_verbal').value;
-        const gcsMotor = document.getElementById('triage_gcs_motor').value;
+        if (isSavingTriage) {
+            return;
+        }
+
+        const patientId = document.getElementById('triage_patient')?.value || '';
+        const bp = document.getElementById('triage_bp')?.value || '';
+        const hr = document.getElementById('triage_hr')?.value || '';
+        const temp = document.getElementById('triage_temp')?.value || '';
+        const o2 = document.getElementById('triage_o2')?.value || '';
+        const rr = document.getElementById('triage_rr')?.value || '';
+        const weight = document.getElementById('triage_weight')?.value || '';
+        const height = document.getElementById('triage_height')?.value || '';
+        const bloodSugar = document.getElementById('triage_blood_sugar')?.value || '';
+        const bloodSugarType = document.getElementById('triage_blood_sugar_type')?.value || '';
+        const gcsEye = document.getElementById('triage_gcs_eye')?.value || '';
+        const gcsVerbal = document.getElementById('triage_gcs_verbal')?.value || '';
+        const gcsMotor = document.getElementById('triage_gcs_motor')?.value || '';
 
         const selectedSymptoms = Array.from(document.querySelectorAll('#symptomCheckboxes input[type="checkbox"]:checked')).map(cb => cb.value);
-        const complaint = document.getElementById('triage_complaint').value;
-        const priority = document.getElementById('triage_priority').value;
-        const nurseId = document.getElementById('triage_nurse').value;
+        const complaint = document.getElementById('triage_complaint')?.value || '';
+        const priority = document.getElementById('triage_priority')?.value || 'low';
+        const nurseId = document.getElementById('triage_nurse')?.value || '1';
 
         if (!patientId) {
-            ModalSystem.toast.warning('Please select a patient');
+            showAppToast('warning', 'Please select a patient', 'Validation Required');
             return;
         }
 
         const vitalError = validateTriageVitals({ bp, hr, temp, o2, rr, weight, height, bloodSugar, gcsEye, gcsVerbal, gcsMotor });
         if (vitalError) {
-            ModalSystem.toast.error(vitalError);
+            showAppToast('error', vitalError, 'Validation Error');
             return;
         }
 
+        // Lock submission to prevent duplicates & disable button
+        isSavingTriage = true;
+
+        const submitBtn = document.querySelector('#addTriageForm button[type="submit"]');
+        const origBtnText = submitBtn ? submitBtn.innerHTML : '<i class="fa-solid fa-user-check mr-1.5"></i> Save Assessment & Send to Doctor';
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+            submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i> Saving Assessment...';
+        }
+
         const doctorEl = document.getElementById('triage_doctor');
-        const doctorId = doctorEl ? doctorEl.value : null;
-        const doctorName = doctorEl && doctorEl.options[doctorEl.selectedIndex] ? (doctorEl.options[doctorEl.selectedIndex].dataset.name || doctorEl.options[doctorEl.selectedIndex].text.split('(')[0].trim()) : null;
+        const doctorId = doctorEl?.value || null;
+        let doctorName = null;
+        if (doctorEl && doctorEl.selectedIndex >= 0 && doctorEl.options[doctorEl.selectedIndex]) {
+            const opt = doctorEl.options[doctorEl.selectedIndex];
+            doctorName = opt.dataset?.name || opt.text.split('(')[0].trim();
+        }
 
         const payload = {
             patient_id: parseInt(patientId),
@@ -1916,7 +1947,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         };
 
         try {
-            const csrfToken = CrudAjax.getCsrfToken();
+            const csrfToken = typeof CrudAjax !== 'undefined' && CrudAjax.getCsrfToken ? CrudAjax.getCsrfToken() : '';
             const res = await fetch('../../api/triage.php', {
                 method: 'POST',
                 headers: { 
@@ -1953,8 +1984,11 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     console.warn('Could not update check-in status:', queueErr);
                 }
 
-                ModalSystem.toast.success('Patient added to triage queue successfully!');
-                ModalSystem.close('addTriageModal');
+                showAppToast('success', 'Patient assessment saved & sent to doctor successfully!', 'Assessment Saved');
+
+                if (typeof ModalSystem !== 'undefined' && ModalSystem.close) {
+                    ModalSystem.close('addTriageModal');
+                }
 
                 // Remove triaged patient from dropdown
                 const triageSelect = document.getElementById('triage_patient');
@@ -1968,13 +2002,21 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 if (formEl) formEl.reset();
 
                 // Refresh queue and KPI counters in real-time without full page reload
-                loadTriageQueue(1);
-                updateTriageKpis();
+                if (typeof loadTriageQueue === 'function') loadTriageQueue(1);
+                if (typeof updateTriageKpis === 'function') updateTriageKpis();
             } else {
-                ModalSystem.toast.error(data.message || 'Failed to save triage entry');
+                showAppToast('error', data.message || 'Failed to save triage entry', 'Save Failed');
             }
         } catch (err) {
-            ModalSystem.toast.error('Network error while saving triage');
+            console.error('Error saving triage:', err);
+            showAppToast('error', 'Network error while saving triage', 'Network Error');
+        } finally {
+            isSavingTriage = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+                submitBtn.innerHTML = origBtnText;
+            }
         }
     }
 

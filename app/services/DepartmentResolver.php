@@ -249,12 +249,19 @@ class DepartmentResolver
         $normCurrent = $this->normalizeDepartmentName($currentDept);
         $normTarget  = $this->normalizeDepartmentName($targetDept);
 
-        // 2. DEPARTMENT HEAD / STAFF: Full access WITHIN assigned department
+        // 2. SYSTEM / USER MANAGEMENT MODULE: Allow Department Heads, Directors & Coordinators with assigned department to access User Management
+        if (in_array($normTarget, ['system management', 'user management', 'system', 'administration'], true)) {
+            if (!empty($normCurrent)) {
+                return true;
+            }
+        }
+
+        // 3. DEPARTMENT HEAD / STAFF: Full access WITHIN assigned department
         if (!empty($normCurrent) && $normCurrent === $normTarget) {
             return true;
         }
 
-        // 3. Restrict access outside assigned department
+        // 4. Restrict access outside assigned department
         return false;
     }
 

@@ -122,8 +122,15 @@ class Database
         $cacheDuration = 3600;
         $cacheKey = '';
 
-        // Bypass cache for system tables where real-time accuracy is critical
-        $skipCache = in_array($table, ['system_settings', 'settings', 'setting_categories', 'feature_flags', 'settings_versions', 'audit_logs', 'system_logs', 'activity_logs', 'scheduler_logs', 'ai_analytics_logs', 'employees', 'roles', 'role_permissions', 'user_sessions', 'triage_queue']);
+        // Bypass cache for system and real-time operational tables where accuracy is critical
+        $skipCache = in_array($table, [
+            'system_settings', 'settings', 'setting_categories', 'feature_flags', 'settings_versions',
+            'audit_logs', 'system_logs', 'activity_logs', 'scheduler_logs', 'ai_analytics_logs',
+            'employees', 'roles', 'role_permissions', 'user_sessions', 'triage_queue',
+            'assessment', 'consultations', 'prescriptions', 'appointments', 'medical_records',
+            'patients', 'referrals', 'children', 'growth_measurements', 'nutrition_assessments',
+            'vaccine_inventory', 'vaccine_transactions', 'immunization_records', 'surveillance_cases'
+        ]);
 
         if (!$skipCache && $method === 'GET') {
             $settingsCache = $cacheManager->get('all_settings_dictionary');
