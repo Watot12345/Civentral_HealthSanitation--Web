@@ -195,6 +195,12 @@ class MailService
             $mail->setFrom($this->fromEmail, $this->fromName);
             $mail->addAddress($toEmail, $recipientName);
 
+            // Embed official Civentral logo image if available
+            $logoPath = __DIR__ . '/../../assets/images/logo.png';
+            if (file_exists($logoPath)) {
+                $mail->addEmbeddedImage($logoPath, 'civentral_logo', 'logo.png');
+            }
+
             $mail->isHTML(true);
             $mail->Subject = $subject;
             $mail->Body    = $htmlBody;

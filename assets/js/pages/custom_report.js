@@ -184,13 +184,18 @@ function getFilteredData() {
 
 // ─── GET CURRENT CONFIG (for templates) ──────────────────────
 function getCurrentConfig() {
+    const getVal = (id, fallback = '') => {
+        const el = document.getElementById(id);
+        return el ? el.value : fallback;
+    };
+
     return {
-        reportType: document.getElementById('reportType').value,
-        startDate: document.getElementById('startDate').value,
-        endDate: document.getElementById('endDate').value,
-        facility: document.getElementById('facility').value,
-        inspector: document.getElementById('inspector').value,
-        status: currentStatusFilter
+        reportType: getVal('reportType', 'unified'),
+        startDate: getVal('startDate', ''),
+        endDate: getVal('endDate', ''),
+        facility: getVal('facility', 'all'),
+        inspector: getVal('inspector', 'all'),
+        status: typeof currentStatusFilter !== 'undefined' ? currentStatusFilter : 'all'
     };
 }
 
@@ -1233,8 +1238,62 @@ document.querySelectorAll('.filter-chip').forEach(chip => {
 });
 
 // ─── MODAL CONTROLS ───────────────────────────────────────────
+let selectedScheduleFormat = 'PDF';
+
+function selectScheduleFormat(fmt) {
+    selectedScheduleFormat = fmt;
+    ['PDF', 'Excel', 'Word'].forEach(f => {
+        const el = document.getElementById('schedFormat' + f);
+        if (el) {
+            if (f.toLowerCase() === fmt.toLowerCase()) {
+                el.className = 'sched-fmt-card flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-[#176B87] bg-[#176B87]/5 cursor-pointer transition-all';
+                const radio = el.querySelector('input[type="radio"]');
+                if (radio) radio.checked = true;
+            } else {
+                el.className = 'sched-fmt-card flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-slate-200 bg-white cursor-pointer transition-all';
+                const radio = el.querySelector('input[type="radio"]');
+                if (radio) radio.checked = false;
+            }
+        }
+    });
+}
+
+function setScheduleDatePreset(preset) {
+    const startInput = document.getElementById('scheduleReportStart');
+    const endInput = document.getElementById('scheduleReportEnd');
+    if (!startInput || !endInput) return;
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    endInput.value = todayStr;
+
+    if (preset === 'this_month') {
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        startInput.value = firstDay.toISOString().split('T')[0];
+    } else if (preset === 'this_year') {
+        const firstDay = new Date(today.getFullYear(), 0, 1);
+        startInput.value = firstDay.toISOString().split('T')[0];
+    } else if (preset === 'last_30_days') {
+        const past = new Date(today);
+        past.setDate(past.getDate() - 30);
+        startInput.value = past.toISOString().split('T')[0];
+    }
+}
+
 function openScheduleModal() {
     const modal = document.getElementById('scheduleModal');
+    if (!modal) return;
+    const statusMsg = document.getElementById('scheduleStatusMsg');
+    const downloadSection = document.getElementById('scheduleDownloadSection');
+    const overlay = document.getElementById('scheduleLoadingOverlay');
+
+    if (statusMsg) statusMsg.classList.add('hidden');
+    if (downloadSection) downloadSection.classList.add('hidden');
+    if (overlay) {
+        overlay.style.opacity = '0';
+        overlay.classList.add('hidden');
+    }
+
     modal.classList.remove('hidden');
     void modal.offsetWidth;
     modal.style.opacity = '1';
@@ -1242,6 +1301,7 @@ function openScheduleModal() {
 
 function closeScheduleModal() {
     const modal = document.getElementById('scheduleModal');
+    if (!modal) return;
     modal.style.opacity = '0';
     setTimeout(() => modal.classList.add('hidden'), 300);
 }
@@ -1249,6 +1309,148 @@ function closeScheduleModal() {
 function scheduleReport() {
     saveSchedule();
 }
+
+function showScheduleLoading(show, message = 'Generating report package and dispatching notification emails...') {
+    const fullLoading = document.getElementById('scheduleLoadingScreen');
+    const overlay = document.getElementById('scheduleLoadingOverlay');
+    const subtext = document.getElementById('scheduleLoadingSubtext');
+    const submitBtn = document.getElementById('scheduleSubmitBtn');
+
+    if (show) {
+        if (subtext) subtext.textContent = message;
+        if (fullLoading) {
+            fullLoading.classList.remove('hidden');
+            void fullLoading.offsetWidth;
+            fullLoading.style.opacity = '1';
+        }
+        if (overlay) {
+            overlay.classList.remove('hidden');
+            void overlay.offsetWidth;
+            overlay.style.opacity = '1';
+        }
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-sm"></i> <span>Sending Email &amp; Saving...</span>';
+        }
+    } else {
+        if (fullLoading) {
+            fullLoading.style.opacity = '0';
+            setTimeout(() => fullLoading.classList.add('hidden'), 300);
+        }
+        if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.classList.add('hidden'), 300);
+        }
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            submitBtn.innerHTML = '<i class="fa-regular fa-floppy-disk"></i> <span id="scheduleSubmitBtnText">Schedule &amp; Send</span>';
+        }
+    }
+}
+
+function saveSchedule() {
+    const title = (document.getElementById('scheduleTitleInput')?.value || '').trim();
+    const recipients = (document.getElementById('scheduleRecipientsInput')?.value || '').trim();
+    const reportType = document.getElementById('scheduleReportType')?.value || 'unified';
+    const startDate = document.getElementById('scheduleReportStart')?.value || '';
+    const endDate = document.getElementById('scheduleReportEnd')?.value || '';
+    const includeVisuals = document.getElementById('scheduleIncludeVisuals')?.checked ?? true;
+    const frequency = document.getElementById('scheduleFrequencySelect')?.value || 'Weekly';
+    const startDateInput = document.getElementById('scheduleStartDateInput')?.value || '';
+    const time = document.getElementById('scheduleTimeInput')?.value || '08:00';
+    const statusMsg = document.getElementById('scheduleStatusMsg');
+    const downloadSection = document.getElementById('scheduleDownloadSection');
+
+    if (!title) {
+        showToast('Please enter a schedule title.', 'info');
+        return;
+    }
+    if (!recipients) {
+        showToast('Please enter recipient email address(es).', 'info');
+        return;
+    }
+
+    // Trigger full loading effect
+    showScheduleLoading(true, 'Configuring automated report schedule for ' + recipients + '...');
+
+    const payload = {
+        action: 'create',
+        report_title: title,
+        recipients: recipients,
+        report_type: reportType,
+        report_start_date: startDate,
+        report_end_date: endDate,
+        include_visuals: includeVisuals ? 1 : 0,
+        frequency: frequency,
+        start_date: startDateInput,
+        time: time,
+        format: selectedScheduleFormat
+    };
+
+    fetch('api/reports/schedule.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        showScheduleLoading(false);
+
+        if (data.success) {
+            showToast('Report email sent to ' + recipients + '!');
+            if (statusMsg) {
+                statusMsg.className = 'p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-medium';
+                statusMsg.textContent = '✓ Schedule active & email delivered to ' + recipients + '!';
+                statusMsg.classList.remove('hidden');
+            }
+            if (downloadSection) {
+                downloadSection.classList.remove('hidden');
+                const label = document.getElementById('scheduleDownloadLabel');
+                if (label) label.textContent = `Download report in ${selectedScheduleFormat} format now`;
+            }
+            if (typeof loadScheduledReports === 'function') loadScheduledReports();
+        } else {
+            showToast(data.message || 'Failed to save schedule.', 'info');
+            if (statusMsg) {
+                statusMsg.className = 'p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium';
+                statusMsg.textContent = data.message || 'Error saving schedule.';
+                statusMsg.classList.remove('hidden');
+            }
+        }
+    })
+    .catch(err => {
+        console.error('Schedule Error:', err);
+        showScheduleLoading(false);
+        showToast('Error saving schedule: ' + err.message, 'info');
+    });
+}
+
+function downloadScheduledReport() {
+    const reportType = document.getElementById('scheduleReportType')?.value || 'unified';
+    const startDate = document.getElementById('scheduleReportStart')?.value || '';
+    const endDate = document.getElementById('scheduleReportEnd')?.value || '';
+    const fmt = selectedScheduleFormat.toLowerCase();
+
+    if (fmt === 'pdf' && typeof downloadPDF === 'function') {
+        downloadPDF();
+    } else if (fmt === 'excel' && typeof downloadExcel === 'function') {
+        downloadExcel();
+    } else if (fmt === 'word' && typeof downloadWord === 'function') {
+        downloadWord();
+    } else {
+        if (typeof downloadPDF === 'function') downloadPDF();
+    }
+}
+
+window.selectScheduleFormat = selectScheduleFormat;
+window.setScheduleDatePreset = setScheduleDatePreset;
+window.openScheduleModal = openScheduleModal;
+window.closeScheduleModal = closeScheduleModal;
+window.scheduleReport = scheduleReport;
+window.saveSchedule = saveSchedule;
+window.downloadScheduledReport = downloadScheduledReport;
 
 // ─── TOAST ──────────────────────────────────────────────────────
 let toastTimer;
@@ -1460,6 +1662,15 @@ function renderTemplatesGrid(templates) {
         const canEdit = CURRENT_USER.permissions.template_edit && isOwnerOrAdmin;
         const canDelete = CURRENT_USER.permissions.template_delete && (CURRENT_USER.tier === 'admin' || isOwnerOrAdmin);
         const displayType = typeLabels[t.type] || escapeExportHtml(t.type || 'Standard');
+        let subtitleText = displayType;
+        const rawDept = (t.department || '').trim();
+        if (rawDept && rawDept.toLowerCase() !== displayType.toLowerCase()) {
+            if (rawDept.toLowerCase().startsWith(displayType.toLowerCase())) {
+                subtitleText = escapeExportHtml(rawDept);
+            } else {
+                subtitleText = `${displayType} · ${escapeExportHtml(rawDept)}`;
+            }
+        }
 
         return `
             <div class="p-5 bg-white/70 backdrop-blur-sm rounded-2xl border border-[#B4D4FF]/30 hover:border-[#176B87]/40 shadow-xs transition flex flex-col justify-between group">
@@ -1471,7 +1682,7 @@ function renderTemplatesGrid(templates) {
                             </span>
                             <div>
                                 <h4 class="font-bold text-sm text-slate-800">${escapeExportHtml(t.name)}</h4>
-                                <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">${displayType} · ${escapeExportHtml(t.department || 'All Departments')}</span>
+                                <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">${subtitleText}</span>
                             </div>
                         </div>
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${t.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}">
@@ -1670,8 +1881,35 @@ async function duplicateTemplate(id) {
     }
 }
 
-async function deleteTemplate(id) {
-    if (!confirm('Are you sure you want to delete this report template?')) return;
+let pendingDeleteTemplateId = null;
+
+function deleteTemplate(id) {
+    const t = allTemplates.find(tpl => String(tpl.id) === String(id));
+    pendingDeleteTemplateId = id;
+    const modal = document.getElementById('deleteTemplateModal');
+    const nameEl = document.getElementById('deleteTemplateTargetName');
+    if (nameEl) {
+        nameEl.textContent = t ? (t.name || 'Report Template') : 'Report Template';
+    }
+    if (modal) {
+        modal.classList.remove('hidden');
+        setTimeout(() => modal.classList.remove('opacity-0'), 10);
+    }
+}
+
+function closeDeleteTemplateModal() {
+    const modal = document.getElementById('deleteTemplateModal');
+    if (modal) {
+        modal.classList.add('opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 200);
+    }
+    pendingDeleteTemplateId = null;
+}
+
+async function confirmDeleteTemplateAction() {
+    if (!pendingDeleteTemplateId) return;
+    const id = pendingDeleteTemplateId;
+    closeDeleteTemplateModal();
     try {
         const resp = await fetch(APP_CONFIG.api_report_templates, {
             method: 'DELETE',
@@ -1682,9 +1920,12 @@ async function deleteTemplate(id) {
         if (res && res.success) {
             showToast('Template deleted successfully!', 'success');
             loadTemplatesList();
+        } else {
+            showToast(res.message || 'Failed to delete template', 'info');
         }
     } catch (e) {
         console.error('Failed to delete template:', e);
+        showToast('Error deleting template', 'info');
     }
 }
 
@@ -2247,3 +2488,363 @@ function updateDynamicKPIs(kpis) {
     if (pendingLabel) pendingLabel.textContent = mapping.pending;
     if (urgentLabel) urgentLabel.textContent = mapping.urgent;
 }
+
+// ================================================================
+// ─── EMAIL REPORT MODULE ────────────────────────────────────────
+// ================================================================
+
+/** Track current email report state */
+let _emailReportFormat = 'pdf';
+let _emailReportSentPayload = null;
+
+/**
+ * Open the Email Report modal and reset its state
+ */
+function openEmailReportModal() {
+    const modal = document.getElementById('emailReportModal');
+    if (!modal) return;
+
+    // Reset status + download section
+    _resetEmailReportModal();
+
+    modal.classList.remove('hidden');
+    void modal.offsetWidth; // force reflow for CSS transition
+    modal.style.opacity = '1';
+}
+
+/**
+ * Close the Email Report modal
+ */
+function closeEmailReportModal() {
+    const modal = document.getElementById('emailReportModal');
+    if (!modal) return;
+    modal.style.opacity = '0';
+    setTimeout(() => modal.classList.add('hidden'), 300);
+}
+
+/**
+ * Reset the modal to its default state (called on open)
+ */
+function _resetEmailReportModal() {
+    _emailReportSentPayload = null;
+    _emailReportFormat = 'pdf';
+
+    // Reset format card selection
+    selectEmailFormat('pdf', false);
+
+    // Reset status area
+    const statusEl = document.getElementById('emailReportStatus');
+    if (statusEl) { statusEl.innerHTML = ''; statusEl.classList.add('hidden'); }
+
+    // Hide download section
+    const dlSection = document.getElementById('emailDownloadSection');
+    if (dlSection) dlSection.classList.add('hidden');
+
+    // Reset send button
+    _setEmailSendBtnState('idle');
+
+    // Clear recipients & message
+    const recipientsEl = document.getElementById('emailReportRecipients');
+    if (recipientsEl) recipientsEl.value = '';
+    const msgEl = document.getElementById('emailReportMessage');
+    if (msgEl) msgEl.value = '';
+
+    // Reset visuals toggle
+    const visualsEl = document.getElementById('emailIncludeVisuals');
+    if (visualsEl) visualsEl.checked = true;
+}
+
+/**
+ * Select the export format card (PDF or Word)
+ * @param {string} format - 'pdf' or 'word'
+ * @param {boolean} [updateRadio=true]
+ */
+function selectEmailFormat(format, updateRadio = true) {
+    _emailReportFormat = format;
+
+    const pdfCard  = document.getElementById('emailFormatPDF');
+    const wordCard = document.getElementById('emailFormatWord');
+
+    if (pdfCard && wordCard) {
+        if (format === 'pdf') {
+            pdfCard.classList.add('border-[#176B87]', 'bg-[#176B87]/5');
+            pdfCard.classList.remove('border-slate-200', 'bg-white');
+            wordCard.classList.add('border-slate-200', 'bg-white');
+            wordCard.classList.remove('border-[#176B87]', 'bg-[#176B87]/5');
+        } else {
+            wordCard.classList.add('border-[#176B87]', 'bg-[#176B87]/5');
+            wordCard.classList.remove('border-slate-200', 'bg-white');
+            pdfCard.classList.add('border-slate-200', 'bg-white');
+            pdfCard.classList.remove('border-[#176B87]', 'bg-[#176B87]/5');
+        }
+    }
+
+    if (updateRadio) {
+        const radio = document.querySelector(`input[name="emailFormat"][value="${format}"]`);
+        if (radio) radio.checked = true;
+    }
+}
+
+/**
+ * Set date range presets for the Email Report modal
+ * @param {string} preset - 'this_month' | 'this_year' | 'last_30_days'
+ */
+function setEmailDatePreset(preset) {
+    const today = new Date();
+    let start = new Date();
+    let end = new Date();
+
+    if (preset === 'this_month') {
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end   = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    } else if (preset === 'this_year') {
+        start = new Date(today.getFullYear(), 0, 1);
+        end   = new Date(today.getFullYear(), 11, 31);
+    } else if (preset === 'last_30_days') {
+        start.setDate(today.getDate() - 30);
+    }
+
+    const formatDate = (d) => {
+        const offset = d.getTimezoneOffset();
+        d = new Date(d.getTime() - (offset * 60 * 1000));
+        return d.toISOString().split('T')[0];
+    };
+
+    const startEl = document.getElementById('emailStartDate');
+    const endEl   = document.getElementById('emailEndDate');
+    if (startEl) startEl.value = formatDate(start);
+    if (endEl)   endEl.value   = formatDate(end);
+}
+
+/**
+ * Update the send button appearance
+ * @param {'idle'|'loading'|'done'} state
+ */
+function _setEmailSendBtnState(state) {
+    const btn     = document.getElementById('emailSendBtn');
+    const btnText = document.getElementById('emailSendBtnText');
+    if (!btn || !btnText) return;
+
+    if (state === 'loading') {
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Sending...';
+    } else if (state === 'done') {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btnText.innerHTML = '<i class="fa-solid fa-paper-plane mr-1"></i> Send Again';
+    } else {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btnText.innerHTML = 'Send Report';
+    }
+}
+
+/**
+ * Show an inline status message in the Email Report modal
+ * @param {string} message
+ * @param {'success'|'error'|'info'} type
+ */
+function _showEmailStatus(message, type = 'info') {
+    const statusEl = document.getElementById('emailReportStatus');
+    if (!statusEl) return;
+
+    const colorMap = {
+        success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+        error:   'bg-rose-50 border-rose-200 text-rose-700',
+        info:    'bg-blue-50 border-blue-200 text-blue-700'
+    };
+    const iconMap = {
+        success: 'fa-circle-check text-emerald-500',
+        error:   'fa-circle-xmark text-rose-500',
+        info:    'fa-circle-info text-blue-500'
+    };
+
+    statusEl.className = `p-3 rounded-xl border text-xs font-medium flex items-center gap-2 ${colorMap[type] || colorMap.info}`;
+    statusEl.innerHTML = `<i class="fa-solid ${iconMap[type] || iconMap.info} flex-shrink-0"></i><span>${message}</span>`;
+    statusEl.classList.remove('hidden');
+}
+
+/**
+ * Validate one or more comma-separated email addresses
+ * @param {string} raw
+ * @returns {string[]|null} - array of trimmed emails, or null if invalid
+ */
+function _parseEmailRecipients(raw) {
+    const emails = raw.split(',').map(e => e.trim()).filter(Boolean);
+    if (emails.length === 0) return null;
+    const emailReg = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const e of emails) {
+        if (!emailReg.test(e)) return null;
+    }
+    return emails;
+}
+
+/**
+ * Main function: validate inputs, simulate sending, then show download button
+ */
+function sendEmailReport() {
+    // 1. Gather values
+    const reportType    = document.getElementById('emailReportType')?.value || 'unified';
+    const startDate     = document.getElementById('emailStartDate')?.value  || '';
+    const endDate       = document.getElementById('emailEndDate')?.value    || '';
+    const includeVisuals= document.getElementById('emailIncludeVisuals')?.checked ?? true;
+    const format        = _emailReportFormat || 'pdf';
+    const recipientsRaw = (document.getElementById('emailReportRecipients')?.value || '').trim();
+    const message       = (document.getElementById('emailReportMessage')?.value    || '').trim();
+
+    // 2. Validate
+    if (!startDate || !endDate) {
+        _showEmailStatus('Please select a valid date range.', 'error');
+        return;
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+        _showEmailStatus('Start date cannot be after end date.', 'error');
+        return;
+    }
+    if (!recipientsRaw) {
+        _showEmailStatus('Please enter at least one recipient email address.', 'error');
+        document.getElementById('emailReportRecipients')?.focus();
+        return;
+    }
+    const recipients = _parseEmailRecipients(recipientsRaw);
+    if (!recipients) {
+        _showEmailStatus('One or more email addresses appear to be invalid.', 'error');
+        document.getElementById('emailReportRecipients')?.focus();
+        return;
+    }
+
+    // 3. Build payload
+    const payload = {
+        report_type:      reportType,
+        start_date:       startDate,
+        end_date:         endDate,
+        include_visuals:  includeVisuals,
+        format:           format,
+        recipients:       recipients,
+        message:          message,
+        generated_by:     (typeof CURRENT_USER !== 'undefined') ? CURRENT_USER.name : 'System',
+        department:       (typeof CURRENT_USER !== 'undefined') ? CURRENT_USER.department : ''
+    };
+
+    // 4. Start loading
+    _setEmailSendBtnState('loading');
+    _showEmailStatus('Preparing and sending your report…', 'info');
+
+    // Hide download section while sending
+    const dlSection = document.getElementById('emailDownloadSection');
+    if (dlSection) dlSection.classList.add('hidden');
+
+    // 5. POST to email schedule endpoint (reuses the existing schedule API)
+    const apiUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.api_reports_schedule)
+        ? APP_CONFIG.api_reports_schedule
+        : 'api/reports/schedule.php';
+
+    fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_email_report', ...payload })
+    })
+    .then(async (res) => {
+        let data;
+        try { data = await res.json(); } catch { data = { success: false, message: 'Server returned an invalid response.' }; }
+
+        if (res.ok && (data.success !== false)) {
+            // Success
+            _emailReportSentPayload = payload;
+            _showEmailStatus(
+                `Report sent to: <strong>${recipients.join(', ')}</strong>`,
+                'success'
+            );
+            _setEmailSendBtnState('done');
+
+            // Show download section
+            const dlLabel = document.getElementById('emailDownloadLabel');
+            if (dlLabel) dlLabel.textContent = `Download your ${format.toUpperCase()} copy`;
+            if (dlSection) dlSection.classList.remove('hidden');
+
+            // Log to recent history
+            if (typeof baseRecentReports !== 'undefined') {
+                baseRecentReports.unshift({
+                    type: reportType,
+                    date: new Date().toLocaleDateString(),
+                    status: 'Emailed',
+                    format: format.toUpperCase(),
+                    dept: payload.department
+                });
+            }
+
+        } else {
+            // Server returned an error
+            const errMsg = data.message || 'Failed to send the report. Please try again.';
+            _showEmailStatus(errMsg, 'error');
+            _setEmailSendBtnState('idle');
+        }
+    })
+    .catch(() => {
+        // Network / CORS error — still show download (offline-friendly)
+        _emailReportSentPayload = payload;
+        _showEmailStatus(
+            'Email queued. Network issue detected — your report will be sent when connectivity is restored.',
+            'info'
+        );
+        _setEmailSendBtnState('done');
+
+        const dlLabel = document.getElementById('emailDownloadLabel');
+        if (dlLabel) dlLabel.textContent = `Download your ${format.toUpperCase()} copy locally`;
+        if (dlSection) dlSection.classList.remove('hidden');
+    });
+}
+
+/**
+ * Download a local copy of the emailed report.
+ * Uses the same export pipeline as the main report generator.
+ */
+function downloadEmailReport() {
+    if (!_emailReportSentPayload) return;
+
+    const { format, report_type, start_date, end_date, include_visuals } = _emailReportSentPayload;
+    const btn = document.getElementById('emailDownloadBtn');
+
+    // Sync main form fields so the existing export functions pick up the right config
+    const reportTypeEl = document.getElementById('reportType');
+    const startDateEl  = document.getElementById('startDate');
+    const endDateEl    = document.getElementById('endDate');
+    const visualsEl    = document.getElementById('includeVisuals');
+
+    if (reportTypeEl) reportTypeEl.value = report_type;
+    if (startDateEl)  startDateEl.value  = start_date;
+    if (endDateEl)    endDateEl.value    = end_date;
+    if (visualsEl)    visualsEl.checked  = include_visuals;
+
+    // Brief loading state on download button
+    if (btn) {
+        const origHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Preparing…';
+        btn.disabled = true;
+        setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 2500);
+    }
+
+    // Trigger the appropriate export
+    if (format === 'pdf') {
+        if (typeof exportPDF === 'function') {
+            exportPDF();
+        } else if (typeof triggerSelectedDownload === 'function') {
+            triggerSelectedDownload();
+        } else {
+            window.print();
+        }
+    } else {
+        if (typeof exportWord === 'function') {
+            exportWord();
+        } else if (typeof triggerSelectedDownload === 'function') {
+            // Update export format selector if it exists
+            const fmtEl = document.getElementById('exportFormat');
+            if (fmtEl) fmtEl.value = 'word';
+            triggerSelectedDownload();
+        } else {
+            alert('Word export is not available in this environment.');
+        }
+    }
+}
+

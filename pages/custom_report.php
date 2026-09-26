@@ -214,5 +214,5 @@ if ($isAdmin) {
         user_role_lower: <?= json_encode(strtolower($_SESSION['role_description'] ?? ($_SESSION['role'] ?? 'admin'))) ?>
     };
 </script>
-<script src="../assets/js/pages/custom_report.js"></script>
+<script src="../assets/js/pages/custom_report.js?v=<?= time() ?>"></script>
 

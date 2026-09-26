@@ -80,13 +80,10 @@
                 <button onclick="openGenerateReportModal()" class="btn-primary px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white inline-flex items-center gap-1.5 shadow-xs">
                     <i class="fa-solid fa-plus"></i> Generate New Report
                 </button>
-                <button onclick="switchReportTab('templates'); document.getElementById('report-management-container').scrollIntoView({behavior: 'smooth', block: 'start'})" class="btn-outline-primary px-3.5 py-1.5 rounded-xl text-xs font-medium inline-flex items-center gap-1.5">
-                    <i class="fa-regular fa-folder-open"></i> Browse Templates
-                </button>
+
                 <button onclick="switchReportTab('scheduled'); document.getElementById('report-management-container').scrollIntoView({behavior: 'smooth', block: 'start'})" class="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition inline-flex items-center gap-1.5">
                     <i class="fa-regular fa-clock"></i> View Schedule
                 </button>
-                
             </div>
         </div>
 

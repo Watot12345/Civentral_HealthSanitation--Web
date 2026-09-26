@@ -249,4 +249,53 @@ class ExportService
         echo $dompdf->output();
         exit;
     }
+
+    /**
+     * Generate & stream Word (.doc) download
+     */
+    public static function toWord(array $data, string $title = 'Report', string $filename = 'report.doc'): void
+    {
+        if (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $headers = $data['headers'] ?? [];
+        $rows = $data['rows'] ?? [];
+
+        $html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">';
+        $html .= '<head><meta charset="utf-8"><title>' . htmlspecialchars($title) . '</title>';
+        $html .= '<style>
+            body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; color: #333333; margin: 20px; }
+            h1 { color: #176B87; font-size: 18pt; margin-bottom: 4px; }
+            h2 { color: #0F4A5E; font-size: 14pt; margin-top: 0; }
+            .meta { font-size: 9pt; color: #666666; margin-bottom: 16px; border-bottom: 2px solid #176B87; padding-bottom: 8px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th { background-color: #176B87; color: #ffffff; padding: 8px; font-weight: bold; border: 1px solid #176B87; text-align: left; font-size: 10pt; }
+            td { padding: 8px; border: 1px solid #dddddd; font-size: 10pt; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+        </style></head><body>';
+        $html .= '<h1>Health & Sanitation Management — Caloocan City</h1>';
+        $html .= '<h2>' . htmlspecialchars($title) . '</h2>';
+        $html .= '<div class="meta">Generated: ' . date('Y-m-d H:i:s') . ' | Executive Report</div>';
+        $html .= '<table><thead><tr>';
+        foreach ($headers as $h) {
+            $html .= '<th>' . htmlspecialchars((string)$h) . '</th>';
+        }
+        $html .= '</tr></thead><tbody>';
+        foreach ($rows as $row) {
+            $html .= '<tr>';
+            foreach ($row as $col) {
+                $html .= '<td>' . htmlspecialchars((string)($col ?? '')) . '</td>';
+            }
+            $html .= '</tr>';
+        }
+        $html .= '</tbody></table></body></html>';
+
+        header('Content-Type: application/msword');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+
+        echo $html;
+        exit;
+    }
 }

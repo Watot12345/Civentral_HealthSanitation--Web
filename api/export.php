@@ -104,6 +104,8 @@ if ($format === 'pdf') {
     \App\Services\ExportService::toPdf($exportData, $title, $filename . '.pdf');
 } elseif ($format === 'excel' || $format === 'xlsx') {
     \App\Services\ExportService::toExcel($exportData, $title, $filename . '.xlsx');
+} elseif ($format === 'word' || $format === 'doc' || $format === 'docx') {
+    \App\Services\ExportService::toWord($exportData, $title, $filename . '.doc');
 } else {
     \App\Services\ExportService::toCsv($exportData, $filename . '.csv');
 }
