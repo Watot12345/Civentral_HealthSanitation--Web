@@ -348,15 +348,20 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
       timeoutSecs: <?= (int) $sessionTimeoutSecs ?>,
       loginUrl: '<?= site_url('login.php?session_expired=1') ?>',
       logoutUrl: '<?= site_url('logout.php?session_expired=1') ?>',
-      heartbeatUrl: '<?= site_url('api/heartbeat.php') ?>'
+      heartbeatUrl: '<?= site_url('api/heartbeat.php') ?>',
+      supabaseUrl: '<?= htmlspecialchars(Env::get('SUPABASE_URL') ?? '') ?>',
+      supabaseKey: '<?= htmlspecialchars(Env::get('SUPABASE_KEY') ?? '') ?>'
     };
   </script>
   <!-- Common JS Utilities -->
   <script src="<?= site_url('assets/js/common.js'); ?>?v=<?= filemtime(__DIR__ . '/../assets/js/common.js') ?>"></script>
   <!-- Universal AJAX CRUD Engine -->
   <script src="<?= site_url('assets/js/crud-ajax.js'); ?>?v=<?= filemtime(__DIR__ . '/../assets/js/crud-ajax.js') ?>"></script>
-  <!-- Offline Transaction Queue & Auto-Sync -->
-  <script src="<?= site_url('assets/js/offline-sync.js'); ?>"></script>
+  <!-- Offline Transaction Queue & Auto-Sync (Bypassed) -->
+  <!-- <script src="<?= site_url('assets/js/offline-sync.js'); ?>"></script> -->
+  <!-- Supabase Realtime Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="<?= site_url('assets/js/supabase-config.js'); ?>?v=<?= filemtime(__DIR__ . '/../assets/js/supabase-config.js') ?>"></script>
   <link rel="manifest" href="<?= site_url('manifest.json'); ?>">
 </head>
 <?php if (!$minimalHeader) {

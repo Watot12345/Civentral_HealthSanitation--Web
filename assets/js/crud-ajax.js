@@ -180,6 +180,11 @@
                 const action = data.action || (method === 'POST' ? 'create' : 'update');
                 if (tableBodyId && renderRow && record) {
                     this.upsertRow(tableBodyId, record, renderRow, action);
+                    
+                    // Dispatch event for Supabase Realtime broadcast
+                    window.dispatchEvent(new CustomEvent('crudSuccess', {
+                        detail: { tableBodyId, record, action }
+                    }));
                 }
 
                 if (typeof onSuccess === 'function') {
@@ -266,6 +271,11 @@
                 if (typeof options.onDeleted === 'function') {
                     options.onDeleted();
                 }
+                
+                // Dispatch event for Supabase Realtime broadcast
+                window.dispatchEvent(new CustomEvent('crudDelete', {
+                    detail: { tableBodyId, recordId }
+                }));
             }, 300);
         },
 

@@ -79,13 +79,9 @@ $today = date('Y-m-d');
 if (!function_exists('parseLocalDate')) {
     function parseLocalDate($dateStr) {
         if (empty($dateStr)) return '';
-        try {
-            $dt = new DateTime($dateStr);
-            $dt->setTimezone(new DateTimeZone('Asia/Manila'));
-            return $dt->format('Y-m-d');
-        } catch (Throwable $ex) {
-            return date('Y-m-d', strtotime($dateStr));
-        }
+        // Supabase returns timestamps with +00:00 but they were inserted as Manila local time.
+        // Safely extract the local YYYY-MM-DD prefix.
+        return substr($dateStr, 0, 10);
     }
 }
 
@@ -2026,6 +2022,16 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             ModalSystem.toast.error('Failed to call next patient');
         }
     }
+
+    // Supabase Real-time Listener for Triage Table
+    window.addEventListener('realtimeUpdate', (e) => {
+        const { tableBodyId, record, action } = e.detail;
+        if (tableBodyId === 'triageTableBody' && typeof renderSingleTriageRow === 'function') {
+            if (window.CrudAjax && window.CrudAjax.upsertRow) {
+                window.CrudAjax.upsertRow(tableBodyId, record, (r) => renderSingleTriageRow(r, 0, 0), action);
+            }
+        }
+    });
 
     function startTriageForPatient(patientId, patientName = '', patientCode = '') {
         const select = document.getElementById('triage_patient');

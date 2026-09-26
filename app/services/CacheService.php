@@ -54,6 +54,12 @@ class CacheService
      */
     public function set(string $key, $data, int $ttlSeconds = 300): bool
     {
+        Env::load();
+        $enabled = Env::get('ENABLE_CACHE');
+        if ($enabled === 'false' || $enabled === '0' || $enabled === false) {
+            return false;
+        }
+
         $file = $this->getFilePath($key);
         $payload = [
             'key'        => $key,

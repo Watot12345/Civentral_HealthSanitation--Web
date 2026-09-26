@@ -65,14 +65,14 @@ class TriageQueue
     {
         try {
             $all = $this->all(['order' => 'created_at.asc']);
-            $today = (new DateTime('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+            $today = date('Y-m-d'); // Default is Asia/Manila
 
             return array_values(array_filter($all, function($item) use ($today) {
                 $raw = $item['created_at'] ?? '';
                 if (!$raw) return false;
-                $dt = new DateTime($raw);
-                $dt->setTimezone(new DateTimeZone('Asia/Manila'));
-                return $dt->format('Y-m-d') === $today;
+                // Supabase returns timestamps with +00:00 but they represent Manila local time in PHP insertion.
+                // Safely extract the local YYYY-MM-DD prefix without timezone conversion bugs.
+                return substr($raw, 0, 10) === $today;
             }));
         } catch (Throwable $e) {
             error_log('TriageQueue Model Error (getTodayQueue): ' . $e->getMessage());
@@ -98,8 +98,8 @@ class TriageQueue
                 
                 if ($targetDate !== null) {
                     $itemDate = !empty($item['check_in_time']) 
-                        ? date('Y-m-d', strtotime($item['check_in_time'])) 
-                        : (!empty($item['created_at']) ? date('Y-m-d', strtotime($item['created_at'])) : '');
+                        ? substr($item['check_in_time'], 0, 10)
+                        : substr($item['created_at'] ?? '', 0, 10);
                     if ($itemDate !== $targetDate) return false;
                 }
                 
