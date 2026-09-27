@@ -336,7 +336,7 @@ foreach ($rawTriage as $t) {
 $checkinDisplayQueue = [];
 foreach ($waitingCheckins as $c) {
     $checkinStatus = strtolower($c['status'] ?? 'waiting');
-    if ($checkinStatus === 'completed') {
+    if (in_array($checkinStatus, ['completed', 'triaged', 'sent_to_doctor', 'in_doctor_queue'], true)) {
         continue;
     }
 
@@ -686,7 +686,8 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 <button type="button" onclick="setDateFilter('today')" id="dateFilterBtnToday"
                         class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer bg-white text-slate-800 shadow-xs">
                     <i class="fa-solid fa-calendar-day mr-1 text-amber-500"></i> Today
-                    <span class="ml-1 px-1.5 py-0.2 bg-amber-100 text-amber-700 rounded-full text-[9px] font-extrabold"><?php echo count($triageTodayQueue); ?></span>
+                    <?php $triageActiveTodayQueue = array_filter($triageTodayQueue, fn($t) => strtolower($t['status']) === 'waiting' || strtolower($t['status']) === 'in_triage'); ?>
+                    <span class="ml-1 px-1.5 py-0.2 bg-amber-100 text-amber-700 rounded-full text-[9px] font-extrabold"><?php echo count($triageActiveTodayQueue); ?></span>
                 </button>
                 <button type="button" onclick="setDateFilter('week')" id="dateFilterBtnWeek"
                         class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer text-slate-500 hover:text-slate-800">
@@ -778,7 +779,8 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         data-complaint="<?php echo strtolower($triage['chief_complaint']); ?>"
                         data-priority="<?php echo $triage['priority']; ?>"
                         data-date="<?php echo htmlspecialchars($triage['date']); ?>"
-                        data-status="<?php echo $triage['status']; ?>">
+                        data-status="<?php echo $triage['status']; ?>"
+                        style="<?php echo ($triage['date'] === $today && in_array($triage['status'], ['sent_to_doctor', 'completed', 'consulted'], true)) ? 'display: none;' : ''; ?>">
                         <td class="px-4 py-3 font-mono text-xs font-bold <?php echo $triage['priority'] === 'critical' ? 'text-rose-600' : 'text-slate-600'; ?>">
                             P-<?php echo str_pad((string)($triage['patient_id'] ?? $triage['id']), 4, '0', STR_PAD_LEFT); ?>
                         </td>
@@ -1503,7 +1505,8 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             if (!data.success) return;
 
             const queue = (data.data || []).filter(item => {
-                if ((item.status || '').toLowerCase() === 'completed') return false;
+                const status = (item.status || '').toLowerCase();
+                if (status === 'completed' || status === 'triaged' || status === 'sent_to_doctor' || status === 'in_doctor_queue') return false;
                 const raw = item.check_in_time || item.created_at || '';
                 if (!raw) return false;
                 const d = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T') + '+00:00');
@@ -1844,8 +1847,35 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 });
                 const data = await res.json();
                 if (data.success) {
-                    ModalSystem.toast.success('Patient sent to doctor successfully!');
                     const rec = data.record || data.data;
+                    const patientId = rec ? rec.patient_id : null;
+                    if (patientId) {
+                        try {
+                            const queueRes = await fetch('../../api/triage-queue.php');
+                            const queueData = await queueRes.json();
+                            if (queueData.success && Array.isArray(queueData.data)) {
+                                const queueEntry = queueData.data.find(q =>
+                                    parseInt(q.patient_id) === parseInt(patientId) &&
+                                    q.status !== 'completed'
+                                );
+                                if (queueEntry) {
+                                    await fetch(`../../api/triage-queue.php?id=${queueEntry.id}`, {
+                                        method: 'PUT',
+                                        headers: { 
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-Token': csrfToken,
+                                            'X-Requested-With': 'XMLHttpRequest'
+                                        },
+                                        body: JSON.stringify({ status: 'completed', csrf_token: csrfToken })
+                                    });
+                                }
+                            }
+                        } catch (qErr) {
+                            console.warn('Could not update check-in status:', qErr);
+                        }
+                    }
+
+                    showAppToast('success', 'Patient sent to doctor successfully!', 'Sent to Doctor');
                     if (rec) {
                         TRIAGE_DATA[rec.id] = normalizeTriageRecord(rec);
                         CrudAjax.upsertRow('triageTableBody', rec, (r) => renderSingleTriageRow(r), 'update');
@@ -1853,11 +1883,14 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         loadTriageQueue(currentTriagePage);
                     }
                     updateTriageKpis();
+                    if (typeof refreshCheckinQueue === 'function') {
+                        await refreshCheckinQueue();
+                    }
                 } else {
-                    ModalSystem.toast.error(data.message || 'Failed to update triage status');
+                    showAppToast('error', data.message || 'Failed to update triage status');
                 }
             } catch (err) {
-                ModalSystem.toast.error('Error updating status');
+                showAppToast('error', 'Error updating status');
             }
         },
         { title: 'Complete Assessment', confirmText: 'Send to Doctor', type: 'info' }
@@ -2001,9 +2034,23 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 const formEl = document.getElementById('addTriageForm');
                 if (formEl) formEl.reset();
 
+                // Instantly insert/update the new record in DOM if returned from API
+                const rec = data.record || data.data;
+                if (rec && typeof CrudAjax !== 'undefined' && CrudAjax.upsertRow && typeof renderSingleTriageRow === 'function') {
+                    TRIAGE_DATA[rec.id] = normalizeTriageRecord(rec);
+                    CrudAjax.upsertRow('triageTableBody', rec, (r) => renderSingleTriageRow(r), 'create');
+                }
+
                 // Refresh queue and KPI counters in real-time without full page reload
-                if (typeof loadTriageQueue === 'function') loadTriageQueue(1);
-                if (typeof updateTriageKpis === 'function') updateTriageKpis();
+                if (typeof loadTriageQueue === 'function') {
+                    await loadTriageQueue(1);
+                }
+                if (typeof updateTriageKpis === 'function') {
+                    await updateTriageKpis();
+                }
+                if (typeof refreshCheckinQueue === 'function') {
+                    await refreshCheckinQueue();
+                }
             } else {
                 showAppToast('error', data.message || 'Failed to save triage entry', 'Save Failed');
             }
@@ -2361,9 +2408,11 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 complaint.includes(search);
 
             const matchesPriority = !priority || rowPriority === priority;
-            const matchesStatus = !status || rowStatus === status || 
-                (status === 'completed' && (rowStatus === 'consulted' || rowStatus === 'completed')) || 
-                (status === 'sent_to_doctor' && (rowStatus === 'triaged' || rowStatus === 'sent_to_doctor'));
+            const matchesStatus = !status
+                ? (currentDateRange === 'today' ? (rowStatus === 'waiting' || rowStatus === 'in_triage') : true)
+                : (rowStatus === status || 
+                   (status === 'completed' && (rowStatus === 'consulted' || rowStatus === 'completed')) || 
+                   (status === 'sent_to_doctor' && (rowStatus === 'triaged' || rowStatus === 'sent_to_doctor')));
             const matchesDateFrom = !dateFrom || rowDate >= dateFrom;
             const matchesDateTo = !dateTo || rowDate <= dateTo;
             const matchesPill = (dateFrom || dateTo) ? true : matchesDateRange(rowDate, currentDateRange);
@@ -2408,6 +2457,12 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
     const TRIAGE_LIMIT = 5;
     let isTriageLoading = false;
 
+    async function loadTriageQueue(page = currentTriagePage || 1) {
+        if (typeof changePage === 'function') {
+            return await changePage(page);
+        }
+    }
+
     async function changePage(page) {
         if (page < 1 || isTriageLoading) return;
 
@@ -2430,6 +2485,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
 
             currentTriagePage = safePage;
             renderTriageTable(data.data, (safePage - 1) * safeLimit);
+            filterTriage();
             renderTriagePagination(safePage, safeTotalPages);
             updateShowingText(safePage, safeLimit, safeTotal);
 
@@ -2478,8 +2534,8 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
 
     function normalizeTriageRecord(t, index, offset) {
         const dbStatus = (t.status || 'pending').toLowerCase();
-        const statusMap = { pending: 'waiting', triaged: 'in_triage', consulted: 'sent_to_doctor', cancelled: 'cancelled' };
-        const status = statusMap[dbStatus] || 'in_triage';
+        const statusMap = { pending: 'waiting', triaged: 'in_triage', sent_to_doctor: 'sent_to_doctor', consulted: 'completed', completed: 'completed', cancelled: 'cancelled' };
+        const status = statusMap[dbStatus] || (dbStatus === 'in_triage' ? 'in_triage' : (dbStatus === 'sent_to_doctor' ? 'sent_to_doctor' : 'in_triage'));
 
         const weight = parseFloat(t.weight) || 65.0;
         const height = parseFloat(t.height) || 165.0;
@@ -2487,13 +2543,23 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             ? Math.round((weight / ((height / 100) ** 2)) * 10) / 10
             : null;
 
+        let docAssigned = t.doctor_assigned ? t.doctor_assigned.replace(/\s*\([^)]*\)/, '').trim() : '';
+        if (!docAssigned && t.doctor_name) docAssigned = t.doctor_name;
+        if (!docAssigned) docAssigned = 'Unassigned';
+
+        const pid = 'P-' + String(t.patient_id || t.id).padStart(4, '0');
+
         return {
             id: t.id,
+            patient_id: t.patient_id || t.id,
+            patient_code: pid,
             triage_id: t.triage_id || ('TRG-' + t.id),
             patient_name: t.patient_name || 'Unknown',
             patient_avatar: t.patient_avatar || 'P',
             age: t.age ?? 'N/A',
             gender: t.gender || 'Unspecified',
+            doctor_assigned: docAssigned,
+            service_type: t.service_type || 'General Medicine',
             queue_number: (offset ?? 0) + (index ?? 0) + 1,
             vital_signs: {
                 blood_pressure: t.blood_pressure || '120/80',
@@ -2527,12 +2593,27 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
             low: 'bg-green-100 text-green-700 border-green-200'
         };
-        const priorityIcons = { critical: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+        const priorityDots = {
+            critical: 'text-rose-500',
+            high: 'text-orange-500',
+            medium: 'text-amber-500',
+            low: 'text-emerald-500'
+        };
         const statusClasses = {
-            in_triage: 'bg-brand-light text-brand-dark border border-brand-border',
-            waiting: 'bg-amber-100 text-amber-700',
-            sent_to_doctor: 'bg-emerald-100 text-emerald-700',
-            completed: 'bg-slate-100 text-slate-500'
+            in_triage: 'bg-sky-100 text-sky-800 border border-sky-200',
+            waiting: 'bg-amber-100 text-amber-800 border border-amber-200',
+            sent_to_doctor: 'bg-blue-100 text-blue-800 border border-blue-200',
+            in_consultation: 'bg-purple-100 text-purple-700 border border-purple-200',
+            completed: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+            cancelled: 'bg-slate-100 text-slate-600 border border-slate-200'
+        };
+        const statusLabels = {
+            in_triage: 'In Assessment',
+            waiting: 'Checked In',
+            sent_to_doctor: 'Sent to Doctor',
+            in_consultation: 'In Consultation',
+            completed: 'Consultation Done',
+            cancelled: 'Cancelled'
         };
 
         const t = normalizeTriageRecord(raw, i, offset);
@@ -2545,15 +2626,17 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         const safeHr = CrudAjax.escapeHtml(t.vital_signs.heart_rate);
         const safeTemp = CrudAjax.escapeHtml(t.vital_signs.temperature);
         const safeO2 = CrudAjax.escapeHtml(t.vital_signs.oxygen_saturation);
+        const safeDocAssigned = CrudAjax.escapeHtml(t.doctor_assigned);
+        const safeService = CrudAjax.escapeHtml(t.service_type);
         const safePriority = CrudAjax.escapeHtml(t.priority);
         const safeStatus = CrudAjax.escapeHtml(t.status);
-        const safeWait = CrudAjax.escapeHtml(t.wait_time);
-        const safeQueueNum = CrudAjax.escapeHtml(t.queue_number);
+        const safeWait = CrudAjax.escapeHtml(t.arrival_time || t.wait_time);
+        const safePatientCode = CrudAjax.escapeHtml(t.patient_code);
 
         return `
         <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors triage-row ${t.priority === 'critical' ? 'bg-rose-50/50' : ''}"
             data-id="${t.id}" data-patient="${safePatientName.toLowerCase()}" data-priority="${safePriority}" data-status="${safeStatus}">
-            <td class="px-4 py-3 font-mono text-xs font-bold ${t.priority === 'critical' ? 'text-rose-600' : 'text-slate-400'}">#${safeQueueNum}</td>
+            <td class="px-4 py-3 font-mono text-xs font-bold ${t.priority === 'critical' ? 'text-rose-600' : 'text-slate-600'}">${safePatientCode}</td>
             <td class="px-4 py-3">
                 <div class="flex items-center gap-2.5">
                     <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0"><span class="maskable" data-real="${safeAvatar}" data-masked="??">${safeAvatar}</span></div>
@@ -2568,8 +2651,21 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     <div class="flex items-center gap-2 text-xs"><span class="text-slate-400">O2:</span><span class="font-medium text-slate-700">${safeO2}%</span></div>
                 </div>
             </td>
-            <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold border ${priorityColors[t.priority] || priorityColors.medium}">${priorityIcons[t.priority] || ''} ${safePriority.charAt(0).toUpperCase() + safePriority.slice(1)}</span></td>
-            <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${statusClasses[t.status] || statusClasses.waiting}">${safeStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</span></td>
+            <td class="px-4 py-3 text-xs">
+                <p class="font-bold text-slate-800">${safeDocAssigned}</p>
+                <p class="text-[10px] text-slate-500 font-semibold">${safeService}</p>
+            </td>
+            <td class="px-4 py-3">
+                <span class="px-2.5 py-1 rounded-full text-xs font-semibold border inline-flex items-center gap-1.5 ${priorityColors[t.priority] || priorityColors.medium}">
+                    <i class="fa-solid fa-circle text-[7px] ${priorityDots[t.priority] || 'text-slate-400'}"></i>
+                    ${safePriority.charAt(0).toUpperCase() + safePriority.slice(1)}
+                </span>
+            </td>
+            <td class="px-4 py-3">
+                <span class="px-2.5 py-1 rounded-full text-xs font-bold ${statusClasses[t.status] || statusClasses.waiting}">
+                    ${statusLabels[t.status] || safeStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                </span>
+            </td>
             <td class="px-4 py-3 text-slate-600 text-xs">${safeWait}</td>
             <td class="px-4 py-3">
                 <div class="flex items-center justify-center gap-1">

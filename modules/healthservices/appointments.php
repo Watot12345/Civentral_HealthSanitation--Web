@@ -722,6 +722,10 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                                             class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details">
                                         <i class="fa-solid fa-eye text-sm"></i>
                                     </button>
+                                    <button onclick="viewPatientAssessmentForAppointment('<?php echo htmlspecialchars((string)($a['patient_id'] ?? $a['id'])); ?>', '<?php echo htmlspecialchars($a['patient_name'], ENT_QUOTES); ?>')"
+                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="View Patient Assessment / Triage Vitals">
+                                        <i class="fa-solid fa-heart-pulse text-sm"></i>
+                                    </button>
                                     <?php if (in_array($a['status'], ['approved', 'confirmed', 'pending'])): ?>
                                         <button onclick="checkInScheduledPatient('<?php echo htmlspecialchars((string)($a['patient_id'] ?? $a['id'])); ?>')"
                                                 class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient for Today's Visit">
@@ -785,6 +789,25 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
             </div>
         </div>
         <?php endif; ?>
+    </div>
+</div>
+
+<!-- VIEW PATIENT ASSESSMENT MODAL (Triage Vitals) -->
+<div id="viewTriageAssessmentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-heart-pulse text-emerald-600"></i> Pre-Consultation Patient Assessment
+            </h3>
+            <button onclick="ModalSystem.close('viewTriageAssessmentModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div id="triageAssessmentContent" class="p-6">
+            <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading patient assessment...
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1209,6 +1232,10 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                 </div>
                 ${a.notes ? `<div><h5 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Notes</h5><p class="text-sm text-slate-800 bg-slate-50 p-3 rounded-lg border border-slate-200">${a.notes}</p></div>` : ''}
                 <div class="flex flex-wrap justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button onclick="viewPatientAssessmentForAppointment(${a.patient_id || a.id}, '${CrudAjax.escapeHtml(a.patient_name)}')" 
+                            class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-xs font-semibold inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-heart-pulse"></i> View Assessment / Vitals
+                    </button>
                     ${patientIdForLink ? `
                         <a href="patients.php?patient=${patientIdForLink}&id=${patientIdForLink}" 
                            class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-xs font-semibold inline-flex items-center gap-1.5">
@@ -1243,6 +1270,148 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
     function closeViewAndEdit(id) {
         ModalSystem.close('viewAppointmentModal');
         setTimeout(() => editAppointment(id), 200);
+    }
+
+    // ============================================================
+    // VIEW PATIENT ASSESSMENT FOR APPOINTMENT
+    // ============================================================
+    async function viewPatientAssessmentForAppointment(patientId, patientName = '') {
+        ModalSystem.open('viewTriageAssessmentModal');
+        const container = document.getElementById('triageAssessmentContent');
+        container.innerHTML = '<div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading patient assessment...</div>';
+
+        try {
+            const res = await fetch('../../api/triage.php');
+            const data = await res.json();
+            if (!data.success || !Array.isArray(data.data)) {
+                container.innerHTML = '<div class="py-8 text-center text-slate-500 text-sm">Could not load assessment records.</div>';
+                return;
+            }
+
+            const pIdNum = parseInt(patientId);
+            const record = data.data.find(t => parseInt(t.patient_id || t.id) === pIdNum);
+
+            if (!record) {
+                container.innerHTML = `
+                    <div class="py-10 text-center space-y-3">
+                        <div class="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center mx-auto text-xl">
+                            <i class="fa-solid fa-heart-pulse"></i>
+                        </div>
+                        <p class="font-bold text-slate-800 text-base">No Assessment Recorded Yet</p>
+                        <p class="text-xs text-slate-500 max-w-sm mx-auto">No vital signs or intake triage assessment has been recorded for ${CrudAjax.escapeHtml(patientName || 'this patient')} yet.</p>
+                        <button onclick="ModalSystem.close('viewTriageAssessmentModal')" class="mt-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 text-xs font-semibold">Close</button>
+                    </div>
+                `;
+                return;
+            }
+
+            const priorityColors = {
+                critical: 'bg-rose-100 text-rose-700 border-rose-200',
+                high: 'bg-orange-100 text-orange-700 border-orange-200',
+                medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+                low: 'bg-green-100 text-green-700 border-green-200'
+            };
+
+            const bp = record.blood_pressure || '120/80';
+            const temp = record.temperature ?? '36.5';
+            const hr = record.heart_rate ?? '75';
+            const o2 = record.oxygen_saturation ?? '98';
+            const rr = record.respiratory_rate ?? '18';
+            const wt = record.weight ?? '65.0';
+            const ht = record.height ?? '165.0';
+            const bs = record.blood_sugar ?? 'N/A';
+            const symptoms = record.symptoms || record.symptoms_list || [];
+            const symList = Array.isArray(symptoms) ? symptoms : (typeof symptoms === 'string' ? symptoms.split(',').map(s => s.trim()).filter(Boolean) : []);
+            const symptomsHtml = symList.length > 0
+                ? symList.map(s => `<span class="px-2 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-medium">${CrudAjax.escapeHtml(s)}</span>`).join(' ')
+                : '<span class="text-xs text-slate-400 italic">No symptoms reported</span>';
+
+            const prio = (record.priority || 'medium').toLowerCase();
+            const prioBadge = `<span class="px-2.5 py-0.5 rounded-full text-xs font-bold border ${priorityColors[prio] || priorityColors.medium}">${prio.toUpperCase()} PRIORITY</span>`;
+
+            const docName = record.doctor_name || record.doctor_assigned || 'Assigned Staff';
+            const nurseName = record.nurse_name || 'Intake Nurse';
+
+            container.innerHTML = `
+                <div class="space-y-4">
+                    <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
+                        <div class="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-bold text-lg flex-shrink-0">
+                            ${(record.patient_avatar || record.patient_name || 'P').substring(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                            <h4 class="text-lg font-bold text-slate-900">${CrudAjax.escapeHtml(record.patient_name || patientName)}</h4>
+                            <p class="text-xs text-slate-500 font-mono">Triage #${CrudAjax.escapeHtml(record.triage_id || ('TRG-' + record.id))} • Recorded by ${CrudAjax.escapeHtml(nurseName)}</p>
+                            <div class="mt-1 flex items-center gap-2">
+                                ${prioBadge}
+                                <span class="text-xs text-slate-500 font-medium">Assigned: ${CrudAjax.escapeHtml(docName)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                            <i class="fa-solid fa-heart-pulse text-rose-500"></i> Core Vital Signs
+                        </h5>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <p class="text-[10px] text-slate-400 font-medium uppercase">Blood Pressure</p>
+                                <p class="text-sm font-bold text-slate-800">${CrudAjax.escapeHtml(String(bp))}</p>
+                            </div>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <p class="text-[10px] text-slate-400 font-medium uppercase">Heart Rate</p>
+                                <p class="text-sm font-bold text-slate-800">${CrudAjax.escapeHtml(String(hr))} bpm</p>
+                            </div>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <p class="text-[10px] text-slate-400 font-medium uppercase">Temperature</p>
+                                <p class="text-sm font-bold text-slate-800">${CrudAjax.escapeHtml(String(temp))} °C</p>
+                            </div>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <p class="text-[10px] text-slate-400 font-medium uppercase">O2 Saturation</p>
+                                <p class="text-sm font-bold text-slate-800">${CrudAjax.escapeHtml(String(o2))} %</p>
+                            </div>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <p class="text-[10px] text-slate-400 font-medium uppercase">Respiratory Rate</p>
+                                <p class="text-sm font-bold text-slate-800">${CrudAjax.escapeHtml(String(rr))}</p>
+                            </div>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <p class="text-[10px] text-slate-400 font-medium uppercase">Weight / Height</p>
+                                <p class="text-sm font-bold text-slate-800">${CrudAjax.escapeHtml(String(wt))} kg / ${CrudAjax.escapeHtml(String(ht))} cm</p>
+                            </div>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <p class="text-[10px] text-slate-400 font-medium uppercase">Blood Sugar</p>
+                                <p class="text-sm font-bold text-slate-800">${CrudAjax.escapeHtml(String(bs))}</p>
+                            </div>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <p class="text-[10px] text-slate-400 font-medium uppercase">Status</p>
+                                <p class="text-sm font-bold text-emerald-700">${CrudAjax.escapeHtml(String(record.status || 'triaged'))}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Chief Complaint</h5>
+                        <p class="text-sm text-slate-800 bg-white p-3 rounded-lg border border-slate-200 font-medium">${CrudAjax.escapeHtml(record.chief_complaint || record.notes || 'General Checkup')}</p>
+                    </div>
+
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <h5 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Symptoms Reported</h5>
+                        <div class="flex flex-wrap gap-2">${symptomsHtml}</div>
+                    </div>
+
+                    <div class="flex justify-end pt-3 border-t border-slate-100">
+                        <button onclick="ModalSystem.close('viewTriageAssessmentModal')" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition text-xs font-semibold">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            `;
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.applyMaskingToModal) {
+                ModalSystem.applyMaskingToModal(document.getElementById('viewTriageAssessmentModal'));
+            }
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = '<div class="py-8 text-center text-rose-500 text-sm">Failed to load patient assessment details.</div>';
+        }
     }
 
     // ============================================================
@@ -1426,6 +1595,12 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                 <i class="fa-solid fa-user-doctor text-sm"></i>
             </button>` : '';
 
+        const assessmentBtn = `
+            <button onclick="viewPatientAssessmentForAppointment('${a.patient_id || safeId}', '${safePatientName}')"
+                    class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="View Patient Assessment / Triage Vitals">
+                <i class="fa-solid fa-heart-pulse text-sm"></i>
+            </button>`;
+
         return `
         <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors appointment-row"
             data-id="${safeId}"
@@ -1491,6 +1666,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                             class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details">
                         <i class="fa-solid fa-eye text-sm"></i>
                     </button>
+                    ${assessmentBtn}
                     ${checkInBtn}
                     ${cancelBtn}
                     ${consultBtn}
