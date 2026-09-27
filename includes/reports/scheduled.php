@@ -3,7 +3,7 @@
     <!-- ================================================================ -->
     <div id="section-scheduled" class="report-section">
         <div class="report-card rounded-b-3xl rounded-tr-3xl p-5 sm:p-7 bg-white border border-[#B4D4FF]/30">
-            <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
                 <div>
                     <h3 class="text-base font-semibold text-[#176B87] flex items-center gap-2">
                         <i class="fa-regular fa-clock text-[#86B6F6]"></i>
@@ -16,18 +16,47 @@
                 </button>
             </div>
             
-            <div class="p-5 sm:p-7 bg-slate-50/50 rounded-2xl">
-                <div class="table-wrap overflow-x-auto bg-white rounded-2xl border border-[#B4D4FF]/30">
-                    <table class="w-full text-sm">
-                        <thead class="text-left text-xs font-semibold text-[#176B87] uppercase tracking-wider border-b border-[#B4D4FF]/30">
+            <!-- ─── FILTER & SEARCH TOOLBAR ─── -->
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4 bg-white p-3 rounded-2xl border border-[#B4D4FF]/30 shadow-2xs">
+                <div class="flex flex-wrap items-center gap-3 flex-1">
+                    <!-- Search Input -->
+                    <div class="relative flex-1 min-w-[220px] max-w-md">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" id="scheduleSearchInput" oninput="filterScheduledReports()" placeholder="Search title, department, email..." class="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-[#B4D4FF]/40 rounded-xl text-xs text-slate-700 placeholder:text-slate-400 focus:bg-white focus:border-[#176B87] focus:ring-2 focus:ring-[#176B87]/20 outline-none transition">
+                    </div>
+
+                    <!-- Date Filter -->
+                    <div class="flex items-center gap-2">
+                        <label for="scheduleFilterDate" class="text-xs font-semibold text-slate-500 whitespace-nowrap flex items-center gap-1">
+                            <i class="fa-regular fa-calendar text-[#176B87]"></i> Date:
+                        </label>
+                        <input type="date" id="scheduleFilterDate" onchange="filterScheduledReports()" class="px-3 py-1.5 bg-slate-50 border border-[#B4D4FF]/40 rounded-xl text-xs text-slate-700 focus:bg-white focus:border-[#176B87] focus:ring-2 focus:ring-[#176B87]/20 outline-none transition">
+                    </div>
+
+                    <!-- Reset Button -->
+                    <button type="button" onclick="resetScheduleFilters()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold transition flex items-center gap-1.5" title="Clear Filters">
+                        <i class="fa-solid fa-rotate-left text-[10px]"></i> Reset
+                    </button>
+                </div>
+
+                <!-- Results Counter -->
+                <div class="text-xs font-semibold text-[#176B87] px-2 whitespace-nowrap" id="scheduleCountBadge">
+                    Showing schedules
+                </div>
+            </div>
+
+            <div class="p-4 sm:p-6 bg-slate-50/50 rounded-2xl">
+                <div class="table-wrap overflow-x-auto bg-white rounded-2xl border border-[#B4D4FF]/30 shadow-xs">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead class="bg-slate-50/80 text-[11px] font-bold text-[#176B87] uppercase tracking-wider border-b border-[#B4D4FF]/30">
                             <tr>
-                                <th class="py-3 px-4">Schedule Title</th>
-                                <th class="py-3 px-4">Frequency</th>
-                                <th class="py-3 px-4">Format</th>
-                                <th class="py-3 px-4">Recipients</th>
-                                <th class="py-3 px-4">Next Execution</th>
-                                <th class="py-3 px-4">Status</th>
-                                <th class="py-3 px-4 text-right">Actions</th>
+                                <th class="py-3.5 px-5 font-bold">Schedule Title</th>
+                                <th class="py-3.5 px-4 font-bold">Frequency</th>
+                                <th class="py-3.5 px-4 font-bold text-center">Format</th>
+                                <th class="py-3.5 px-4 font-bold">Recipients</th>
+                                <th class="py-3.5 px-4 font-bold">Next Execution</th>
+                                <th class="py-3.5 px-4 font-bold text-center">Status</th>
+                                <th class="py-3.5 px-5 text-right font-bold">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-[#B4D4FF]/20" id="schedulesTableBody">

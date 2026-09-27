@@ -439,3 +439,79 @@ $userScope = getUserScope();
     </div>
   </div>
 </aside>
+
+<script>
+(function() {
+  if (typeof window.toggleDropdown !== 'function') {
+    window.toggleDropdown = function toggleDropdown(id, chevronId) {
+      var isCollapsed = window.isCollapsed || false;
+      if (isCollapsed) return;
+
+      var ALL_DROPDOWN_IDS = window.ALL_DROPDOWN_IDS || [
+        'systemOverviewDropdown',
+        'analyticsDropdown',
+        'reportsDropdown',
+        'complianceDropdown',
+        'healthCenterDropdown',
+        'sanitationDropdown',
+        'immunizationDropdown',
+        'wastewaterDropdown',
+        'surveillanceDropdown',
+        'userMgmtDropdown',
+        'sysLogsDropdown',
+        'settingsDropdown'
+      ];
+
+      var ALL_CHEVRON_IDS = window.ALL_CHEVRON_IDS || [
+        'systemOverviewChevron',
+        'analyticsChevron',
+        'reportsChevron',
+        'complianceChevron',
+        'healthCenterChevron',
+        'sanitationChevron',
+        'immunizationChevron',
+        'wastewaterChevron',
+        'surveillanceChevron',
+        'userMgmtChevron',
+        'sysLogsChevron',
+        'settingsChevron'
+      ];
+
+      var dropdown = document.getElementById(id);
+      var chevron = document.getElementById(chevronId);
+
+      // Close all other dropdowns
+      ALL_DROPDOWN_IDS.forEach(function(d, i) {
+        if (d !== id) {
+          var otherDropdown = document.getElementById(d);
+          var otherChevron = document.getElementById(ALL_CHEVRON_IDS[i]);
+          if (otherDropdown) {
+            otherDropdown.classList.add('hidden');
+          }
+          if (otherChevron) {
+            otherChevron.classList.remove('rotate-180');
+            otherChevron.style.transform = 'rotate(0deg)';
+          }
+        }
+      });
+
+      // Toggle the clicked dropdown
+      if (dropdown) {
+        if (dropdown.classList.contains('hidden')) {
+          dropdown.classList.remove('hidden');
+          if (chevron) {
+            chevron.classList.add('rotate-180');
+            chevron.style.transform = 'rotate(180deg)';
+          }
+        } else {
+          dropdown.classList.add('hidden');
+          if (chevron) {
+            chevron.classList.remove('rotate-180');
+            chevron.style.transform = 'rotate(0deg)';
+          }
+        }
+      }
+    };
+  }
+})();
+</script>

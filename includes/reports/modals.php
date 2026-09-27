@@ -289,7 +289,7 @@
                 <button onclick="closeScheduleModal()" class="px-5 py-2 rounded-xl text-sm font-medium border border-[#B4D4FF]/40 bg-white/50 text-slate-600 hover:bg-[#B4D4FF]/20 transition">Cancel</button>
                 <button onclick="saveSchedule()" id="scheduleSubmitBtn" class="btn-primary px-6 py-2 rounded-xl text-sm font-semibold text-white flex items-center gap-2">
                     <i class="fa-regular fa-floppy-disk"></i>
-                    <span id="scheduleSubmitBtnText">Schedule &amp; Send</span>
+                    <span id="scheduleSubmitBtnText">Save Schedule</span>
                 </button>
             </div>
         </div>

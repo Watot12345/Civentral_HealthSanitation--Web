@@ -50,7 +50,7 @@ class ExportService
      */
     public static function toPdf(array $data, string $title = 'Report', string $filename = 'report.pdf', int $maxRows = 1000): void
     {
-        if (ob_get_level()) {
+        while (ob_get_level()) {
             ob_end_clean();
         }
 
@@ -112,13 +112,21 @@ class ExportService
         $dompdf->loadHtml($html);
         $dompdf->setPaper('A4', 'landscape');
         $dompdf->render();
+        $output = $dompdf->output();
+
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
 
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Length: ' . strlen($output));
+        header('Accept-Ranges: bytes');
         header('Cache-Control: private, max-age=0, must-revalidate');
         header('Pragma: public');
 
-        echo $dompdf->output();
+        echo $output;
+        flush();
         exit;
     }
 
@@ -127,7 +135,7 @@ class ExportService
      */
     public static function toExcel(array $data, string $title = 'Report', string $filename = 'report.xlsx'): void
     {
-        if (ob_get_level()) {
+        while (ob_get_level()) {
             ob_end_clean();
         }
 
@@ -173,12 +181,17 @@ class ExportService
             $sheet->getColumnDimensionByColumn($c)->setAutoSize(true);
         }
 
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Cache-Control: max-age=0');
 
         $writer = new Xlsx($spreadsheet);
         $writer->save('php://output');
+        flush();
         exit;
     }
 
@@ -187,6 +200,10 @@ class ExportService
      */
     public static function toCsv(array $data, string $filename = 'report.csv', bool $exitAfter = true): void
     {
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
         if (!headers_sent()) {
             header('Content-Type: text/csv; charset=utf-8');
             header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -210,6 +227,7 @@ class ExportService
 
         fclose($out);
         if ($exitAfter) {
+            flush();
             exit;
         }
     }
@@ -220,7 +238,10 @@ class ExportService
      */
     public static function htmlToPdf(string $html, string $title = 'Report', string $filename = 'report.pdf'): void
     {
-        if (ob_get_level()) {
+        @set_time_limit(120);
+        @ini_set('memory_limit', '512M');
+
+        while (ob_get_level()) {
             ob_end_clean();
         }
 
@@ -229,24 +250,88 @@ class ExportService
             throw new \RuntimeException('HTML payload too large for PDF generation.');
         }
 
+        // Convert HTTP/relative image URLs pointing to local assets (/assets/...) to base64 Data URIs directly from disk.
+        // This avoids Apache loopback deadlocks when Dompdf attempts file_get_contents('http://localhost/...') on XAMPP.
+        $projectRoot = realpath(__DIR__ . '/../../');
+        $html = preg_replace_callback('/<img[^>]+src=["\']([^"\']+)["\']/i', function ($matches) use ($projectRoot) {
+            $fullTag = $matches[0];
+            $src = $matches[1];
+
+            // Leave base64 data URIs untouched
+            if (str_starts_with($src, 'data:')) {
+                return $fullTag;
+            }
+
+            if (stripos($src, '/assets/') !== false) {
+                $parsedPath = parse_url($src, PHP_URL_PATH) ?? '';
+                if ($parsedPath) {
+                    $cleanRel = ltrim($parsedPath, '/');
+                    $projectName = basename($projectRoot);
+                    if (str_starts_with($cleanRel, $projectName . '/')) {
+                        $cleanRel = substr($cleanRel, strlen($projectName) + 1);
+                    }
+                    $filePath = $projectRoot . '/' . $cleanRel;
+                    if (file_exists($filePath)) {
+                        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+                        $mime = match ($ext) {
+                            'jpg', 'jpeg' => 'image/jpeg',
+                            'gif'        => 'image/gif',
+                            'svg'        => 'image/svg+xml',
+                            default      => 'image/png',
+                        };
+                        $base64 = base64_encode(file_get_contents($filePath));
+                        return str_replace($src, "data:{$mime};base64,{$base64}", $fullTag);
+                    }
+                }
+            }
+
+            return $fullTag;
+        }, $html);
+
         $options = new Options();
         $options->set('isHtml5ParserEnabled', true);
-        // Enable remote to allow base64 data-URI images (chart PNGs)
         $options->set('isRemoteEnabled', true);
         $options->set('defaultFont', 'DejaVu Sans');
         $options->set('isFontSubsettingEnabled', true);
 
-        $dompdf = new Dompdf($options);
-        $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', 'landscape');
-        $dompdf->render();
+        $output = '';
+        try {
+            $dompdf = new Dompdf($options);
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+            $output = $dompdf->output();
+        } catch (\Throwable $e) {
+            error_log('Primary Dompdf render failed: ' . $e->getMessage() . '. Attempting fallback without <img> tags.');
+            $strippedHtml = preg_replace('/<img[^>]*>/i', '<div style="padding:10px;border:1px dashed #cbd5e1;text-align:center;color:#64748b;font-size:9px;margin:8px 0;background:#f8fafc;border-radius:4px;">[Chart graphical visualization]</div>', $html);
+            try {
+                $fallbackDompdf = new Dompdf($options);
+                $fallbackDompdf->loadHtml($strippedHtml);
+                $fallbackDompdf->setPaper('A4', 'portrait');
+                $fallbackDompdf->render();
+                $output = $fallbackDompdf->output();
+            } catch (\Throwable $fallbackEx) {
+                throw new \RuntimeException('PDF generation error: ' . $fallbackEx->getMessage(), 0, $fallbackEx);
+            }
+        }
+
+        if (empty($output) || strlen($output) === 0) {
+            throw new \RuntimeException('Generated PDF document payload is empty.');
+        }
+
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
 
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Length: ' . strlen($output));
+        header('Accept-Ranges: bytes');
         header('Cache-Control: private, max-age=0, must-revalidate');
         header('Pragma: public');
 
-        echo $dompdf->output();
+        echo $output;
+        flush();
         exit;
     }
 

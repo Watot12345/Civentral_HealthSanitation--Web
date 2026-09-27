@@ -203,83 +203,85 @@ requireDepartmentAccess('health center services');
         <!-- ============================================================ -->
     <!-- MODERN KPI CARDS - Updated to match design               -->
     <!-- ============================================================ -->
+    <!-- MODERN KPI CARDS - Dynamically updates for Rx & Inventory   -->
+    <!-- ============================================================ -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <!-- Card 1: Total Prescriptions -->
+        <!-- Card 1: Total Prescriptions / Total Medicines -->
         <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-            <div class="absolute -top-12 -right-12 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div id="kpiCard1Bg" class="absolute -top-12 -right-12 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
             <div class="relative">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
+                    <div id="kpiIcon1" class="w-11 h-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200 shrink-0">
                         <i class="fa-solid fa-prescription text-lg"></i>
                     </div>
                     <div>
                         <p class="text-2xl font-black text-slate-900" id="totalPrescriptions">-</p>
-                        <p class="text-xs font-medium text-slate-500">Total Prescriptions</p>
+                        <p class="text-xs font-medium text-slate-500" id="kpiLabel1">Total Prescriptions</p>
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">💊 All prescriptions</span>
+                    <span id="kpiBadge1" class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">💊 All prescriptions</span>
                     <span class="text-[10px] text-slate-400" id="totalDispensed">- dispensed</span>
                 </div>
             </div>
         </div>
 
-        <!-- Card 2: Dispensed -->
+        <!-- Card 2: Dispensed / In Stock -->
         <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-            <div class="absolute -top-12 -right-12 w-24 h-24 bg-emerald-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div id="kpiCard2Bg" class="absolute -top-12 -right-12 w-24 h-24 bg-emerald-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
             <div class="relative">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
+                    <div id="kpiIcon2" class="w-11 h-11 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200 shrink-0">
                         <i class="fa-solid fa-check-circle text-lg"></i>
                     </div>
                     <div>
                         <p class="text-2xl font-black text-emerald-600" id="dispensedCount">-</p>
-                        <p class="text-xs font-medium text-slate-500">Dispensed</p>
+                        <p class="text-xs font-medium text-slate-500" id="kpiLabel2">Dispensed</p>
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅ Filled</span>
-                    <span class="text-[10px] text-slate-400">Successfully dispensed</span>
+                    <span id="kpiBadge2" class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅ Filled</span>
+                    <span class="text-[10px] text-slate-400" id="kpiSubtext2">Successfully dispensed</span>
                 </div>
             </div>
         </div>
 
-        <!-- Card 3: Pending -->
+        <!-- Card 3: Pending / Low Stock -->
         <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-            <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div id="kpiCard3Bg" class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
             <div class="relative">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-200">
+                    <div id="kpiIcon3" class="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-200 shrink-0">
                         <i class="fa-solid fa-clock text-lg"></i>
                     </div>
                     <div>
                         <p class="text-2xl font-black text-amber-600" id="pendingCount">-</p>
-                        <p class="text-xs font-medium text-slate-500">Pending</p>
+                        <p class="text-xs font-medium text-slate-500" id="kpiLabel3">Pending</p>
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">⏳ Awaiting</span>
-                    <span class="text-[10px] text-slate-400">Ready for dispensing</span>
+                    <span id="kpiBadge3" class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">⏳ Awaiting</span>
+                    <span class="text-[10px] text-slate-400" id="kpiSubtext3">Ready for dispensing</span>
                 </div>
             </div>
         </div>
 
-        <!-- Card 4: Total Medications -->
+        <!-- Card 4: Total Medications / Expiring -->
         <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-            <div class="absolute -top-12 -right-12 w-24 h-24 bg-violet-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div id="kpiCard4Bg" class="absolute -top-12 -right-12 w-24 h-24 bg-violet-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
             <div class="relative">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200">
+                    <div id="kpiIcon4" class="w-11 h-11 bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200 shrink-0">
                         <i class="fa-solid fa-capsules text-lg"></i>
                     </div>
                     <div>
                         <p class="text-2xl font-black text-violet-600" id="totalMedications">-</p>
-                        <p class="text-xs font-medium text-slate-500">Total Medications</p>
+                        <p class="text-xs font-medium text-slate-500" id="kpiLabel4">Total Medications</p>
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-[10px] font-bold">🧪 Items</span>
-                    <span class="text-[10px] text-slate-400">Across all prescriptions</span>
+                    <span id="kpiBadge4" class="px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-[10px] font-bold">🧪 Items</span>
+                    <span class="text-[10px] text-slate-400" id="kpiSubtext4">Across all prescriptions</span>
                 </div>
             </div>
         </div>
@@ -394,7 +396,7 @@ requireDepartmentAccess('health center services');
                 <p class="text-xs text-slate-500">
                     Showing <span class="font-semibold text-slate-700" id="showingStart">0</span> to
                     <span class="font-semibold text-slate-700" id="showingEnd">0</span> of
-                    <span class="font-semibold text-slate-700" id="showingTotal">0</span> prescriptions
+                    <span class="font-semibold text-slate-700" id="showingTotal">0</span> <span id="showingItemType">prescriptions</span>
                 </p>
                 <div class="flex gap-1" id="paginationControls">
                     <!-- Pagination buttons will be generated here -->
@@ -640,6 +642,173 @@ requireDepartmentAccess('health center services');
             </form>
         </div>
     </div>
+
+    <!-- ============================================================ -->
+    <!-- ADD MEDICINE MODAL (Doctor, Director, Dentist)              -->
+    <!-- ============================================================ -->
+    <div id="addMedicineModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+                <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-pills text-brand-medium"></i> Add New Medicine to Inventory
+                </h3>
+                <button onclick="ModalSystem.close('addMedicineModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <form id="addMedicineForm" class="p-6 space-y-4" onsubmit="saveNewMedicine(event)">
+                <!-- Medicine Name -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Medicine Name <span class="text-rose-500">*</span></label>
+                    <input type="text" id="med_name" required placeholder="e.g. Amoxicillin, Paracetamol, Cefalexin"
+                           class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+
+                <!-- Type / Category & Grams / Dosage -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Type / Category <span class="text-rose-500">*</span></label>
+                        <input type="text" id="med_category" required list="medCategoryList" placeholder="e.g. Antibiotic, Analgesic, NSAID"
+                               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <datalist id="medCategoryList">
+                            <option value="Analgesic">
+                            <option value="Antibiotic">
+                            <option value="Antihypertensive">
+                            <option value="Antidiabetic">
+                            <option value="Antihistamine">
+                            <option value="Vitamin/Supplement">
+                            <option value="NSAID">
+                            <option value="Corticosteroid">
+                            <option value="Bronchodilator">
+                            <option value="Antiemetic">
+                            <option value="Rehydration">
+                        </datalist>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Dosage / Grams / Weight <span class="text-rose-500">*</span></label>
+                        <input type="text" id="med_strength" required list="medStrengthList" placeholder="e.g. 500mg, 250mg, 1g, 5mg"
+                               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <datalist id="medStrengthList">
+                            <option value="100mg">
+                            <option value="250mg">
+                            <option value="500mg">
+                            <option value="1000mg (1g)">
+                            <option value="5mg">
+                            <option value="10mg">
+                            <option value="20mg">
+                            <option value="50mg">
+                            <option value="15mg/kg">
+                            <option value="100mcg">
+                        </datalist>
+                    </div>
+                </div>
+
+                <!-- Dosage Form & Initial Stock -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Form</label>
+                        <select id="med_form" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                            <option value="Tablet">Tablet</option>
+                            <option value="Capsule">Capsule</option>
+                            <option value="Syrup">Syrup</option>
+                            <option value="Injection">Injection</option>
+                            <option value="Inhaler">Inhaler</option>
+                            <option value="Cream">Cream</option>
+                            <option value="Powder">Powder</option>
+                            <option value="Drops">Drops</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Stock Quantity <span class="text-rose-500">*</span></label>
+                        <input type="number" id="med_stock" required min="0" value="100"
+                               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                </div>
+
+                <!-- Expiration Date & Batch/Lot Number -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Expiration Date <span class="text-rose-500">*</span></label>
+                        <input type="date" id="med_expiration_date" required
+                               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Batch / Lot #</label>
+                        <input type="text" id="med_batch_number" placeholder="e.g. LOT-2026-088"
+                               class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    </div>
+                </div>
+
+                <!-- Description / Notes -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Description / Notes</label>
+                    <textarea id="med_description" rows="2" placeholder="Indications, precautions, or storage requirements..."
+                              class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></textarea>
+                </div>
+
+                <!-- Footer Buttons -->
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="ModalSystem.close('addMedicineModal')"
+                            class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                        Cancel
+                    </button>
+                    <button type="submit" id="btnSubmitAddMedicine"
+                            class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5">
+                        <i class="fa-solid fa-plus"></i> Add to Inventory
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- DELETE MEDICINE CONFIRMATION MODAL                            -->
+    <!-- ============================================================ -->
+    <div id="deleteMedicineModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <!-- Modal Header -->
+            <div class="px-6 pt-6 pb-4 text-center">
+                <div class="w-14 h-14 rounded-full bg-rose-100 border border-rose-200 text-rose-600 flex items-center justify-center text-2xl mx-auto mb-3 shadow-xs">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900">Delete Medicine from Inventory?</h3>
+                <p class="text-xs text-slate-500 mt-1">This action cannot be undone. The selected medicine item will be permanently removed from the health center inventory.</p>
+            </div>
+
+            <!-- Medicine Target Summary Box -->
+            <div class="mx-6 p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400 font-medium">Medicine:</span>
+                    <span class="font-bold text-slate-800" id="delete_med_name">-</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400 font-medium">Type / Category:</span>
+                    <span class="font-semibold text-slate-700" id="delete_med_category">-</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400 font-medium">Dosage / Grams:</span>
+                    <span class="font-semibold text-brand-dark" id="delete_med_strength">-</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400 font-medium">Batch / Lot #:</span>
+                    <span class="font-mono text-slate-600" id="delete_med_batch">-</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="p-6 flex gap-3">
+                <button type="button" onclick="ModalSystem.close('deleteMedicineModal')"
+                        class="flex-1 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition text-sm font-semibold">
+                    Cancel
+                </button>
+                <button type="button" id="btnConfirmDeleteMedicine" onclick="confirmDeleteMedicine()"
+                        class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition text-sm font-semibold flex items-center justify-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-trash-can text-xs"></i> Delete Medicine
+                </button>
+            </div>
+        </div>
+    </div>
+
 <style>#emptyState.hidden {
     display: none !important;
 }
@@ -664,6 +833,13 @@ requireDepartmentAccess('health center services');
 
         let currentPage = 1;
         const ITEMS_PER_PAGE = 5;
+
+        // Inventory view state
+        let activeMainView = 'prescriptions'; // 'prescriptions' | 'inventory'
+        let inventoryItems = [];
+        let filteredInventory = [];
+        let inventoryCurrentPage = 1;
+        const CAN_ADD_MEDICINE = <?php echo $canAddMedicine ? 'true' : 'false'; ?>;
 
         // ============================================================
         // DRUG SELECTION - Searchable with Categories
@@ -1301,6 +1477,8 @@ requireDepartmentAccess('health center services');
         document.getElementById('showingEnd').textContent = endIndex;
         document.getElementById('showingTotal').textContent = totalItems;
     }
+    const itemTypeEl = document.getElementById('showingItemType');
+    if (itemTypeEl) itemTypeEl.textContent = 'prescriptions';
 
     renderPagination(totalItems, totalPages);
 }
@@ -1380,7 +1558,7 @@ requireDepartmentAccess('health center services');
         }
 
         // ============================================================
-        // STATS UPDATE
+        // STATS UPDATE (Prescriptions Mode)
         // ============================================================
         function updateStats() {
             const total = allPrescriptions.length;
@@ -1388,17 +1566,84 @@ requireDepartmentAccess('health center services');
             const pending = allPrescriptions.filter(p => p.status === 'pending').length;
             const totalMeds = allPrescriptions.reduce((sum, p) => sum + (p.medications || []).length, 0);
 
-            document.getElementById('totalPrescriptions').textContent = total;
-            document.getElementById('totalDispensed').textContent = `${dispensed} dispensed`;
-            document.getElementById('dispensedCount').textContent = dispensed;
-            document.getElementById('pendingCount').textContent = pending;
-            document.getElementById('totalMedications').textContent = totalMeds;
+            // Card 1: Total Prescriptions
+            const totalPrescriptionsEl = document.getElementById('totalPrescriptions');
+            const kpiLabel1El = document.getElementById('kpiLabel1');
+            const kpiBadge1El = document.getElementById('kpiBadge1');
+            const totalDispensedEl = document.getElementById('totalDispensed');
+            const kpiIcon1El = document.getElementById('kpiIcon1');
+
+            if (totalPrescriptionsEl) totalPrescriptionsEl.textContent = total;
+            if (kpiLabel1El) kpiLabel1El.textContent = 'Total Prescriptions';
+            if (kpiBadge1El) {
+                kpiBadge1El.textContent = '💊 All prescriptions';
+                kpiBadge1El.className = 'px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold';
+            }
+            if (totalDispensedEl) totalDispensedEl.textContent = `${dispensed} dispensed`;
+            if (kpiIcon1El) kpiIcon1El.innerHTML = '<i class="fa-solid fa-prescription text-lg"></i>';
+
+            // Card 2: Dispensed
+            const dispensedCountEl = document.getElementById('dispensedCount');
+            const kpiLabel2El = document.getElementById('kpiLabel2');
+            const kpiBadge2El = document.getElementById('kpiBadge2');
+            const kpiSubtext2El = document.getElementById('kpiSubtext2');
+            const kpiIcon2El = document.getElementById('kpiIcon2');
+
+            if (dispensedCountEl) dispensedCountEl.textContent = dispensed;
+            if (kpiLabel2El) kpiLabel2El.textContent = 'Dispensed';
+            if (kpiBadge2El) {
+                kpiBadge2El.textContent = '✅ Filled';
+                kpiBadge2El.className = 'px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold';
+            }
+            if (kpiSubtext2El) kpiSubtext2El.textContent = 'Successfully dispensed';
+            if (kpiIcon2El) kpiIcon2El.innerHTML = '<i class="fa-solid fa-check-circle text-lg"></i>';
+
+            // Card 3: Pending
+            const pendingCountEl = document.getElementById('pendingCount');
+            const kpiLabel3El = document.getElementById('kpiLabel3');
+            const kpiBadge3El = document.getElementById('kpiBadge3');
+            const kpiSubtext3El = document.getElementById('kpiSubtext3');
+            const kpiIcon3El = document.getElementById('kpiIcon3');
+
+            if (pendingCountEl) pendingCountEl.textContent = pending;
+            if (kpiLabel3El) kpiLabel3El.textContent = 'Pending';
+            if (kpiBadge3El) {
+                kpiBadge3El.textContent = '⏳ Awaiting';
+                kpiBadge3El.className = 'px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold';
+            }
+            if (kpiSubtext3El) kpiSubtext3El.textContent = 'Ready for dispensing';
+            if (kpiIcon3El) kpiIcon3El.innerHTML = '<i class="fa-solid fa-clock text-lg"></i>';
+
+            // Card 4: Total Medications
+            const totalMedicationsEl = document.getElementById('totalMedications');
+            const kpiLabel4El = document.getElementById('kpiLabel4');
+            const kpiBadge4El = document.getElementById('kpiBadge4');
+            const kpiSubtext4El = document.getElementById('kpiSubtext4');
+            const kpiIcon4El = document.getElementById('kpiIcon4');
+
+            if (totalMedicationsEl) totalMedicationsEl.textContent = totalMeds;
+            if (kpiLabel4El) kpiLabel4El.textContent = 'Total Medications';
+            if (kpiBadge4El) {
+                kpiBadge4El.textContent = '🧪 Items';
+                kpiBadge4El.className = 'px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-[10px] font-bold';
+            }
+            if (kpiSubtext4El) kpiSubtext4El.textContent = 'Across all prescriptions';
+            if (kpiIcon4El) kpiIcon4El.innerHTML = '<i class="fa-solid fa-capsules text-lg"></i>';
         }
 
         // ============================================================
         // SEARCH & FILTER (Client-side - NO PAGE RELOAD!)
         // ============================================================
-        document.getElementById('searchPrescription').addEventListener('input', filterPrescriptions);
+        // ============================================================
+        // SEARCH & FILTER (Client-side - NO PAGE RELOAD!)
+        // ============================================================
+        document.getElementById('searchPrescription').addEventListener('input', function() {
+            if (activeMainView === 'inventory') {
+                filterInventory();
+            } else {
+                filterPrescriptions();
+            }
+        });
         document.getElementById('filterStatus').addEventListener('change', filterPrescriptions);
         document.getElementById('filterDateFrom').addEventListener('change', filterPrescriptions);
         document.getElementById('filterDateTo').addEventListener('change', filterPrescriptions);
@@ -1442,6 +1687,609 @@ requireDepartmentAccess('health center services');
             filteredPrescriptions = [...allPrescriptions];
             currentPage = 1;
             renderTable();
+        }
+
+        // ============================================================
+        // INVENTORY MANAGEMENT & VIEW TOGGLE
+        // ============================================================
+        function toggleMainView(view) {
+            activeMainView = view;
+            
+            const pageTitle = document.getElementById('pageTitle');
+            const pageSubtitle = document.getElementById('pageSubtitle');
+            const btnInventoryToggle = document.getElementById('btnInventoryToggle');
+            const btnPrescriptionsToggle = document.getElementById('btnPrescriptionsToggle');
+            const btnNewPrescription = document.getElementById('btnNewPrescription');
+            const btnAddMedicine = document.getElementById('btnAddMedicine');
+            
+            const searchInput = document.getElementById('searchPrescription');
+            const rxFilters = document.getElementById('prescriptionFilterGroup');
+            const invFilters = document.getElementById('inventoryFilterGroup');
+            
+            if (view === 'inventory') {
+                if (pageTitle) pageTitle.textContent = 'Medicine Inventory';
+                if (pageSubtitle) pageSubtitle.textContent = 'Health center formulary, stock levels, dosage, and expiration tracking';
+                
+                if (btnInventoryToggle) btnInventoryToggle.classList.add('hidden');
+                if (btnPrescriptionsToggle) btnPrescriptionsToggle.classList.remove('hidden');
+                if (btnNewPrescription) btnNewPrescription.classList.add('hidden');
+                if (btnAddMedicine) btnAddMedicine.classList.remove('hidden');
+                
+                if (searchInput) {
+                    searchInput.value = '';
+                    searchInput.placeholder = 'Search medicine by name, type, grams, lot #...';
+                }
+                if (rxFilters) rxFilters.classList.add('hidden');
+                if (invFilters) invFilters.classList.remove('hidden');
+                
+                if (inventoryItems.length === 0) {
+                    fetchInventoryData();
+                } else {
+                    populateInventoryFilters();
+                    filterInventory();
+                    updateInventoryStats();
+                }
+            } else {
+                if (pageTitle) pageTitle.textContent = 'Prescriptions';
+                if (pageSubtitle) pageSubtitle.textContent = 'Electronic prescriptions with drug selection & dosage management';
+                
+                if (btnInventoryToggle) btnInventoryToggle.classList.remove('hidden');
+                if (btnPrescriptionsToggle) btnPrescriptionsToggle.classList.add('hidden');
+                if (btnNewPrescription) btnNewPrescription.classList.remove('hidden');
+                if (btnAddMedicine) btnAddMedicine.classList.add('hidden');
+                
+                if (searchInput) {
+                    searchInput.value = '';
+                    searchInput.placeholder = 'Search by patient name, ID, or medication...';
+                }
+                if (rxFilters) rxFilters.classList.remove('hidden');
+                if (invFilters) invFilters.classList.add('hidden');
+                
+                // Reset table header to Prescriptions columns
+                const headerRow = document.getElementById('tableHeaderRow');
+                if (headerRow) {
+                    headerRow.innerHTML = `
+                        <tr>
+                            <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">RX ID</th>
+                            <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Patient</th>
+                            <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Doctor</th>
+                            <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Medications</th>
+                            <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                            <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                            <th class="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    `;
+                }
+                
+                updateStats();
+                renderTable();
+            }
+        }
+
+        async function fetchInventoryData() {
+            try {
+                const response = await fetch('<?php echo site_url('api/drugs.php'); ?>');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.data) {
+                        inventoryItems = data.data;
+                        drugs = data.data;
+                        populateDrugSelect();
+                        populateInventoryFilters();
+                        filterInventory();
+                        updateInventoryStats();
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load inventory data:', e);
+            }
+        }
+
+        function populateInventoryFilters() {
+            const typeSelect = document.getElementById('filterMedicineType');
+            const gramsSelect = document.getElementById('filterMedicineGrams');
+            
+            if (!typeSelect || !gramsSelect) return;
+            
+            const selectedType = typeSelect.value;
+            const selectedGrams = gramsSelect.value;
+            
+            const types = Array.from(new Set(inventoryItems.map(i => i.category || 'General').filter(Boolean))).sort();
+            const gramsList = Array.from(new Set(inventoryItems.map(i => i.strength || 'Standard').filter(Boolean))).sort();
+            
+            typeSelect.innerHTML = '<option value="">All Medicine Types (' + types.length + ')</option>';
+            types.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                if (t === selectedType) opt.selected = true;
+                typeSelect.appendChild(opt);
+            });
+            
+            gramsSelect.innerHTML = '<option value="">All Grams / Strengths (' + gramsList.length + ')</option>';
+            gramsList.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g;
+                opt.textContent = g;
+                if (g === selectedGrams) opt.selected = true;
+                gramsSelect.appendChild(opt);
+            });
+        }
+
+        function filterInventory() {
+            const search = (document.getElementById('searchPrescription')?.value || '').toLowerCase().trim();
+            const typeFilter = document.getElementById('filterMedicineType')?.value || '';
+            const gramsFilter = document.getElementById('filterMedicineGrams')?.value || '';
+            const stockFilter = document.getElementById('filterMedicineStock')?.value || '';
+            
+            const today = new Date().toISOString().split('T')[0];
+            const in60Days = new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0];
+            
+            filteredInventory = inventoryItems.filter(item => {
+                const name = (item.name || '').toLowerCase();
+                const cat = (item.category || '').toLowerCase();
+                const str = (item.strength || '').toLowerCase();
+                const batch = (item.batch_number || '').toLowerCase();
+                const desc = (item.description || '').toLowerCase();
+                
+                const matchesSearch = !search || name.includes(search) || cat.includes(search) || str.includes(search) || batch.includes(search) || desc.includes(search);
+                const matchesType = !typeFilter || item.category === typeFilter;
+                const matchesGrams = !gramsFilter || item.strength === gramsFilter;
+                
+                let matchesStock = true;
+                if (stockFilter === 'in_stock') {
+                    matchesStock = (parseInt(item.stock) || 0) > 50;
+                } else if (stockFilter === 'low_stock') {
+                    const st = parseInt(item.stock) || 0;
+                    matchesStock = st > 0 && st <= 50;
+                } else if (stockFilter === 'out_of_stock') {
+                    matchesStock = (parseInt(item.stock) || 0) <= 0;
+                } else if (stockFilter === 'expiring_soon') {
+                    const exp = item.expiration_date || '';
+                    matchesStock = exp && exp >= today && exp <= in60Days;
+                } else if (stockFilter === 'expired') {
+                    const exp = item.expiration_date || '';
+                    matchesStock = exp && exp < today;
+                }
+                
+                return matchesSearch && matchesType && matchesGrams && matchesStock;
+            });
+            
+            inventoryCurrentPage = 1;
+            renderInventoryTable();
+        }
+
+        function resetInventoryFilters() {
+            const searchInput = document.getElementById('searchPrescription');
+            const typeSelect = document.getElementById('filterMedicineType');
+            const gramsSelect = document.getElementById('filterMedicineGrams');
+            const stockSelect = document.getElementById('filterMedicineStock');
+            
+            if (searchInput) searchInput.value = '';
+            if (typeSelect) typeSelect.value = '';
+            if (gramsSelect) gramsSelect.value = '';
+            if (stockSelect) stockSelect.value = '';
+            
+            filteredInventory = [...inventoryItems];
+            inventoryCurrentPage = 1;
+            renderInventoryTable();
+        }
+
+        function renderInventoryTable() {
+            const tbody = document.getElementById('prescriptionTableBody');
+            const headerRow = document.getElementById('tableHeaderRow');
+            const emptyState = document.getElementById('emptyState');
+            const tableElement = tbody ? tbody.closest('table') : null;
+            const paginationDiv = document.querySelector('.px-4.py-3.border-t');
+            
+            if (headerRow) {
+                headerRow.innerHTML = `
+                    <tr>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Medicine Name</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Type / Category</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Grams / Dosage</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Stock Qty</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Expiration Date</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Batch / Lot #</th>
+                        <th class="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                `;
+            }
+            
+            const totalItems = filteredInventory.length;
+            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
+            
+            if (inventoryCurrentPage < 1) inventoryCurrentPage = 1;
+            if (inventoryCurrentPage > totalPages) inventoryCurrentPage = totalPages;
+            
+            const startIndex = (inventoryCurrentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
+            const pageData = filteredInventory.slice(startIndex, endIndex);
+            
+            if (totalItems === 0) {
+                if (emptyState) {
+                    emptyState.classList.remove('hidden');
+                    emptyState.style.display = 'flex';
+                    emptyState.innerHTML = `
+                        <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+                            <i class="fa-solid fa-boxes-stacked text-slate-400"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-600">No medicine items match your filter</p>
+                        <p class="text-xs text-slate-400 mt-1">Try selecting different types or clearing your search</p>
+                        <button onclick="resetInventoryFilters()" class="mt-3 text-xs font-semibold text-brand-medium hover:text-brand-dark">Clear filters</button>
+                    `;
+                }
+                if (tableElement) tableElement.classList.add('hidden');
+                if (paginationDiv) paginationDiv.classList.add('hidden');
+                if (tbody) tbody.innerHTML = '';
+                return;
+            }
+            
+            if (emptyState) {
+                emptyState.classList.add('hidden');
+                emptyState.style.display = 'none';
+            }
+            if (tableElement) tableElement.classList.remove('hidden');
+            if (paginationDiv) paginationDiv.classList.remove('hidden');
+            
+            const today = new Date().toISOString().split('T')[0];
+            const in60Days = new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0];
+            
+            tbody.innerHTML = pageData.map(item => {
+                const exp = item.expiration_date || 'N/A';
+                let expBadge = '';
+                if (exp !== 'N/A') {
+                    if (exp < today) {
+                        expBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-700 flex items-center gap-1 w-fit"><i class="fa-solid fa-triangle-exclamation"></i> Expired (${formatDate(exp)})</span>`;
+                    } else if (exp <= in60Days) {
+                        expBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 flex items-center gap-1 w-fit"><i class="fa-solid fa-clock"></i> Soon (${formatDate(exp)})</span>`;
+                    } else {
+                        expBadge = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 w-fit"><i class="fa-solid fa-calendar-check"></i> ${formatDate(exp)}</span>`;
+                    }
+                } else {
+                    expBadge = '<span class="text-slate-400 text-xs">No Expiry Date</span>';
+                }
+                
+                const stock = parseInt(item.stock) || 0;
+                let stockBadge = '';
+                if (stock <= 0) {
+                    stockBadge = `<span class="px-2.5 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-bold">Out of Stock (0)</span>`;
+                } else if (stock <= 50) {
+                    stockBadge = `<span class="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">Low Stock (${stock})</span>`;
+                } else {
+                    stockBadge = `<span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-bold">${stock} units</span>`;
+                }
+                
+                return `
+                    <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs shrink-0">
+                                    <i class="fa-solid fa-capsules"></i>
+                                </div>
+                                <div>
+                                    <span class="font-bold text-slate-800 text-sm block">${escapeHtml(item.name)}</span>
+                                    <span class="text-xs text-slate-400">${escapeHtml(item.form || 'Tablet')}</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                ${escapeHtml(item.category || 'General')}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 font-semibold text-xs text-brand-dark">
+                            ${escapeHtml(item.strength || 'Standard')}
+                        </td>
+                        <td class="px-4 py-3">
+                            ${stockBadge}
+                        </td>
+                        <td class="px-4 py-3">
+                            ${expBadge}
+                        </td>
+                        <td class="px-4 py-3 font-mono text-xs text-slate-500">
+                            ${escapeHtml(item.batch_number || 'LOT-2026-GEN')}
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <div class="flex items-center justify-center gap-1">
+                                ${CAN_ADD_MEDICINE ? `
+                                <button onclick="deleteMedicine('${item.id}')" title="Delete Medicine" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition">
+                                    <i class="fa-solid fa-trash-can text-sm"></i>
+                                </button>
+                                ` : '<span class="text-[10px] text-slate-400">View Only</span>'}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            document.getElementById('showingStart').textContent = startIndex + 1;
+            document.getElementById('showingEnd').textContent = endIndex;
+            document.getElementById('showingTotal').textContent = totalItems;
+            const itemTypeEl = document.getElementById('showingItemType');
+            if (itemTypeEl) itemTypeEl.textContent = 'medicines';
+            
+            renderInventoryPagination(totalItems, totalPages);
+        }
+
+        function changeInventoryPage(page) {
+            const totalItems = filteredInventory.length;
+            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
+            if (page < 1 || page > totalPages) return;
+            inventoryCurrentPage = page;
+            renderInventoryTable();
+        }
+
+        function renderInventoryPagination(totalItems, totalPages) {
+            const container = document.getElementById('paginationControls');
+            if (!container) return;
+
+            if (totalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+
+            const btnBase = 'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors';
+            const btnActive = `${btnBase} bg-brand-dark text-white shadow-sm`;
+            const btnInactive = `${btnBase} bg-white border border-slate-200 text-slate-600 hover:bg-slate-50`;
+            const btnDisabled = `${btnBase} bg-white border border-slate-200 text-slate-300 cursor-not-allowed`;
+
+            let html = '';
+
+            html += `<button onclick="changeInventoryPage(${inventoryCurrentPage - 1})"
+                        class="${inventoryCurrentPage === 1 ? btnDisabled : btnInactive}"
+                        ${inventoryCurrentPage === 1 ? 'disabled' : ''}>
+                        <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                    </button>`;
+
+            const delta = 2;
+            const rangeStart = Math.max(1, inventoryCurrentPage - delta);
+            const rangeEnd   = Math.min(totalPages, inventoryCurrentPage + delta);
+
+            if (rangeStart > 1) {
+                html += `<button onclick="changeInventoryPage(1)" class="${btnInactive}">1</button>`;
+                if (rangeStart > 2) {
+                    html += `<span class="px-1 py-1.5 text-xs text-slate-400">…</span>`;
+                }
+            }
+
+            for (let p = rangeStart; p <= rangeEnd; p++) {
+                html += `<button onclick="changeInventoryPage(${p})"
+                            class="${p === inventoryCurrentPage ? btnActive : btnInactive}">
+                            ${p}
+                         </button>`;
+            }
+
+            if (rangeEnd < totalPages) {
+                if (rangeEnd < totalPages - 1) {
+                    html += `<span class="px-1 py-1.5 text-xs text-slate-400">…</span>`;
+                }
+                html += `<button onclick="changeInventoryPage(${totalPages})" class="${btnInactive}">${totalPages}</button>`;
+            }
+
+            html += `<button onclick="changeInventoryPage(${inventoryCurrentPage + 1})"
+                        class="${inventoryCurrentPage === totalPages ? btnDisabled : btnInactive}"
+                        ${inventoryCurrentPage === totalPages ? 'disabled' : ''}>
+                        <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>`;
+
+            container.innerHTML = html;
+        }
+
+        // ============================================================
+        // STATS UPDATE (Inventory Mode)
+        // ============================================================
+        function updateInventoryStats() {
+            const total = inventoryItems.length;
+            const inStock = inventoryItems.filter(i => (parseInt(i.stock) || 0) > 50).length;
+            const lowStock = inventoryItems.filter(i => {
+                const s = parseInt(i.stock) || 0;
+                return s > 0 && s <= 50;
+            }).length;
+            const outOfStock = inventoryItems.filter(i => (parseInt(i.stock) || 0) <= 0).length;
+            
+            const today = new Date().toISOString().split('T')[0];
+            const in60Days = new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0];
+            const expiringSoon = inventoryItems.filter(i => i.expiration_date && i.expiration_date >= today && i.expiration_date <= in60Days).length;
+            const expired = inventoryItems.filter(i => i.expiration_date && i.expiration_date < today).length;
+            const totalExpiring = expiringSoon + expired;
+
+            // Card 1: Total Medicines
+            const totalPrescriptionsEl = document.getElementById('totalPrescriptions');
+            const kpiLabel1El = document.getElementById('kpiLabel1');
+            const kpiBadge1El = document.getElementById('kpiBadge1');
+            const totalDispensedEl = document.getElementById('totalDispensed');
+            const kpiIcon1El = document.getElementById('kpiIcon1');
+
+            if (totalPrescriptionsEl) totalPrescriptionsEl.textContent = total;
+            if (kpiLabel1El) kpiLabel1El.textContent = 'Total Medicines';
+            if (kpiBadge1El) {
+                kpiBadge1El.textContent = '📦 Formulary';
+                kpiBadge1El.className = 'px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold';
+            }
+            if (totalDispensedEl) totalDispensedEl.textContent = `${inStock} in stock`;
+            if (kpiIcon1El) kpiIcon1El.innerHTML = '<i class="fa-solid fa-boxes-stacked text-lg"></i>';
+
+            // Card 2: In Stock
+            const dispensedCountEl = document.getElementById('dispensedCount');
+            const kpiLabel2El = document.getElementById('kpiLabel2');
+            const kpiBadge2El = document.getElementById('kpiBadge2');
+            const kpiSubtext2El = document.getElementById('kpiSubtext2');
+            const kpiIcon2El = document.getElementById('kpiIcon2');
+
+            if (dispensedCountEl) dispensedCountEl.textContent = inStock;
+            if (kpiLabel2El) kpiLabel2El.textContent = 'In Stock (>50)';
+            if (kpiBadge2El) {
+                kpiBadge2El.textContent = '✅ Available';
+                kpiBadge2El.className = 'px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold';
+            }
+            if (kpiSubtext2El) kpiSubtext2El.textContent = 'Adequate inventory';
+            if (kpiIcon2El) kpiIcon2El.innerHTML = '<i class="fa-solid fa-circle-check text-lg"></i>';
+
+            // Card 3: Low Stock
+            const pendingCountEl = document.getElementById('pendingCount');
+            const kpiLabel3El = document.getElementById('kpiLabel3');
+            const kpiBadge3El = document.getElementById('kpiBadge3');
+            const kpiSubtext3El = document.getElementById('kpiSubtext3');
+            const kpiIcon3El = document.getElementById('kpiIcon3');
+
+            if (pendingCountEl) pendingCountEl.textContent = lowStock + (outOfStock > 0 ? ` (${outOfStock} out)` : '');
+            if (kpiLabel3El) kpiLabel3El.textContent = 'Low Stock (≤50)';
+            if (kpiBadge3El) {
+                kpiBadge3El.textContent = '⚠️ Reorder';
+                kpiBadge3El.className = 'px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold';
+            }
+            if (kpiSubtext3El) kpiSubtext3El.textContent = `${lowStock} low, ${outOfStock} out of stock`;
+            if (kpiIcon3El) kpiIcon3El.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-lg"></i>';
+
+            // Card 4: Expiring / Expired
+            const totalMedicationsEl = document.getElementById('totalMedications');
+            const kpiLabel4El = document.getElementById('kpiLabel4');
+            const kpiBadge4El = document.getElementById('kpiBadge4');
+            const kpiSubtext4El = document.getElementById('kpiSubtext4');
+            const kpiIcon4El = document.getElementById('kpiIcon4');
+
+            if (totalMedicationsEl) totalMedicationsEl.textContent = totalExpiring;
+            if (kpiLabel4El) kpiLabel4El.textContent = 'Expiring / Expired';
+            if (kpiBadge4El) {
+                kpiBadge4El.textContent = '📅 Expiry Alert';
+                kpiBadge4El.className = 'px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold';
+            }
+            if (kpiSubtext4El) kpiSubtext4El.textContent = `${expired} expired, ${expiringSoon} soon`;
+            if (kpiIcon4El) kpiIcon4El.innerHTML = '<i class="fa-solid fa-calendar-xmark text-lg"></i>';
+        }
+
+        async function saveNewMedicine(e) {
+            e.preventDefault();
+            if (!CAN_ADD_MEDICINE) {
+                ModalSystem.toast.error('Permission denied: Only Doctor, Director, and Dentist can add medicines.');
+                return;
+            }
+            
+            const name = document.getElementById('med_name').value.trim();
+            const category = document.getElementById('med_category').value.trim();
+            const strength = document.getElementById('med_strength').value.trim();
+            const form = document.getElementById('med_form').value;
+            const stock = document.getElementById('med_stock').value;
+            const expiration_date = document.getElementById('med_expiration_date').value;
+            const batch_number = document.getElementById('med_batch_number').value.trim();
+            const description = document.getElementById('med_description').value.trim();
+            
+            if (!name || !category || !strength || !expiration_date) {
+                ModalSystem.toast.warning('Please fill in all required fields (*)');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('btnSubmitAddMedicine');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Saving...';
+            }
+            
+            try {
+                const response = await fetch('<?php echo site_url('api/drugs.php'); ?>', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name, category, strength, form, stock, expiration_date, batch_number, description
+                    })
+                });
+                
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    ModalSystem.toast.success(data.message || 'Medicine added to inventory successfully!');
+                    ModalSystem.close('addMedicineModal');
+                    document.getElementById('addMedicineForm').reset();
+                    
+                    if (data.data) {
+                        inventoryItems.unshift(data.data);
+                        drugs.unshift(data.data);
+                    } else {
+                        fetchInventoryData();
+                    }
+                    populateDrugSelect();
+                    populateInventoryFilters();
+                    filterInventory();
+                    updateInventoryStats();
+                } else {
+                    ModalSystem.toast.error(data.message || 'Failed to add medicine');
+                }
+            } catch (err) {
+                console.error('Error adding medicine:', err);
+                ModalSystem.toast.error('An error occurred while adding medicine.');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-plus mr-1"></i> Add to Inventory';
+                }
+            }
+        }
+
+        let medicineToDeleteId = null;
+
+        function deleteMedicine(id) {
+            openDeleteMedicineModal(id);
+        }
+
+        function openDeleteMedicineModal(id) {
+            if (!CAN_ADD_MEDICINE) {
+                ModalSystem.toast.error('Permission denied: Only Doctor, Director, and Dentist can delete medicines.');
+                return;
+            }
+            
+            const item = inventoryItems.find(i => parseInt(i.id) === parseInt(id));
+            if (!item) {
+                ModalSystem.toast.error('Medicine record not found');
+                return;
+            }
+            
+            medicineToDeleteId = id;
+            document.getElementById('delete_med_name').textContent = item.name || '-';
+            document.getElementById('delete_med_category').textContent = item.category || 'General';
+            document.getElementById('delete_med_strength').textContent = item.strength || 'Standard';
+            document.getElementById('delete_med_batch').textContent = item.batch_number || 'LOT-2026-GEN';
+            
+            ModalSystem.open('deleteMedicineModal');
+        }
+
+        async function confirmDeleteMedicine() {
+            if (!medicineToDeleteId) return;
+            
+            const btn = document.getElementById('btnConfirmDeleteMedicine');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i> Deleting...';
+            }
+            
+            try {
+                const response = await fetch('<?php echo site_url('api/drugs.php'); ?>?action=delete&id=' + medicineToDeleteId, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    ModalSystem.toast.success(data.message || 'Medicine removed from inventory successfully.');
+                    ModalSystem.close('deleteMedicineModal');
+                    
+                    inventoryItems = inventoryItems.filter(i => parseInt(i.id) !== parseInt(medicineToDeleteId));
+                    drugs = drugs.filter(i => parseInt(i.id) !== parseInt(medicineToDeleteId));
+                    
+                    populateDrugSelect();
+                    populateInventoryFilters();
+                    filterInventory();
+                    updateInventoryStats();
+                } else {
+                    ModalSystem.toast.error(data.message || 'Failed to delete medicine');
+                }
+            } catch (err) {
+                console.error('Delete error:', err);
+                ModalSystem.toast.error('Failed to delete medicine from inventory.');
+            } finally {
+                medicineToDeleteId = null;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-trash-can text-xs"></i> Delete Medicine';
+                }
+            }
         }
 
         // ============================================================

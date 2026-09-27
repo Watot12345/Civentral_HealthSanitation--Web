@@ -3,6 +3,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+date_default_timezone_set('Asia/Manila');
+
 require_once __DIR__ . '/../Core/Env.php';
 require_once __DIR__ . '/../config/paths.php';
 require_once __DIR__ . '/../config/database.php';
@@ -120,7 +122,7 @@ if ($isAdmin) {
 <!-- ADD FONT AWESOME CDN (If not already in header.php) -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
-<link rel="stylesheet" href="../assets/css/pages/custom_report.css" />
+<link rel="stylesheet" href="../assets/css/pages/custom_report.css?v=<?= time() ?>" />
 <main class="bg-white flex-1 h-full flex flex-col overflow-hidden relative" role="main">
     <div class="flex-1 overflow-y-auto scrollbar-track-transparent p-5">
 

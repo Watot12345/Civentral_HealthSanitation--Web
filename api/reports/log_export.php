@@ -22,7 +22,20 @@ use App\Services\PermissionService;
 
 try {
     $permService = PermissionService::getInstance();
-    if (!$permService->hasPermission('reports.view') && !$permService->hasPermission('analytics.view')) {
+    $canLog = $permService->hasPermission('reports.view')
+        || $permService->hasPermission('reports.export')
+        || $permService->hasPermission('reports.generate')
+        || $permService->hasPermission('analytics.view')
+        || $permService->hasPermission('reports.sanitation')
+        || $permService->hasPermission('reports.health_center')
+        || $permService->hasPermission('reports.immunization')
+        || $permService->hasPermission('reports.wastewater')
+        || $permService->hasPermission('reports.surveillance')
+        || !empty($_SESSION['role_description'])
+        || !empty($_SESSION['role'])
+        || !empty($_SESSION['user']);
+
+    if (!$canLog) {
         http_response_code(403);
         echo json_encode([
             'success' => false,

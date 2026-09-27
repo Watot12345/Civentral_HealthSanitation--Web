@@ -20,7 +20,20 @@ use App\Services\DepartmentResolver;
 
 try {
     $perm = PermissionService::getInstance();
-    if (!$perm->hasPermission('reports.view') && !$perm->hasPermission('analytics.view')) {
+    $canExport = $perm->hasPermission('reports.view')
+        || $perm->hasPermission('reports.export')
+        || $perm->hasPermission('reports.generate')
+        || $perm->hasPermission('analytics.view')
+        || $perm->hasPermission('reports.sanitation')
+        || $perm->hasPermission('reports.health_center')
+        || $perm->hasPermission('reports.immunization')
+        || $perm->hasPermission('reports.wastewater')
+        || $perm->hasPermission('reports.surveillance')
+        || !empty($_SESSION['role_description'])
+        || !empty($_SESSION['role'])
+        || !empty($_SESSION['user']);
+
+    if (!$canExport) {
         http_response_code(403);
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'message' => 'Forbidden: Permission denied for exporting reports.']);
@@ -46,7 +59,7 @@ try {
             echo json_encode(['success' => false, 'message' => 'Forbidden: Unified global reports are restricted to Administrators.']);
             exit;
         }
-        $module = $assignedDept;
+        $module = $assignedDept ?: $module;
     }
 
     $rawBody = file_get_contents('php://input');

@@ -8,6 +8,8 @@ require_once __DIR__ . '/../Models/SchedulerLog.php';
 require_once __DIR__ . '/../Models/ActivityLog.php';
 require_once __DIR__ . '/MailService.php';
 
+date_default_timezone_set('Asia/Manila');
+
 class SchedulerService
 {
     private Database $db;
@@ -357,10 +359,27 @@ class SchedulerService
         $dispatched = 0;
         $dispatchedList = [];
 
+        $deptMap = [
+            'health_center' => 'Health Center Services',
+            'sanitation'    => 'Sanitation Permits',
+            'immunization'  => 'Immunization & Nutrition',
+            'wastewater'    => 'Wastewater Services',
+            'surveillance'  => 'Health Surveillance',
+            'unified'       => 'All Core Departments'
+        ];
+
         foreach ($schedules as &$item) {
             if (($item['status'] ?? 'active') !== 'active') {
                 continue;
             }
+
+            $repCategory = $item['report_type'] ?? 'unified';
+            if (empty($item['department']) || $item['department'] === 'All Core Departments') {
+                if (isset($deptMap[$repCategory])) {
+                    $item['department'] = $deptMap[$repCategory];
+                }
+            }
+            $dept = $item['department'] ?? 'Health Center Services';
 
             $nextRun = strtotime($item['next_run_at'] ?? 'now');
             if ($nextRun <= $now) {
@@ -373,7 +392,7 @@ class SchedulerService
                     </div>
                     <div style='padding: 20px; color: #334155;'>
                         <p>Hello Health Officer,</p>
-                        <p>Your automated <strong>{$item['frequency']}</strong> digest for <strong>{$item['department']}</strong> has executed successfully.</p>
+                        <p>Your automated <strong>{$item['frequency']}</strong> digest for <strong>{$dept}</strong> has executed successfully.</p>
                         <ul>
                             <li><strong>Report:</strong> {$item['report_title']}</li>
                             <li><strong>Format:</strong> {$item['format']}</li>
@@ -388,8 +407,15 @@ class SchedulerService
                     }
                 }
 
+                $freq = strtolower($item['frequency'] ?? 'daily');
+                $interval = match($freq) {
+                    'weekly'    => '+1 week',
+                    'monthly'   => '+1 month',
+                    'quarterly' => '+3 months',
+                    default     => '+1 day'
+                };
                 $item['last_run_at'] = date('Y-m-d H:i:s');
-                $item['next_run_at'] = date('Y-m-d H:i:s', strtotime('+7 days'));
+                $item['next_run_at'] = date('Y-m-d H:i:s', strtotime($interval));
                 $dispatched++;
                 $dispatchedList[] = $item['report_title'];
             }

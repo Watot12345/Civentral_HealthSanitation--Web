@@ -9,15 +9,28 @@ class GroqAiService
     private string $model;
     private string $baseUrl = 'https://api.groq.com/openai/v1/chat/completions';
     private string $cacheDir;
-    private int $ttlSeconds = 18000; // 5 Hours Rate Limit Window
-    private int $maxCallsPerWindow = 10; // Max 10 calls per 5 hours
+    private int $ttlSeconds = 3600; // 1 Hour Rate Limit Window default
+    private int $maxCallsPerWindow = 60; // Max 60 calls per window default
 
     public function __construct()
     {
         Env::load();
         $this->apiKey = Env::get('GROQ_API_KEY') ?: (getenv('GROQ_API_KEY') ?: ($_ENV['GROQ_API_KEY'] ?? null));
+        if ($this->apiKey) {
+            $this->apiKey = trim($this->apiKey);
+        }
         $model = Env::get('GROQ_MODEL');
         $this->model = !empty($model) ? $model : 'qwen/qwen3.8-27b';
+
+        $ttl = Env::get('GROQ_WINDOW_SECONDS');
+        if (!empty($ttl) && is_numeric($ttl)) {
+            $this->ttlSeconds = (int)$ttl;
+        }
+
+        $maxCalls = Env::get('GROQ_MAX_CALLS');
+        if (!empty($maxCalls) && is_numeric($maxCalls)) {
+            $this->maxCallsPerWindow = (int)$maxCalls;
+        }
 
         $this->cacheDir = __DIR__ . '/../../storage/cache';
         if (!is_dir($this->cacheDir)) {
@@ -186,13 +199,13 @@ class GroqAiService
                     return array_merge($cached['data'], [
                         'cached' => true,
                         'rate_limited' => true,
-                        'message' => 'AI is rate limited (10 requests per 5 hours). Showing cached data.'
+                        'message' => "AI is rate limited ({$this->maxCallsPerWindow} requests per window). Showing cached data."
                     ]);
                 }
             }
             return array_merge($fallback, [
                 'rate_limited' => $rateLimited,
-                'message' => $rateLimited ? 'AI is rate limited (10 requests per 5 hours). Showing fallback data.' : ''
+                'message' => $rateLimited ? "AI is rate limited ({$this->maxCallsPerWindow} requests per window). Showing fallback data." : ''
             ]);
         }
 
@@ -236,14 +249,13 @@ class GroqAiService
                     $aiData = json_decode($jsonStr, true);
 
                     if (is_array($aiData) && !empty($aiData['executive_summary'])) {
-                        $this->recordApiCall();
                         $finalData = array_merge($fallback, $aiData, [
                             'ai_generated' => true,
                             'model_used'   => $apiResult['model_used']
                         ]);
                         $cachePayload = [
                             'created_at' => time(),
-                            'expires_at' => time() + 300,
+                            'expires_at' => time() + 1800, // 30 mins cache
                             'data'       => $finalData
                         ];
                         @file_put_contents($cacheFile, json_encode($cachePayload, JSON_PRETTY_PRINT));

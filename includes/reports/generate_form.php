@@ -52,9 +52,9 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-3">
-                            <input type="date" id="startDate" value="<?= date('Y-m-d', strtotime('-90 days')) ?>" class="w-full rounded-xl px-4 py-2.5 text-sm border border-[#B4D4FF]/50 outline-none focus:border-[#176B87]" onchange="refreshUI()" />
+                            <input type="date" id="startDate" value="<?= date('Y-m-d', strtotime('-30 days')) ?>" class="w-full rounded-xl px-4 py-2.5 text-sm border border-[#B4D4FF]/50 outline-none focus:border-[#176B87]" onchange="refreshUI()" />
                             <span class="text-slate-400 text-sm flex-shrink-0">to</span>
-                            <input type="date" id="endDate" value="<?= date('Y-m-d', strtotime('+30 days')) ?>" class="w-full rounded-xl px-4 py-2.5 text-sm border border-[#B4D4FF]/50 outline-none focus:border-[#176B87]" onchange="refreshUI()" />
+                            <input type="date" id="endDate" value="<?= date('Y-m-d') ?>" class="w-full rounded-xl px-4 py-2.5 text-sm border border-[#B4D4FF]/50 outline-none focus:border-[#176B87]" onchange="refreshUI()" />
                         </div>
                     </div>
 
@@ -140,157 +140,199 @@
             <h2 id="printReportSubtitle">Custom Executive Report</h2>
         </div>
 
-        <!-- ─── REPORT PREVIEW CARD ─── -->
-        <!-- ─── REPORT PREVIEW MODAL ─── -->
-        <div id="reportPreview" class="fixed inset-0 z-[110] flex items-center justify-center hidden" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); opacity: 0; transition: opacity 0.3s ease;">
-            <div class="modal-content w-[95%] max-w-6xl max-h-[90vh] overflow-y-auto bg-white rounded-3xl shadow-2xl relative p-4 sm:p-6">
-                <div class="sticky top-0 right-0 z-[120] flex justify-end gap-2 mb-4 bg-white/80 backdrop-blur-md p-2 rounded-2xl">
-                    <button onclick="triggerSelectedDownload()" class="h-10 px-6 rounded-xl bg-gradient-to-r from-[#176B87] to-[#0F4A5E] text-white text-sm font-bold hover:opacity-90 transition shadow-md inline-flex items-center gap-2">
-                        <i class="fa-solid fa-download"></i> Continue Download
-                    </button>
-                    <button onclick="closeReportPreviewModal()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-600 transition">
-                        <i class="fa-solid fa-times text-lg"></i>
-                    </button>
-                </div>
-                <div class="report-card rounded-3xl overflow-hidden relative">
+        <!-- ─── REPORT GENERATING LOADING OVERLAY ─── -->
+        <div id="reportGeneratingLoader" class="fixed inset-0 z-[150] flex items-center justify-center hidden opacity-0 transition-all duration-300" style="background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px);">
+            <div class="bg-white rounded-3xl p-8 max-w-md w-[90%] mx-4 shadow-2xl border border-[#B4D4FF]/40 text-center relative overflow-hidden flex flex-col items-center">
+                <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-[#B4D4FF]/30 blur-2xl pointer-events-none"></div>
+                <div class="absolute -bottom-12 -left-12 w-36 h-36 rounded-full bg-[#86B6F6]/20 blur-2xl pointer-events-none"></div>
 
-                <div class="mb-6 pb-4 border-b border-slate-200 flex items-center justify-between" id="previewHeader">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                            <i class="fa-solid fa-file-invoice text-[#176B87] text-xl"></i>
+                <div class="relative w-20 h-20 mb-5 flex items-center justify-center">
+                    <div class="absolute inset-0 rounded-full border-4 border-[#B4D4FF]/30 border-t-[#176B87] animate-spin"></div>
+                    <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-[#176B87] to-[#0F4A5E] text-white flex items-center justify-center shadow-lg shadow-[#176B87]/30">
+                        <i id="loaderDynamicIcon" class="fa-solid fa-wand-magic-sparkles text-xl animate-pulse"></i>
+                    </div>
+                </div>
+
+                <h3 class="text-lg font-bold text-slate-800 mb-1">Generating Live Report</h3>
+                <p id="loaderDynamicStep" class="text-xs text-slate-500 mb-5 min-h-[32px] flex items-center justify-center px-2 leading-relaxed">
+                    Querying departmental records and live transactions...
+                </p>
+
+                <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-200/60 mb-2">
+                    <div id="loaderProgressBar" class="h-full bg-gradient-to-r from-[#176B87] via-[#86B6F6] to-[#176B87] rounded-full transition-all duration-500 ease-out" style="width: 25%;"></div>
+                </div>
+                <div class="w-full flex justify-between items-center text-[10px] font-semibold text-slate-400">
+                    <span>Compiling Analytics</span>
+                    <span id="loaderProgressText">25%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── REPORT PREVIEW MODAL ─── -->
+        <div id="reportPreview" class="fixed inset-0 z-[110] flex items-center justify-center modal-overlay hidden opacity-0 transition-all duration-300" onclick="if(event.target===this) closeReportPreviewModal()">
+            <div class="modal-content w-[96%] max-w-6xl max-h-[92vh] overflow-hidden flex flex-col bg-slate-50 rounded-3xl shadow-2xl relative border border-[#B4D4FF]/40">
+                
+                <!-- Unified Sleek Header Bar -->
+                <div class="px-6 py-4 bg-white border-b border-[#B4D4FF]/30 flex flex-wrap items-center justify-between gap-3 flex-shrink-0 z-20" id="previewHeader">
+                    <div class="flex items-center gap-3.5">
+                        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#176B87]/15 to-[#86B6F6]/30 flex items-center justify-center text-[#176B87] shadow-xs flex-shrink-0">
+                            <i class="fa-solid fa-file-waveform text-xl"></i>
                         </div>
                         <div>
-                            <h2 id="reportHeaderTitle" class="text-xl font-bold text-slate-800">Reports</h2>
-                            <p class="text-xs text-slate-500">Generated on: <span id="reportDateText"></span></p>
+                            <div class="flex items-center gap-2">
+                                <h2 id="reportHeaderTitle" class="text-lg sm:text-xl font-bold text-slate-800 tracking-tight">Executive Report Preview</h2>
+                                <span id="previewFormatBadge" class="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#176B87]/10 text-[#176B87] border border-[#176B87]/20">
+                                    <i class="fa-solid fa-file-pdf text-red-500"></i> PDF Mode
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-2 mt-0.5 text-xs text-slate-400">
+                                <span>Generated: <strong id="reportDateText" class="text-slate-600 font-medium"></strong></span>
+                                <span>&bull;</span>
+                                <span class="inline-flex items-center gap-1 text-emerald-600 font-medium text-[11px]">
+                                    <i class="fa-solid fa-circle-check text-[9px]"></i> Live Data Synced
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-            <div class="card-shape card-shape-4"></div>
-            <div class="dot-pattern absolute inset-0"></div>
-
-            <div class="relative z-10">
-                <!-- actions -->
-                <div id="reportTabsBar" class="hidden">
-                    <div class="flex gap-1" id="reportTabs">
-                        <button onclick="switchTab('chart')" class="report-tab active px-4 py-2 text-sm font-semibold text-[#176B87] border-b-2 border-[#176B87] hover:bg-slate-50 transition" data-tab="chart">Chart View</button>
-                        <button onclick="switchTab('summary')" class="report-tab px-4 py-2 text-sm font-medium text-slate-500 border-b-2 border-transparent hover:bg-slate-50 transition" data-tab="summary">AI Summary</button>
-                    </div>
-                    <div id="reportExportActions" class="flex items-center gap-2 pb-2">
-                        <?php if ($canExport): ?>
-                        <button onclick="exportPDF()" class="w-8 h-8 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm inline-flex items-center justify-center" title="Export PDF"><i class="fa-solid fa-file-pdf"></i></button>
-                        <button onclick="exportWord()" class="w-8 h-8 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm inline-flex items-center justify-center" title="Export Word"><i class="fa-solid fa-file-word"></i></button>
-                        <?php endif; ?>
-                        <button onclick="printCustomReport()" class="w-8 h-8 rounded-lg hover:bg-[#B4D4FF]/30 text-slate-400 hover:text-[#176B87] transition text-sm inline-flex items-center justify-center" title="Print"><i class="fa-solid fa-print"></i></button>
-                        <button onclick="openScheduleModal()" class="ml-1 h-8 px-3 rounded-lg bg-[#B4D4FF]/30 text-[#176B87] text-xs font-medium hover:bg-[#86B6F6]/40 transition inline-flex items-center gap-1.5">
-                            <i class="fa-solid fa-clock"></i> Schedule
+                    <!-- Header Action Buttons -->
+                    <div class="flex items-center gap-2">
+                        <button onclick="printCustomReport()" class="h-10 px-3.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition inline-flex items-center gap-1.5" title="Print Report">
+                            <i class="fa-solid fa-print text-sm"></i> <span class="hidden md:inline">Print</span>
                         </button>
-                        <button onclick="triggerSelectedDownload()" class="ml-2 h-8 px-4 rounded-lg bg-gradient-to-r from-[#176B87] to-[#0F4A5E] text-white text-xs font-bold hover:opacity-90 transition shadow-md inline-flex items-center gap-1.5">
-                            <i class="fa-solid fa-download"></i> Download Report
+                        <button onclick="triggerSelectedDownload()" class="btn-primary h-10 px-5 rounded-xl text-white text-xs font-bold shadow-md hover:shadow-lg transition inline-flex items-center gap-2">
+                            <i class="fa-solid fa-download"></i> Continue Download
+                        </button>
+                        <button onclick="closeReportPreviewModal()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition ml-1" title="Close Preview">
+                            <i class="fa-solid fa-xmark text-lg"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- status & date filters -->
-                <div class="hidden">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <span class="text-xs font-medium text-slate-500">Filter Status:</span>
-                        <div class="flex flex-wrap gap-1.5" id="statusChips">
-                            <span class="filter-chip active px-3 py-1 rounded-full text-xs font-medium border border-slate-200 cursor-pointer hover:bg-slate-100 transition" data-status="all">All</span>
-                            <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium border border-slate-200 cursor-pointer hover:bg-slate-100 transition" data-status="Compliant">Compliant</span>
-                            <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium border border-slate-200 cursor-pointer hover:bg-slate-100 transition" data-status="Non-Compliant">Non-Compliant</span>
-                            <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium border border-slate-200 cursor-pointer hover:bg-slate-100 transition" data-status="Pending">Pending</span>
-                            <span class="filter-chip px-3 py-1 rounded-full text-xs font-medium border border-slate-200 cursor-pointer hover:bg-slate-100 transition" data-status="Urgent">Urgent</span>
+                <!-- Scrollable Body Content -->
+                <div class="p-5 sm:p-6 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+                    
+                    <!-- 1. Visual Graphs Grid -->
+                    <div id="tabChart" class="tab-content">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                            
+                            <!-- Left: Operational Distribution (2 cols) -->
+                            <div class="lg:col-span-2 bg-white rounded-2xl p-5 border border-[#B4D4FF]/30 shadow-xs relative overflow-hidden flex flex-col">
+                                <div class="flex items-center justify-between mb-3 flex-shrink-0">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-2 h-4 rounded-full bg-[#176B87]"></div>
+                                        <h4 id="chartBarTitle" class="text-sm font-bold text-slate-800">Operational Distribution</h4>
+                                    </div>
+                                    <span id="chartBarDate" class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full border border-slate-200"></span>
+                                </div>
+                                <div class="chart-container h-64 sm:h-72 w-full relative">
+                                    <canvas id="barChart"></canvas>
+                                </div>
+                            </div>
+
+                            <!-- Right: Doughnut & Trend (1 col) -->
+                            <div class="space-y-4 flex flex-col">
+                                <!-- Overall Status Doughnut -->
+                                <div class="bg-white rounded-2xl p-4 sm:p-5 border border-[#B4D4FF]/30 shadow-xs relative overflow-hidden flex-1 flex flex-col">
+                                    <div class="flex items-center gap-2 mb-2 flex-shrink-0">
+                                        <div class="w-2 h-4 rounded-full bg-emerald-500"></div>
+                                        <h4 class="text-sm font-bold text-slate-800">Overall Status</h4>
+                                    </div>
+                                    <div class="chart-container h-48 sm:h-52 w-full relative flex items-center justify-center">
+                                        <canvas id="doughnutChart"></canvas>
+                                    </div>
+                                </div>
+
+                                <!-- Trend Line -->
+                                <div class="bg-white rounded-2xl p-4 border border-[#B4D4FF]/30 shadow-xs relative overflow-hidden flex-shrink-0">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <div class="w-2 h-4 rounded-full bg-blue-500"></div>
+                                        <h4 class="text-xs font-bold text-slate-700">Trend (last 6 mo)</h4>
+                                    </div>
+                                    <div class="chart-container h-24 w-full relative">
+                                        <canvas id="lineChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- tab content -->
-                <div class="p-5 sm:p-7">
-                    <!-- Summary View -->
-                    <div id="tabChart" class="tab-content mb-8">
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div class="lg:col-span-2 bg-white/40 backdrop-blur-sm rounded-xl p-4 border border-[#B4D4FF]/20 relative overflow-hidden">
-                                <div class="relative z-10">
+                    <!-- 2. AI Executive Summary & Performance Metrics Grid -->
+                    <div id="tabSummary" class="tab-content">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                            
+                            <!-- Left: Executive Summary Narrative & Actionable Recommendations -->
+                            <div class="bg-white rounded-2xl p-5 border border-[#B4D4FF]/30 shadow-xs flex flex-col justify-between">
+                                <div>
                                     <div class="flex items-center justify-between mb-3">
-                                        <h4 id="chartBarTitle" class="text-sm font-semibold text-[#176B87]">Sanitation Compliance by Facility</h4>
-                                        <span id="chartBarDate" class="text-[10px] text-slate-400 bg-white/50 px-2 py-0.5 rounded-full border border-[#B4D4FF]/20"></span>
+                                        <h4 class="text-xs font-bold uppercase tracking-wider text-[#176B87] flex items-center gap-1.5">
+                                            <i class="fa-solid fa-brain text-sm"></i> Executive Summary Narrative
+                                        </h4>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
+                                            AI Analyzed
+                                        </span>
                                     </div>
-                                    <div class="chart-container h-64">
-                                        <canvas id="barChart"></canvas>
+                                    
+                                    <div class="p-4 bg-slate-50/90 rounded-2xl border-l-4 border-l-[#176B87] border border-slate-200/80 text-xs text-slate-700 leading-relaxed" id="summaryText">
+                                        <p class="text-slate-400 italic">Synthesizing executive overview...</p>
                                     </div>
+                                    <div class="mt-3 flex flex-wrap gap-1.5" id="summaryTags"></div>
                                 </div>
-                            </div>
-                            <div class="space-y-5">
-                                <div class="bg-white/40 backdrop-blur-sm rounded-xl p-4 border border-[#B4D4FF]/20 relative overflow-hidden">
-                                    <div class="relative z-10">
-                                        <h4 class="text-sm font-semibold text-[#176B87] mb-2">Overall Status</h4>
-                                        <div class="chart-container h-36">
-                                            <canvas id="doughnutChart"></canvas>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="bg-white/40 backdrop-blur-sm rounded-xl p-4 border border-[#B4D4FF]/20 relative overflow-hidden">
-                                    <div class="relative z-10">
-                                        <h4 class="text-sm font-semibold text-[#176B87] mb-1">Trend (last 6 mo)</h4>
-                                        <div class="chart-container h-20">
-                                            <canvas id="lineChart"></canvas>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Table View -->
-                    <div id="tabSummary" class="tab-content mb-8">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                                    Executive Summary Narrative
-                                </h4>
-                                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 text-xs text-slate-700 leading-relaxed shadow-xs" id="summaryText">
-                                    <p>Loading dynamic report executive summary...</p>
-                                </div>
-                                <div class="mt-3 flex flex-wrap gap-2" id="summaryTags"></div>
-
-                                <div class="mt-4 pt-3 border-t border-slate-200/80">
-                                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                                        Actionable Recommendations
+                                <div class="mt-5 pt-4 border-t border-slate-100">
+                                    <h4 class="text-xs font-bold uppercase tracking-wider text-[#176B87] flex items-center gap-1.5 mb-2.5">
+                                        <i class="fa-solid fa-list-check text-sm"></i> Actionable Recommendations
                                     </h4>
-                                    <ul class="space-y-1.5 text-xs text-slate-600 list-disc list-inside" id="aiRecommendationsList">
-                                        <li>Reallocate response staff to high-density zones.</li>
-                                        <li>Conduct weekly supervisory audit reviews.</li>
+                                    <ul class="space-y-2 text-xs text-slate-600" id="aiRecommendationsList">
+                                        <li class="flex items-start gap-2">
+                                            <i class="fa-solid fa-circle-check text-emerald-500 mt-0.5 text-xs flex-shrink-0"></i>
+                                            <span>Reallocate response staff to high-density zones.</span>
+                                        </li>
                                     </ul>
                                 </div>
                             </div>
 
-                            <div>
-                                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                                    Department Performance Metrics
-                                </h4>
-                                <div class="space-y-2 p-4 bg-slate-50 rounded-2xl border border-slate-200/80 mb-4 text-xs text-slate-700" id="summaryMetrics">
-                                    <p><strong id="labelMetric1">Success/Compliance Rate:</strong> <span id="metricCompliance">0%</span></p>
-                                    <p><strong id="labelMetric2">Encounter/Inspection Coverage:</strong> <span id="metricCoverage">0%</span></p>
-                                    <p><strong id="labelMetric3">Issue Resolution Rate:</strong> <span id="metricResolution">0%</span></p>
-                                    <p><strong id="labelMetric4">Department Operational Index:</strong> <span id="metricParticipation">0%</span></p>
+                            <!-- Right: Department Performance Metrics & Key AI Findings -->
+                            <div class="bg-white rounded-2xl p-5 border border-[#B4D4FF]/30 shadow-xs flex flex-col justify-between">
+                                <div>
+                                    <h4 class="text-xs font-bold uppercase tracking-wider text-[#176B87] flex items-center gap-1.5 mb-3">
+                                        <i class="fa-solid fa-chart-pie text-sm"></i> Department Performance Metrics
+                                    </h4>
+                                    <div class="grid grid-cols-2 gap-3 mb-5" id="summaryMetrics">
+                                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                            <span class="text-[10px] font-semibold text-slate-500 uppercase block mb-1" id="labelMetric1">Compliance / Approval Rate</span>
+                                            <span id="metricCompliance" class="text-base font-bold text-emerald-600">0%</span>
+                                        </div>
+                                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                            <span class="text-[10px] font-semibold text-slate-500 uppercase block mb-1" id="labelMetric2">Encounter / Coverage</span>
+                                            <span id="metricCoverage" class="text-base font-bold text-[#176B87]">0%</span>
+                                        </div>
+                                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                            <span class="text-[10px] font-semibold text-slate-500 uppercase block mb-1" id="labelMetric3">Resolution Rate</span>
+                                            <span id="metricResolution" class="text-base font-bold text-amber-600">0%</span>
+                                        </div>
+                                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                            <span class="text-[10px] font-semibold text-slate-500 uppercase block mb-1" id="labelMetric4">Operational Index</span>
+                                            <span id="metricParticipation" class="text-base font-bold text-indigo-600">0%</span>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                                    Key AI Findings
-                                </h4>
-                                <div class="space-y-2 text-xs" id="aiKeyFindings">
-                                    <div class="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-100 text-indigo-900 font-semibold">
-                                        Department compliance efficiency evaluated across all active records.
+                                <div class="pt-4 border-t border-slate-100">
+                                    <h4 class="text-xs font-bold uppercase tracking-wider text-[#176B87] flex items-center gap-1.5 mb-2.5">
+                                        <i class="fa-solid fa-wand-magic-sparkles text-amber-500 text-sm"></i> Key AI Findings
+                                    </h4>
+                                    <div class="space-y-2 text-xs" id="aiKeyFindings">
+                                        <div class="p-2.5 bg-indigo-50/70 rounded-xl border border-indigo-100 text-indigo-950 font-semibold text-xs">
+                                            Department compliance efficiency evaluated across all active records.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- End Summary View -->
-                </div> <!-- end relative z-10 -->
-            </div> <!-- end report-card -->
-        </div> <!-- end modal-content -->
-    </div> <!-- end reportPreview -->
+                </div> <!-- end scrollable body -->
+            </div> <!-- end modal-content -->
+        </div> <!-- end reportPreview -->
 </div> <!-- end section-generate -->

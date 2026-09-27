@@ -53,7 +53,9 @@
     gap: 12px;
     pointer-events: none;
     max-width: 400px;
-    width: 100%;
+    width: calc(100% - 48px);
+    max-height: calc(100vh - 48px);
+    overflow: hidden;
 }
 
 /* Base Toast */
@@ -169,37 +171,24 @@
 <script>
 /**
  * toast - Production Notification System
- *
- * REAL-WORLD USAGE EXAMPLES:
- *
- *   toast.success('Profile updated successfully!', { duration: 4000 });
- *   toast.error('Connection lost. Retrying...', { duration: 8000 });
- *   toast.info('Your report is ready for download.', { duration: 5000 });
- *   toast.warning('Session expires in 5 minutes.', { duration: 10000 });
- *
- *   // With title:
- *   toast.success('Payment received!', {
- *       title: 'Transaction Complete',
- *       duration: 5000
- *   });
- *
- *   // Silent (no animation, for background events):
- *   toast.info('Background sync complete.', { silent: true });
- *
- * @param {string} message  - Main toast message text
- * @param {object} options  - { title, type, duration, silent }
+ * Includes Max Active Toast Capping (Max 3) & Deduplication to prevent viewport overflow
  */
-const toast = (function() {
-    const container = document.getElementById('toastContainer');
-
-    // Ensure container exists
-    if (!container) {
-        console.warn('toast: #toastContainer not found in DOM');
-        return;
-    }
-
-    // Toast counter for unique IDs
+window.toast = (function() {
     let counter = 0;
+    const MAX_VISIBLE_TOASTS = 3;
+
+    function getContainer() {
+        let container = document.getElementById('toastContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toastContainer';
+            container.setAttribute('role', 'region');
+            container.setAttribute('aria-label', 'Notifications');
+            container.setAttribute('aria-live', 'polite');
+            document.body.appendChild(container);
+        }
+        return container;
+    }
 
     /**
      * Internal method to create and show a toast
@@ -212,26 +201,73 @@ const toast = (function() {
             silent = false
         } = options;
 
+        const container = getContainer();
+
+        // 1. DEDUPLICATION: Check if identical message + title is already active
+        const activeToasts = container.querySelectorAll('.toast:not(.hiding)');
+        for (let i = 0; i < activeToasts.length; i++) {
+            const tEl = activeToasts[i];
+            const msgEl = tEl.querySelector('.toast-message');
+            const titleEl = tEl.querySelector('.toast-title');
+            const existingMsg = msgEl ? msgEl.textContent.trim() : '';
+            const existingTitle = titleEl ? titleEl.textContent.trim() : '';
+
+            if (existingMsg === String(message).trim() && existingTitle === String(title).trim()) {
+                // Refresh existing toast progress bar & duration timer
+                const progFill = tEl.querySelector('.toast-progress-fill');
+                if (progFill) {
+                    progFill.style.transition = 'none';
+                    progFill.style.transform = 'translateX(0)';
+                    requestAnimationFrame(function() {
+                        progFill.style.transition = 'transform ' + duration + 'ms linear';
+                        progFill.style.transform = 'translateX(-100%)';
+                    });
+                }
+                if (tEl._timeouts) {
+                    tEl._timeouts.forEach(clearTimeout);
+                    tEl._timeouts = [];
+                }
+                if (duration > 0) {
+                    const newTimeout = setTimeout(function() {
+                        dismissToast(tEl.id);
+                    }, duration);
+                    tEl._timeouts.push(newTimeout);
+                }
+                return tEl.id;
+            }
+        }
+
+        // 2. CAP MAX TOASTS: Dismiss oldest toast if active count exceeds MAX_VISIBLE_TOASTS
+        if (activeToasts.length >= MAX_VISIBLE_TOASTS) {
+            const oldest = activeToasts[0];
+            if (oldest && oldest.id) {
+                dismissToast(oldest.id);
+            }
+        }
+
         const id = 'toast-' + (++counter);
 
         // Map type to icon
         const icons = {
             success: 'fa-check',
             error:   'fa-exclamation',
+            danger:  'fa-exclamation',
             info:    'fa-info',
             warning: 'fa-exclamation-triangle'
         };
 
+        const resolvedType = (type === 'danger') ? 'error' : type;
+
         // Build the toast element with accessibility semantics
         const toastEl = document.createElement('div');
-        toastEl.className = 'toast ' + type;
+        toastEl.className = 'toast ' + resolvedType;
         toastEl.id = id;
-        toastEl.setAttribute('role', type === 'error' ? 'alert' : 'status');
-        toastEl.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
+        toastEl.setAttribute('role', resolvedType === 'error' ? 'alert' : 'status');
+        toastEl.setAttribute('aria-live', resolvedType === 'error' ? 'assertive' : 'polite');
         toastEl.setAttribute('aria-atomic', 'true');
         toastEl.innerHTML =
             '<div class="toast-icon">' +
-                '<i class="fas ' + (icons[type] || icons.info) + '" aria-hidden="true"></i>' +
+                '<i class="fas ' + (icons[resolvedType] || icons.info) + '" aria-hidden="true"></i>' +
             '</div>' +
             '<div class="toast-body">' +
                 (title ? '<p class="toast-title">' + escapeHtml(title) + '</p>' : '') +
@@ -309,13 +345,14 @@ const toast = (function() {
             if (toastEl.parentNode) {
                 toastEl.parentNode.removeChild(toastEl);
             }
-        }, 400);
+        }, 350);
     }
 
     /**
      * Dismiss all visible toasts
      */
     function dismissAll() {
+        var container = getContainer();
         var toasts = container.querySelectorAll('.toast');
         for (var i = 0; i < toasts.length; i++) {
             var id = toasts[i].id;
@@ -345,6 +382,11 @@ const toast = (function() {
             opts.type = 'error';
             return createToast(msg, opts);
         },
+        danger: function(msg, opts) {
+            opts = opts || {};
+            opts.type = 'error';
+            return createToast(msg, opts);
+        },
         info: function(msg, opts) {
             opts = opts || {};
             opts.type = 'info';
@@ -359,4 +401,12 @@ const toast = (function() {
         dismissAll: dismissAll
     };
 })();
+
+// Global showToast hook to bridge legacy/global calls to window.toast
+window.showToast = function(message, type = 'info', title = '') {
+    const mappedType = (type === 'danger' || type === 'error') ? 'error' : (type === 'warning' ? 'warning' : (type === 'success' ? 'success' : 'info'));
+    if (typeof window.toast !== 'undefined' && window.toast[mappedType]) {
+        return window.toast[mappedType](message, { title: title || (type === 'warning' ? 'Warning' : (type === 'error' || type === 'danger' ? 'Error' : 'Notification')) });
+    }
+};
 </script>

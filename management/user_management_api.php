@@ -79,8 +79,7 @@ try {
             $allRoles = $roleModel->all();
             $matchedRoleId = null;
             foreach ($allRoles as $r) {
-                if (strcasecmp($r['name'], $roleDescription) === 0 || strcasecmp($r['name'], $role) === 0
-                    || ((strcasecmp($roleDescription, 'Admin') === 0 || strcasecmp($role, 'System Admin') === 0) && (int)$r['id'] === 1)) {
+                if (strcasecmp($r['name'], $roleDescription) === 0 || strcasecmp($r['name'], $role) === 0) {
                     $matchedRoleId = (int) $r['id'];
                     break;
                 }
@@ -204,17 +203,6 @@ try {
             }
 
             $userName = $user['full_name'] ?? "ID {$id}";
-            $currentStatus = trim($user['status'] ?? 'Active');
-            if (strcasecmp($currentStatus, 'Active') === 0) {
-                $response = ['success' => false, 'message' => "Cannot delete active user '{$userName}'. Active users cannot be deleted; please set their status to Inactive first."];
-                break;
-            }
-
-            if (strcasecmp($currentStatus, 'Inactive') !== 0) {
-                $response = ['success' => false, 'message' => "User '{$userName}' must be Inactive before deletion. Current status: {$currentStatus}."];
-                break;
-            }
-
             $employeeModel->deleteById($id);
 
             $logModel->log("Deleted user: {$userName} (ID: {$id})", [
@@ -505,7 +493,7 @@ try {
             break;
 
         // ==========================================================
-        // CLEAR LOGS — Delete all activity & scheduler logs
+        // CLEAR LOGS — Delete all activity logs
         // ==========================================================
         case 'clear_logs':
             if (!$isSystemAdmin) {
@@ -513,24 +501,7 @@ try {
                 break;
             }
             $logModel->clearAll();
-            require_once __DIR__ . '/../app/Models/SchedulerLog.php';
-            $schedulerModel = new SchedulerLog();
-            $schedulerModel->clearAll();
-            $response = ['success' => true, 'message' => 'Activity and scheduler logs cleared.'];
-            break;
-
-        // ==========================================================
-        // CLEAR SCHEDULER LOGS — Delete background job execution logs
-        // ==========================================================
-        case 'clear_scheduler_logs':
-            if (!$isSystemAdmin) {
-                $response = ['success' => false, 'message' => 'Access Denied: Only System Administrators can clear scheduler logs.'];
-                break;
-            }
-            require_once __DIR__ . '/../app/Models/SchedulerLog.php';
-            $schedulerModel = new SchedulerLog();
-            $schedulerModel->clearAll();
-            $response = ['success' => true, 'message' => 'Scheduler logs cleared successfully.'];
+            $response = ['success' => true, 'message' => 'Activity logs cleared.'];
             break;
 
         default:

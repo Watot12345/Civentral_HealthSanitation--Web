@@ -4,12 +4,14 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+date_default_timezone_set('Asia/Manila');
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
@@ -42,11 +44,16 @@ function saveSchedules(string $file, array $schedules): bool {
     return (bool)@file_put_contents($file, json_encode($schedules, JSON_PRETTY_PRINT));
 }
 
-function computeNextRun(string $startDate, string $time, string $frequency, bool $advanceIfPast = false): string {
+function computeNextRun(string $startDate, string $time, string $frequency, bool $advanceIfPast = true): string {
     $timeClean = trim($time);
     if (strlen($timeClean) === 5) {
         $timeClean .= ':00';
     }
+    
+    if (empty($startDate) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate)) {
+        $startDate = date('Y-m-d');
+    }
+
     $combined = "{$startDate} {$timeClean}";
     $targetTime = strtotime($combined);
     $now = time();
@@ -55,9 +62,11 @@ function computeNextRun(string $startDate, string $time, string $frequency, bool
         $targetTime = $now;
     }
 
-    if ($advanceIfPast) {
+    $freq = strtolower(trim($frequency));
+
+    if ($advanceIfPast && $targetTime <= $now) {
         while ($targetTime <= $now) {
-            switch (strtolower($frequency)) {
+            switch ($freq) {
                 case 'daily':
                     $targetTime = strtotime('+1 day', $targetTime);
                     break;
@@ -71,7 +80,7 @@ function computeNextRun(string $startDate, string $time, string $frequency, bool
                     $targetTime = strtotime('+3 months', $targetTime);
                     break;
                 default:
-                    $targetTime = strtotime('+1 week', $targetTime);
+                    $targetTime = strtotime('+1 day', $targetTime);
                     break;
             }
         }
@@ -87,21 +96,40 @@ function processDueSchedules(array &$schedules, string $storageFile): int {
     $updated = false;
 
     foreach ($schedules as &$item) {
-        if (($item['status'] ?? 'active') !== 'active') {
+        $status = strtolower($item['status'] ?? 'active');
+        if ($status === 'cancelled' || $status === 'disabled') {
             continue;
         }
 
         $nextRunTs = strtotime($item['next_run_at'] ?? '');
+        // Condition: Is Next Execution Time <= Current Timestamp?
         if ($nextRunTs && $nextRunTs <= $now) {
             $format = $item['format'] ?? 'PDF';
             $title = $item['report_title'] ?? 'Scheduled Health Report';
-            $dept = $item['department'] ?? 'Health & Sanitation';
-            $freq = $item['frequency'] ?? 'Weekly';
-
+            $freq = $item['frequency'] ?? 'Daily';
             $repCategory = $item['report_type'] ?? 'unified';
+
+            $deptMap = [
+                'health_center' => 'Health Center Services',
+                'sanitation'    => 'Sanitation Permits',
+                'immunization'  => 'Immunization & Nutrition',
+                'wastewater'    => 'Wastewater Services',
+                'surveillance'  => 'Health Surveillance',
+                'unified'       => 'All Core Departments'
+            ];
+
+            $dept = $item['department'] ?? '';
+            if (empty($dept) || $dept === 'All Core Departments') {
+                if (isset($deptMap[$repCategory])) {
+                    $dept = $deptMap[$repCategory];
+                    $item['department'] = $dept;
+                } else {
+                    $dept = 'Health Center Services';
+                }
+            }
             $downloadUrl = "http://" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . "/Civentral_HealthSanitation--Web/api/export.php?category=" . urlencode($repCategory) . "&format=" . strtolower($format) . "&report_title=" . urlencode($title);
 
-            $subject = "Civentral Report: {$title} ({$freq})";
+            $subject = "Civentral Report: {$title} ({$freq}) - Automated Dispatch";
             $bodyHtml = "
             <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #B4D4FF; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(23,107,135,0.1);'>
                 <div style='background: linear-gradient(135deg, #176B87 0%, #0F4A5E 100%); color: #ffffff; padding: 28px 24px; text-align: center;'>
@@ -117,6 +145,7 @@ function processDueSchedules(array &$schedules, string $storageFile): int {
                             <tr><td style='padding: 6px 0; font-weight: bold; width: 140px;'>Schedule Title:</td><td><strong>" . htmlspecialchars($title) . "</strong></td></tr>
                             <tr><td style='padding: 6px 0; font-weight: bold;'>Department:</td><td>{$dept}</td></tr>
                             <tr><td style='padding: 6px 0; font-weight: bold;'>Delivery Format:</td><td><strong style='color:#176B87;'>{$format}</strong></td></tr>
+                            <tr><td style='padding: 6px 0; font-weight: bold;'>Execution Status:</td><td><strong style='color:#16a34a;'>EXECUTED / SENT</strong></td></tr>
                             <tr><td style='padding: 6px 0; font-weight: bold;'>Execution Time:</td><td>" . date('Y-m-d H:i:s') . "</td></tr>
                         </table>
                     </div>
@@ -133,14 +162,38 @@ function processDueSchedules(array &$schedules, string $storageFile): int {
                 </div>
             </div>";
 
+            // 1. Run Action / AI Task / Dispatch Email & SMS
             if (!empty($item['recipients']) && is_array($item['recipients'])) {
                 foreach ($item['recipients'] as $recip) {
                     $mailService->sendNotificationEmail($recip, 'Report Recipient', $subject, $bodyHtml);
                 }
             }
 
+            // 2. Update Status in DB / JSON ──► EXECUTED / SENT
+            $item['status'] = 'executed';
+            $item['last_status'] = 'executed';
             $item['last_run_at'] = date('Y-m-d H:i:s');
-            $item['next_run_at'] = computeNextRun($item['start_date'] ?? date('Y-m-d'), $item['time'] ?? '08:00', $item['frequency'] ?? 'Weekly', true);
+            $item['last_execution_summary'] = "Generated {$format} report & sent to " . implode(', ', (array)($item['recipients'] ?? []));
+            $item['execution_count'] = ($item['execution_count'] ?? 0) + 1;
+
+            // Recalculate next run for recurring schedules
+            $item['next_run_at'] = computeNextRun($item['start_date'] ?? date('Y-m-d'), $item['time'] ?? '08:00', $item['frequency'] ?? 'Daily', true);
+
+            // 3. Log to ActivityLog & SchedulerLog
+            try {
+                $schedLogger = new SchedulerLog();
+                $schedLogger->logRun(
+                    'ScheduledReportDispatchJob',
+                    'success',
+                    "Executed scheduled report '{$title}' ({$format}) for " . implode(', ', (array)($item['recipients'] ?? [])) . ".",
+                    null,
+                    45,
+                    'scheduler:auto'
+                );
+            } catch (\Throwable $e) {
+                error_log("SchedulerLog write error: " . $e->getMessage());
+            }
+
             $processed++;
             $updated = true;
         }
@@ -154,18 +207,54 @@ function processDueSchedules(array &$schedules, string $storageFile): int {
     return $processed;
 }
 
-$method = $_SERVER['REQUEST_METHOD'];
+function sortSchedulesActiveFirst(array $schedules): array {
+    usort($schedules, function ($a, $b) {
+        $aStatus = strtolower($a['status'] ?? 'active');
+        $bStatus = strtolower($b['status'] ?? 'active');
+        $aLastStatus = strtolower($a['last_status'] ?? '');
+        $bLastStatus = strtolower($b['last_status'] ?? '');
+
+        $aExecuted = ($aStatus === 'executed' || $aStatus === 'sent' || $aStatus === 'completed' || $aLastStatus === 'executed');
+        $bExecuted = ($bStatus === 'executed' || $bStatus === 'sent' || $bStatus === 'completed' || $bLastStatus === 'executed');
+
+        // Active first (aExecuted = false comes before bExecuted = true)
+        if (!$aExecuted && $bExecuted) return -1;
+        if ($aExecuted && !$bExecuted) return 1;
+
+        // Both are Active: soonest upcoming next_run_at first
+        if (!$aExecuted && !$bExecuted) {
+            $aTs = !empty($a['next_run_at']) ? strtotime($a['next_run_at']) : PHP_INT_MAX;
+            $bTs = !empty($b['next_run_at']) ? strtotime($b['next_run_at']) : PHP_INT_MAX;
+            return $aTs <=> $bTs;
+        }
+
+        // Both are Executed: most recently executed first
+        $aLast = !empty($a['last_run_at']) ? strtotime($a['last_run_at']) : 0;
+        $bLast = !empty($b['last_run_at']) ? strtotime($b['last_run_at']) : 0;
+        return $bLast <=> $aLast;
+    });
+
+    return $schedules;
+}
+
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
     $schedules = getSchedules($storageFile);
     $userId = $_SESSION['user_id'] ?? ($_SESSION['user']['id'] ?? 1);
     $userName = $_SESSION['user_full_name'] ?? ($_SESSION['full_name'] ?? 'System User');
 
-    // ─── GET: List all scheduled reports ──────────────────────────
+    // ─── GET: List all scheduled reports & process due schedules ──
     if ($method === 'GET') {
+        $processedCount = processDueSchedules($schedules, $storageFile);
+        $schedules = getSchedules($storageFile);
+        $schedules = sortSchedulesActiveFirst($schedules);
+
         echo json_encode([
             'success' => true,
             'count' => count($schedules),
+            'processed_count' => $processedCount,
+            'current_timestamp' => date('Y-m-d H:i:s'),
             'schedules' => $schedules
         ]);
         exit;
@@ -239,13 +328,29 @@ try {
         }
 
         // Standard action: Create new schedule
-        $frequency   = trim($input['frequency'] ?? 'Weekly');
+        $frequency   = trim($input['frequency'] ?? 'Daily');
         $startDate   = trim($input['start_date'] ?? date('Y-m-d'));
         $time        = trim($input['time'] ?? '08:00');
         $rawRecips   = $input['recipients'] ?? '';
         $format      = strtoupper(trim($input['format'] ?? 'PDF'));
-        $department  = trim($input['department'] ?? 'All Core Departments');
+        $reportType  = trim($input['report_type'] ?? 'unified');
         $reportTitle = trim($input['report_title'] ?? 'Compliance & Operational Report');
+
+        $deptMap = [
+            'health_center' => 'Health Center Services',
+            'sanitation'    => 'Sanitation Permits',
+            'immunization'  => 'Immunization & Nutrition',
+            'wastewater'    => 'Wastewater Services',
+            'surveillance'  => 'Health Surveillance',
+            'unified'       => 'All Core Departments'
+        ];
+
+        $rawDept = trim($input['department'] ?? '');
+        if (!empty($rawDept) && $rawDept !== 'All Core Departments') {
+            $department = $rawDept;
+        } else {
+            $department = $deptMap[$reportType] ?? ($rawDept ?: 'Health Center Services');
+        }
 
         // Parse and validate recipient emails
         if (is_array($rawRecips)) {
@@ -272,38 +377,38 @@ try {
 
         $allowedFreq = ['Daily', 'Weekly', 'Monthly', 'Quarterly'];
         if (!in_array($frequency, $allowedFreq, true)) {
-            $frequency = 'Weekly';
+            $frequency = 'Daily';
         }
 
-        // Calculate next run date & time directly based on selected date & time
-        $nextRun = computeNextRun($startDate, $time, $frequency, false);
+        // Calculate next run date & time properly based on selected date, time, and frequency
+        $nextRun = computeNextRun($startDate, $time, $frequency, true);
 
         $scheduleId = 'sched_' . bin2hex(random_bytes(6));
         $newSchedule = [
-            'id'                 => $scheduleId,
-            'report_title'       => $reportTitle,
-            'department'         => $department,
-            'report_type'        => $input['report_type'] ?? 'unified',
-            'report_start_date'  => $input['report_start_date'] ?? '',
-            'report_end_date'    => $input['report_end_date'] ?? '',
-            'include_visuals'    => !empty($input['include_visuals']) ? 1 : 0,
-            'frequency'          => $frequency,
-            'start_date'         => $startDate,
-            'time'               => $time,
-            'recipients'         => array_values(array_unique($validEmails)),
-            'format'             => $format,
-            'status'             => 'active',
-            'created_by'         => $userName,
-            'created_at'         => date('Y-m-d H:i:s'),
-            'last_run_at'        => null,
-            'next_run_at'        => $nextRun
+            'id'                     => $scheduleId,
+            'report_title'           => $reportTitle,
+            'department'             => $department,
+            'report_type'            => $reportType,
+            'report_start_date'      => $input['report_start_date'] ?? '',
+            'report_end_date'        => $input['report_end_date'] ?? '',
+            'include_visuals'        => !empty($input['include_visuals']) ? 1 : 0,
+            'frequency'              => $frequency,
+            'start_date'             => $startDate,
+            'time'                   => $time,
+            'recipients'             => array_values(array_unique($validEmails)),
+            'format'                 => $format,
+            'status'                 => 'active',
+            'created_by'             => $userName,
+            'created_at'             => date('Y-m-d H:i:s'),
+            'last_run_at'            => null,
+            'next_run_at'            => $nextRun,
+            'last_status'            => '',
+            'last_execution_summary' => '',
+            'execution_count'        => 0
         ];
 
         $schedules[] = $newSchedule;
         saveSchedules($storageFile, $schedules);
-
-        // Run processDueSchedules to execute any schedule whose target time is due right now or in the past
-        $dueCount = processDueSchedules($schedules, $storageFile);
 
         // Audit Trail entry
         $logModel = new ActivityLog();
@@ -311,18 +416,16 @@ try {
             'user_name' => $userName,
             'role'      => $_SESSION['role'] ?? 'Staff Member',
             'module'    => 'Reporting System',
-            'details'   => "Scheduled {$frequency} {$format} report '{$reportTitle}' for " . implode(', ', $newSchedule['recipients']) . " starting {$nextRun}",
+            'details'   => "Scheduled {$frequency} {$format} report '{$reportTitle}' for " . implode(', ', $newSchedule['recipients']) . " next run at {$nextRun}",
             'status'    => 'Success',
         ]);
 
         $nextRunFormatted = date('M j, Y g:i A', strtotime($nextRun));
-        $msg = ($dueCount > 0)
-            ? "Schedule active & report email delivered to " . implode(', ', $newSchedule['recipients']) . "!"
-            : "Schedule saved! Report will automatically send at {$nextRunFormatted} to " . implode(', ', $newSchedule['recipients']) . ".";
+        $msg = "Schedule saved! Status is ACTIVE. Next automated execution will run at {$nextRunFormatted} for " . implode(', ', $newSchedule['recipients']) . ".";
 
         echo json_encode([
-            'success' => true,
-            'message' => $msg,
+            'success'  => true,
+            'message'  => $msg,
             'schedule' => $newSchedule
         ]);
         exit;

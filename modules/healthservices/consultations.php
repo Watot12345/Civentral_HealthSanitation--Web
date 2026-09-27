@@ -688,7 +688,18 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Patient</label><input type="text" id="edit_patient_name" readonly class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none font-semibold cursor-not-allowed"><input type="hidden" id="edit_patient_id"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Attending Doctor / Staff</label><select id="edit_employee_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Doctor / Staff</option><?php foreach ($medicalStaff as $e): $displayName = $e['full_name'] ?? $e['name'] ?? "Employee #{$e['id']}"; ?><option value="<?php echo $e['id']; ?>"><?php echo htmlspecialchars($displayName); ?> (<?php echo htmlspecialchars($e['role_description'] ?? 'Doctor'); ?>)</option><?php endforeach; ?></select></div></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</label><input type="date" id="edit_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Time</label><input type="time" id="edit_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Symptoms</label><input type="text" id="edit_symptoms" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Diagnosis</label><input type="text" id="edit_diagnosis" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ICD-10 Code</label><input type="text" id="edit_icd_code" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none font-mono uppercase"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="referred">Referred</option><option value="follow_up">Follow-up Needed</option></select></div></div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">ICD-10 Code</label>
+        <div class="flex gap-2">
+            <input type="text" id="edit_icd_code" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none font-mono uppercase">
+            <button type="button" onclick="suggestIcdCode(true)" class="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0" title="Suggest ICD-10 code based on symptoms & diagnosis">
+                <i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i> AI Suggest
+            </button>
+        </div>
+    </div>
+    <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="referred">Referred</option><option value="follow_up">Follow-up Needed</option></select></div>
+</div>
 <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50"><label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1.5"><i class="fa-solid fa-heart-pulse text-rose-500"></i> Vital Signs</label><div class="grid grid-cols-2 sm:grid-cols-4 gap-3"><div><span class="text-[10px] text-slate-500">BP (mmHg)</span><input type="text" id="edit_bp" maxlength="7" pattern="[0-9]{2,3}/[0-9]{2,3}" inputmode="numeric" placeholder="120/80" class="vital-bp w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Heart Rate (bpm)</span><input type="text" id="edit_hr" maxlength="3" inputmode="numeric" placeholder="72" class="vital-number w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Temp (°C)</span><input type="text" id="edit_temp" maxlength="5" inputmode="decimal" placeholder="36.5" class="vital-decimal w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div><div><span class="text-[10px] text-slate-500">Weight (kg)</span><input type="text" id="edit_weight" maxlength="5" inputmode="decimal" placeholder="65" class="vital-decimal w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none"></div></div></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Treatment Plan</label><textarea id="edit_treatment_plan" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></textarea></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Follow-up Date</label><input type="date" id="edit_follow_up_date" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Clinical Notes</label><input type="text" id="edit_notes" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
@@ -1211,39 +1222,270 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         }
     }
 
-    function suggestIcdCode() {
-        const symptoms = (document.getElementById('add_symptoms')?.value || '').toLowerCase();
-        const diagnosis = (document.getElementById('add_diagnosis')?.value || '').toLowerCase();
-        const text = symptoms + ' ' + diagnosis;
-        
-        let suggestedCode = 'J06.9';
-        let suggestedLabel = 'Acute upper respiratory infection';
+    // ============================================================
+    // ICD-10-CM CLINICAL KNOWLEDGE BASE & AI CLASSIFICATION ENGINE
+    // ============================================================
+    const ICD10_CLINICAL_DATABASE = [
+        // Circulatory & Endocrine Diseases (I00–I99, E00–E89)
+        { 
+            code: 'E78.5', 
+            label: 'Hyperlipidemia, unspecified', 
+            keywords: ['hyperlipidemia', 'hypercholesterolemia', 'cholesterol', 'high cholesterol', 'lipid', 'lipids', 'dyslipidemia', 'triglycerides', 'high triglycerides', 'taba sa dugo'] 
+        },
+        { 
+            code: 'I10', 
+            label: 'Essential (primary) hypertension', 
+            keywords: ['hypertension', 'essential hypertension', 'high blood', 'high blood pressure', 'elevated bp', 'presyon', 'htn', 'mataas ang presyon', 'mataas na presyon'] 
+        },
+        { 
+            code: 'E11.9', 
+            label: 'Type 2 diabetes mellitus without complications', 
+            keywords: ['type 2 diabetes', 't2dm', 'diabetes mellitus', 'diabetes', 'high sugar', 'mataas ang asukal', 'hyperglycemia', 'diabetic', 'glucose'] 
+        },
+        { 
+            code: 'K29.70', 
+            label: 'Gastritis, unspecified, without bleeding', 
+            keywords: ['gastritis', 'hyperacidity', 'acid reflux', 'gerd', 'sikmura', 'heartburn', 'stomach ulcer', 'dyspepsia', 'epigastric pain', 'maasim ang sikmura', 'kabag sa sikmura'] 
+        },
 
-        if (text.includes('fever') || text.includes('cough') || text.includes('flu') || text.includes('sipon') || text.includes('trangkaso')) {
-            suggestedCode = 'J06.9';
-            suggestedLabel = 'Acute upper respiratory infection, unspecified';
-        } else if (text.includes('diabetes') || text.includes('sugar') || text.includes('glucose')) {
-            suggestedCode = 'E11.9';
-            suggestedLabel = 'Type 2 diabetes mellitus without complications';
-        } else if (text.includes('hypertension') || text.includes('bp') || text.includes('high blood') || text.includes('presyon')) {
-            suggestedCode = 'I10';
-            suggestedLabel = 'Essential (primary) hypertension';
-        } else if (text.includes('diarrhea') || text.includes('stomach') || text.includes('lbm') || text.includes('tae') || text.includes('vomit')) {
-            suggestedCode = 'A09';
-            suggestedLabel = 'Infectious gastroenteritis and colitis, unspecified';
-        } else if (text.includes('pneumonia') || text.includes('pulmonya') || text.includes('hina sa baga')) {
-            suggestedCode = 'J18.9';
-            suggestedLabel = 'Pneumonia, unspecified organism';
-        } else if (text.includes('gastritis') || text.includes('acid') || text.includes('ulcer') || text.includes('sikmura')) {
-            suggestedCode = 'K29.7';
-            suggestedLabel = 'Gastritis, unspecified';
+        // Infectious & Parasitic Diseases (A00–B99)
+        { 
+            code: 'A91', 
+            label: 'Dengue hemorrhagic fever', 
+            keywords: ['dengue hemorrhagic', 'dhf', 'dengue shock syndrome', 'severe dengue', 'dengue with warning signs', 'dengue bleeding'] 
+        },
+        { 
+            code: 'A90', 
+            label: 'Dengue fever [classical dengue]', 
+            keywords: ['dengue fever', 'dengue', 'classical dengue', 'breakbone fever'] 
+        },
+        { 
+            code: 'A09', 
+            label: 'Infectious gastroenteritis and colitis, unspecified', 
+            keywords: ['gastroenteritis', 'infectious gastroenteritis', 'diarrhea', 'lbm', 'pagtatae', 'watery stool', 'colitis', 'food poisoning', 'loose bowel movement', 'acute gastroenteritis', 'age'] 
+        },
+        { 
+            code: 'A01.0', 
+            label: 'Typhoid fever', 
+            keywords: ['typhoid fever', 'typhoid', 'salmonella typhi', 'enteric fever'] 
+        },
+        { 
+            code: 'B34.9', 
+            label: 'Viral infection, unspecified', 
+            keywords: ['viral infection', 'viral syndrome', 'viral fever', 'viral illness', 'viral exanthem', 'trangkasong viral'] 
+        },
+        { 
+            code: 'A15.0', 
+            label: 'Tuberculosis of lung', 
+            keywords: ['tuberculosis', 'pulmonary tuberculosis', 'ptb', 'tb of lung', 'primary complex', 'koch disease', 'ubo na may dugo'] 
+        },
+        { 
+            code: 'B01.9', 
+            label: 'Varicella without complication', 
+            keywords: ['chickenpox', 'bulutong', 'bulutong tubig', 'varicella'] 
+        },
+        { 
+            code: 'B05.9', 
+            label: 'Measles without complication', 
+            keywords: ['measles', 'tigdas', 'rubeola'] 
+        },
+
+        // Respiratory System Diseases (J00–J99)
+        { 
+            code: 'J00', 
+            label: 'Acute nasopharyngitis [common cold]', 
+            keywords: ['common cold', 'nasopharyngitis', 'acute nasopharyngitis', 'sipon', 'runny nose', 'stuffy nose', 'rhinitis', 'colds'] 
+        },
+        { 
+            code: 'J02.9', 
+            label: 'Acute pharyngitis, unspecified', 
+            keywords: ['pharyngitis', 'acute pharyngitis', 'sore throat', 'tonsillopharyngitis', 'tonsillitis', 'masakit ang lalamunan', 'throat infection'] 
+        },
+        { 
+            code: 'J11.1', 
+            label: 'Influenza due to unidentified influenza virus with other respiratory manifestations', 
+            keywords: ['influenza', 'flu virus', 'flu-like illness', 'flu syndrome', 'trangkaso'] 
+        },
+        { 
+            code: 'J18.9', 
+            label: 'Pneumonia, unspecified organism', 
+            keywords: ['pneumonia', 'pulmonya', 'community acquired pneumonia', 'cap', 'lung infection', 'hina sa baga', 'chest infection'] 
+        },
+        { 
+            code: 'J20.9', 
+            label: 'Acute bronchitis, unspecified', 
+            keywords: ['acute bronchitis', 'bronchitis', 'bronchial inflammation'] 
+        },
+        { 
+            code: 'J45.909', 
+            label: 'Unspecified asthma, uncomplicated', 
+            keywords: ['asthma', 'bronchial asthma', 'hika', 'wheezing', 'shortness of breath', 'humuhuning paghinga'] 
+        },
+        { 
+            code: 'J06.9', 
+            label: 'Acute upper respiratory infection, unspecified', 
+            keywords: ['acute upper respiratory infection', 'upper respiratory infection', 'urti', 'uri', 'respiratory tract infection', 'cough and colds', 'ubo at sipon'] 
+        },
+
+        // Symptoms, Signs & Abnormal Clinical Findings (R00–R99)
+        { 
+            code: 'R50.9', 
+            label: 'Fever, unspecified', 
+            keywords: ['fever', 'lagnat', 'pyrexia', 'febrile', 'mataas ang lagnat', 'high grade fever', 'low grade fever', 'init ng katawan'] 
+        },
+        { 
+            code: 'R05.9', 
+            label: 'Cough, unspecified', 
+            keywords: ['cough', 'ubo', 'persistent cough', 'dry cough', 'productive cough', 'chronic cough', 'inuubo'] 
+        },
+        { 
+            code: 'R51.9', 
+            label: 'Headache, unspecified', 
+            keywords: ['headache', 'sakit ng ulo', 'head pain', 'cephalea', 'tension headache', 'pananakit ng ulo'] 
+        },
+        { 
+            code: 'G43.909', 
+            label: 'Migraine, unspecified, not intractable', 
+            keywords: ['migraine', 'throbbing headache', 'hemicrania', 'one sided headache'] 
+        },
+        { 
+            code: 'R11.2', 
+            label: 'Nausea with vomiting, unspecified', 
+            keywords: ['nausea with vomiting', 'nausea and vomiting', 'vomiting', 'pagsusuka', 'nausea', 'duduwal', 'nasusuka', 'nauseous', 'emesis'] 
+        },
+        { 
+            code: 'R10.9', 
+            label: 'Abdominal pain, unspecified', 
+            keywords: ['abdominal pain', 'stomach pain', 'sakit ng tyan', 'sakit ng tiyan', 'tummy pain', 'belly ache', 'pananakit ng tiyan'] 
+        },
+        { 
+            code: 'R53.83', 
+            label: 'Other fatigue / Malaise', 
+            keywords: ['fatigue', 'malaise', 'body malaise', 'panghihina', 'pagod', 'tiredness', 'weakness', 'lethargy', 'panlalata'] 
+        },
+
+        // Genitourinary, Skin, Eyes, Dental, Musculoskeletal
+        { 
+            code: 'N39.0', 
+            label: 'Urinary tract infection, site not specified', 
+            keywords: ['urinary tract infection', 'uti', 'dysuria', 'masakit umihi', 'balisawsaw', 'cloudy urine', 'frequent urination'] 
+        },
+        { 
+            code: 'L30.9', 
+            label: 'Dermatitis, unspecified', 
+            keywords: ['dermatitis', 'eczema', 'skin rash', 'rash', 'allergy', 'pangangati', 'kati-kati', 'skin allergy'] 
+        },
+        { 
+            code: 'L50.9', 
+            label: 'Urticaria, unspecified', 
+            keywords: ['urticaria', 'hives', 'pantal', 'allergies with hives', 'pamamantal'] 
+        },
+        { 
+            code: 'H10.9', 
+            label: 'Unspecified conjunctivitis', 
+            keywords: ['conjunctivitis', 'sore eyes', 'sore eye', 'pink eye', 'namumulang mata', 'eye infection'] 
+        },
+        { 
+            code: 'K02.9', 
+            label: 'Dental caries, unspecified', 
+            keywords: ['dental caries', 'tooth decay', 'toothache', 'sakit ng ngipin', 'sirang ngipin', 'dental cavity'] 
+        },
+        { 
+            code: 'M79.1', 
+            label: 'Myalgia', 
+            keywords: ['myalgia', 'muscle pain', 'body pain', 'sakit ng katawan', 'pananakit ng kalamnan', 'muscle soreness'] 
+        },
+        { 
+            code: 'M19.90', 
+            label: 'Unspecified osteoarthritis, unspecified site', 
+            keywords: ['osteoarthritis', 'arthritis', 'joint pain', 'sakit sa kasukasuan', 'rheumatism', 'rayuma'] 
+        }
+    ];
+
+    function suggestIcdCode(isEdit = false) {
+        const prefix = isEdit ? 'edit_' : 'add_';
+        const symptomsInput = document.getElementById(`${prefix}symptoms`);
+        const diagnosisInput = document.getElementById(`${prefix}diagnosis`);
+        const icdInput = document.getElementById(`${prefix}icd_code`);
+
+        const symptoms = (symptomsInput?.value || '').trim();
+        const diagnosis = (diagnosisInput?.value || '').trim();
+
+        // RESTRICTION: Chief Complaints / Symptoms must be filled in
+        if (!symptoms) {
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                ModalSystem.toast.warning('Please enter Chief Complaints / Symptoms first before requesting an AI ICD-10 suggestion.', {
+                    title: '⚠️ Symptoms Required',
+                    duration: 4000
+                });
+            } else {
+                alert('Please enter Chief Complaints / Symptoms first before requesting an AI ICD-10 suggestion.');
+            }
+            if (symptomsInput) {
+                symptomsInput.focus();
+                symptomsInput.classList.add('ring-2', 'ring-rose-400', 'border-rose-400');
+                setTimeout(() => {
+                    symptomsInput.classList.remove('ring-2', 'ring-rose-400', 'border-rose-400');
+                }, 2500);
+            }
+            return;
         }
 
-        const icdInput = document.getElementById('add_icd_code');
-        if (icdInput) {
-            icdInput.value = suggestedCode;
+        const symLower = symptoms.toLowerCase();
+        const diagLower = diagnosis.toLowerCase();
+
+        let bestMatch = null;
+        let highestScore = 0;
+
+        for (const item of ICD10_CLINICAL_DATABASE) {
+            let score = 0;
+
+            // Check matching on diagnosis (weighted higher)
+            if (diagLower) {
+                for (const kw of item.keywords) {
+                    if (diagLower === kw) {
+                        score += 150; // Exact match on diagnosis
+                    } else if (diagLower.includes(kw)) {
+                        score += 80 + kw.length;
+                    }
+                }
+            }
+
+            // Check matching on symptoms / complaints
+            for (const kw of item.keywords) {
+                if (symLower === kw) {
+                    score += 120; // Exact match on symptoms
+                } else if (symLower.includes(kw)) {
+                    score += 50 + kw.length;
+                }
+            }
+
+            if (score > highestScore) {
+                highestScore = score;
+                bestMatch = item;
+            }
+        }
+
+        if (bestMatch && highestScore > 0) {
+            if (icdInput) {
+                icdInput.value = bestMatch.code;
+            }
             if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
-                ModalSystem.toast.success(`Suggested ICD-10: ${suggestedCode} (${suggestedLabel})`, { title: '🪄 AI ICD-10 Suggestion', duration: 4000 });
+                ModalSystem.toast.success(`Suggested ICD-10: ${bestMatch.code} (${bestMatch.label})`, { 
+                    title: '🪄 AI ICD-10 Match', 
+                    duration: 4000 
+                });
+            }
+        } else {
+            // General symptom fallback without misleading code
+            if (icdInput) {
+                icdInput.value = 'R69';
+            }
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                ModalSystem.toast.info(`No specific code matched "${symptoms}". Assigned R69 (Illness, unspecified). Please refine diagnosis if needed.`, { 
+                    title: 'ℹ️ General Clinical Code', 
+                    duration: 5000 
+                });
             }
         }
     }

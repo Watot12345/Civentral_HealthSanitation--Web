@@ -188,9 +188,13 @@ if ($method === 'DELETE' || (isset($_GET['action']) && $_GET['action'] === 'dele
     $targetId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
     if ($targetId > 0) {
         $currentDrugs = getStoredDrugs($storageFile, $defaultDrugs);
-        $filtered = array_filter($currentDrugs, fn($d) => (int)$d['id'] !== $targetId);
+        $filtered = array_filter($currentDrugs, fn($d) => (int)($d['id'] ?? 0) !== $targetId);
         saveStoredDrugs($storageFile, array_values($filtered));
         echo json_encode(['success' => true, 'message' => 'Medicine deleted successfully.']);
+        exit;
+    } else {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid or missing medicine ID.']);
         exit;
     }
 }

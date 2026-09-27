@@ -98,19 +98,39 @@
     .table-row-hover { transition: background-color 0.2s ease; }
     .table-row-hover:hover { background-color: rgba(180, 212, 255, 0.1); }
 
-    /* Modal Animations */
+    /* Modal Animations & Absolute Centering */
     .modal-overlay {
-        background: rgba(23, 107, 135, 0.4);
-        backdrop-filter: blur(4px);
-        transition: opacity 0.3s ease;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 9999 !important;
+        background: rgba(15, 23, 42, 0.5) !important;
+        backdrop-filter: blur(6px) !important;
+        -webkit-backdrop-filter: blur(6px) !important;
+        transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.3s ease !important;
+    }
+    .modal-overlay.hidden {
+        display: none !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
     .modal-content {
-        background: rgba(255, 255, 255, 0.95);
-        animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        margin: auto !important;
+        position: relative !important;
+        background: #ffffff !important;
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(180, 212, 255, 0.3) !important;
+        animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
     }
     @keyframes scaleIn {
-        from { opacity: 0; transform: scale(0.9); }
-        to { opacity: 1; transform: scale(1); }
+        from { opacity: 0; transform: scale(0.94) translateY(10px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
     }
 
     /* Spinner */
@@ -506,4 +526,21 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.025em;
+    }
+
+    /* Custom Scrollbar for Preview & Panels */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: rgba(241, 245, 249, 0.6);
+        border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #B4D4FF;
+        border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #86B6F6;
     }
