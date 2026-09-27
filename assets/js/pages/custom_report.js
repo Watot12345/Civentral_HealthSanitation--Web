@@ -1258,6 +1258,25 @@ function selectScheduleFormat(fmt) {
     });
 }
 
+function selectGenerateFormat(fmt) {
+    const selectEl = document.getElementById('exportFormat');
+    if (selectEl) selectEl.value = fmt.toLowerCase();
+    ['Pdf', 'Excel', 'Word'].forEach(f => {
+        const el = document.getElementById('genFormat' + f);
+        if (el) {
+            if (f.toLowerCase() === fmt.toLowerCase()) {
+                el.className = 'gen-fmt-card flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-[#176B87] bg-[#176B87]/5 cursor-pointer transition-all';
+                const radio = el.querySelector('input[type="radio"]');
+                if (radio) radio.checked = true;
+            } else {
+                el.className = 'gen-fmt-card flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-slate-200 bg-white cursor-pointer transition-all';
+                const radio = el.querySelector('input[type="radio"]');
+                if (radio) radio.checked = false;
+            }
+        }
+    });
+}
+
 function setScheduleDatePreset(preset) {
     const startInput = document.getElementById('scheduleReportStart');
     const endInput = document.getElementById('scheduleReportEnd');
@@ -1294,6 +1313,24 @@ function openScheduleModal() {
         overlay.classList.add('hidden');
     }
 
+    // Auto-sync current parameters from Generate Report form
+    const genStart = document.getElementById('startDate')?.value;
+    const genEnd = document.getElementById('endDate')?.value;
+    const genType = document.getElementById('reportType')?.value;
+    const genVisuals = document.getElementById('includeVisuals')?.checked;
+    const genFmt = (document.getElementById('exportFormat')?.value || 'PDF').toUpperCase();
+
+    const schedStart = document.getElementById('scheduleReportStart');
+    const schedEnd = document.getElementById('scheduleReportEnd');
+    const schedType = document.getElementById('scheduleReportType');
+    const schedVisuals = document.getElementById('scheduleIncludeVisuals');
+
+    if (genStart && schedStart) schedStart.value = genStart;
+    if (genEnd && schedEnd) schedEnd.value = genEnd;
+    if (genType && schedType) schedType.value = genType;
+    if (typeof genVisuals !== 'undefined' && schedVisuals) schedVisuals.checked = genVisuals;
+    if (typeof selectScheduleFormat === 'function') selectScheduleFormat(genFmt);
+
     modal.classList.remove('hidden');
     void modal.offsetWidth;
     modal.style.opacity = '1';
@@ -1310,14 +1347,16 @@ function scheduleReport() {
     saveSchedule();
 }
 
-function showScheduleLoading(show, message = 'Generating report package and dispatching notification emails...') {
+function showScheduleLoading(show, message = 'Generating executive report document and dispatching directly to recipient email inbox...') {
     const fullLoading = document.getElementById('scheduleLoadingScreen');
     const overlay = document.getElementById('scheduleLoadingOverlay');
-    const subtext = document.getElementById('scheduleLoadingSubtext');
+    const subtext = document.getElementById('scheduleLoadingSubtext');           // full-screen
+    const subtextOverlay = document.getElementById('scheduleLoadingSubtextOverlay'); // modal overlay
     const submitBtn = document.getElementById('scheduleSubmitBtn');
 
     if (show) {
         if (subtext) subtext.textContent = message;
+        if (subtextOverlay) subtextOverlay.textContent = message;
         if (fullLoading) {
             fullLoading.classList.remove('hidden');
             void fullLoading.offsetWidth;
@@ -1373,7 +1412,7 @@ function saveSchedule() {
     }
 
     // Trigger full loading effect
-    showScheduleLoading(true, 'Configuring automated report schedule for ' + recipients + '...');
+    showScheduleLoading(true, 'Configuring schedule "' + title + '" & dispatching report email to ' + recipients + '...');
 
     const payload = {
         action: 'create',
@@ -1389,7 +1428,8 @@ function saveSchedule() {
         format: selectedScheduleFormat
     };
 
-    fetch('api/reports/schedule.php', {
+    const apiUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.api_reports_schedule) ? APP_CONFIG.api_reports_schedule : '../api/reports/schedule.php';
+    fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1411,6 +1451,11 @@ function saveSchedule() {
                 if (label) label.textContent = `Download report in ${selectedScheduleFormat} format now`;
             }
             if (typeof loadScheduledReports === 'function') loadScheduledReports();
+
+            // Automatically close schedule modal after loading completes
+            setTimeout(() => {
+                closeScheduleModal();
+            }, 1200);
         } else {
             showToast(data.message || 'Failed to save schedule.', 'info');
             if (statusMsg) {
@@ -1448,6 +1493,9 @@ window.selectScheduleFormat = selectScheduleFormat;
 window.setScheduleDatePreset = setScheduleDatePreset;
 window.openScheduleModal = openScheduleModal;
 window.closeScheduleModal = closeScheduleModal;
+window.deleteSchedule = deleteSchedule;
+window.closeDeleteScheduleModal = closeDeleteScheduleModal;
+window.confirmDeleteScheduleAction = confirmDeleteScheduleAction;
 window.scheduleReport = scheduleReport;
 window.saveSchedule = saveSchedule;
 window.downloadScheduledReport = downloadScheduledReport;
@@ -2002,7 +2050,9 @@ function renderScheduledReports(schedules) {
                 </span>
             </td>
             <td class="py-3 text-right">
-                <button onclick="deleteSchedule('${s.id}')" class="w-7 h-7 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition inline-flex items-center justify-center text-xs" title="Cancel Schedule">
+                <button onclick="deleteSchedule('${s.id}', '${escapeExportHtml(title).replace(/'/g, "\\'")}')"
+                    class="w-7 h-7 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition inline-flex items-center justify-center text-xs"
+                    title="Cancel Schedule">
                     <i class="fa-regular fa-trash-can"></i>
                 </button>
             </td>
@@ -2010,61 +2060,60 @@ function renderScheduledReports(schedules) {
     `}).join('');
 }
 
-async function saveSchedule() {
-    const title = document.getElementById('scheduleTitleInput')?.value || 'Weekly Operational Summary';
-    const frequency = document.getElementById('scheduleFrequencySelect')?.value || 'Weekly';
-    const startDate = document.getElementById('scheduleStartDateInput')?.value || new Date().toISOString().slice(0, 10);
-    const time = document.getElementById('scheduleTimeInput')?.value || '08:00';
-    const recipients = document.getElementById('scheduleRecipientsInput')?.value || 'admin@caloocan.gov.ph';
-    const format = document.querySelector('input[name="scheduleFormat"]:checked')?.value || 'PDF';
+// (duplicate saveSchedule removed — using the one at ~line 1355 that includes showScheduleLoading)
 
-    const payload = {
-        title,
-        report_type: document.getElementById('reportType')?.value || 'operational',
-        frequency,
-        start_date: startDate,
-        time,
-        recipients,
-        format
-    };
+// ─── DELETE SCHEDULE MODAL ───
+let pendingDeleteScheduleId = null;
+let pendingDeleteScheduleTitle = null;
 
-    try {
-        const resp = await fetch(APP_CONFIG.api_reports_schedule, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const res = await resp.json();
-        closeScheduleModal();
-        if (res && res.success) {
-            showToast('Report schedule saved successfully!', 'success');
-            loadScheduledReports();
-        } else {
-            showToast(res.message || 'Scheduled successfully!', 'success');
-            loadScheduledReports();
-        }
-    } catch (e) {
-        console.error('Failed to save schedule:', e);
-        closeScheduleModal();
-        showToast('Report scheduled successfully!', 'success');
+function deleteSchedule(id, title) {
+    pendingDeleteScheduleId = id;
+    pendingDeleteScheduleTitle = title || 'Scheduled Report';
+    const modal = document.getElementById('deleteScheduleModal');
+    const titleEl = document.getElementById('deleteScheduleTargetTitle');
+    if (titleEl) titleEl.textContent = pendingDeleteScheduleTitle;
+    if (modal) {
+        modal.classList.remove('hidden');
+        void modal.offsetWidth;
+        modal.style.opacity = '1';
     }
 }
 
-async function deleteSchedule(id) {
-    if (!confirm('Are you sure you want to cancel this scheduled report?')) return;
+function closeDeleteScheduleModal() {
+    const modal = document.getElementById('deleteScheduleModal');
+    if (modal) {
+        modal.style.opacity = '0';
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 300);
+    }
+    pendingDeleteScheduleId = null;
+    pendingDeleteScheduleTitle = null;
+}
+
+async function confirmDeleteScheduleAction() {
+    if (!pendingDeleteScheduleId) return;
+    const id = pendingDeleteScheduleId;
+    closeDeleteScheduleModal();
+
+    // Optimistic UI update: instantly remove from table without waiting
+    if (typeof allSchedules !== 'undefined' && Array.isArray(allSchedules)) {
+        allSchedules = allSchedules.filter(s => s.id !== id);
+        if (typeof renderScheduledReports === 'function') {
+            renderScheduledReports(allSchedules);
+        }
+    }
+    showToast('Schedule cancelled successfully.', 'info');
+
     try {
-        const resp = await fetch(APP_CONFIG.api_reports_schedule, {
+        const apiUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.api_reports_schedule) ? APP_CONFIG.api_reports_schedule : '../api/reports/schedule.php';
+        await fetch(apiUrl, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id })
         });
-        const res = await resp.json();
-        if (res && res.success) {
-            showToast('Schedule cancelled.', 'info');
-            loadScheduledReports();
-        }
     } catch (e) {
-        console.error('Failed to delete schedule:', e);
+        console.error('Failed to sync schedule deletion with server:', e);
     }
 }
 
@@ -2847,4 +2896,33 @@ function downloadEmailReport() {
         }
     }
 }
+
+// ─── BACKGROUND SCHEDULE EXECUTOR POLLER ─────────────────────
+(function initBackgroundSchedulerPoller() {
+    function checkDueSchedules() {
+        const apiUrl = (typeof APP_CONFIG !== 'undefined' && APP_CONFIG.api_reports_schedule)
+            ? APP_CONFIG.api_reports_schedule
+            : '../api/reports/schedule.php';
+
+        fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'run_pending' })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.success && data.processed_count > 0) {
+                showToast(`⏰ Target schedule time reached! Delivered ${data.processed_count} report email(s).`, 'success');
+                if (typeof loadScheduledReports === 'function') {
+                    loadScheduledReports();
+                }
+            }
+        })
+        .catch(() => {});
+    }
+
+    // Run check once on load, then poll every 15 seconds
+    setTimeout(checkDueSchedules, 2000);
+    setInterval(checkDueSchedules, 15000);
+})();
 

@@ -43,7 +43,11 @@ function saveSchedules(string $file, array $schedules): bool {
 }
 
 function computeNextRun(string $startDate, string $time, string $frequency, bool $advanceIfPast = false): string {
-    $combined = "{$startDate} {$time}:00";
+    $timeClean = trim($time);
+    if (strlen($timeClean) === 5) {
+        $timeClean .= ':00';
+    }
+    $combined = "{$startDate} {$timeClean}";
     $targetTime = strtotime($combined);
     $now = time();
 
@@ -95,22 +99,22 @@ function processDueSchedules(array &$schedules, string $storageFile): int {
             $freq = $item['frequency'] ?? 'Weekly';
 
             $repCategory = $item['report_type'] ?? 'unified';
-            $downloadUrl = "http://" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . "/Civentral_HealthSanitation--Web/api/export.php?category=" . urlencode($repCategory) . "&format=" . strtolower($format);
+            $downloadUrl = "http://" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . "/Civentral_HealthSanitation--Web/api/export.php?category=" . urlencode($repCategory) . "&format=" . strtolower($format) . "&report_title=" . urlencode($title);
 
-            $subject = "Automated Health & Sanitation Report Delivery: {$title} ({$freq})";
+            $subject = "Civentral Report: {$title} ({$freq})";
             $bodyHtml = "
             <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #B4D4FF; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(23,107,135,0.1);'>
                 <div style='background: linear-gradient(135deg, #176B87 0%, #0F4A5E 100%); color: #ffffff; padding: 28px 24px; text-align: center;'>
-                    <img src='cid:civentral_logo' alt='Civentral Logo' style='height: 52px; width: auto; max-width: 180px; margin-bottom: 12px; display: inline-block;' />
+                    <img src='cid:civentral_logo' alt='Civentral Logo' style='height: 85px; width: auto; max-width: 280px; margin-bottom: 14px; display: inline-block;' />
                     <h2 style='margin:0; font-size:20px; font-weight:800; letter-spacing:0.5px;'>Civentral Automated Report Delivery</h2>
                     <p style='margin:4px 0 0 0; font-size: 12px; color:#B4D4FF;'>Caloocan City Health & Sanitation Office</p>
                 </div>
                 <div style='padding: 24px; color: #334155; line-height: 1.6;'>
                     <p style='margin-top:0;'>Hello,</p>
-                    <p>Your scheduled <strong>{$freq}</strong> report for <strong>{$dept}</strong> has executed as of <strong>" . date('Y-m-d H:i:s') . "</strong>.</p>
+                    <p>Your scheduled report <strong>" . htmlspecialchars($title) . "</strong> ({$freq}) for <strong>{$dept}</strong> has executed as of <strong>" . date('Y-m-d H:i:s') . "</strong>.</p>
                     <div style='background: #EEF5FF; border-left: 4px solid #176B87; padding: 16px; border-radius: 8px; margin: 20px 0;'>
                         <table style='width: 100%; border-collapse: collapse; font-size: 13px; color: #334155;'>
-                            <tr><td style='padding: 6px 0; font-weight: bold; width: 140px;'>Report Title:</td><td>{$title}</td></tr>
+                            <tr><td style='padding: 6px 0; font-weight: bold; width: 140px;'>Schedule Title:</td><td><strong>" . htmlspecialchars($title) . "</strong></td></tr>
                             <tr><td style='padding: 6px 0; font-weight: bold;'>Department:</td><td>{$dept}</td></tr>
                             <tr><td style='padding: 6px 0; font-weight: bold;'>Delivery Format:</td><td><strong style='color:#176B87;'>{$format}</strong></td></tr>
                             <tr><td style='padding: 6px 0; font-weight: bold;'>Execution Time:</td><td>" . date('Y-m-d H:i:s') . "</td></tr>
@@ -119,7 +123,7 @@ function processDueSchedules(array &$schedules, string $storageFile): int {
 
                     <div style='text-align: center; margin: 28px 0;'>
                         <a href='" . htmlspecialchars($downloadUrl) . "' target='_blank' style='display: inline-block; background: linear-gradient(135deg, #176B87 0%, #0F4A5E 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 14px rgba(23,107,135,0.35);'>
-                            📥 Download {$format} Report Document
+                            📥 Download " . htmlspecialchars($title) . " ({$format})
                         </a>
                     </div>
                     <p style='font-size: 12px; color: #64748b; text-align: center;'>Click the button above to download your {$format} report directly.</p>
@@ -156,9 +160,6 @@ try {
     $schedules = getSchedules($storageFile);
     $userId = $_SESSION['user_id'] ?? ($_SESSION['user']['id'] ?? 1);
     $userName = $_SESSION['user_full_name'] ?? ($_SESSION['full_name'] ?? 'System User');
-
-    // Automatically trigger any schedules whose target date & time has arrived
-    processDueSchedules($schedules, $storageFile);
 
     // ─── GET: List all scheduled reports ──────────────────────────
     if ($method === 'GET') {
@@ -301,82 +302,27 @@ try {
         $schedules[] = $newSchedule;
         saveSchedules($storageFile, $schedules);
 
-        // Run processDueSchedules in case the scheduled time is due right now
-        processDueSchedules($schedules, $storageFile);
-
-        // Dispatch report email directly to all specified recipients immediately
-        $mailService = new MailService();
-        $reportTypeVal = $input['report_type'] ?? 'unified';
-        $reportTypeLabels = [
-            'unified'       => 'Unified Global Report (All Modules)',
-            'health_center' => 'Health Center Services',
-            'sanitation'    => 'Sanitation Permits',
-            'immunization'  => 'Immunization & Nutrition',
-            'wastewater'    => 'Wastewater Services',
-            'surveillance'  => 'Health Surveillance'
-        ];
-        $reportTypeLabel = $reportTypeLabels[$reportTypeVal] ?? 'Unified Report';
-        $reportStartDate = !empty($input['report_start_date']) ? $input['report_start_date'] : date('Y-m-d', strtotime('-30 days'));
-        $reportEndDate   = !empty($input['report_end_date']) ? $input['report_end_date'] : date('Y-m-d');
-        $includeVisuals  = !empty($input['include_visuals']);
-
-        $downloadUrl = "http://" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . "/Civentral_HealthSanitation--Web/api/export.php?category=" . urlencode($reportTypeVal) . "&format=" . strtolower($format);
-
-        $emailSubject = "Civentral Health Report: {$reportTitle} ({$format})";
-        $emailHtml = "
-        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #B4D4FF; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px rgba(23,107,135,0.1);'>
-            <div style='background: linear-gradient(135deg, #176B87 0%, #0F4A5E 100%); color: #ffffff; padding: 28px 24px; text-align: center;'>
-                <img src='cid:civentral_logo' alt='Civentral Logo' style='height: 52px; width: auto; max-width: 180px; margin-bottom: 12px; display: inline-block;' />
-                <h1 style='margin: 0; font-size: 20px; font-weight: 800; letter-spacing: 1px;'>Civentral Health & Sanitation MIS</h1>
-                <p style='margin: 4px 0 0 0; font-size: 12px; color: #B4D4FF;'>Caloocan City Health Office · Official Executive Report</p>
-            </div>
-            <div style='padding: 24px; color: #334155; line-height: 1.6;'>
-                <p style='font-size: 14px; margin-top: 0;'>Hello,</p>
-                <p style='font-size: 14px;'>Your requested report <strong>" . htmlspecialchars($reportTitle) . "</strong> has been generated and is ready for download.</p>
-                
-                <div style='background: #EEF5FF; border-left: 4px solid #176B87; padding: 16px; border-radius: 8px; margin: 20px 0;'>
-                    <table style='width: 100%; border-collapse: collapse; font-size: 13px; color: #334155;'>
-                        <tr><td style='padding: 6px 0; font-weight: 600; width: 150px;'>Report Module:</td><td>" . htmlspecialchars($reportTypeLabel) . "</td></tr>
-                        <tr><td style='padding: 6px 0; font-weight: 600;'>Report Date Range:</td><td>" . htmlspecialchars($reportStartDate) . " to " . htmlspecialchars($reportEndDate) . "</td></tr>
-                        <tr><td style='padding: 6px 0; font-weight: 600;'>Visual Graphs:</td><td>" . ($includeVisuals ? 'Included (Charts & Graphs)' : 'Tabular Summary Only') . "</td></tr>
-                        <tr><td style='padding: 6px 0; font-weight: 600;'>Export Format:</td><td><strong style='color:#176B87;'>" . htmlspecialchars($format) . "</strong></td></tr>
-                        <tr><td style='padding: 6px 0; font-weight: 600;'>Schedule Frequency:</td><td>" . htmlspecialchars($frequency) . " (Next: " . htmlspecialchars($nextRun) . ")</td></tr>
-                    </table>
-                </div>
-
-                <div style='text-align: center; margin: 28px 0;'>
-                    <a href='" . htmlspecialchars($downloadUrl) . "' target='_blank' style='display: inline-block; background: linear-gradient(135deg, #176B87 0%, #0F4A5E 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 12px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 14px rgba(23,107,135,0.35);'>
-                        📥 Download " . htmlspecialchars($format) . " Report Document
-                    </a>
-                </div>
-
-                <p style='font-size: 12px; color: #64748b; text-align: center;'>Click the button above to download your " . htmlspecialchars($format) . " document directly.</p>
-            </div>
-            <div style='background: #f8fafc; padding: 16px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0;'>
-                Civentral Health & Sanitation Management Information System · Caloocan City LGU
-            </div>
-        </div>";
-
-        $dispatchedCount = 0;
-        foreach ($newSchedule['recipients'] as $recipEmail) {
-            if ($mailService->sendNotificationEmail($recipEmail, 'Report Recipient', $emailSubject, $emailHtml)) {
-                $dispatchedCount++;
-            }
-        }
+        // Run processDueSchedules to execute any schedule whose target time is due right now or in the past
+        $dueCount = processDueSchedules($schedules, $storageFile);
 
         // Audit Trail entry
         $logModel = new ActivityLog();
-        $logModel->log("Created automated report schedule & dispatched email", [
+        $logModel->log("Created automated report schedule", [
             'user_name' => $userName,
             'role'      => $_SESSION['role'] ?? 'Staff Member',
             'module'    => 'Reporting System',
-            'details'   => "Scheduled {$frequency} {$format} report '{$reportTitle}' and sent to " . implode(', ', $newSchedule['recipients']),
+            'details'   => "Scheduled {$frequency} {$format} report '{$reportTitle}' for " . implode(', ', $newSchedule['recipients']) . " starting {$nextRun}",
             'status'    => 'Success',
         ]);
 
+        $nextRunFormatted = date('M j, Y g:i A', strtotime($nextRun));
+        $msg = ($dueCount > 0)
+            ? "Schedule active & report email delivered to " . implode(', ', $newSchedule['recipients']) . "!"
+            : "Schedule saved! Report will automatically send at {$nextRunFormatted} to " . implode(', ', $newSchedule['recipients']) . ".";
+
         echo json_encode([
             'success' => true,
-            'message' => "Report schedule created & email delivered to " . implode(', ', $newSchedule['recipients']) . "!",
+            'message' => $msg,
             'schedule' => $newSchedule
         ]);
         exit;

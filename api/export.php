@@ -13,17 +13,18 @@ $category = $_GET['category'] ?? ($_POST['category'] ?? 'patients');
 $format   = strtolower($_GET['format'] ?? ($_POST['format'] ?? 'csv'));
 $dateFrom = $_GET['date_from'] ?? ($_POST['date_from'] ?? null);
 $dateTo   = $_GET['date_to'] ?? ($_POST['date_to'] ?? null);
+$customTitle = $_GET['report_title'] ?? ($_GET['title'] ?? ($_POST['report_title'] ?? ($_POST['title'] ?? null)));
 
 $db = Database::getInstance();
 $headers = [];
 $rows = [];
-$title = 'Municipal Data Report';
+$title = $customTitle ? trim($customTitle) : 'Municipal Data Report';
 $filename = 'report_' . date('Ymd_His');
 
 switch (strtolower($category)) {
     case 'sanitation':
     case 'permits':
-        $title = 'Sanitary Permits Report';
+        $title = $customTitle ? trim($customTitle) : 'Sanitary Permits Report';
         $filename = 'sanitary_permits_' . date('Ymd');
         $headers = ['Permit Number', 'Applicant / Business Name', 'Barangay', 'Status', 'Issued Date'];
         $dbData = $db->select('permits', [], ['limit' => 1000, 'order' => 'id.desc']);
@@ -40,7 +41,7 @@ switch (strtolower($category)) {
 
     case 'wastewater':
     case 'services':
-        $title = 'Septage & Service Requests Report';
+        $title = $customTitle ? trim($customTitle) : 'Septage & Service Requests Report';
         $filename = 'service_requests_' . date('Ymd');
         $headers = ['Request Code', 'Property / Applicant', 'Barangay', 'Service Type', 'Status', 'Requested Date'];
         $dbData = $db->select('service_requests', [], ['limit' => 1000, 'order' => 'id.desc']);
@@ -58,7 +59,7 @@ switch (strtolower($category)) {
 
     case 'surveillance':
     case 'epidemic':
-        $title = 'Disease Surveillance Cases Report';
+        $title = $customTitle ? trim($customTitle) : 'Disease Surveillance Cases Report';
         $filename = 'disease_surveillance_' . date('Ymd');
         $headers = ['Case ID', 'Disease', 'Barangay', 'Severity', 'Status', 'Reported Date'];
         $dbData = $db->select('surveillance_cases', [], ['limit' => 1000, 'order' => 'id.desc']);
@@ -77,7 +78,7 @@ switch (strtolower($category)) {
     case 'patients':
     case 'healthcenter':
     default:
-        $title = 'Patient Registry Report';
+        $title = $customTitle ? trim($customTitle) : 'Patient Registry Report';
         $filename = 'patient_registry_' . date('Ymd');
         $headers = ['Patient ID', 'Full Name', 'Gender', 'Barangay', 'Status', 'Registered Date'];
         $dbData = $db->select('patients', [], ['limit' => 1000, 'order' => 'id.desc']);

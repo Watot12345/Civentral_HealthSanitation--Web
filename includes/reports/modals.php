@@ -144,7 +144,7 @@
                     </div>
                 </div>
                 <h4 class="text-base font-bold text-[#176B87]">Scheduling & Dispatching Email...</h4>
-                <p class="text-xs text-slate-500 mt-1 max-w-xs" id="scheduleLoadingSubtext">Generating report package and dispatching notification emails to recipients...</p>
+                <p class="text-xs text-slate-500 mt-1 max-w-xs" id="scheduleLoadingSubtextOverlay">Generating report package and dispatching notification emails to recipients...</p>
                 <div class="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden mt-4">
                     <div class="h-full bg-gradient-to-r from-[#86B6F6] to-[#176B87] rounded-full animate-pulse w-full"></div>
                 </div>
@@ -194,23 +194,6 @@
                         <span class="text-slate-400 text-sm flex-shrink-0">to</span>
                         <input type="date" id="scheduleReportEnd" value="<?= date('Y-m-d') ?>" class="w-full rounded-xl px-4 py-2.5 text-sm border border-[#B4D4FF]/50 outline-none focus:border-[#176B87]" />
                     </div>
-                </div>
-
-                <!-- Include Visual Graphs -->
-                <div class="flex items-center justify-between p-3.5 bg-[#B4D4FF]/10 rounded-xl border border-[#B4D4FF]/30">
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-7 h-7 rounded-lg bg-[#176B87]/10 flex items-center justify-center">
-                            <i class="fa-solid fa-chart-bar text-[#176B87] text-xs"></i>
-                        </div>
-                        <div>
-                            <p class="text-sm font-semibold text-slate-700">Include Visual Graphs</p>
-                            <p class="text-[10px] text-slate-400">Attach charts &amp; trend visualizations</p>
-                        </div>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="scheduleIncludeVisuals" checked class="sr-only peer">
-                        <div class="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#176B87]"></div>
-                    </label>
                 </div>
 
                 <!-- Schedule Title -->
@@ -380,6 +363,47 @@
                 <button onclick="closeDeleteTemplateModal()" class="px-4 py-2 rounded-xl text-xs font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition">Cancel</button>
                 <button onclick="confirmDeleteTemplateAction()" class="btn-primary px-5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition flex items-center gap-1.5 shadow-sm" style="background:#e11d48;">
                     <i class="fa-regular fa-trash-can"></i> Delete
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── DELETE SCHEDULE CONFIRMATION MODAL ─── -->
+    <div id="deleteScheduleModal" class="fixed inset-0 z-[100] flex items-center justify-center modal-overlay hidden opacity-0 transition-all duration-300" onclick="if(event.target===this) closeDeleteScheduleModal()">
+        <div class="modal-content rounded-3xl max-w-sm w-full mx-4 shadow-2xl overflow-hidden bg-white/95 backdrop-blur-md border border-rose-100">
+            <!-- Header -->
+            <div class="px-6 py-5 border-b border-rose-100 flex items-center justify-between bg-gradient-to-r from-rose-50 to-red-50">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 shadow-sm">
+                        <i class="fa-regular fa-calendar-xmark text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-800">Cancel Schedule</h3>
+                        <p class="text-xs text-rose-500 font-medium">Confirm Permanent Cancellation</p>
+                    </div>
+                </div>
+                <button onclick="closeDeleteScheduleModal()" class="p-1.5 rounded-lg hover:bg-rose-100 text-slate-400 hover:text-rose-600 transition">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <!-- Body -->
+            <div class="px-6 py-6 text-center">
+                <div class="w-16 h-16 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto mb-4 border border-rose-100">
+                    <i class="fa-regular fa-trash-can text-2xl text-rose-500"></i>
+                </div>
+                <p class="text-sm font-semibold text-slate-700">Are you sure you want to cancel this scheduled report?</p>
+                <div class="mt-3 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                    <p id="deleteScheduleTargetTitle" class="text-xs font-bold text-[#176B87] truncate">—</p>
+                </div>
+                <p class="text-[11px] text-rose-400 mt-3 font-medium">This action cannot be undone. All future automated email deliveries will stop.</p>
+            </div>
+            <!-- Footer -->
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
+                <button onclick="closeDeleteScheduleModal()" class="px-5 py-2 rounded-xl text-xs font-semibold border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 transition">
+                    Keep Schedule
+                </button>
+                <button onclick="confirmDeleteScheduleAction()" class="px-5 py-2 rounded-xl text-xs font-bold text-white transition flex items-center gap-1.5 shadow-sm hover:opacity-90" style="background:#e11d48;">
+                    <i class="fa-regular fa-calendar-xmark"></i> Cancel Schedule
                 </button>
             </div>
         </div>

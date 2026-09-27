@@ -146,8 +146,17 @@ requireDepartmentAccess('health center services');
     $totalPending = count(array_filter($allPrescriptions, fn($p) => ($p['status'] ?? '') === 'pending'));
     $totalMedications = array_sum(array_map(fn($p) => count($p['medications'] ?? []), $allPrescriptions));
 
-    // Get current user ID
+    // Get current user ID & check permissions for Inventory additions (Doctor, Director, Dentist, Admin)
     $currentUserId = $_SESSION['user_id'] ?? 1;
+    $userRoleStr = strtolower(trim($_SESSION['role_description'] ?? $_SESSION['role_name'] ?? $_SESSION['role'] ?? ''));
+    $canAddMedicine = (
+        empty($_SESSION['role']) ||
+        str_contains($userRoleStr, 'doctor') ||
+        str_contains($userRoleStr, 'director') ||
+        str_contains($userRoleStr, 'dentist') ||
+        str_contains($userRoleStr, 'admin') ||
+        str_contains($userRoleStr, 'physician')
+    );
     ?>
 
     <!-- ============================================================ -->
@@ -159,14 +168,35 @@ requireDepartmentAccess('health center services');
         <!-- Page Header -->
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-                <h2 class="text-2xl font-black text-slate-900 tracking-tight">Prescriptions</h2>
-                <p class="text-sm text-slate-500 mt-0.5">Electronic prescriptions with drug selection & dosage management</p>
+                <h2 class="text-2xl font-black text-slate-900 tracking-tight" id="pageTitle">Prescriptions</h2>
+                <p class="text-sm text-slate-500 mt-0.5" id="pageSubtitle">Electronic prescriptions with drug selection & dosage management</p>
             </div>
-            <div class="flex gap-3">
-                <button onclick="ModalSystem.open('newPrescriptionModal')"
+            <div class="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+                <!-- Inventory View Button (Positioned to the left of New Prescription) -->
+                <button type="button" id="btnInventoryToggle" onclick="toggleMainView('inventory')"
+                        class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 shadow-xs">
+                    <i class="fa-solid fa-boxes-stacked text-xs text-brand-medium"></i> Inventory
+                </button>
+
+                <!-- Back to Prescriptions View Button -->
+                <button type="button" id="btnPrescriptionsToggle" onclick="toggleMainView('prescriptions')"
+                        class="hidden px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 shadow-xs">
+                    <i class="fa-solid fa-prescription text-xs text-brand-medium"></i> Prescriptions
+                </button>
+
+                <!-- New Prescription Button -->
+                <button id="btnNewPrescription" onclick="ModalSystem.open('newPrescriptionModal')"
                         class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                     <i class="fa-solid fa-prescription-bottle text-xs"></i> New Prescription
                 </button>
+
+                <!-- Add Medicine Button (Restricted to Doctor, Director, Dentist) -->
+                <?php if ($canAddMedicine): ?>
+                <button id="btnAddMedicine" onclick="ModalSystem.open('addMedicineModal')"
+                        class="hidden px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-plus text-xs"></i> Add Medicine
+                </button>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -270,7 +300,9 @@ requireDepartmentAccess('health center services');
                         placeholder="Search by patient name, ID, or medication..."
                         class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
                 </div>
-                <div class="flex gap-2 flex-wrap">
+                
+                <!-- Prescriptions Filters -->
+                <div id="prescriptionFilterGroup" class="flex gap-2 flex-wrap">
                     <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                         <option value="">All Status</option>
                         <option value="dispensed">Dispensed</option>
@@ -290,6 +322,34 @@ requireDepartmentAccess('health center services');
                         <i class="fa-solid fa-rotate-right"></i>
                     </button>
                 </div>
+
+                <!-- Inventory Filters (Types of Medicine & Grams / Dosage) -->
+                <div id="inventoryFilterGroup" class="hidden flex gap-2 flex-wrap">
+                    <!-- Dropdown Selection: Types of Medicine -->
+                    <select id="filterMedicineType" onchange="filterInventory()" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                        <option value="">All Medicine Types</option>
+                    </select>
+
+                    <!-- Dropdown Selection: Grams / Dosage -->
+                    <select id="filterMedicineGrams" onchange="filterInventory()" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                        <option value="">All Grams / Strengths</option>
+                    </select>
+
+                    <!-- Stock & Expiration Status Filter -->
+                    <select id="filterMedicineStock" onchange="filterInventory()" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                        <option value="">All Stock & Expiration</option>
+                        <option value="in_stock">In Stock (> 50)</option>
+                        <option value="low_stock">Low Stock (≤ 50)</option>
+                        <option value="out_of_stock">Out of Stock (0)</option>
+                        <option value="expiring_soon">Expiring Soon (≤ 60 days)</option>
+                        <option value="expired">Expired</option>
+                    </select>
+
+                    <button onclick="resetInventoryFilters()" title="Reset inventory filters"
+                            class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -297,7 +357,7 @@ requireDepartmentAccess('health center services');
         <div class="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="bg-slate-50 border-b border-slate-200">
+                    <thead class="bg-slate-50 border-b border-slate-200" id="tableHeaderRow">
                         <tr>
                             <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">RX ID</th>
                             <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Patient</th>

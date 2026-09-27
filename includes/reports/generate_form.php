@@ -4,20 +4,23 @@
     <div id="section-generate">
         <!-- ─── DATE RANGE MODAL ─── -->
         <!-- ─── CONFIGURATION MODAL ─── -->
-        <div id="generateReportModal" class="fixed inset-0 z-[100] flex items-center justify-center hidden" style="background: rgba(15,23,42,0.6); backdrop-filter: blur(4px); opacity: 0; transition: opacity 0.3s ease;">
-            <div class="bg-white rounded-3xl w-full max-w-lg mx-4 shadow-2xl overflow-hidden relative flex flex-col max-h-[90vh]">
-                <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                    <div>
-                        <h3 class="text-base font-semibold text-[#176B87] flex items-center gap-2">
-                            <i class="fa-solid fa-sliders text-[#86B6F6] text-sm"></i>
-                            <?= $isStaff ? 'Assigned Work Report Parameters' : ($isDirector ? htmlspecialchars($assignedDept) . ' Report Parameters' : 'System Report Configuration') ?>
-                        </h3>
-                        <p class="text-xs text-slate-400 mt-0.5">
-                            <?= $isStaff ? 'Scoped strictly to your assigned department and designated facility work' : ($isDirector ? 'Scoped to ' . htmlspecialchars($assignedDept) . ' departmental operations and personnel' : 'Global administrative configuration with cross-department access') ?>
-                        </p>
+        <div id="generateReportModal" class="fixed inset-0 z-[100] flex items-center justify-center modal-overlay hidden opacity-0 transition-all duration-300" onclick="if(event.target===this) closeGenerateReportModal()">
+            <div class="modal-content rounded-3xl max-w-lg w-full mx-4 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] relative bg-white">
+                <!-- Header -->
+                <div class="px-6 py-5 border-b border-[#B4D4FF]/30 flex items-center justify-between flex-shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-[#B4D4FF]/30 flex items-center justify-center text-[#176B87]">
+                            <i class="fa-solid fa-sliders"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-semibold text-[#176B87]">
+                                <?= $isStaff ? 'Assigned Work Report Parameters' : ($isDirector ? htmlspecialchars($assignedDept) . ' Report Parameters' : 'Generate Report') ?>
+                            </h3>
+                            <p class="text-xs text-slate-400">Configure parameters &amp; format settings</p>
+                        </div>
                     </div>
-                    <button onclick="closeGenerateReportModal()" class="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-200/50 text-slate-500 hover:bg-rose-100 hover:text-rose-600 transition">
-                        <i class="fa-solid fa-xmark"></i>
+                    <button onclick="closeGenerateReportModal()" class="p-1.5 rounded-lg hover:bg-[#B4D4FF]/20 text-slate-400 transition">
+                        <i class="fa-solid fa-xmark text-xl"></i>
                     </button>
                 </div>
                 
@@ -25,85 +28,105 @@
                     require_once __DIR__ . '/../../app/services/GroqAiService.php';
                     $groqService = new GroqAiService();
                     $requestsLeft = $groqService->getRemainingRequests();
-                    $badgeColor = $requestsLeft > 2 ? 'bg-cyan-100 text-cyan-700' : 'bg-red-100 text-red-700';
+                    $badgeColor = $requestsLeft > 2 ? 'bg-cyan-100 text-cyan-700 border-cyan-200' : 'bg-red-100 text-red-700 border-red-200';
                 ?>
-                <div class="px-6 py-2 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                    <span class="text-xs font-medium text-slate-500">AI Report Generation Quota:</span>
-                    <span id="aiQuotaBadge" class="px-2.5 py-1 <?= $badgeColor ?> rounded-full text-xs font-bold shadow-sm">
+                <div class="px-6 py-2 bg-[#B4D4FF]/10 border-b border-[#B4D4FF]/30 flex justify-between items-center">
+                    <span class="text-xs font-medium text-[#176B87] flex items-center gap-1.5">
+                        <i class="fa-solid fa-robot"></i> AI Quota Status:
+                    </span>
+                    <span id="aiQuotaBadge" class="px-2.5 py-1 <?= $badgeColor ?> border rounded-full text-xs font-bold shadow-sm">
                         🤖 <?= $requestsLeft ?> requests left
                     </span>
                 </div>
 
-                <div class="p-6 overflow-y-auto">
-                    <!-- vertical form layout -->
-                    <div class="space-y-5">
-                        <!-- Date Range -->
-                        <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <label class="block text-sm font-semibold text-slate-700">
-                                    Date Range
-                                </label>
-                                <div class="flex items-center gap-1.5">
-                                    <button onclick="setDatePreset('this_month')" class="px-2 py-1 text-[10px] font-medium bg-slate-100 text-slate-600 rounded-md hover:bg-[#176B87] hover:text-white transition cursor-pointer">This Month</button>
-                                    <button onclick="setDatePreset('this_year')" class="px-2 py-1 text-[10px] font-medium bg-slate-100 text-slate-600 rounded-md hover:bg-[#176B87] hover:text-white transition cursor-pointer">This Year</button>
-                                    <button onclick="setDatePreset('last_30_days')" class="px-2 py-1 text-[10px] font-medium bg-slate-100 text-slate-600 rounded-md hover:bg-[#176B87] hover:text-white transition cursor-pointer">Last 30 Days</button>
+                <!-- Scrollable Body -->
+                <div class="px-6 py-5 space-y-4 overflow-y-auto">
+                    <!-- Date Range -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-[#176B87] uppercase tracking-wider">Report Date Range</label>
+                            <div class="flex items-center gap-1">
+                                <button type="button" onclick="setDatePreset('this_month')" class="px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600 rounded-md hover:bg-[#176B87] hover:text-white transition">This Month</button>
+                                <button type="button" onclick="setDatePreset('this_year')"  class="px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600 rounded-md hover:bg-[#176B87] hover:text-white transition">This Year</button>
+                                <button type="button" onclick="setDatePreset('last_30_days')" class="px-2 py-0.5 text-[10px] font-medium bg-slate-100 text-slate-600 rounded-md hover:bg-[#176B87] hover:text-white transition">Last 30 Days</button>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <input type="date" id="startDate" value="<?= date('Y-m-d', strtotime('-90 days')) ?>" class="w-full rounded-xl px-4 py-2.5 text-sm border border-[#B4D4FF]/50 outline-none focus:border-[#176B87]" onchange="refreshUI()" />
+                            <span class="text-slate-400 text-sm flex-shrink-0">to</span>
+                            <input type="date" id="endDate" value="<?= date('Y-m-d', strtotime('+30 days')) ?>" class="w-full rounded-xl px-4 py-2.5 text-sm border border-[#B4D4FF]/50 outline-none focus:border-[#176B87]" onchange="refreshUI()" />
+                        </div>
+                    </div>
+
+                    <!-- Visual Graphs Option -->
+                    <div class="flex items-center justify-between p-3.5 bg-[#B4D4FF]/10 rounded-xl border border-[#B4D4FF]/30">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-7 h-7 rounded-lg bg-[#176B87]/10 flex items-center justify-center">
+                                <i class="fa-solid fa-chart-bar text-[#176B87] text-xs"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-slate-700">Include Visual Graphs</p>
+                                <p class="text-[10px] text-slate-400">Attach charts &amp; trend visualizations</p>
+                            </div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="includeVisuals" checked class="sr-only peer">
+                            <div class="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#176B87]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Export Format Cards -->
+                    <div>
+                        <label class="block text-xs font-semibold text-[#176B87] uppercase tracking-wider mb-2">Export Format</label>
+                        <select id="exportFormat" class="sr-only">
+                            <?php foreach ($exportFormats as $val => $label): ?>
+                                <option value="<?= htmlspecialchars($val) ?>"><?= htmlspecialchars($label) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="grid grid-cols-3 gap-2">
+                            <label id="genFormatPdf" onclick="selectGenerateFormat('pdf')" class="gen-fmt-card flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-[#176B87] bg-[#176B87]/5 cursor-pointer transition-all">
+                                <div class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                                    <i class="fa-solid fa-file-pdf text-red-600"></i>
                                 </div>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <input type="date" id="startDate" value="<?= date('Y-m-d', strtotime('-90 days')) ?>" class="w-full rounded-xl px-4 py-2.5 text-sm border border-slate-200" onchange="refreshUI()" />
-                                <span class="text-slate-400 text-sm">to</span>
-                                <input type="date" id="endDate" value="<?= date('Y-m-d', strtotime('+30 days')) ?>" class="w-full rounded-xl px-4 py-2.5 text-sm border border-slate-200" onchange="refreshUI()" />
-                            </div>
-                        </div>
-
-                        
-                        <!-- Visual Graphs Option -->
-                        <div class="mt-4">
-                            <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 cursor-pointer">
-                                <input type="checkbox" id="includeVisuals" checked class="w-4 h-4 text-[#176B87] rounded border-slate-300 focus:ring-[#176B87]">
-                                Include Visual Graphs
+                                <span class="text-xs font-semibold text-slate-700">PDF</span>
+                                <input type="radio" name="genExportFormat" value="pdf" checked class="sr-only">
                             </label>
-                        </div>
-
-                        <!-- Export Format -->
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">
-                                Export Format
+                            <label id="genFormatExcel" onclick="selectGenerateFormat('excel')" class="gen-fmt-card flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-slate-200 bg-white cursor-pointer transition-all">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
+                                    <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700">Excel</span>
+                                <input type="radio" name="genExportFormat" value="excel" class="sr-only">
                             </label>
-                            <select id="exportFormat" class="w-full rounded-xl px-4 py-2.5 text-sm border border-slate-200">
-                                <?php foreach ($exportFormats as $val => $label): ?>
-                                    <option value="<?= htmlspecialchars($val) ?>"><?= htmlspecialchars($label) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-                        <!-- Department Module -->
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">
-                                Department Module
+                            <label id="genFormatWord" onclick="selectGenerateFormat('word')" class="gen-fmt-card flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 border-slate-200 bg-white cursor-pointer transition-all">
+                                <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                                    <i class="fa-solid fa-file-word text-blue-600"></i>
+                                </div>
+                                <span class="text-xs font-semibold text-slate-700">Word</span>
+                                <input type="radio" name="genExportFormat" value="word" class="sr-only">
                             </label>
-                            <select id="reportType" class="w-full rounded-xl px-4 py-2.5 text-sm border border-slate-200" onchange="loadLiveReportData()">
-                                <?php foreach ($availableReportTypes as $val => $label): ?>
-                                    <option value="<?= htmlspecialchars($val) ?>"><?= htmlspecialchars($label) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-
-
-
                         </div>
                     </div>
-                    <!-- Actions -->
-                    <div class="mt-5 flex flex-wrap items-center justify-end gap-4 pt-4 border-t border-slate-100">
-                        <div class="flex items-center gap-2">
-                            <button id="resetBtn" onclick="resetFilters()" class="px-4 py-2.5 rounded-xl text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 transition flex items-center gap-2">
-                                <i class="fa-regular fa-circle-xmark"></i> Reset
-                            </button>
-                            <button id="generateBtn" onclick="generateReport(); closeGenerateReportModal();" class="btn-primary px-6 py-2.5 rounded-xl text-sm font-semibold text-white flex items-center gap-2 shadow-sm">
-                                <i class="fa-solid fa-play"></i> Generate Report
-                            </button>
-                        </div>
+
+                    <!-- Department Module -->
+                    <div>
+                        <label class="block text-xs font-semibold text-[#176B87] uppercase tracking-wider mb-1.5">Department Module</label>
+                        <select id="reportType" class="w-full rounded-xl px-4 py-2.5 text-sm border border-[#B4D4FF]/50 outline-none focus:border-[#176B87] transition" onchange="loadLiveReportData()">
+                            <?php foreach ($availableReportTypes as $val => $label): ?>
+                                <option value="<?= htmlspecialchars($val) ?>"><?= htmlspecialchars($label) ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="px-6 py-4 border-t border-[#B4D4FF]/30 bg-white flex items-center justify-between flex-shrink-0">
+                    <button id="resetBtn" onclick="resetFilters()" class="px-5 py-2.5 rounded-xl text-xs font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 transition flex items-center gap-2">
+                        <i class="fa-regular fa-circle-xmark"></i> Reset
+                    </button>
+                    <button id="generateBtn" onclick="generateReport(); closeGenerateReportModal();" class="btn-primary px-6 py-2.5 rounded-xl text-xs font-bold text-white flex items-center gap-2 shadow-sm">
+                        <i class="fa-solid fa-play"></i> Generate Report
+                    </button>
                 </div>
             </div>
         </div>
@@ -114,7 +137,7 @@
         <div id="printReportHeader">
             <img src="../assets/images/logo.png" alt="Logo">
             <h1>Health Sanitation Management Caloocan</h1>
-            <h2 id="printReportSubtitle">Custom Compliance Report</h2>
+            <h2 id="printReportSubtitle">Custom Executive Report</h2>
         </div>
 
         <!-- ─── REPORT PREVIEW CARD ─── -->
