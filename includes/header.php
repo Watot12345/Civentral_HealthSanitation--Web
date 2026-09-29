@@ -150,7 +150,7 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts" defer></script>
   
-  <!-- Font Awesome 6 (Latest) - Loaded in head for priority -->
+  <!-- Font Awesome 6 (Latest) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   
   <style type="text/tailwindcss">

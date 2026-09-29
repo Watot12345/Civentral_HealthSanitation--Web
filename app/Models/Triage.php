@@ -29,7 +29,7 @@ class Triage
     public function find(string|int $id): ?array
     {
         try {
-            $result = $this->db->select($this->table, ['id' => $id]);
+            $result = $this->db->select($this->table, ['id' => 'eq.' . $id]);
             return !empty($result) ? $result[0] : null;
         } catch (Throwable $e) {
             error_log('Triage Model Error (find): ' . $e->getMessage());
@@ -40,7 +40,7 @@ class Triage
     public function findByTriageId(string $triageId): ?array
     {
         try {
-            $result = $this->db->select($this->table, ['triage_id' => $triageId]);
+            $result = $this->db->select($this->table, ['triage_id' => 'eq.' . $triageId]);
             return !empty($result) ? $result[0] : null;
         } catch (Throwable $e) {
             error_log('Triage Model Error (findByTriageId): ' . $e->getMessage());
@@ -51,7 +51,7 @@ class Triage
     public function getByPatientId(string|int $patientId): array
     {
         try {
-            return $this->db->select($this->table, ['patient_id' => $patientId], ['order' => 'created_at.desc']);
+            return $this->db->select($this->table, ['patient_id' => 'eq.' . $patientId], ['order' => 'created_at.desc']);
         } catch (Throwable $e) {
             error_log('Triage Model Error (getByPatientId): ' . $e->getMessage());
             return [];
@@ -128,9 +128,19 @@ class Triage
         return $res;
     }
 
+    public function update(array $data, array $where = []): array
+    {
+        if (isset($where['id'])) {
+            $id = str_replace('eq.', '', (string)$where['id']);
+            return $this->updateById($id, $data);
+        }
+        $updated = $this->db->update($this->table, $data, $where);
+        return is_array($updated) ? $updated : [];
+    }
+
     public function updateById(string|int $id, array $data): array
     {
-        $updated = $this->db->update($this->table, $data, ['id' => $id]);
+        $updated = $this->db->update($this->table, $data, ['id' => 'eq.' . $id]);
         if (is_array($updated) && isset($updated[0]) && is_array($updated[0])) {
             $updated = $updated[0];
         }

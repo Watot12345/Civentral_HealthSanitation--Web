@@ -775,7 +775,7 @@ function applyCustomDateRange() {
 (function() {
     const url = window.SUPABASE_CONFIG?.url;
     const key = window.SUPABASE_CONFIG?.anonKey;
-    if (url && key && typeof supabase !== 'undefined') {
+    if (url && key && typeof supabase !== 'undefined' && supabase && typeof supabase.createClient === 'function') {
         try {
             const sbClient = supabase.createClient(url, key);
             sbClient.channel('dashboard_updates')

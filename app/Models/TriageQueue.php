@@ -29,7 +29,7 @@ class TriageQueue
     public function find(string|int $id): ?array
     {
         try {
-            $result = $this->db->select($this->table, ['id' => $id]);
+            $result = $this->db->select($this->table, ['id' => 'eq.' . $id]);
             return !empty($result) ? $result[0] : null;
         } catch (Throwable $e) {
             error_log('TriageQueue Model Error (find): ' . $e->getMessage());
@@ -40,7 +40,7 @@ class TriageQueue
     public function findByQueueNumber(string $queueNumber): ?array
     {
         try {
-            $result = $this->db->select($this->table, ['queue_number' => $queueNumber]);
+            $result = $this->db->select($this->table, ['queue_number' => 'eq.' . $queueNumber]);
             return !empty($result) ? $result[0] : null;
         } catch (Throwable $e) {
             error_log('TriageQueue Model Error (findByQueueNumber): ' . $e->getMessage());
@@ -51,7 +51,7 @@ class TriageQueue
     public function getByPatientId(string|int $patientId): array
     {
         try {
-            return $this->db->select($this->table, ['patient_id' => $patientId], ['order' => 'created_at.desc']);
+            return $this->db->select($this->table, ['patient_id' => 'eq.' . $patientId], ['order' => 'created_at.desc']);
         } catch (Throwable $e) {
             error_log('TriageQueue Model Error (getByPatientId): ' . $e->getMessage());
             return [];
@@ -142,7 +142,7 @@ class TriageQueue
 
     public function updateById(string|int $id, array $data): array
     {
-        return $this->db->update($this->table, $data, ['id' => $id]);
+        return $this->db->update($this->table, $data, ['id' => 'eq.' . $id]);
     }
 
     public function updateStatus(string|int $id, string $status): array
@@ -151,13 +151,13 @@ class TriageQueue
         if (!in_array($status, $validStatuses)) {
             $status = 'waiting';
         }
-        return $this->db->update($this->table, ['status' => $status], ['id' => $id]);
+        return $this->db->update($this->table, ['status' => $status], ['id' => 'eq.' . $id]);
     }
 
     public function deleteById(string|int $id): bool
     {
         try {
-            $this->db->delete($this->table, ['id' => $id]);
+            $this->db->delete($this->table, ['id' => 'eq.' . $id]);
             return true;
         } catch (Throwable $e) {
             error_log('TriageQueue Model Error (deleteById): ' . $e->getMessage());
