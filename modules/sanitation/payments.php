@@ -16,6 +16,15 @@ require_once '../../includes/sidebar.php';
 requireDepartmentAccess('sanitation permits');
 require_once __DIR__ . '/../../includes/toast.php'; // <-- ADDED to enable toasts
 
+// Role-Based Authorization for Fee Structure Management (Head Roles & Admins Only)
+$userRoleDesc = trim($_SESSION['role_description'] ?? '');
+$userRole     = trim($_SESSION['role'] ?? '');
+$combinedRole = strtolower($userRole . ' ' . $userRoleDesc);
+
+$isAdminRole = (bool) preg_match('/admin|administrator|superadmin|system administrator|system admin/i', $combinedRole);
+$isHeadRole  = (bool) preg_match('/health center director|sanitation director|immunization lead|immunization coordinator|waste\s*water lead|surveil{1,2}ance lead|surveillance coordinator|director|coordinator|lead|head|department head|manager/i', $combinedRole);
+$canManageFees = $isAdminRole || $isHeadRole || (function_exists('hasPermission') && hasPermission('sanitation.manage'));
+
 $title = 'Payments';
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 5;
@@ -158,75 +167,115 @@ $limit = 5;
         </button>
     </div>
 
-    <!-- Fee Structure Section -->
+    <!-- Fee Structure Collapsible Reference (Collapsed by Default so it doesn't interrupt staff) -->
     <div class="bg-white rounded-xl shadow-xs border border-slate-200 mb-6 overflow-hidden">
-        <div class="flex items-center justify-between px-4 py-3 bg-slate-50 border-b border-slate-200">
-            <h4 class="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <i class="fa-solid fa-table-list text-brand-medium"></i> Fee Structure
-            </h4>
-            <button onclick="openFeeStructureModal()" class="text-xs font-semibold text-brand-medium hover:text-brand-dark transition">
-                <i class="fa-solid fa-pen mr-1"></i> Edit
-            </button>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50/50">
-                    <tr>
-                        <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Category</th>
-                        <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Base Fee</th>
-                        <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Inspection Fee</th>
-                        <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total</th>
-                    </tr>
-                </thead>
-                <tbody id="feeStructureTableBody">
-                    <tr>
-                        <td colspan="4" class="text-center py-4 text-slate-400 text-xs">Loading...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <div id="feeStructureMoreLink" class="hidden px-4 py-2 text-center text-xs text-slate-400 border-t border-slate-200">
-            <button onclick="openFeeStructureModal()" class="text-brand-medium hover:text-brand-dark">View all categories</button>
+        <button type="button" onclick="toggleFeeStructure()" class="w-full px-4 py-3 bg-slate-50/70 hover:bg-slate-100/70 transition flex items-center justify-between text-left">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-brand-light flex items-center justify-center text-brand-dark flex-shrink-0">
+                    <i class="fa-solid fa-table-list text-sm"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-slate-800">Fee Structure Reference</h4>
+                    <p class="text-xs text-slate-400">Official municipal fees for sanitary inspection, health certificates, and sanitary permits</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="feeToggleText" class="text-xs font-semibold text-brand-medium">Show Rates</span>
+                <i id="feeToggleIcon" class="fa-solid fa-chevron-down text-slate-400 text-xs transition-transform duration-200"></i>
+            </div>
+        </button>
+        <div id="feeStructureBody" class="hidden p-4 border-t border-slate-200 bg-white">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500 font-medium">Standard Municipal Rates (Based on Ordinance No. 0386)</span>
+                </div>
+                <?php if ($canManageFees): ?>
+                <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-brand-light text-brand-dark border border-brand-border">
+                        <i class="fa-solid fa-shield-halved mr-1"></i> Authorized (Head & Admin)
+                    </span>
+                    <button type="button" onclick="openFeeStructureModal()" class="px-3 py-1.5 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                        <i class="fa-solid fa-pen text-xs"></i> Manage Rates
+                    </button>
+                </div>
+                <?php else: ?>
+                <span class="text-[11px] text-slate-400 italic">
+                    <i class="fa-solid fa-lock text-xs mr-1"></i> Rates management restricted to Department Heads and Administrators
+                </span>
+                <?php endif; ?>
+            </div>
+            <div id="feeGridContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div class="col-span-full text-center py-6 text-slate-400 text-xs flex items-center justify-center gap-2">
+                    <div class="w-4 h-4 border-2 border-brand-light border-t-brand-dark rounded-full animate-spin"></div>
+                    Loading fee categories...
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Search & Filter -->
+    <!-- Search, Filters, Date Modal & Integrated Action Buttons Toolbar -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
-        <div class="flex flex-col sm:flex-row gap-3">
-            <div class="flex-1 relative">
+        <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+            <!-- Search Box -->
+            <div class="flex-1 relative min-w-[240px]">
                 <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                 <input type="text"
                     id="searchPayment"
                     placeholder="Search by permit ID, applicant, or reference..."
                     class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
             </div>
-            <div class="flex gap-2 flex-wrap">
-                <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+
+            <!-- Integrated Control Bar: Filters, Date Picker Modal, Process Payment & Export -->
+            <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <!-- Status Filter -->
+                <select id="filterStatus" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white text-slate-700">
                     <option value="">All Status</option>
                     <option value="completed">Completed</option>
                     <option value="pending">Pending</option>
                     <option value="failed">Failed</option>
                     <option value="refunded">Refunded</option>
                 </select>
-                <select id="filterMethod" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+
+                <!-- Method Filter -->
+                <select id="filterMethod" class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white text-slate-700">
                     <option value="">All Methods</option>
-                    <option value="cash">Cash</option>
+                    <option value="cash">Cash / OTC</option>
                     <option value="gcash">GCash</option>
                     <option value="paymaya">PayMaya</option>
                     <option value="bank_transfer">Bank Transfer</option>
                     <option value="over_the_counter">Over-the-Counter</option>
                 </select>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span>From</span>
-                    <input type="date" id="filterDateFrom" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                </label>
-                <label class="flex items-center gap-1.5 text-xs text-slate-500">
-                    <span>To</span>
-                    <input type="date" id="filterDateTo" class="px-2.5 py-2 border border-slate-200 rounded-lg text-sm bg-white">
-                </label>
-                <button onclick="resetFilters()" title="Reset filters"
-                    class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
+
+                <!-- Date Range Filter Modal Trigger (Replaces raw native date inputs) -->
+                <button type="button" onclick="openModal('dateFilterModal')" id="dateFilterBtn" class="px-3 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-semibold flex items-center gap-2 transition whitespace-nowrap" title="Filter by date range">
+                    <i class="fa-regular fa-calendar text-slate-400 text-xs"></i>
+                    <span id="dateFilterLabel">Date Filter</span>
+                    <span id="dateFilterActiveDot" class="hidden w-2 h-2 rounded-full bg-brand-medium"></span>
+                </button>
+
+                <!-- Hidden inputs to store active date range for the filter -->
+                <input type="hidden" id="filterDateFrom">
+                <input type="hidden" id="filterDateTo">
+
+                <!-- Reset Filter Button -->
+                <button type="button" onclick="resetFilters()" title="Reset all filters"
+                    class="p-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 rounded-lg text-sm transition">
                     <i class="fa-solid fa-rotate-right"></i>
+                </button>
+
+                <div class="h-6 w-[1px] bg-slate-200 hidden sm:block"></div>
+
+                <!-- Process Payment Fitted in Toolbar -->
+                <button onclick="openProcessPaymentModal()"
+                    class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm whitespace-nowrap">
+                    <i class="fa-solid fa-credit-card text-xs"></i> Process Payment
+                </button>
+
+                <!-- Export Fitted in Toolbar -->
+                <button onclick="exportPaymentsCSV()"
+                    class="px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2 whitespace-nowrap"
+                    title="Export to CSV" aria-label="Export payments to CSV">
+                    <i class="fa-solid fa-file-csv text-xs"></i> Export
                 </button>
             </div>
         </div>
@@ -397,6 +446,63 @@ $limit = 5;
 </div>
 
 <!-- ============================================================ -->
+<!-- DATE RANGE FILTER MODAL                                      -->
+<!-- ============================================================ -->
+<div id="dateFilterModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-regular fa-calendar-days text-brand-medium"></i>
+                Filter Payments by Date Range
+            </h3>
+            <button onclick="closeModal('dateFilterModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <!-- Quick Presets -->
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Quick Presets</label>
+                <div class="grid grid-cols-3 gap-2 text-xs">
+                    <button type="button" onclick="setDatePreset('today')" class="px-2.5 py-1.5 bg-slate-50 hover:bg-brand-light hover:text-brand-dark border border-slate-200 rounded-lg font-semibold text-slate-700 transition text-center">Today</button>
+                    <button type="button" onclick="setDatePreset('last7')" class="px-2.5 py-1.5 bg-slate-50 hover:bg-brand-light hover:text-brand-dark border border-slate-200 rounded-lg font-semibold text-slate-700 transition text-center">Last 7 Days</button>
+                    <button type="button" onclick="setDatePreset('thisMonth')" class="px-2.5 py-1.5 bg-slate-50 hover:bg-brand-light hover:text-brand-dark border border-slate-200 rounded-lg font-semibold text-slate-700 transition text-center">This Month</button>
+                    <button type="button" onclick="setDatePreset('last30')" class="px-2.5 py-1.5 bg-slate-50 hover:bg-brand-light hover:text-brand-dark border border-slate-200 rounded-lg font-semibold text-slate-700 transition text-center">Last 30 Days</button>
+                    <button type="button" onclick="setDatePreset('thisYear')" class="px-2.5 py-1.5 bg-slate-50 hover:bg-brand-light hover:text-brand-dark border border-slate-200 rounded-lg font-semibold text-slate-700 transition text-center">This Year</button>
+                    <button type="button" onclick="setDatePreset('all')" class="px-2.5 py-1.5 bg-slate-50 hover:bg-rose-50 hover:text-rose-700 border border-slate-200 rounded-lg font-semibold text-slate-700 transition text-center">All Time</button>
+                </div>
+            </div>
+
+            <!-- Specific Date Range Pickers -->
+            <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date From</label>
+                    <input type="date" id="modalDateFrom" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date To</label>
+                    <input type="date" id="modalDateTo" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-3 border-t border-slate-100">
+                <button type="button" onclick="clearDateFilterModal()" class="text-xs font-semibold text-slate-500 hover:text-rose-600 transition">
+                    Clear Date Filter
+                </button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeModal('dateFilterModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="applyDateFilterModal()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5">
+                        <i class="fa-solid fa-filter text-xs"></i> Apply Filter
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- JAVASCRIPT - Full API Integration                           -->
 <!-- ============================================================ -->
 <script>
@@ -511,8 +617,9 @@ $limit = 5;
     const permitApi = new PermitApi();
 
     // ============================================================
-    // GLOBAL STATE
+    // GLOBAL STATE & ACCESS CONTROL
     // ============================================================
+    const CAN_MANAGE_FEES = <?php echo json_encode($canManageFees); ?>;
     let currentPage = <?php echo $page; ?>;
     let currentLimit = <?php echo $limit; ?>;
     let totalPages = 1;
@@ -588,31 +695,70 @@ $limit = 5;
     }
 
     // ============================================================
+    // FEE STRUCTURE TOGGLE
+    // ============================================================
+    function toggleFeeStructure() {
+        const body = document.getElementById('feeStructureBody');
+        const text = document.getElementById('feeToggleText');
+        const icon = document.getElementById('feeToggleIcon');
+        if (!body) return;
+
+        if (body.classList.contains('hidden')) {
+            body.classList.remove('hidden');
+            if (text) text.textContent = 'Hide Rates';
+            if (icon) icon.classList.add('rotate-180');
+        } else {
+            body.classList.add('hidden');
+            if (text) text.textContent = 'Show Rates';
+            if (icon) icon.classList.remove('rotate-180');
+        }
+    }
+
+    // ============================================================
     // LOAD FEE STRUCTURE
     // ============================================================
     async function loadFeeStructure() {
         try {
             const result = await paymentApi.getFeeStructure();
-            const fees = result.data;
+            const fees = result.data || [];
+            const grid = document.getElementById('feeGridContainer');
+            if (!grid) return;
 
-            const tbody = document.getElementById('feeStructureTableBody');
-            tbody.innerHTML = fees.slice(0, 5).map(fee => `
-            <tr class="border-b border-slate-100">
-                <td class="px-4 py-2 text-slate-700 text-xs">${fee.category}</td>
-                <td class="px-4 py-2 text-right text-xs font-medium text-slate-700">₱${parseFloat(fee.base_fee).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
-                <td class="px-4 py-2 text-right text-xs font-medium text-slate-700">₱${parseFloat(fee.inspection_fee).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
-                <td class="px-4 py-2 text-right text-xs font-bold text-brand-dark">₱${parseFloat(fee.total).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
-            </tr>
-        `).join('');
-
-            if (fees.length > 5) {
-                document.getElementById('feeStructureMoreLink').classList.remove('hidden');
+            if (fees.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center py-6 text-slate-400 text-xs">No fee categories configured</div>';
+                return;
             }
+
+            grid.innerHTML = fees.map((fee, idx) => `
+                <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200 hover:shadow-xs hover:border-brand-border transition group relative">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="font-bold text-slate-800 text-sm">${escapeHtml(fee.category)}</p>
+                            <div class="flex items-center gap-2 mt-1 text-xs text-slate-500">
+                                <span>Base: ₱${parseFloat(fee.base_fee || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</span>
+                                <span>•</span>
+                                <span>Inspection: ₱${parseFloat(fee.inspection_fee || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</span>
+                            </div>
+                        </div>
+                        ${CAN_MANAGE_FEES ? `
+                        <button onclick="openFeeStructureModal()" title="Edit Rates" class="opacity-0 group-hover:opacity-100 transition w-6 h-6 rounded-md bg-white border border-slate-200 text-slate-500 hover:text-brand-dark flex items-center justify-center text-xs shadow-2xs">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        ` : ''}
+                    </div>
+                    <div class="mt-2.5 flex items-baseline justify-between pt-2 border-t border-slate-200/60">
+                        <span class="text-xs text-slate-400 font-medium">Total Municipal Rate:</span>
+                        <p class="text-base font-extrabold text-brand-dark">₱${parseFloat(fee.total || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</p>
+                    </div>
+                </div>
+            `).join('');
 
             window.feeStructureData = fees;
         } catch (error) {
-            document.getElementById('feeStructureTableBody').innerHTML =
-                '<tr><td colspan="4" class="text-center py-4 text-rose-500 text-xs">Failed to load fee structure</td></tr>';
+            const grid = document.getElementById('feeGridContainer');
+            if (grid) {
+                grid.innerHTML = '<div class="col-span-full text-center py-4 text-rose-500 text-xs">Failed to load fee structure</div>';
+            }
         }
     }
 
@@ -710,9 +856,9 @@ $limit = 5;
             const formattedAmount = '₱' + parseFloat(payment.amount).toLocaleString('en-PH', {minimumFractionDigits: 2});
 
             return `
-        <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors payment-row"
+        <tr class="border-b border-slate-100 hover:bg-brand-light/30 transition-colors payment-row"
             data-id="${payment.id}">
-            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${escapeHtml(payment.payment_id || '')}</td>
+            <td class="px-4 py-3"><span class="font-mono text-xs font-bold text-brand-dark bg-brand-light/70 px-2 py-0.5 rounded border border-brand-border/40">${escapeHtml(payment.payment_id || '')}</span></td>
             <td class="px-4 py-3">
                 <div>
                     <p class="font-semibold text-slate-800 text-sm maskable" data-real="${escapeHtml(applicant)}" data-masked="${escapeHtml(maskedApplicant)}">${escapeHtml(applicant)}</p>
@@ -720,15 +866,17 @@ $limit = 5;
                 </div>
             </td>
             <td class="px-4 py-3">
-                <span class="text-sm font-bold text-slate-800 maskable" data-real="${escapeHtml(formattedAmount)}" data-masked="₱••••••">${escapeHtml(formattedAmount)}</span>
+                <span class="text-sm font-extrabold text-slate-800 maskable" data-real="${escapeHtml(formattedAmount)}" data-masked="₱••••••">${escapeHtml(formattedAmount)}</span>
             </td>
             <td class="px-4 py-3 text-slate-600 text-xs">
-                <i class="fa-solid ${methodIcons[payment.method] || 'fa-credit-card'} ${methodColors[payment.method] || ''} mr-1"></i>
-                ${escapeHtml(methodNames[payment.method] || payment.method || '')}
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 font-medium">
+                    <i class="fa-solid ${methodIcons[payment.method] || 'fa-credit-card'} ${methodColors[payment.method] || ''}"></i>
+                    ${escapeHtml(methodNames[payment.method] || payment.method || '')}
+                </span>
             </td>
             <td class="px-4 py-3 text-slate-500 text-xs font-mono maskable" data-real="${escapeHtml(payment.reference_number || '—')}" data-masked="${escapeHtml(maskedRef)}">${escapeHtml(payment.reference_number || '—')}</td>
             <td class="px-4 py-3">
-                <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[payment.status] || statusColors.pending}">
+                <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${statusColors[payment.status] || statusColors.pending}">
                     ${escapeHtml((payment.status || '').charAt(0).toUpperCase() + (payment.status || '').slice(1))}
                 </span>
             </td>
@@ -736,18 +884,18 @@ $limit = 5;
             <td class="px-4 py-3">
                 <div class="flex items-center justify-center gap-1">
                     <button onclick="viewPayment(${payment.id})"
-                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
+                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details">
                         <i class="fa-solid fa-eye text-sm"></i>
                     </button>
                     ${payment.receipt_path ? `
                         <button onclick="downloadReceipt('${payment.receipt_path}')"
-                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Receipt">
+                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Download Receipt">
                             <i class="fa-solid fa-receipt text-sm"></i>
                         </button>
                     ` : ''}
                     ${payment.status === 'pending' ? `
                         <button onclick="completePayment(${payment.id})"
-                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Complete">
+                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Mark as Completed">
                             <i class="fa-solid fa-check text-sm"></i>
                         </button>
                     ` : ''}
@@ -1052,6 +1200,147 @@ $limit = 5;
     }
 
     // ============================================================
+    // DATE RANGE FILTER MODAL HANDLERS
+    // ============================================================
+    function setDatePreset(preset) {
+        const fromInput = document.getElementById('modalDateFrom');
+        const toInput = document.getElementById('modalDateTo');
+        const today = new Date();
+
+        const formatDate = (d) => {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+
+        if (preset === 'today') {
+            const todayStr = formatDate(today);
+            fromInput.value = todayStr;
+            toInput.value = todayStr;
+        } else if (preset === 'last7') {
+            const past = new Date();
+            past.setDate(today.getDate() - 7);
+            fromInput.value = formatDate(past);
+            toInput.value = formatDate(today);
+        } else if (preset === 'thisMonth') {
+            const start = new Date(today.getFullYear(), today.getMonth(), 1);
+            const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            fromInput.value = formatDate(start);
+            toInput.value = formatDate(end);
+        } else if (preset === 'last30') {
+            const past = new Date();
+            past.setDate(today.getDate() - 30);
+            fromInput.value = formatDate(past);
+            toInput.value = formatDate(today);
+        } else if (preset === 'thisYear') {
+            const start = new Date(today.getFullYear(), 0, 1);
+            const end = new Date(today.getFullYear(), 11, 31);
+            fromInput.value = formatDate(start);
+            toInput.value = formatDate(end);
+        } else if (preset === 'all') {
+            fromInput.value = '';
+            toInput.value = '';
+        }
+    }
+
+    function applyDateFilterModal() {
+        const modalFrom = document.getElementById('modalDateFrom').value;
+        const modalTo = document.getElementById('modalDateTo').value;
+
+        if (modalFrom && modalTo && modalFrom > modalTo) {
+            showToast('The start date cannot be after the end date', 'danger');
+            return;
+        }
+
+        document.getElementById('filterDateFrom').value = modalFrom;
+        document.getElementById('filterDateTo').value = modalTo;
+
+        updateDateFilterButtonLabel();
+        loadPayments(1);
+        closeModal('dateFilterModal');
+    }
+
+    function clearDateFilterModal() {
+        document.getElementById('modalDateFrom').value = '';
+        document.getElementById('modalDateTo').value = '';
+        document.getElementById('filterDateFrom').value = '';
+        document.getElementById('filterDateTo').value = '';
+
+        updateDateFilterButtonLabel();
+        loadPayments(1);
+        closeModal('dateFilterModal');
+    }
+
+    function updateDateFilterButtonLabel() {
+        const from = document.getElementById('filterDateFrom').value;
+        const to = document.getElementById('filterDateTo').value;
+        const label = document.getElementById('dateFilterLabel');
+        const dot = document.getElementById('dateFilterActiveDot');
+        const btn = document.getElementById('dateFilterBtn');
+
+        if (!from && !to) {
+            if (label) label.textContent = 'Date Filter';
+            if (dot) dot.classList.add('hidden');
+            if (btn) btn.className = 'px-3 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-semibold flex items-center gap-2 transition whitespace-nowrap';
+        } else {
+            if (dot) dot.classList.remove('hidden');
+            if (btn) btn.className = 'px-3 py-2 border border-brand-medium bg-brand-light/60 text-brand-dark rounded-lg text-sm font-bold flex items-center gap-2 transition whitespace-nowrap shadow-xs';
+
+            if (from && to) {
+                if (from === to) {
+                    if (label) label.textContent = from;
+                } else {
+                    if (label) label.textContent = `${from} to ${to}`;
+                }
+            } else if (from) {
+                if (label) label.textContent = `From ${from}`;
+            } else if (to) {
+                if (label) label.textContent = `Up to ${to}`;
+            }
+        }
+    }
+
+    // ============================================================
+    // EXPORT PAYMENTS TO CSV
+    // ============================================================
+    function exportPaymentsCSV() {
+        const rows = document.querySelectorAll('#paymentTableBody tr.payment-row');
+        if (!rows || rows.length === 0) {
+            showToast('No payment records available to export.', 'warning');
+            return;
+        }
+
+        let csv = 'Payment ID,Applicant,Permit ID,Amount,Method,Reference,Status,Date\n';
+        rows.forEach(r => {
+            const cells = r.querySelectorAll('td');
+            if (cells.length < 7) return;
+            const pId = cells[0].textContent.trim();
+            const applicant = cells[1].querySelector('p:first-child')?.textContent.trim() || '';
+            const permitId = cells[1].querySelector('p:last-child')?.textContent.trim() || '';
+            const amount = cells[2].textContent.trim().replace(/[₱,]/g, '');
+            const method = cells[3].textContent.trim();
+            const ref = cells[4].textContent.trim();
+            const status = cells[5].textContent.trim();
+            const date = cells[6].textContent.trim();
+
+            const clean = str => `"${(str || '').replace(/"/g, '""')}"`;
+            csv += [clean(pId), clean(applicant), clean(permitId), clean(amount), clean(method), clean(ref), clean(status), clean(date)].join(',') + '\n';
+        });
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `sanitation_payments_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('Payments exported to CSV successfully!', 'success');
+    }
+
+    // ============================================================
     // SEARCH & FILTER
     // ============================================================
     let searchTimeout;
@@ -1071,6 +1360,11 @@ $limit = 5;
         document.getElementById('filterMethod').value = '';
         document.getElementById('filterDateFrom').value = '';
         document.getElementById('filterDateTo').value = '';
+        const modalFrom = document.getElementById('modalDateFrom');
+        if (modalFrom) modalFrom.value = '';
+        const modalTo = document.getElementById('modalDateTo');
+        if (modalTo) modalTo.value = '';
+        updateDateFilterButtonLabel();
         loadPayments(1);
     }
 
