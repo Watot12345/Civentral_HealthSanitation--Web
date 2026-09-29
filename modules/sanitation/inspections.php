@@ -402,10 +402,15 @@ try {
                     <p class="text-slate-500"><span id="conductPermit" class="font-mono text-brand-dark font-semibold">—</span> • <span id="conductAddress" class="maskable">—</span></p>
                 </div>
             </div>
-            <!-- Live Score Pill -->
-            <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs">
-                <span class="text-[11px] font-semibold text-slate-500">Compliance Score:</span>
-                <span id="conductScoreBadge" class="px-2 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-700">100% (8/8)</span>
+            <!-- Live Score & Realtime Draft Autosave Pill -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <span id="conductAutosaveStatus" class="hidden text-[11px] font-medium text-slate-500 px-2.5 py-1 bg-white rounded-lg border border-slate-200 shadow-xs flex items-center gap-1">
+                    <i class="fa-solid fa-cloud text-slate-400 text-xs"></i> Ready
+                </span>
+                <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-xs">
+                    <span class="text-[11px] font-semibold text-slate-500">Compliance Score:</span>
+                    <span id="conductScoreBadge" class="px-2 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-700">100% (8/8)</span>
+                </div>
             </div>
         </div>
 
@@ -422,6 +427,24 @@ try {
         <!-- Form Body (Scrollable) -->
         <form id="conductInspectionForm" class="flex-1 overflow-y-auto p-6 space-y-5" onsubmit="saveConductedInspection(event)">
             <input type="hidden" id="conduct_inspection_id">
+
+            <!-- DRAFT RECOVERY ALERT BANNER -->
+            <div id="conductDraftAlert" class="hidden p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs text-amber-900 animate-fadeIn">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center flex-shrink-0 text-xs shadow-xs">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <div>
+                        <p class="font-bold text-amber-950">Unsaved Inspection Draft Restored</p>
+                        <p class="text-[11px] text-amber-800">Continuing from your previous offline session (<span id="conductDraftTimestamp" class="font-mono font-semibold"></span>).</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="discardInspectionDraft()" class="px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-amber-800 hover:bg-amber-100 font-semibold transition text-xs shadow-xs flex items-center gap-1">
+                        <i class="fa-solid fa-trash-can text-[10px]"></i> Discard Draft
+                    </button>
+                </div>
+            </div>
 
             <!-- TAB 1: CRITERIA CHECKLIST -->
             <div id="conductTabCriteria" class="space-y-4">
@@ -491,7 +514,7 @@ try {
                         <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
                             Overall Inspection Verdict <span class="text-rose-500">*</span>
                         </label>
-                        <select id="conduct_overall" required onchange="handleVerdictChange()" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <select id="conduct_overall" required onchange="handleVerdictChange(); autosaveInspectionDraft();" class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                             <option value="compliant">Compliant (Passed — Recommend for Sanitary Clearance)</option>
                             <option value="partially_compliant">Partially Compliant (Conditional — Requires Follow-up Re-Inspection)</option>
                             <option value="non_compliant">Non-Compliant (Failed — Immediate Remediation / Rejection)</option>
@@ -523,7 +546,7 @@ try {
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                             <div>
                                 <label class="block text-xs font-semibold text-amber-900 mb-1">Follow-up Inspection Date <span class="text-rose-500">*</span></label>
-                                <input type="date" id="conduct_follow_up" class="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-amber-500/40 outline-none">
+                                <input type="date" id="conduct_follow_up" oninput="autosaveInspectionDraft()" class="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-amber-500/40 outline-none">
                             </div>
                         </div>
                     </div>
@@ -543,7 +566,7 @@ try {
                         <div class="space-y-3 pt-2">
                             <div>
                                 <label class="block text-xs font-semibold text-rose-900 mb-1">Primary Rejection Criteria / Violation Category <span class="text-rose-500">*</span></label>
-                                <select id="conduct_rejection_criteria" onchange="toggleConductCustomRejection()" class="w-full px-3 py-2 border border-rose-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-rose-500/40 outline-none font-medium text-slate-800">
+                                <select id="conduct_rejection_criteria" onchange="toggleConductCustomRejection(); autosaveInspectionDraft();" class="w-full px-3 py-2 border border-rose-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-rose-500/40 outline-none font-medium text-slate-800">
                                     <option value="">Select primary rejection reason...</option>
                                     <option value="Critical Vector &amp; Pest Infestation">Critical Vector &amp; Pest Infestation (Rodent/Insect contamination)</option>
                                     <option value="Contaminated or Unsafe Water Supply">Contaminated or Unsafe Water Supply / Failed Potability Test</option>
@@ -557,7 +580,7 @@ try {
                             </div>
                             <div id="conductCustomRejectionContainer" class="hidden">
                                 <label class="block text-xs font-semibold text-rose-900 mb-1">Custom Rejection Reason Details <span class="text-rose-500">*</span></label>
-                                <textarea id="conduct_custom_rejection" rows="2" class="w-full px-3 py-2 border border-rose-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500/40 outline-none bg-white" placeholder="Describe the specific violation causing inspection failure..."></textarea>
+                                <textarea id="conduct_custom_rejection" oninput="autosaveInspectionDraft()" rows="2" class="w-full px-3 py-2 border border-rose-200 rounded-lg text-sm focus:ring-2 focus:ring-rose-500/40 outline-none bg-white" placeholder="Describe the specific violation causing inspection failure..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -567,7 +590,7 @@ try {
                         <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
                             Recommendations &amp; Corrective Actions Order
                         </label>
-                        <textarea id="conduct_recommendations" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Specify instructions, corrective actions, or remediation requirements..."></textarea>
+                        <textarea id="conduct_recommendations" oninput="autosaveInspectionDraft()" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Specify instructions, corrective actions, or remediation requirements..."></textarea>
                     </div>
 
                     <!-- Inspector Official Sign-Off Notes -->
@@ -575,7 +598,7 @@ try {
                         <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
                             Inspector Sign-Off Notes &amp; General Remarks
                         </label>
-                        <textarea id="conduct_notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Additional observations, establishment representative present, etc."></textarea>
+                        <textarea id="conduct_notes" oninput="autosaveInspectionDraft()" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Additional observations, establishment representative present, etc."></textarea>
                     </div>
                 </div>
 
@@ -1133,12 +1156,14 @@ function setCriterionStatus(index, status) {
         currentCriteria[index].status = status;
         renderCriteriaList();
         updateCriteriaScore();
+        autosaveInspectionDraft();
     }
 }
 
 function setCriterionNotes(index, notes) {
     if (currentCriteria[index]) {
         currentCriteria[index].notes = notes;
+        autosaveInspectionDraft();
     }
 }
 
@@ -1146,6 +1171,7 @@ function markAllCriteria(status) {
     currentCriteria.forEach(c => c.status = status);
     renderCriteriaList();
     updateCriteriaScore();
+    autosaveInspectionDraft();
     showToast(`All criteria marked as ${status === 'compliant' ? 'Compliant' : status}`, 'info');
 }
 
@@ -1163,6 +1189,7 @@ function addCriterion(category, description = '') {
     });
     renderCriteriaList();
     updateCriteriaScore();
+    autosaveInspectionDraft();
 }
 
 function addCustomCriterionPrompt() {
@@ -1177,6 +1204,7 @@ function removeCriterion(index) {
         currentCriteria.splice(index, 1);
         renderCriteriaList();
         updateCriteriaScore();
+        autosaveInspectionDraft();
     }
 }
 
@@ -1338,6 +1366,180 @@ function renderReviewCriteriaSummary() {
             <td class="px-3 py-2 text-slate-500 text-[11px]">${escapeHtml(c.notes || '—')}</td>
         </tr>`;
     }).join('');
+}
+
+// ============================================================
+// REALTIME DRAFT AUTOSAVE & PERSISTENCE
+// ============================================================
+let conductAutosaveTimer = null;
+
+function getInspectionDraftKey(id) {
+    return 'civentral_sanitation_draft_insp_' + id;
+}
+
+function autosaveInspectionDraft() {
+    if (!conductInspectionId) return;
+    clearTimeout(conductAutosaveTimer);
+
+    const statusEl = document.getElementById('conductAutosaveStatus');
+    if (statusEl) {
+        statusEl.classList.remove('hidden');
+        statusEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-brand-medium mr-1"></i> Saving draft...`;
+    }
+
+    conductAutosaveTimer = setTimeout(() => {
+        const now = new Date();
+        const draftData = {
+            inspectionId: conductInspectionId,
+            timestamp: now.toISOString(),
+            formattedTime: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            currentCriteria: currentCriteria,
+            overallStatus: document.getElementById('conduct_overall')?.value || 'compliant',
+            recommendations: document.getElementById('conduct_recommendations')?.value || '',
+            followUpDate: document.getElementById('conduct_follow_up')?.value || '',
+            notes: document.getElementById('conduct_notes')?.value || '',
+            rejectionCriteria: document.getElementById('conduct_rejection_criteria')?.value || '',
+            customRejection: document.getElementById('conduct_custom_rejection')?.value || ''
+        };
+        try {
+            localStorage.setItem(getInspectionDraftKey(conductInspectionId), JSON.stringify(draftData));
+            if (statusEl) {
+                statusEl.innerHTML = `<i class="fa-solid fa-cloud-check text-emerald-500 mr-1"></i> Saved ${draftData.formattedTime}`;
+            }
+        } catch (e) {
+            console.warn('Autosave to localStorage failed', e);
+        }
+    }, 350);
+}
+
+function checkAndRestoreInspectionDraft(id) {
+    const draftKey = getInspectionDraftKey(id);
+    const draftRaw = localStorage.getItem(draftKey);
+    const alertEl = document.getElementById('conductDraftAlert');
+    const timeEl = document.getElementById('conductDraftTimestamp');
+
+    if (!draftRaw) {
+        if (alertEl) alertEl.classList.add('hidden');
+        return false;
+    }
+
+    try {
+        const draft = JSON.parse(draftRaw);
+        if (draft && draft.inspectionId == id && Array.isArray(draft.currentCriteria) && draft.currentCriteria.length > 0) {
+            currentCriteria = draft.currentCriteria;
+            renderCriteriaList();
+            updateCriteriaScore();
+
+            if (draft.overallStatus && document.getElementById('conduct_overall')) {
+                document.getElementById('conduct_overall').value = draft.overallStatus;
+            }
+            if (draft.recommendations && document.getElementById('conduct_recommendations')) {
+                document.getElementById('conduct_recommendations').value = draft.recommendations;
+            }
+            if (draft.followUpDate && document.getElementById('conduct_follow_up')) {
+                document.getElementById('conduct_follow_up').value = draft.followUpDate;
+            }
+            if (draft.notes && document.getElementById('conduct_notes')) {
+                document.getElementById('conduct_notes').value = draft.notes;
+            }
+            if (draft.rejectionCriteria && document.getElementById('conduct_rejection_criteria')) {
+                document.getElementById('conduct_rejection_criteria').value = draft.rejectionCriteria;
+            }
+            if (draft.customRejection && document.getElementById('conduct_custom_rejection')) {
+                document.getElementById('conduct_custom_rejection').value = draft.customRejection;
+            }
+
+            handleVerdictChange();
+            toggleConductCustomRejection();
+
+            if (alertEl && timeEl) {
+                timeEl.textContent = draft.formattedTime || 'Earlier';
+                alertEl.classList.remove('hidden');
+            }
+
+            const statusEl = document.getElementById('conductAutosaveStatus');
+            if (statusEl) {
+                statusEl.classList.remove('hidden');
+                statusEl.innerHTML = `<i class="fa-solid fa-cloud-arrow-down text-brand-medium mr-1"></i> Draft restored`;
+            }
+            return true;
+        }
+    } catch (e) {
+        console.error('Failed to parse draft', e);
+    }
+    return false;
+}
+
+function discardInspectionDraft() {
+    if (!conductInspectionId) return;
+    localStorage.removeItem(getInspectionDraftKey(conductInspectionId));
+    const alertEl = document.getElementById('conductDraftAlert');
+    if (alertEl) alertEl.classList.add('hidden');
+    const statusEl = document.getElementById('conductAutosaveStatus');
+    if (statusEl) statusEl.classList.add('hidden');
+
+    if (conductInspectionData) {
+        initCriteriaState(conductInspectionData.findings);
+        document.getElementById('conduct_overall').value = 'compliant';
+        document.getElementById('conduct_recommendations').value = '';
+        document.getElementById('conduct_follow_up').value = '';
+        document.getElementById('conduct_notes').value = '';
+        if (document.getElementById('conduct_rejection_criteria')) document.getElementById('conduct_rejection_criteria').value = '';
+        if (document.getElementById('conduct_custom_rejection')) document.getElementById('conduct_custom_rejection').value = '';
+        handleVerdictChange();
+        toggleConductCustomRejection();
+    }
+    showToast('Unsaved inspection draft discarded', 'info');
+}
+
+function clearInspectionDraft(id) {
+    if (id) {
+        localStorage.removeItem(getInspectionDraftKey(id));
+    }
+    const alertEl = document.getElementById('conductDraftAlert');
+    if (alertEl) alertEl.classList.add('hidden');
+    const statusEl = document.getElementById('conductAutosaveStatus');
+    if (statusEl) statusEl.classList.add('hidden');
+}
+
+function isConductModalOpen() {
+    const modal = document.getElementById('conductInspectionModal');
+    return modal && !modal.classList.contains('hidden');
+}
+
+function setupRealtimeInspectionSync() {
+    const onRealtimeUpdate = (e) => {
+        const detail = e.detail || {};
+        console.log('⚡ Realtime Inspection sync triggered:', detail);
+        loadStats();
+        if (!isConductModalOpen()) {
+            loadInspections(currentPage);
+        } else {
+            console.log('Protecting active inspector draft session; skipping table rerender.');
+        }
+    };
+
+    window.addEventListener('sanitationInspectionsUpdated', onRealtimeUpdate);
+    window.addEventListener('realtimeUpdate', (e) => {
+        if (!e.detail || !e.detail.module || e.detail.module === 'inspections' || e.detail.module === 'permits') {
+            onRealtimeUpdate(e);
+        }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && !isConductModalOpen()) {
+            loadStats();
+            loadInspections(currentPage);
+        }
+    });
+
+    // 30s background heartbeat sync
+    setInterval(() => {
+        if (!document.hidden && !isConductModalOpen()) {
+            loadStats();
+            loadInspections(currentPage);
+        }
+    }, 30000);
 }
 
 async function viewInspection(id) {
@@ -1559,6 +1761,9 @@ async function saveScheduledInspection(event) {
         document.getElementById('scheduleInspectionForm').reset();
         loadStats();
         loadInspections(1);
+        if (typeof window.broadcastSanitationChange === 'function') {
+            window.broadcastSanitationChange('inspections', { action: 'scheduled', id: json.data?.id });
+        }
     } catch (e) {
         showToast('Network error scheduling inspection', 'danger');
     } finally {
@@ -1612,6 +1817,9 @@ async function conductInspection(id) {
 
         // Initialize criteria checklist state
         initCriteriaState(i.findings);
+
+        // Check and restore unsaved draft if inspector was disconnected or interrupted
+        checkAndRestoreInspectionDraft(id);
     } catch (e) {
         showToast('Failed to load inspection details', 'danger');
     }
@@ -1693,9 +1901,13 @@ async function saveConductedInspection(event) {
         }
         const outcomeMsg = overallStatus === 'compliant' ? 'Inspection Passed & Approved!' : (overallStatus === 'partially_compliant' ? 'Conditional Inspection Report saved!' : 'Inspection Non-Compliance / Rejection Report submitted.');
         showToast(outcomeMsg, 'success');
+        clearInspectionDraft(id);
         closeModal('conductInspectionModal');
         loadStats();
         loadInspections(currentPage);
+        if (typeof window.broadcastSanitationChange === 'function') {
+            window.broadcastSanitationChange('inspections', { action: 'conducted', id: id, overall_status: overallStatus });
+        }
     } catch (e) {
         showToast('Network error submitting report', 'danger');
     } finally {
@@ -1797,6 +2009,9 @@ async function saveEditedInspection(event, helpers) {
         ModalSystem.close('editInspectionModal');
         loadStats();
         loadInspections(currentPage);
+        if (typeof window.broadcastSanitationChange === 'function') {
+            window.broadcastSanitationChange('inspections', { action: 'updated', id: id });
+        }
     } catch (e) {
         showToast('Network error updating inspection', 'danger');
     } finally {
@@ -1842,6 +2057,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     loadStats();
     loadInspections(1);
+    setupRealtimeInspectionSync();
 
     editFormValidation = ModalSystem.validateForm('editInspectionModal', {
         fields: {

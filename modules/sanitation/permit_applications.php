@@ -1416,6 +1416,9 @@ document.getElementById('newPermitForm').addEventListener('submit', async functi
         ModalSystem.toast.success(result.message || 'Permit application submitted successfully!');
         loadPermits(1);
         loadStats();
+        if (typeof window.broadcastSanitationChange === 'function') {
+            window.broadcastSanitationChange('permits', { action: 'created', id: result.data?.id });
+        }
     } catch (err) {
         ModalSystem.toast.error('Failed to submit application: ' + err.message);
     }
@@ -1487,6 +1490,9 @@ document.getElementById('editPermitForm').addEventListener('submit', async funct
         ModalSystem.toast.success(result.message || 'Permit updated successfully!');
         loadPermits(currentPage);
         loadStats();
+        if (typeof window.broadcastSanitationChange === 'function') {
+            window.broadcastSanitationChange('permits', { action: 'updated', id: id });
+        }
     } catch (err) {
         ModalSystem.toast.error('Failed to update permit: ' + err.message);
     }
@@ -1507,6 +1513,9 @@ function cancelPermit(id) {
                 ModalSystem.toast.success(result.message || 'Permit application cancelled successfully');
                 loadPermits(currentPage);
                 loadStats();
+                if (typeof window.broadcastSanitationChange === 'function') {
+                    window.broadcastSanitationChange('permits', { action: 'cancelled', id: id });
+                }
             } catch (err) {
                 ModalSystem.toast.error('Failed to cancel permit: ' + err.message);
             }
@@ -1554,12 +1563,56 @@ async function reapplyPermit(id) {
 }
 
 // ============================================================
+// REALTIME SYNCHRONIZATION (SUPABASE CDC & BROADCAST HUB)
+// ============================================================
+function isPermitAppModalOpen() {
+    return ['newPermitModal', 'editPermitModal', 'viewPermitModal', 'assignInspectorModal'].some(id => {
+        const el = document.getElementById(id);
+        return el && !el.classList.contains('hidden');
+    });
+}
+
+function setupRealtimePermitAppSync() {
+    const onRealtimeUpdate = (e) => {
+        const detail = e.detail || {};
+        console.log('⚡ permit_applications.php received live update:', detail);
+        loadStats();
+        if (!isPermitAppModalOpen()) {
+            loadPermits(currentPage);
+        }
+    };
+
+    window.addEventListener('sanitationPermitsUpdated', onRealtimeUpdate);
+    window.addEventListener('realtimeUpdate', (e) => {
+        if (!e.detail || !e.detail.module || e.detail.module === 'permits' || e.detail.module === 'inspections') {
+            onRealtimeUpdate(e);
+        }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && !isPermitAppModalOpen()) {
+            loadStats();
+            loadPermits(currentPage);
+        }
+    });
+
+    // 30s background heartbeat sync
+    setInterval(() => {
+        if (!document.hidden && !isPermitAppModalOpen()) {
+            loadStats();
+            loadPermits(currentPage);
+        }
+    }, 30000);
+}
+
+// ============================================================
 // INITIALIZATION
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
     initFeeStructure();
     loadStats();
     loadPermits(1);
+    setupRealtimePermitAppSync();
 });
 </script>
 

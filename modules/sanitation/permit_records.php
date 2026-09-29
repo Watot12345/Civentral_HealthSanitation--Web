@@ -931,6 +931,9 @@ $barangayOptions = $barangayModel->allForSurveillance();
             showToast('Permit renewed successfully!', 'success');
             loadPermits(currentPage);
             loadStats();
+            if (typeof window.broadcastSanitationChange === 'function') {
+                window.broadcastSanitationChange('permits', { action: 'renewed', id: renewPermitId });
+            }
         } catch (error) {
             showToast('Failed to renew permit: ' + error.message, 'danger');
         }
@@ -1272,12 +1275,62 @@ $barangayOptions = $barangayModel->allForSurveillance();
     });
 
     // ============================================================
+    // REALTIME SYNCHRONIZATION (SUPABASE CDC & BROADCAST HUB)
+    // ============================================================
+    function isRecordModalOpen() {
+        const viewModal = document.getElementById('viewPermitRecordModal');
+        const renewModal = document.getElementById('renewPermitModal');
+        const exportModal = document.getElementById('exportPermitRecordsModal');
+        const barangayModal = document.getElementById('barangayFilterModal');
+        return (viewModal && !viewModal.classList.contains('hidden')) ||
+               (renewModal && !renewModal.classList.contains('hidden')) ||
+               (exportModal && !exportModal.classList.contains('hidden')) ||
+               (barangayModal && !barangayModal.classList.contains('hidden'));
+    }
+
+    function setupRealtimePermitSync() {
+        const onRealtimeUpdate = (e) => {
+            const detail = e.detail || {};
+            console.log('⚡ Realtime Permit sync triggered:', detail);
+            loadStats();
+            if (!isRecordModalOpen()) {
+                loadPermits(currentPage);
+            } else {
+                console.log('User is in active modal dialog; postponing permit table refresh.');
+            }
+        };
+
+        window.addEventListener('sanitationPermitsUpdated', onRealtimeUpdate);
+        window.addEventListener('realtimeUpdate', (e) => {
+            if (!e.detail || !e.detail.module || e.detail.module === 'permits' || e.detail.module === 'inspections') {
+                onRealtimeUpdate(e);
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && !isRecordModalOpen()) {
+                loadStats();
+                loadPermits(currentPage);
+            }
+        });
+
+        // 30s background heartbeat sync
+        setInterval(() => {
+            if (!document.hidden && !isRecordModalOpen()) {
+                loadStats();
+                loadPermits(currentPage);
+            }
+        }, 30000);
+    }
+
+    // ============================================================
     // INITIALIZE
     // ============================================================
     document.addEventListener('DOMContentLoaded', () => {
         setupBarangayModal();
         loadStats();
         loadPermits(currentPage);
+        setupRealtimePermitSync();
     });
 </script>
 
