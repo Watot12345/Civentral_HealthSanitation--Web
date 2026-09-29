@@ -61,7 +61,7 @@ $title = 'Septic Tank Registry';
                     title="Export to CSV" aria-label="Export septic tanks to CSV">
                 <i class="fa-solid fa-file-csv text-xs"></i> Export
             </button>
-            <button onclick="openModal('registerTankModal')"
+            <button onclick="openRegisterTankModal()"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-plus text-xs"></i> Register Tank
             </button>
@@ -195,12 +195,21 @@ $title = 'Septic Tank Registry';
                 <select id="filterZone" onchange="onFilterZoneChange()" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Zones</option>
                     <option value="Zone 1">Zone 1 (Brgy 1–4)</option>
+                    <option value="Zone 2">Zone 2 (Brgy 5–24)</option>
+                    <option value="Zone 3">Zone 3 (Brgy 25–35)</option>
+                    <option value="Zone 4">Zone 4 (Brgy 36–48)</option>
+                    <option value="Zone 5">Zone 5 (Brgy 49–58)</option>
+                    <option value="Zone 6">Zone 6 (Brgy 59–76)</option>
                     <option value="Zone 7">Zone 7 (Brgy 77–81)</option>
                     <option value="Zone 8">Zone 8 (Brgy 82–85)</option>
+                    <option value="Zone 9">Zone 9 (Brgy 86–98)</option>
+                    <option value="Zone 10">Zone 10 (Brgy 99–116)</option>
+                    <option value="Zone 11">Zone 11 (Brgy 117–131)</option>
                     <option value="Zone 12">Zone 12 (Brgy 132–140)</option>
                     <option value="Zone 13">Zone 13 (Brgy 141–150)</option>
                     <option value="Zone 14">Zone 14 (Brgy 151–160)</option>
                     <option value="Zone 15">Zone 15 (Brgy 161–164)</option>
+                    <option value="Zone 16">Zone 16 (Brgy 165–188)</option>
                 </select>
                 <select id="filterBarangay" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Barangays</option>
@@ -370,18 +379,30 @@ $title = 'Septic Tank Registry';
                     <select id="tank_zone" onchange="onZoneChange('tank_zone', 'tank_barangay')" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                         <option value="">All Zones (Select Zone)</option>
                         <option value="Zone 1">Zone 1 (Brgy 1 to 4)</option>
+                        <option value="Zone 2">Zone 2 (Brgy 5 to 24)</option>
+                        <option value="Zone 3">Zone 3 (Brgy 25 to 35)</option>
+                        <option value="Zone 4">Zone 4 (Brgy 36 to 48)</option>
+                        <option value="Zone 5">Zone 5 (Brgy 49 to 58)</option>
+                        <option value="Zone 6">Zone 6 (Brgy 59 to 76)</option>
                         <option value="Zone 7">Zone 7 (Brgy 77 to 81)</option>
                         <option value="Zone 8">Zone 8 (Brgy 82 to 85)</option>
+                        <option value="Zone 9">Zone 9 (Brgy 86 to 98)</option>
+                        <option value="Zone 10">Zone 10 (Brgy 99 to 116)</option>
+                        <option value="Zone 11">Zone 11 (Brgy 117 to 131)</option>
                         <option value="Zone 12">Zone 12 (Brgy 132 to 140)</option>
                         <option value="Zone 13">Zone 13 (Brgy 141 to 150)</option>
                         <option value="Zone 14">Zone 14 (Brgy 151 to 160)</option>
                         <option value="Zone 15">Zone 15 (Brgy 161 to 164)</option>
+                        <option value="Zone 16">Zone 16 (Brgy 165 to 188)</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay <span class="text-rose-500">*</span></label>
                     <select id="tank_barangay" onchange="onBarangayChange('tank_barangay', 'tank_zone')" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <!-- Populated dynamically in ascending order -->
+                        <option value="">Select Barangay</option>
+                        <?php for ($b = 1; $b <= 188; $b++): ?>
+                        <option value="Barangay <?= $b ?>">Barangay <?= $b ?></option>
+                        <?php endfor; ?>
                     </select>
                 </div>
             </div>
@@ -469,18 +490,30 @@ $title = 'Septic Tank Registry';
                     <select id="edit_tank_zone" onchange="onZoneChange('edit_tank_zone', 'edit_tank_barangay')" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                         <option value="">All Zones (Select Zone)</option>
                         <option value="Zone 1">Zone 1 (Brgy 1 to 4)</option>
+                        <option value="Zone 2">Zone 2 (Brgy 5 to 24)</option>
+                        <option value="Zone 3">Zone 3 (Brgy 25 to 35)</option>
+                        <option value="Zone 4">Zone 4 (Brgy 36 to 48)</option>
+                        <option value="Zone 5">Zone 5 (Brgy 49 to 58)</option>
+                        <option value="Zone 6">Zone 6 (Brgy 59 to 76)</option>
                         <option value="Zone 7">Zone 7 (Brgy 77 to 81)</option>
                         <option value="Zone 8">Zone 8 (Brgy 82 to 85)</option>
+                        <option value="Zone 9">Zone 9 (Brgy 86 to 98)</option>
+                        <option value="Zone 10">Zone 10 (Brgy 99 to 116)</option>
+                        <option value="Zone 11">Zone 11 (Brgy 117 to 131)</option>
                         <option value="Zone 12">Zone 12 (Brgy 132 to 140)</option>
                         <option value="Zone 13">Zone 13 (Brgy 141 to 150)</option>
                         <option value="Zone 14">Zone 14 (Brgy 151 to 160)</option>
                         <option value="Zone 15">Zone 15 (Brgy 161 to 164)</option>
+                        <option value="Zone 16">Zone 16 (Brgy 165 to 188)</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay <span class="text-rose-500">*</span></label>
                     <select id="edit_tank_barangay" onchange="onBarangayChange('edit_tank_barangay', 'edit_tank_zone')" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <!-- Populated dynamically in ascending order -->
+                        <option value="">Select Barangay</option>
+                        <?php for ($b = 1; $b <= 188; $b++): ?>
+                        <option value="Barangay <?= $b ?>">Barangay <?= $b ?></option>
+                        <?php endfor; ?>
                     </select>
                 </div>
             </div>
@@ -693,16 +726,25 @@ $title = 'Septic Tank Registry';
     }
 
     // ============================================================
-    // CALOOCAN DISTRICT 1 ZONES & BARANGAYS CONFIGURATION
+    // CALOOCAN ALL ZONES & BARANGAYS CONFIGURATION (ZONES 1-16)
     // ============================================================
     const CALOOCAN_ZONES = {
-        'Zone 1': [1, 2, 3, 4],
-        'Zone 7': [77, 78, 79, 80, 81],
-        'Zone 8': [82, 83, 84, 85],
+        'Zone 1':  [1, 2, 3, 4],
+        'Zone 2':  [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
+        'Zone 3':  [25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35],
+        'Zone 4':  [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48],
+        'Zone 5':  [49, 50, 51, 52, 53, 54, 55, 56, 57, 58],
+        'Zone 6':  [59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76],
+        'Zone 7':  [77, 78, 79, 80, 81],
+        'Zone 8':  [82, 83, 84, 85],
+        'Zone 9':  [86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98],
+        'Zone 10': [99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116],
+        'Zone 11': [117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131],
         'Zone 12': [132, 133, 134, 135, 136, 137, 138, 139, 140],
         'Zone 13': [141, 142, 143, 144, 145, 146, 147, 148, 149, 150],
         'Zone 14': [151, 152, 153, 154, 155, 156, 157, 158, 159, 160],
-        'Zone 15': [161, 162, 163, 164]
+        'Zone 15': [161, 162, 163, 164],
+        'Zone 16': [165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188]
     };
 
     function getZoneForBarangay(barangayName) {
@@ -720,34 +762,24 @@ $title = 'Septic Tank Registry';
         const select = document.getElementById(selectId);
         if (!select) return;
         
-        select.innerHTML = '<option value="">' + (selectId.startsWith('filter') ? 'All Barangays' : 'Select Barangay') + '</option>';
+        const defaultText = selectId.startsWith('filter') ? 'All Barangays' : 'Select Barangay';
+        select.innerHTML = '<option value="">' + defaultText + '</option>';
         
-        if (targetZone && CALOOCAN_ZONES[targetZone]) {
-            const brgys = CALOOCAN_ZONES[targetZone];
-            brgys.forEach(num => {
-                const val = `Barangay ${num}`;
-                const opt = document.createElement('option');
-                opt.value = val;
-                opt.textContent = `Barangay ${num}`;
-                if (val === selectedValue) opt.selected = true;
-                select.appendChild(opt);
-            });
-        } else {
-            // Show all grouped by zone in ascending numerical order
-            for (const [zone, brgys] of Object.entries(CALOOCAN_ZONES)) {
-                const group = document.createElement('optgroup');
-                group.label = `${zone} (Brgy ${brgys[0]}–${brgys[brgys.length-1]})`;
-                brgys.forEach(num => {
-                    const val = `Barangay ${num}`;
-                    const opt = document.createElement('option');
-                    opt.value = val;
-                    opt.textContent = `Barangay ${num}`;
-                    if (val === selectedValue) opt.selected = true;
-                    group.appendChild(opt);
-                });
-                select.appendChild(group);
-            }
-        }
+        // If a specific zone is chosen and exists in CALOOCAN_ZONES, render its barangays
+        // Otherwise (e.g. "All Zones"), render all 188 barangays directly as selectable options
+        const brgysToRender = (targetZone && CALOOCAN_ZONES[targetZone])
+            ? CALOOCAN_ZONES[targetZone]
+            : Array.from({ length: 188 }, (_, i) => i + 1);
+            
+        brgysToRender.forEach(num => {
+            const val = `Barangay ${num}`;
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = val;
+            if (val === selectedValue) opt.selected = true;
+            select.appendChild(opt);
+        });
+        
         if (selectedValue) {
             select.value = selectedValue;
         }
@@ -755,7 +787,7 @@ $title = 'Septic Tank Registry';
 
     function onZoneChange(zoneSelectId, barangaySelectId) {
         const zoneSelect = document.getElementById(zoneSelectId);
-        const zone = zoneSelect ? zoneSelect.value : '';
+        const zone = zoneSelect ? zoneSelect.value.trim() : '';
         populateBarangayDropdown(barangaySelectId, zone, '');
     }
 
@@ -776,12 +808,28 @@ $title = 'Septic Tank Registry';
         filterTanks();
     }
 
-    // Initialize all barangay dropdowns on DOM ready
-    document.addEventListener('DOMContentLoaded', () => {
+    function openRegisterTankModal() {
+        const form = document.getElementById('registerTankForm');
+        if (form) form.reset();
+        const zoneSelect = document.getElementById('tank_zone');
+        if (zoneSelect) zoneSelect.value = '';
+        populateBarangayDropdown('tank_barangay', '', '');
+        openModal('registerTankModal');
+    }
+    window.openRegisterTankModal = openRegisterTankModal;
+
+    // Initialize all barangay dropdowns immediately and on DOM ready
+    function initBarangayDropdowns() {
         populateBarangayDropdown('filterBarangay');
         populateBarangayDropdown('tank_barangay');
         populateBarangayDropdown('edit_tank_barangay');
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initBarangayDropdowns);
+    } else {
+        initBarangayDropdowns();
+    }
 
     // ============================================================
     // VIEW MAP

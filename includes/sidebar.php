@@ -290,14 +290,9 @@ $userScope = getUserScope();
             <span>Septic Tank Registry</span>
           </a>
           
-          <a href="<?= site_url('modules/services/maintenance.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'maintenance.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-wrench text-[10px] opacity-50"></i> 
-            <span>Maintenance & Desludging</span>
-          </a>
-          
-          <a href="<?= site_url('modules/services/service_requests.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'service_requests.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-tools text-[10px] opacity-50"></i> 
-            <span>Service Requests</span>
+          <a href="<?= site_url('modules/services/services_management.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'services_management.php') !== false || strpos($currentPath, 'maintenance.php') !== false || strpos($currentPath, 'service_requests.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+            <i class="fa-solid fa-list-check text-[10px] opacity-50"></i> 
+            <span>Service Requests &amp; Maintenance</span>
           </a>
           
           <a href="<?= site_url('modules/services/providers.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'providers.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
