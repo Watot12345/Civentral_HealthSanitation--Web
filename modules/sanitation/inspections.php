@@ -1539,6 +1539,7 @@ async function saveScheduledInspection(event) {
         return;
     }
 
+    try {
         const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
         const res = await fetch(API_URL, {
             method: 'POST',
@@ -1675,6 +1676,7 @@ async function saveConductedInspection(event) {
         notes: document.getElementById('conduct_notes').value.trim()
     };
 
+    try {
         const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
         const res = await fetch(`${API_URL}?id=${id}&action=conduct`, {
             method: 'POST',
@@ -1776,6 +1778,7 @@ async function saveEditedInspection(event, helpers) {
         notes: document.getElementById('edit_notes').value
     };
 
+    try {
         const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '';
         const res = await fetch(`${API_URL}?id=${id}`, {
             method: 'PATCH',
