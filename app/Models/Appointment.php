@@ -28,7 +28,9 @@ class Appointment
 
     public function find(string|int $id): ?array
     {
-        // FIXED: Use eq. format for Supabase
+        if (!is_numeric($id)) {
+            return $this->findByAppointmentId((string)$id);
+        }
         $result = $this->db->select($this->table, ['id' => 'eq.' . $id]);
         return !empty($result) ? $result[0] : null;
     }
@@ -65,6 +67,16 @@ class Appointment
             }
         }
         return is_array($res) ? $res : $res;
+    }
+
+    public function update(array $data, array $where = []): array
+    {
+        if (isset($where['id'])) {
+            $id = str_replace('eq.', '', (string)$where['id']);
+            return $this->updateById($id, $data);
+        }
+        $updated = $this->db->update($this->table, $data, $where);
+        return is_array($updated) ? $updated : [];
     }
 
     public function updateById(string|int $id, array $data): array

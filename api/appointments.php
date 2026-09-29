@@ -40,15 +40,27 @@ try {
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $parts = explode('/', trim($path, '/'));
 
-    // Get appointment ID from URL if exists
+    // Get appointment ID from URL path, query parameter, or payload body if exists
     $appointmentId = null;
-    if (count($parts) >= 3 && is_numeric($parts[2])) {
-        $appointmentId = $parts[2];
+    if (count($parts) >= 4 && !empty($parts[3])) {
+        $appointmentId = trim($parts[3]);
+    } elseif (count($parts) >= 3 && !empty($parts[2]) && $parts[2] !== 'appointments.php') {
+        $appointmentId = trim($parts[2]);
     }
 
-    // Also support ?id=...
-    if (!$appointmentId && isset($_GET['id']) && is_numeric($_GET['id'])) {
-        $appointmentId = $_GET['id'];
+    if (!$appointmentId && !empty($_GET['id'])) {
+        $appointmentId = trim($_GET['id']);
+    }
+
+    // Fallback to JSON body 'id' or 'appointment_id'
+    if (!$appointmentId) {
+        $jsonInput = json_decode(file_get_contents('php://input'), true);
+        if (is_array($jsonInput)) {
+            $appointmentId = $jsonInput['id'] ?? ($jsonInput['appointment_id'] ?? null);
+        }
+    }
+    if (!$appointmentId && !empty($_POST['id'])) {
+        $appointmentId = $_POST['id'];
     }
 
     $action = $_GET['action'] ?? '';
@@ -66,9 +78,13 @@ try {
             break;
 
         case 'POST':
-            // FIXED: Check action parameter for update/delete operations
+            // Check action parameter for update/delete/reassignment operations
             if ($action === 'status' && $appointmentId) {
                 $controller->updateStatus($appointmentId);
+            } elseif ($action === 'request_reassignment' && $appointmentId) {
+                $controller->requestReassignment($appointmentId);
+            } elseif ($action === 'complete_reassignment' && $appointmentId) {
+                $controller->completeReassignment($appointmentId);
             } elseif ($action === 'update' && $appointmentId) {
                 $controller->update($appointmentId);
             } elseif ($action === 'delete' && $appointmentId) {
@@ -102,7 +118,7 @@ try {
         default:
             Response::error('Method not allowed', 405);
     }
-} catch (Exception $e) {
-    error_log('API Error in appointments.php: ' . $e->getMessage());
+} catch (Throwable $e) {
+    error_log('API Error in appointments.php: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     Response::error('Internal server error: ' . $e->getMessage(), 500);
 }

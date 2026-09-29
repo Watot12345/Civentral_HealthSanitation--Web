@@ -12,9 +12,6 @@
 // 1. PHP BACKEND - Fetch Data
 // ============================================================
 require_once '../../includes/header.php';
-?>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<?php
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('health center services');
 
@@ -59,6 +56,13 @@ try {
 } catch (Throwable $e) {
     error_log('Error fetching appointments for triage: ' . $e->getMessage());
 }
+
+// Role checks
+$_sessionRoleDesc = strtolower(trim($_SESSION['role_description'] ?? $_SESSION['role_name'] ?? $_SESSION['role'] ?? ''));
+$isDoctorRole = (str_contains($_sessionRoleDesc, 'doctor') || str_contains($_sessionRoleDesc, 'physician') || str_contains($_sessionRoleDesc, 'dentist') || str_contains($_sessionRoleDesc, 'medical practitioner'));
+$isAdminRole = (str_contains($_sessionRoleDesc, 'admin') || str_contains($_sessionRoleDesc, 'director') || str_contains($_sessionRoleDesc, 'system administrator'));
+$isDoctorOnly = ($isDoctorRole && !$isAdminRole);
+$isStaffOrNurse = (str_contains($_sessionRoleDesc, 'nurse') || str_contains($_sessionRoleDesc, 'staff') || str_contains($_sessionRoleDesc, 'clerk') || str_contains($_sessionRoleDesc, 'triage') || str_contains($_sessionRoleDesc, 'intake') || $isAdminRole || !$isDoctorRole);
 
 // NEW: Fetch Triage Queue (Check-in system)
 $triageQueueModel = new TriageQueue();
@@ -285,6 +289,7 @@ foreach ($rawTriage as $t) {
         'pending', 'waiting' => 'waiting',
         'in_triage' => 'in_triage',
         'triaged' => 'sent_to_doctor',
+        'reassignment_pending' => 'reassignment_pending',
         'in_consultation' => 'in_consultation',
         'consulted', 'completed' => 'completed',
         'cancelled' => 'cancelled',
@@ -452,6 +457,9 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             </button>
         </div>
     </div>
+
+    <!-- PENDING DOCTOR REASSIGNMENTS ALERT BANNER CONTAINER -->
+    <div id="pendingReassignmentsBannerContainer"></div>
 
     <!-- ============================================================ -->
 <!-- CLINICAL WORKFLOW KPI CARDS                                  -->
@@ -686,8 +694,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 <button type="button" onclick="setDateFilter('today')" id="dateFilterBtnToday"
                         class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer bg-white text-slate-800 shadow-xs">
                     <i class="fa-solid fa-calendar-day mr-1 text-amber-500"></i> Today
-                    <?php $triageActiveTodayQueue = array_filter($triageTodayQueue, fn($t) => strtolower($t['status']) === 'waiting' || strtolower($t['status']) === 'in_triage'); ?>
-                    <span class="ml-1 px-1.5 py-0.2 bg-amber-100 text-amber-700 rounded-full text-[9px] font-extrabold"><?php echo count($triageActiveTodayQueue); ?></span>
+                    <span class="ml-1 px-1.5 py-0.2 bg-amber-100 text-amber-700 rounded-full text-[9px] font-extrabold"><?php echo count($triageTodayQueue); ?></span>
                 </button>
                 <button type="button" onclick="setDateFilter('week')" id="dateFilterBtnWeek"
                         class="date-filter-btn px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer text-slate-500 hover:text-slate-800">
@@ -771,16 +778,37 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         }
                         $serviceAssigned = $triage['service_type'] ?? 'General Medicine';
                         $patientIdStr = 'P-' . str_pad((string)($triage['patient_id'] ?? $triage['id']), 4, '0', STR_PAD_LEFT);
+
+                        $rawNotes = $triage['notes'] ?? '';
+                        $isReassignmentPending = str_contains($rawNotes, '[REASSIGNMENT_PENDING') || ($triage['status'] ?? '') === 'reassignment_pending';
+
+                        $cleanComplaint = $triage['chief_complaint'] ?? '';
+                        if (empty($cleanComplaint) || str_contains($cleanComplaint, '[REASSIGNMENT_PENDING')) {
+                            $cleanComplaint = preg_replace('/\[REASSIGNMENT_PENDING:[^\]]+\][^\n.]*[\n.]*/i', '', $rawNotes);
+                            $cleanComplaint = preg_replace('/Doctor marked Not Available:[^\n.]*[\n.]*/i', '', $cleanComplaint);
+                            $cleanComplaint = preg_replace('/Details:\s*[^\n.]*[\n.]*/i', '', $cleanComplaint);
+                            $cleanComplaint = trim($cleanComplaint);
+                        }
+                        if (empty($cleanComplaint)) {
+                            $cleanComplaint = 'General Checkup';
+                        }
+                        if (strlen($cleanComplaint) > 50) {
+                            $cleanComplaint = substr($cleanComplaint, 0, 47) . '...';
+                        }
+                        $tDateRaw = $triage['date'] ?? ($triage['created_at'] ?? $today);
+                        $rowDateStr = substr((string)$tDateRaw, 0, 10);
+                        if (empty($rowDateStr) || strlen($rowDateStr) < 10) {
+                            $rowDateStr = $today;
+                        }
                     ?>
-                    <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors triage-row <?php echo $triage['priority'] === 'critical' ? 'bg-rose-50/50' : ''; ?>"
+                    <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors triage-row <?php echo $isReassignmentPending ? 'bg-amber-50/80 hover:bg-amber-100/70 border-l-4 border-l-amber-500' : ($triage['priority'] === 'critical' ? 'bg-rose-50/50' : ''); ?>"
                         data-patient="<?php echo strtolower($triage['patient_name']); ?>"
                         data-patient-id="<?php echo strtolower($patientIdStr . ' ' . ($triage['patient_id'] ?? '') . ' ' . ($triage['triage_id'] ?? '')); ?>"
                         data-doctor="<?php echo strtolower($docAssigned); ?>"
-                        data-complaint="<?php echo strtolower($triage['chief_complaint']); ?>"
+                        data-complaint="<?php echo strtolower($cleanComplaint); ?>"
                         data-priority="<?php echo $triage['priority']; ?>"
-                        data-date="<?php echo htmlspecialchars($triage['date']); ?>"
-                        data-status="<?php echo $triage['status']; ?>"
-                        style="<?php echo ($triage['date'] === $today && in_array($triage['status'], ['sent_to_doctor', 'completed', 'consulted'], true)) ? 'display: none;' : ''; ?>">
+                        data-date="<?php echo htmlspecialchars($rowDateStr); ?>"
+                        data-status="<?php echo $isReassignmentPending ? 'reassignment_pending' : $triage['status']; ?>">
                         <td class="px-4 py-3 font-mono text-xs font-bold <?php echo $triage['priority'] === 'critical' ? 'text-rose-600' : 'text-slate-600'; ?>">
                             P-<?php echo str_pad((string)($triage['patient_id'] ?? $triage['id']), 4, '0', STR_PAD_LEFT); ?>
                         </td>
@@ -793,7 +821,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                                     <p class="font-semibold text-slate-800 text-sm">
                                         <span class="maskable" data-real="<?php echo htmlspecialchars($triage['patient_name']); ?>" data-masked="<?php echo htmlspecialchars(maskName($triage['patient_name'])); ?>"><?php echo htmlspecialchars($triage['patient_name']); ?></span>
                                     </p>
-                                    <p class="text-xs text-slate-400"><?php echo htmlspecialchars($triage['chief_complaint']); ?></p>
+                                    <p class="text-xs text-slate-400"><?php echo htmlspecialchars($cleanComplaint); ?></p>
                                 </div>
                             </div>
                         </td>
@@ -824,7 +852,12 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         </td>
                         <td class="px-4 py-3 text-xs">
                             <p class="font-bold text-slate-800"><?php echo htmlspecialchars($docAssigned); ?></p>
-                            <p class="text-[10px] text-slate-500 font-semibold"><?php echo htmlspecialchars($serviceAssigned); ?></p>
+                            <?php if ($isReassignmentPending): ?>
+                                <div class="bg-amber-100 text-amber-900 border border-amber-300 rounded px-1.5 py-0.5 text-[10px] font-bold mt-1 inline-flex items-center gap-1 shadow-xs" title="Doctor Unavailable">
+                                    <i class="fa-solid fa-note-sticky text-amber-600"></i> Doctor Not Available
+                                </div>
+                            <?php endif; ?>
+                            <p class="text-[10px] text-slate-500 font-semibold mt-0.5"><?php echo htmlspecialchars($serviceAssigned); ?></p>
                         </td>
                         <td class="px-4 py-3">
                             <?php
@@ -848,15 +881,19 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         </td>
                         <td class="px-4 py-3">
                             <?php
-                                $statusBadge = match($triage['status']) {
-                                    'waiting' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">Checked In</span>',
-                                    'in_triage' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200">In Assessment</span>',
-                                    'sent_to_doctor', 'triaged' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">Sent to Doctor</span>',
-                                    'in_consultation' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700 border border-purple-200">In Consultation</span>',
-                                    'completed', 'consulted' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Consultation Done</span>',
-                                    'cancelled' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">Cancelled</span>',
-                                    default => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">' . htmlspecialchars(ucfirst(str_replace('_', ' ', $triage['status']))) . '</span>'
-                                };
+                                if ($isReassignmentPending) {
+                                    $statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300 shadow-xs inline-flex items-center gap-1"><i class="fa-solid fa-user-slash text-amber-600"></i> Doctor Not Available</span>';
+                                } else {
+                                    $statusBadge = match($triage['status']) {
+                                        'waiting' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">Checked In</span>',
+                                        'in_triage' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200">In Assessment</span>',
+                                        'sent_to_doctor', 'triaged' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">Sent to Doctor</span>',
+                                        'in_consultation' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700 border border-purple-200">In Consultation</span>',
+                                        'completed', 'consulted' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">Consultation Done</span>',
+                                        'cancelled' => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">Cancelled</span>',
+                                        default => '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">' . htmlspecialchars(ucfirst(str_replace('_', ' ', $triage['status']))) . '</span>'
+                                    };
+                                }
                                 echo $statusBadge;
                             ?>
                         </td>
@@ -873,10 +910,27 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                                         class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit Assessment">
                                     <i class="fa-solid fa-pen text-sm"></i>
                                 </button>
-                                <?php if ($triage['status'] === 'in_triage' || $triage['status'] === 'waiting'): ?>
+                                <?php if ($isReassignmentPending): ?>
+                                    <?php if ($isStaffOrNurse): ?>
+                                        <button onclick="openReassignDoctorModal('<?php echo htmlspecialchars((string)$triage['id']); ?>', '<?php echo htmlspecialchars($triage['patient_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($docAssigned, ENT_QUOTES); ?>')"
+                                                class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1 transition"
+                                                title="Staff & Nurse Desk — Re-assign Patient to Available Doctor">
+                                            <i class="fa-solid fa-user-nurse"></i> Reassign Doctor
+                                        </button>
+                                    <?php else: ?>
+                                        <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Doctor Unavailable — Awaiting Staff/Nurse Re-assignment">
+                                            <i class="fa-solid fa-user-slash text-sm"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                <?php elseif ($triage['status'] === 'in_triage' || $triage['status'] === 'waiting'): ?>
                                     <button onclick="completeTriage(<?php echo $triage['id']; ?>)"
                                             class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete Assessment & Assign Doctor">
                                         <i class="fa-solid fa-check text-sm"></i>
+                                    </button>
+                                <?php elseif (in_array(strtolower($triage['status']), ['sent_to_doctor', 'triaged', 'completed', 'in_consultation'])): ?>
+                                    <button onclick="requestDoctorNotAvailable('<?php echo htmlspecialchars((string)$triage['id']); ?>')"
+                                            class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Doctor Not Available (Mark doctor unavailable & request nurse re-assignment)">
+                                        <i class="fa-solid fa-user-slash text-sm"></i>
                                     </button>
                                 <?php endif; ?>
                             </div>
@@ -970,6 +1024,96 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 <button type="submit"
                         class="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition text-sm font-semibold">
                     <i class="fa-solid fa-check-circle mr-1.5"></i> Check In
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- REASSIGN DOCTOR MODAL (Nurse selects other doctor) -->
+<div id="reassignDoctorModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <div>
+                <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-user-nurse text-amber-600"></i> Staff / Nurse Patient Re-assignment
+                </h3>
+                <p class="text-[11px] text-slate-500 font-medium mt-0.5">Intake & Triage Desk — Select replacement doctor for patient on hold</p>
+            </div>
+            <button onclick="ModalSystem.close('reassignDoctorModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="reassignDoctorForm" class="p-6 space-y-4" onsubmit="submitDoctorReassignment(event)">
+            <input type="hidden" id="reassign_appointment_id">
+            <div class="bg-amber-50 rounded-xl p-3.5 border border-amber-200 text-xs text-amber-900 space-y-1">
+                <p><i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> <strong>Doctor Not Available:</strong> <span id="reassign_old_doctor_text" class="font-semibold"></span></p>
+                <p>Patient: <strong id="reassign_patient_name_text"></strong></p>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Select New Doctor / Service <span class="text-rose-500">*</span></label>
+                <select id="reassign_new_doctor_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="">-- Select Available Doctor --</option>
+                    <?php foreach ($doctors as $d): ?>
+                        <option value="<?php echo $d['id']; ?>" data-name="<?php echo htmlspecialchars($d['name']); ?>">
+                            <?php echo htmlspecialchars($d['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onclick="ModalSystem.close('reassignDoctorModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-xs font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-check"></i> Re-assign Doctor
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MARK DOCTOR NOT AVAILABLE MODAL (Practitioner / Director formal unavailability) -->
+<div id="markDoctorNotAvailableModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-user-slash text-amber-600"></i> Mark Doctor / Director Not Available
+            </h3>
+            <button onclick="ModalSystem.close('markDoctorNotAvailableModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="markDoctorNotAvailableForm" class="p-6 space-y-4" onsubmit="submitFormalNotAvailableRequest(event)">
+            <input type="hidden" id="not_available_appointment_id">
+            <div class="bg-amber-50 rounded-xl p-3.5 border border-amber-200 text-xs text-amber-900">
+                <p class="font-semibold text-amber-950 flex items-center gap-1.5 mb-1">
+                    <i class="fa-solid fa-shield-halved text-amber-600"></i> Formal Unavailability Notice
+                </p>
+                <p class="text-amber-800">
+                    Flagging unavailability notifies the Nurse Intake/Assessment staff to formally re-assign the patient without rejecting the appointment.
+                </p>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Formal Reason <span class="text-rose-500">*</span></label>
+                <select id="not_available_reason_select" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 outline-none">
+                    <option value="IN_EMERGENCY_CONSULT">In Emergency / Priority Consult</option>
+                    <option value="FIELD_DUTY_STATIONED">On Field / Satellite Duty</option>
+                    <option value="DAILY_CAPACITY_REACHED">Daily Patient Quota Reached</option>
+                    <option value="OFF_DUTY_LEAVE">Off-Duty / Approved Leave</option>
+                    <option value="SPECIALTY_MISMATCH">Referral Required to Specialist</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Additional Remarks (Optional)</label>
+                <textarea id="not_available_notes_input" rows="2" placeholder="Provide additional details for intake staff..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 outline-none"></textarea>
+            </div>
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onclick="ModalSystem.close('markDoctorNotAvailableModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                    <i class="fa-solid fa-paper-plane"></i> Submit Formal Notice
                 </button>
             </div>
         </form>
@@ -1386,18 +1530,20 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
 <script>
+    window.IS_STAFF_OR_NURSE = <?php echo json_encode($isStaffOrNurse); ?>;
+    window.IS_DOCTOR_ONLY = <?php echo json_encode($isDoctorOnly); ?>;
     const TRIAGE_DATA = <?php echo json_encode(array_column($triageQueue, null, 'id'), JSON_PRETTY_PRINT); ?>;
     let selectedSymptoms = [];
     let isSavingTriage = false;
 
-    // TOAST NOTIFICATION HELPER (Uses toast.php if loaded, falls back to ModalSystem.toast or alert)
+    // TOAST NOTIFICATION HELPER (Uses toast.php if loaded, falls back to ModalSystem.toast or ModalSystem modal)
     function showAppToast(type, message, title = '') {
         if (typeof toast !== 'undefined' && typeof toast[type] === 'function') {
             toast[type](message, { title: title || (type.charAt(0).toUpperCase() + type.slice(1)) });
         } else if (typeof ModalSystem !== 'undefined' && ModalSystem.toast && typeof ModalSystem.toast[type] === 'function') {
-            ModalSystem.toast[type](message);
-        } else {
-            alert((title ? title + ': ' : '') + message);
+            ModalSystem.toast[type](message, { title: title || (type.charAt(0).toUpperCase() + type.slice(1)) });
+        } else if (typeof ModalSystem !== 'undefined' && ModalSystem.confirm) {
+            ModalSystem.confirm(message, null, { title: title || 'Notification', confirmText: 'OK', type: 'info' });
         }
     }
 
@@ -1596,13 +1742,70 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 waiting: 'bg-amber-100 text-amber-700',
                 in_triage: 'bg-brand-light text-brand-dark border border-brand-border',
                 completed: 'bg-slate-100 text-slate-500',
-                sent_to_doctor: 'bg-emerald-100 text-emerald-700'
+                sent_to_doctor: 'bg-emerald-100 text-emerald-700',
+                reassignment_pending: 'bg-amber-100 text-amber-900 border border-amber-300 font-extrabold'
             };
+
+            const isReassignmentPending = t.status === 'reassignment_pending' || (t.notes && t.notes.includes('[REASSIGNMENT_PENDING'));
+            const safePatientName = CrudAjax.escapeHtml(t.patient_name || '');
+            const safeDoctorName = CrudAjax.escapeHtml(t.doctor_name || 'Assigned Doctor');
+
+            let unavailabilityBannerHtml = '';
+            let reassignButtonFooter = '';
+
+            if (isReassignmentPending) {
+                let reasonLabel = 'In Emergency / Priority Consult';
+                if (t.notes && t.notes.includes('[REASSIGNMENT_PENDING:')) {
+                    const match = t.notes.match(/\[REASSIGNMENT_PENDING:\s*([^\]]+)\]/);
+                    if (match && match[1]) {
+                        reasonLabel = match[1].trim();
+                    }
+                }
+                unavailabilityBannerHtml = `
+                    <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl mb-2 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 flex-shrink-0 mt-0.5">
+                                <i class="fa-solid fa-user-slash text-base"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-amber-950 flex items-center gap-1.5">
+                                    Doctor Not Available: <span class="text-slate-800">${safeDoctorName}</span>
+                                </p>
+                                <p class="text-xs text-amber-900 font-semibold mt-0.5">
+                                    <i class="fa-solid fa-circle-info mr-1 text-amber-600"></i> Reason: <span class="bg-white/80 px-2 py-0.5 rounded border border-amber-200 text-slate-800 font-bold">${CrudAjax.escapeHtml(reasonLabel)}</span>
+                                </p>
+                                <p class="text-xs text-amber-800 mt-1">
+                                    Patient consultation is currently on hold. Re-assign patient to an available replacement doctor.
+                                </p>
+                            </div>
+                        </div>
+                        <button onclick="ModalSystem.close('viewTriageModal'); openReassignDoctorModal('${t.id}', '${safePatientName}', '${safeDoctorName}')"
+                                class="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 transition whitespace-nowrap self-start sm:self-center">
+                            <i class="fa-solid fa-user-doctor"></i> Re-assign Doctor
+                        </button>
+                    </div>
+                `;
+
+                reassignButtonFooter = `
+                    <button onclick="ModalSystem.close('viewTriageModal'); openReassignDoctorModal('${t.id}', '${safePatientName}', '${safeDoctorName}')"
+                            class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-semibold flex items-center gap-1.5">
+                        <i class="fa-solid fa-user-doctor"></i> Re-assign Doctor
+                    </button>
+                `;
+            } else if (['sent_to_doctor', 'triaged', 'in_consultation', 'completed'].includes(t.status)) {
+                reassignButtonFooter = `
+                    <button onclick="ModalSystem.close('viewTriageModal'); requestDoctorNotAvailable('${t.id}')"
+                            class="px-4 py-2 bg-amber-50 text-amber-800 border border-amber-300 rounded-lg hover:bg-amber-100 transition text-sm font-semibold flex items-center gap-1.5" title="Doctor Not Available (Request Nurse Re-assignment)">
+                        <i class="fa-solid fa-user-slash text-amber-600"></i> Doctor Not Available
+                    </button>
+                `;
+            }
 
             const symptomsHtml = t.symptoms.map(s => `<span class="px-2 py-1 bg-slate-100 rounded-full text-xs">${s}</span>`).join('');
 
             document.getElementById('triageDetailsContent').innerHTML = `
                 <div class="space-y-4">
+                    ${unavailabilityBannerHtml}
                     <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
                         <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-lg flex-shrink-0">
                             <span class="maskable" data-real="${t.patient_avatar}" data-masked="??">${t.patient_avatar}</span>
@@ -1621,7 +1824,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         <div><p class="text-xs text-slate-400 font-semibold">Age</p><p class="text-sm text-slate-800"><span class="maskable" data-real="${t.age} yrs" data-masked="** yrs">${t.age} yrs</span></p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Gender</p><p class="text-sm text-slate-800"><span class="maskable" data-real="${t.gender}" data-masked="***">${t.gender}</span></p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Wait Time</p><p class="text-sm text-slate-800">${t.wait_time}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Status</p><p class="text-sm"><span class="px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors[t.status] || statusColors.waiting}">${t.status.replace('_', ' ').toUpperCase()}</span></p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Status</p><p class="text-sm"><span class="px-2 py-0.5 rounded-full text-xs font-semibold ${statusColors[t.status] || statusColors.waiting}">${(isReassignmentPending ? 'ON HOLD' : t.status.replace('_', ' ').toUpperCase())}</span></p></div>
                     </div>
                     <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
                         <h5 class="text-sm font-bold text-slate-700 mb-2">Vital Signs</h5>
@@ -1648,6 +1851,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     </div>
                     <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                         <button onclick="ModalSystem.close('viewTriageModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
+                        ${reassignButtonFooter}
                         <button onclick="ModalSystem.close('viewTriageModal'); editTriage(${t.id})" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-pen mr-1.5"></i> Edit</button>
                     </div>
                 </div>
@@ -2361,13 +2565,14 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
 
     function matchesDateRange(rowDate, range) {
         if (!range || range === 'all') return true;
-        if (!rowDate) return false;
+        if (!rowDate) return range === 'today';
+        const cleanRowDate = rowDate.substring(0, 10);
         
         if (range === 'today') {
-            return rowDate === TODAY_DATE_STR;
+            return cleanRowDate === TODAY_DATE_STR;
         }
         if (range === 'week') {
-            const d = new Date(rowDate);
+            const d = new Date(cleanRowDate);
             const now = new Date();
             const firstDay = new Date(now.setDate(now.getDate() - now.getDay()));
             firstDay.setHours(0,0,0,0);
@@ -2409,7 +2614,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
 
             const matchesPriority = !priority || rowPriority === priority;
             const matchesStatus = !status
-                ? (currentDateRange === 'today' ? (rowStatus === 'waiting' || rowStatus === 'in_triage') : true)
+                ? true
                 : (rowStatus === status || 
                    (status === 'completed' && (rowStatus === 'consulted' || rowStatus === 'completed')) || 
                    (status === 'sent_to_doctor' && (rowStatus === 'triaged' || rowStatus === 'sent_to_doctor')));
@@ -2578,11 +2783,13 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             },
             priority: (t.priority || 'medium').toLowerCase(),
             symptoms: t.symptoms_list || [],
-            chief_complaint: t.chief_complaint || t.notes || 'General Checkup',
+            chief_complaint: (t.chief_complaint || t.notes || 'General Checkup').replace(/\[REASSIGNMENT_PENDING:[^\]]+\][^\n]*(\n|$)?/g, '').replace(/\[SENT_TO_OTHER_DOCTOR\][^\n]*(\n|$)?/g, '').replace(/Doctor marked Not Available:[^\n.]*[\n.]*/gi, '').replace(/Details:\s*[^\n.]*[\n.]*/gi, '').trim() || 'General Checkup',
+            notes: t.notes || '',
             nurse_assigned: t.nurse_name || 'Nurse Maria Cruz',
-            status: status,
+            status: (t.notes && t.notes.includes('[REASSIGNMENT_PENDING')) ? 'reassignment_pending' : status,
             arrival_time: t.created_at ? new Date(t.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '',
-            wait_time: '15 mins'
+            wait_time: '15 mins',
+            date: t.date ? String(t.date).substring(0, 10) : (t.created_at ? String(t.created_at).substring(0, 10) : TODAY_DATE_STR)
         };
     }
 
@@ -2603,6 +2810,8 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             in_triage: 'bg-sky-100 text-sky-800 border border-sky-200',
             waiting: 'bg-amber-100 text-amber-800 border border-amber-200',
             sent_to_doctor: 'bg-blue-100 text-blue-800 border border-blue-200',
+            reassignment_pending: 'bg-amber-100 text-amber-900 border border-amber-300 font-extrabold shadow-xs',
+            sent_to_other_doctor: 'bg-purple-100 text-purple-900 border border-purple-300 font-bold shadow-xs',
             in_consultation: 'bg-purple-100 text-purple-700 border border-purple-200',
             completed: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
             cancelled: 'bg-slate-100 text-slate-600 border border-slate-200'
@@ -2611,6 +2820,8 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             in_triage: 'In Assessment',
             waiting: 'Checked In',
             sent_to_doctor: 'Sent to Doctor',
+            reassignment_pending: '<i class="fa-solid fa-user-slash text-amber-600 mr-1"></i> Doctor Not Available',
+            sent_to_other_doctor: 'Reassigned to Other Doctor',
             in_consultation: 'In Consultation',
             completed: 'Consultation Done',
             cancelled: 'Cancelled'
@@ -2633,9 +2844,13 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         const safeWait = CrudAjax.escapeHtml(t.arrival_time || t.wait_time);
         const safePatientCode = CrudAjax.escapeHtml(t.patient_code);
 
+        const isReassignmentPending = safeStatus === 'reassignment_pending' || (t.notes && t.notes.includes('[REASSIGNMENT_PENDING'));
+        const effectiveStatus = isReassignmentPending ? 'reassignment_pending' : safeStatus;
+        const rowBgClass = isReassignmentPending ? 'bg-amber-50/80 hover:bg-amber-100/70 border-l-4 border-l-amber-500' : (t.priority === 'critical' ? 'bg-rose-50/50' : 'hover:bg-brand-light/40');
+
         return `
-        <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors triage-row ${t.priority === 'critical' ? 'bg-rose-50/50' : ''}"
-            data-id="${t.id}" data-patient="${safePatientName.toLowerCase()}" data-priority="${safePriority}" data-status="${safeStatus}">
+        <tr class="border-b border-slate-100 transition-colors triage-row ${rowBgClass}"
+            data-id="${t.id}" data-patient="${safePatientName.toLowerCase()}" data-patient-id="${safePatientCode.toLowerCase()} ${t.patient_id} ${t.id}" data-doctor="${safeDocAssigned.toLowerCase()}" data-complaint="${safeComplaint.toLowerCase()}" data-priority="${safePriority}" data-date="${t.date || TODAY_DATE_STR}" data-status="${effectiveStatus}">
             <td class="px-4 py-3 font-mono text-xs font-bold ${t.priority === 'critical' ? 'text-rose-600' : 'text-slate-600'}">${safePatientCode}</td>
             <td class="px-4 py-3">
                 <div class="flex items-center gap-2.5">
@@ -2653,7 +2868,11 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             </td>
             <td class="px-4 py-3 text-xs">
                 <p class="font-bold text-slate-800">${safeDocAssigned}</p>
-                <p class="text-[10px] text-slate-500 font-semibold">${safeService}</p>
+                ${isReassignmentPending ? `
+                    <div class="bg-amber-100 text-amber-900 border border-amber-300 rounded px-1.5 py-0.5 text-[10px] font-bold mt-1 inline-flex items-center gap-1 shadow-xs" title="Doctor Unavailable">
+                        <i class="fa-solid fa-note-sticky text-amber-600"></i> Doctor Not Available
+                    </div>` : ''}
+                <p class="text-[10px] text-slate-500 font-semibold mt-0.5">${safeService}</p>
             </td>
             <td class="px-4 py-3">
                 <span class="px-2.5 py-1 rounded-full text-xs font-semibold border inline-flex items-center gap-1.5 ${priorityColors[t.priority] || priorityColors.medium}">
@@ -2662,8 +2881,8 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 </span>
             </td>
             <td class="px-4 py-3">
-                <span class="px-2.5 py-1 rounded-full text-xs font-bold ${statusClasses[t.status] || statusClasses.waiting}">
-                    ${statusLabels[t.status] || safeStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                <span class="px-2.5 py-1 rounded-full text-xs ${statusClasses[effectiveStatus] || statusClasses.waiting}">
+                    ${statusLabels[effectiveStatus] || effectiveStatus.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
                 </span>
             </td>
             <td class="px-4 py-3 text-slate-600 text-xs">${safeWait}</td>
@@ -2671,7 +2890,15 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 <div class="flex items-center justify-center gap-1">
                     <button onclick="viewTriage(${t.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View"><i class="fa-solid fa-eye text-sm"></i></button>
                     <button onclick="editTriage(${t.id})" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen text-sm"></i></button>
-                    ${(t.status === 'in_triage' || t.status === 'waiting') ? `<button onclick="completeTriage(${t.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete & Send to Doctor"><i class="fa-solid fa-check text-sm"></i></button>` : ''}
+                    ${isReassignmentPending ? (window.IS_STAFF_OR_NURSE ? `
+                        <button onclick="openReassignDoctorModal('${t.id}', '${safePatientName}', '${safeDocAssigned}')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1 transition" title="Staff & Nurse Desk — Re-assign Patient to Available Doctor">
+                            <i class="fa-solid fa-user-nurse"></i> Reassign Doctor
+                        </button>
+                    ` : `
+                        <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Doctor Unavailable — Awaiting Staff/Nurse Re-assignment">
+                            <i class="fa-solid fa-user-slash text-sm"></i>
+                        </button>
+                    `) : ((t.status === 'in_triage' || t.status === 'waiting') ? `<button onclick="completeTriage(${t.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete & Send to Doctor"><i class="fa-solid fa-check text-sm"></i></button>` : (['sent_to_doctor', 'triaged', 'in_consultation', 'completed'].includes(t.status) ? `<button onclick="requestDoctorNotAvailable('${t.id}')" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Doctor Not Available (Mark doctor unavailable & request nurse re-assignment)"><i class="fa-solid fa-user-slash text-sm"></i></button>` : ''))}
                 </div>
             </td>
         </tr>`;
@@ -2811,7 +3038,228 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 selectEl.value = String(patientId);
             }
         }
+
+        checkPendingReassignments();
+        setInterval(checkPendingReassignments, 15000);
     });
+
+    function requestDoctorNotAvailable(id) {
+        const idInput = document.getElementById('not_available_appointment_id');
+        const reasonSelect = document.getElementById('not_available_reason_select');
+        const notesInput = document.getElementById('not_available_notes_input');
+
+        if (idInput) idInput.value = id || '';
+        if (reasonSelect) reasonSelect.value = 'IN_EMERGENCY_CONSULT';
+        if (notesInput) notesInput.value = '';
+
+        if (typeof ModalSystem !== 'undefined') {
+            ModalSystem.open('markDoctorNotAvailableModal');
+        } else {
+            executeDoctorNotAvailableRequest(id, 'IN_EMERGENCY_CONSULT', '');
+        }
+    }
+
+    async function submitFormalNotAvailableRequest(e) {
+        if (e) e.preventDefault();
+        const id = document.getElementById('not_available_appointment_id').value;
+        const reasonSelect = document.getElementById('not_available_reason_select');
+        const notesInput = document.getElementById('not_available_notes_input');
+
+        const reason = reasonSelect ? reasonSelect.value : 'IN_EMERGENCY_CONSULT';
+        const notes = notesInput ? notesInput.value : '';
+
+        if (!id) return;
+
+        await executeDoctorNotAvailableRequest(id, reason, notes);
+        if (typeof ModalSystem !== 'undefined') {
+            ModalSystem.close('markDoctorNotAvailableModal');
+        }
+    }
+
+    async function executeDoctorNotAvailableRequest(id, reason, notes) {
+        try {
+            const csrfToken = (typeof CrudAjax !== 'undefined' && CrudAjax.getCsrfToken) 
+                ? CrudAjax.getCsrfToken() 
+                : ((typeof CSRF_TOKEN !== 'undefined' && CSRF_TOKEN) ? CSRF_TOKEN : '');
+
+            const res = await fetch(`../../api/appointments.php?id=${encodeURIComponent(id)}&action=request_reassignment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    id: id,
+                    reason: reason || 'IN_EMERGENCY_CONSULT',
+                    notes: notes || '',
+                    csrf_token: csrfToken
+                })
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                const toastTitle = '✅ Transaction Applied Successfully';
+                const toastMsg = result.message || 'Doctor formally marked Not Available. Reassignment notification sent to Nurse Intake Staff.';
+                
+                if (typeof showAppToast === 'function') {
+                    showAppToast('success', toastMsg, toastTitle);
+                } else if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                    ModalSystem.toast.success(toastMsg, { title: toastTitle, duration: 5000 });
+                }
+
+                checkPendingReassignments();
+                if (typeof loadTriageQueue === 'function') {
+                    loadTriageQueue();
+                } else {
+                    setTimeout(() => window.location.reload(), 800);
+                }
+            } else {
+                const errTitle = 'Transaction Failed';
+                const errMsg = result.message || 'Failed to process unavailability request.';
+                if (typeof showAppToast === 'function') {
+                    showAppToast('error', errMsg, errTitle);
+                } else if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                    ModalSystem.toast.error(errMsg, { title: errTitle });
+                }
+            }
+        } catch (err) {
+            console.error('Error requesting reassignment:', err);
+            if (typeof showAppToast === 'function') {
+                showAppToast('error', 'An error occurred while processing unavailability notice.', 'Error');
+            }
+        }
+    }
+
+    function openReassignDoctorModal(id, patientName, currentDoctorName) {
+        const idInput = document.getElementById('reassign_appointment_id');
+        const oldDocText = document.getElementById('reassign_old_doctor_text');
+        const patientNameText = document.getElementById('reassign_patient_name_text');
+        const newDocSelect = document.getElementById('reassign_new_doctor_id');
+
+        if (idInput) idInput.value = id || '';
+        if (oldDocText) oldDocText.textContent = currentDoctorName || 'Assigned Doctor';
+        if (patientNameText) patientNameText.textContent = patientName || 'Patient';
+        if (newDocSelect) newDocSelect.value = '';
+
+        if (typeof ModalSystem !== 'undefined') {
+            ModalSystem.open('reassignDoctorModal');
+        }
+    }
+
+    async function submitDoctorReassignment(e) {
+        if (e) e.preventDefault();
+        const id = document.getElementById('reassign_appointment_id').value;
+        const selectDoc = document.getElementById('reassign_new_doctor_id');
+        const newDoctorId = selectDoc.value;
+        const selectedOption = selectDoc.options[selectDoc.selectedIndex];
+        const newDoctorName = selectedOption ? (selectedOption.dataset.name || selectedOption.text) : '';
+
+        if (!newDoctorId) {
+            showAppToast('warning', 'Please select a new doctor.', 'Selection Required');
+            return;
+        }
+
+        try {
+            const csrfToken = (typeof CrudAjax !== 'undefined' && CrudAjax.getCsrfToken) 
+                ? CrudAjax.getCsrfToken() 
+                : ((typeof CSRF_TOKEN !== 'undefined' && CSRF_TOKEN) ? CSRF_TOKEN : '');
+
+            const res = await fetch(`../../api/appointments.php?id=${encodeURIComponent(id)}&action=complete_reassignment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    id: id,
+                    new_doctor_id: newDoctorId,
+                    new_doctor_name: newDoctorName,
+                    csrf_token: csrfToken
+                })
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                if (typeof ModalSystem !== 'undefined') {
+                    ModalSystem.close('reassignDoctorModal');
+                }
+                showAppToast('success', result.message || 'Patient successfully reassigned to new doctor!', '✅ Re-assigned');
+                checkPendingReassignments();
+                if (typeof loadTriageQueue === 'function') {
+                    loadTriageQueue();
+                } else {
+                    setTimeout(() => window.location.reload(), 1000);
+                }
+            } else {
+                showAppToast('error', result.message || 'Failed to reassign doctor.', 'Reassignment Failed');
+            }
+        } catch (err) {
+            console.error('Error submitting reassignment:', err);
+            showAppToast('error', 'An error occurred during reassignment.', 'Error');
+        }
+    }
+
+    let lastPendingReassignmentCount = -1;
+
+    async function checkPendingReassignments() {
+        const container = document.getElementById('pendingReassignmentsBannerContainer');
+        if (!container) return;
+
+        try {
+            const res = await fetch('../../api/appointments.php', { cache: 'no-store' });
+            const data = await res.json();
+            if (data.success && Array.isArray(data.data)) {
+                const pendingList = data.data.filter(a => (a.status || '').toLowerCase() === 'reassignment_pending');
+
+                if (lastPendingReassignmentCount !== -1 && pendingList.length > lastPendingReassignmentCount) {
+                    showAppToast('warning', 'Doctor marked unavailable. Please select another doctor in the alert banner.', '⚠️ Doctor Unavailable Notification');
+                }
+                lastPendingReassignmentCount = pendingList.length;
+
+                if (pendingList.length === 0) {
+                    container.innerHTML = '';
+                    return;
+                }
+
+                const escapeFn = (typeof CrudAjax !== 'undefined' && CrudAjax.escapeHtml) ? CrudAjax.escapeHtml : (str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
+
+                container.innerHTML = pendingList.map(item => {
+                    const safeId = escapeFn(item.id);
+                    const safePatientName = escapeFn(item.patient_name || 'Patient');
+                    const safeDoctorName = escapeFn(item.doctor_name || item.employee_name || 'Assigned Doctor');
+                    const safeReasonLabel = escapeFn(item.unavailability_reason_label || 'In Emergency / Priority Consult');
+                    return `
+                        <div class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4 rounded-r-xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 flex-shrink-0">
+                                    <i class="fa-solid fa-user-slash text-base"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-bold text-amber-950">
+                                        Doctor Not Available: <span class="text-slate-800">${safeDoctorName}</span>
+                                    </p>
+                                    <p class="text-xs text-amber-800 mt-0.5">
+                                        Patient: <strong>${safePatientName}</strong> • Check-In Status: <span class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-semibold">Sent to Doctor</span> ➔ <span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-semibold">Doctor Not Available</span>
+                                    </p>
+                                    <p class="text-xs font-semibold text-amber-900 mt-1">
+                                        <i class="fa-solid fa-circle-info mr-1 text-amber-600"></i> Formal Reason: <span class="bg-white/80 px-2 py-0.5 rounded border border-amber-200 text-slate-800 font-bold">${safeReasonLabel}</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <button onclick="openReassignDoctorModal('${safeId}', '${safePatientName}', '${safeDoctorName}')"
+                                    class="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-lg transition shadow-xs flex items-center gap-1.5 self-start sm:self-center">
+                                <i class="fa-solid fa-user-doctor"></i> Reassign Doctor
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+            }
+        } catch (e) {
+            console.warn('Failed to check pending reassignments:', e);
+        }
+    }
 </script>
 
 <?php include_once '../../includes/footer.php'; ?>

@@ -26,8 +26,12 @@ Patient Assessment (triage.php - Saved in public.assessment)
 Assign Doctor / Service (triage.php - Dynamic Doctor Selection)
                      │
                      ▼
+                Appointments
+                     │
 Doctor Consultation (consultations.php - Reads public.assessment data)
                      │
+                     └─→ (1-Doctor is available) ──→ Proceed to Consultation
+                     └─→ (2-Doctor is unavailable) ──→ Mark doctor unavailable & request nurse re-assignment
           ┌──────────┴──────────┐
           ▼                     ▼
 Prescription            Referral

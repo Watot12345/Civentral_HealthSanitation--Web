@@ -17,6 +17,12 @@
         return;
     }
 
+    // Guard: Skip if Supabase library failed to load (CDN offline or blocked)
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+        console.warn('Supabase JS library is not loaded. Realtime features disabled.');
+        return;
+    }
+
     // Initialize Supabase Client
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     

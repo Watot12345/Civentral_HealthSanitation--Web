@@ -82,6 +82,7 @@ $_sessionRoleDesc = strtolower(trim($_SESSION['role_description'] ?? $_SESSION['
 $isDoctorRole = (str_contains($_sessionRoleDesc, 'doctor') || str_contains($_sessionRoleDesc, 'physician') || str_contains($_sessionRoleDesc, 'dentist') || str_contains($_sessionRoleDesc, 'medical practitioner'));
 $isAdminRole = (str_contains($_sessionRoleDesc, 'admin') || str_contains($_sessionRoleDesc, 'director') || str_contains($_sessionRoleDesc, 'system administrator'));
 $isDoctorOnly = ($isDoctorRole && !$isAdminRole);
+$isStaffOrNurse = (str_contains($_sessionRoleDesc, 'nurse') || str_contains($_sessionRoleDesc, 'staff') || str_contains($_sessionRoleDesc, 'clerk') || str_contains($_sessionRoleDesc, 'triage') || str_contains($_sessionRoleDesc, 'intake') || $isAdminRole || !$isDoctorRole);
 
 // Fetch Appointments
 $appointmentModel = new Appointment();
@@ -320,7 +321,7 @@ $parseDate = function($dVal) {
     }
 };
 
-$totalApproved = count(array_filter($appointments, fn($a) => in_array($a['status'], ['approved', 'confirmed'])));
+$totalApproved = count(array_filter($appointments, fn($a) => in_array($a['status'], ['approved', 'confirmed', 'scheduled'])));
 $totalPending  = count(array_filter($appointments, fn($a) => $a['status'] === 'pending'));
 $totalCompleted = count(array_filter($appointments, fn($a) => in_array(strtolower($a['status']), $servedStatuses)));
 $todayAppointments = count(array_filter($appointments, fn($a) => $parseDate($a['date']) === $todayDateStr));
@@ -571,6 +572,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
         <?php endif; ?>
     </div>
 
+
     <!-- Search & Filters -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
         <div class="flex flex-col sm:flex-row gap-3">
@@ -584,8 +586,11 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
             <div class="flex gap-2 flex-wrap">
                 <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Status</option>
+                    <option value="scheduled">Scheduled</option>
                     <option value="pending">Pending</option>
                     <option value="approved">Approved</option>
+                    <option value="reassignment_pending">Reassignment Pending</option>
+                    <option value="sent_to_other_doctor">Sent to Other Doctor</option>
                     <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
                     <option value="no_show">No Show</option>
@@ -647,6 +652,9 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                             $maskedName = trim($maskedName);
                             $code = $a['patient_code'];
                             $maskedCode = substr($code, 0, 2) . str_repeat('*', max(0, strlen($code) - 2));
+
+                            $isReassignmentPending = $a['status'] === 'reassignment_pending' || (str_contains($a['notes'] ?? '', '[REASSIGNMENT_PENDING'));
+                            $isSentToOtherDoctor = $a['status'] === 'sent_to_other_doctor' || (str_contains($a['notes'] ?? '', '[SENT_TO_OTHER_DOCTOR]'));
                         ?>
                         <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors appointment-row"
                             data-id="<?php echo $a['id']; ?>"
@@ -681,6 +689,11 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
 
                             <td class="px-4 py-3">
                                 <p class="font-medium text-slate-800 text-xs"><?php echo htmlspecialchars($a['doctor_name']); ?></p>
+                                <?php if ($isReassignmentPending): ?>
+                                    <div class="bg-amber-100 text-amber-900 border border-amber-300 rounded px-1.5 py-0.5 text-[10px] font-bold mt-1 inline-flex items-center gap-1 shadow-xs" title="Doctor Unavailable">
+                                        <i class="fa-solid fa-note-sticky text-amber-600"></i> Doctor Not Available
+                                    </div>
+                                <?php endif; ?>
                             </td>
 
                             <td class="px-4 py-3">
@@ -706,14 +719,24 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                             </td>
 
                             <td class="px-4 py-3">
-                                <span class="px-2 py-1 rounded-full text-xs font-semibold <?php 
-                                    echo in_array($a['status'], ['approved', 'confirmed']) ? 'bg-emerald-100 text-emerald-700' : 
-                                        ($a['status'] === 'pending' ? 'bg-amber-100 text-amber-700' : 
-                                        ($a['status'] === 'completed' ? 'bg-blue-100 text-blue-700' : 
-                                        'bg-rose-100 text-rose-700')); 
-                                ?>">
-                                    <?php echo htmlspecialchars(ucfirst($a['status'])); ?>
-                                </span>
+                                <?php if ($isReassignmentPending): ?>
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300 shadow-xs inline-flex items-center gap-1.5" title="Doctor Unavailable — Consultation On Hold">
+                                      On Hold
+                                    </span>
+                                <?php elseif ($isSentToOtherDoctor): ?>
+                                    <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-900 border border-purple-300 shadow-xs inline-flex items-center gap-1.5">
+                                        <i class="fa-solid fa-user-doctor text-purple-600"></i> Reassigned to Other Doctor
+                                    </span>
+                                <?php else: ?>
+                                    <span class="px-2 py-1 rounded-full text-xs font-semibold <?php 
+                                        echo in_array($a['status'], ['approved', 'confirmed', 'scheduled']) ? 'bg-emerald-100 text-emerald-700' : 
+                                            ($a['status'] === 'pending' ? 'bg-amber-100 text-amber-700' : 
+                                            ($a['status'] === 'completed' ? 'bg-blue-100 text-blue-700' : 
+                                            'bg-rose-100 text-rose-700')); 
+                                    ?>">
+                                        <?php echo htmlspecialchars(ucfirst($a['status'])); ?>
+                                    </span>
+                                <?php endif; ?>
                             </td>
 
                             <td class="px-4 py-3 text-center">
@@ -726,23 +749,33 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                                             class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="View Patient Assessment / Triage Vitals">
                                         <i class="fa-solid fa-heart-pulse text-sm"></i>
                                     </button>
-                                    <?php if (in_array($a['status'], ['approved', 'confirmed', 'pending'])): ?>
-                                        <button onclick="checkInScheduledPatient('<?php echo htmlspecialchars((string)($a['patient_id'] ?? $a['id'])); ?>')"
-                                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient for Today's Visit">
-                                            <i class="fa-solid fa-user-check text-sm"></i>
+
+                                    <?php if ($isReassignmentPending): ?>
+                                        <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Doctor Unavailable — Consultation On Hold (Re-assign in Patient Assessment / Triage Desk)">
+                                            <i class="fa-solid fa-user-slash text-sm"></i>
                                         </button>
-                                    <?php endif; ?>
-                                    <?php if (!in_array($a['status'], ['cancelled', 'completed'])): ?>
-                                        <button onclick="changeAppointmentStatus('<?php echo htmlspecialchars((string)$a['id']); ?>', 'cancelled')"
-                                                class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Cancel Appointment">
-                                            <i class="fa-solid fa-ban text-sm"></i>
-                                        </button>
-                                    <?php endif; ?>
-                                    <?php if ($a['status'] === 'approved' || $a['status'] === 'confirmed'): ?>
-                                        <button onclick="startConsultationFromAppointment('<?php echo htmlspecialchars((string)$a['id']); ?>')"
-                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start Consultation">
-                                            <i class="fa-solid fa-stethoscope text-sm"></i>
-                                        </button>
+                                    <?php else: ?>
+                                        <?php 
+                                            $hasRegisteredPatient = !empty($a['patient_id']) && (int)$a['patient_id'] > 0;
+                                        ?>
+                                        <?php if (in_array($a['status'], ['approved', 'confirmed', 'pending']) && $hasRegisteredPatient): ?>
+                                            <button onclick="checkInScheduledPatient('<?php echo htmlspecialchars((string)$a['patient_id']); ?>')"
+                                                    class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient for Today's Visit (Scheduled via Patient Management)">
+                                                <i class="fa-solid fa-user-check text-sm"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                        <?php if (in_array(strtolower($a['status']), ['sent_to_doctor', 'approved', 'confirmed', 'triaged'])): ?>
+                                            <button onclick="requestDoctorNotAvailable('<?php echo htmlspecialchars((string)$a['id']); ?>')"
+                                                    class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Doctor Not Available (Request Nurse Re-assignment)">
+                                                <i class="fa-solid fa-user-slash text-sm"></i>
+                                            </button>
+                                        <?php endif; ?>
+                                        <?php if ($a['status'] === 'approved' || $a['status'] === 'confirmed'): ?>
+                                            <button onclick="startConsultationFromAppointment('<?php echo htmlspecialchars((string)$a['id']); ?>')"
+                                                    class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start Consultation">
+                                                <i class="fa-solid fa-stethoscope text-sm"></i>
+                                            </button>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
                             </td>
@@ -905,6 +938,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label>
                     <select id="add_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <option value="scheduled">Scheduled</option>
                         <option value="pending">Pending Approval</option>
                         <option value="approved">Approved</option>
                     </select>
@@ -998,6 +1032,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label>
                     <select id="edit_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <option value="scheduled">Scheduled</option>
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
                         <option value="completed">Completed</option>
@@ -1025,10 +1060,60 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
         </form>
     </div>
 </div>
+
+<!-- MARK DOCTOR NOT AVAILABLE MODAL (Practitioner / Director formal unavailability) -->
+<div id="markDoctorNotAvailableModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-user-slash text-amber-600"></i> Mark Doctor / Director Not Available
+            </h3>
+            <button onclick="ModalSystem.close('markDoctorNotAvailableModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <form id="markDoctorNotAvailableForm" class="p-6 space-y-4" onsubmit="submitFormalNotAvailableRequest(event)">
+            <input type="hidden" id="not_available_appointment_id">
+            <div class="bg-amber-50 rounded-xl p-3.5 border border-amber-200 text-xs text-amber-900">
+                <p class="font-semibold text-amber-950 flex items-center gap-1.5 mb-1">
+                    <i class="fa-solid fa-shield-halved text-amber-600"></i> Formal Unavailability Notice
+                </p>
+                <p class="text-amber-800">
+                    Flagging unavailability notifies the Nurse Intake/Assessment staff to formally re-assign the patient without rejecting the appointment.
+                </p>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Formal Reason <span class="text-rose-500">*</span></label>
+                <select id="not_available_reason_select" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 outline-none">
+                    <option value="IN_EMERGENCY_CONSULT">In Emergency / Priority Consult</option>
+                    <option value="FIELD_DUTY_STATIONED">On Field / Satellite Duty</option>
+                    <option value="DAILY_CAPACITY_REACHED">Daily Patient Quota Reached</option>
+                    <option value="OFF_DUTY_LEAVE">Off-Duty / Approved Leave</option>
+                    <option value="SPECIALTY_MISMATCH">Referral Required to Specialist</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Additional Remarks (Optional)</label>
+                <textarea id="not_available_notes_input" rows="2" placeholder="Provide additional details for intake staff..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 outline-none"></textarea>
+            </div>
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onclick="ModalSystem.close('markDoctorNotAvailableModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                    <i class="fa-solid fa-paper-plane"></i> Submit Formal Notice
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- ============================================================ -->
 <!-- 3. JAVASCRIPT                                                -->
 <!-- ============================================================ -->
 <script>
+    window.IS_STAFF_OR_NURSE = <?php echo json_encode($isStaffOrNurse); ?>;
+    window.IS_DOCTOR_ONLY = <?php echo json_encode($isDoctorOnly); ?>;
     const APPOINTMENTS_DATA = <?php echo json_encode(array_column($appointments, null, 'id'), JSON_UNESCAPED_UNICODE); ?>;
     const CONSULTATION_MAP = <?php echo json_encode($consultationMap); ?>;
     const MEDICAL_ROLES = ['Health Center Director', 'Medical Practitioner', 'Health Center Staff', 'Immunization Lead', 'Nutrition Staff', 'Doctor', 'Nurse', 'Dentist', 'midwives', 'Nutritionist', 'Immunization Coordinator', 'Lab tech'];
@@ -1561,13 +1646,21 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
         const safeTime = CrudAjax.escapeHtml(a.time || a.appointment_time || '');
         const dateFormatted = rawDate ? new Date(rawDate).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '';
 
-        const priorityClass = safePriority === 'critical' ? 'bg-rose-100 text-rose-700' :
-            (safePriority === 'high' ? 'bg-amber-100 text-amber-700' :
-            (safePriority === 'medium' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'));
+        const isReassignmentPending = safeStatus === 'reassignment_pending' || (a.notes && a.notes.includes('[REASSIGNMENT_PENDING'));
+        const isSentToOtherDoctor = safeStatus === 'sent_to_other_doctor' || (a.notes && a.notes.includes('[SENT_TO_OTHER_DOCTOR]'));
 
-        const statusClass = ['approved', 'confirmed'].includes(safeStatus) ? 'bg-emerald-100 text-emerald-700' :
-            (safeStatus === 'pending' ? 'bg-amber-100 text-amber-700' :
-            (safeStatus === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-rose-100 text-rose-700'));
+        const statusClass = isSentToOtherDoctor ? 'bg-purple-100 text-purple-900 border border-purple-300 font-bold shadow-xs inline-flex items-center gap-1.5' :
+            (isReassignmentPending ? 'bg-amber-100 text-amber-900 border border-amber-300 font-extrabold shadow-xs inline-flex items-center gap-1.5' :
+            (['approved', 'confirmed', 'scheduled'].includes(safeStatus) ? 'bg-emerald-100 text-emerald-700 font-semibold' :
+            (safeStatus === 'pending' ? 'bg-amber-100 text-amber-700 font-semibold' :
+            (safeStatus === 'completed' ? 'bg-blue-100 text-blue-700 font-semibold' : 'bg-rose-100 text-rose-700 font-semibold'))));
+
+        let statusText = safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1);
+        if (isReassignmentPending) {
+            statusText = '<i class="fa-solid fa-user-clock text-amber-600"></i> On Hold';
+        } else if (isSentToOtherDoctor) {
+            statusText = '<i class="fa-solid fa-user-doctor text-purple-600"></i> Reassigned to Other Doctor';
+        }
 
         const nameParts = (a.patient_name || '').split(' ');
         let maskedName = '';
@@ -1577,23 +1670,34 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
         maskedName = maskedName.trim();
         const maskedCode = (a.patient_code || '').substring(0, 2) + '*'.repeat(Math.max(0, (a.patient_code || '').length - 2));
 
-        const checkInBtn = ['approved', 'confirmed', 'pending'].includes(safeStatus) ? `
-            <button onclick="checkInScheduledPatient('${safeId}')"
-                    class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient for Today's Visit">
-                <i class="fa-solid fa-user-check text-sm"></i>
-            </button>` : '';
+        let actionButtonsHtml = '';
+        if (isReassignmentPending) {
+            actionButtonsHtml = `
+                <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Doctor Unavailable — Consultation On Hold (Re-assign in Patient Assessment / Triage Desk)">
+                    <i class="fa-solid fa-user-slash text-sm"></i>
+                </button>`;
+        } else {
+            const hasRegisteredPatient = Boolean(a.patient_id && parseInt(a.patient_id) > 0);
+            const checkInBtn = (['approved', 'confirmed', 'pending'].includes(safeStatus) && hasRegisteredPatient) ? `
+                <button onclick="checkInScheduledPatient('${a.patient_id}')"
+                        class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient for Today's Visit (Scheduled via Patient Management)">
+                    <i class="fa-solid fa-user-check text-sm"></i>
+                </button>` : '';
 
-        const cancelBtn = !['cancelled', 'completed'].includes(safeStatus) ? `
-            <button onclick="changeAppointmentStatus('${safeId}', 'cancelled')"
-                    class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition" title="Cancel Appointment">
-                <i class="fa-solid fa-ban text-sm"></i>
-            </button>` : '';
+            const notAvailableBtn = ['sent_to_doctor', 'approved', 'confirmed', 'triaged'].includes(safeStatus) ? `
+                <button onclick="requestDoctorNotAvailable('${safeId}')"
+                        class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Doctor Not Available (Request Nurse Re-assignment)">
+                    <i class="fa-solid fa-user-slash text-sm"></i>
+                </button>` : '';
 
-        const consultBtn = (safeStatus === 'approved' || safeStatus === 'confirmed') ? `
-            <button onclick="startConsultationFromAppointment('${safeId}')"
-                    class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start Consultation">
-                <i class="fa-solid fa-user-doctor text-sm"></i>
-            </button>` : '';
+            const consultBtn = (safeStatus === 'approved' || safeStatus === 'confirmed') ? `
+                <button onclick="startConsultationFromAppointment('${safeId}')"
+                        class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Start Consultation">
+                    <i class="fa-solid fa-user-doctor text-sm"></i>
+                </button>` : '';
+
+            actionButtonsHtml = checkInBtn + notAvailableBtn + consultBtn;
+        }
 
         const assessmentBtn = `
             <button onclick="viewPatientAssessmentForAppointment('${a.patient_id || safeId}', '${safePatientName}')"
@@ -1601,8 +1705,10 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                 <i class="fa-solid fa-heart-pulse text-sm"></i>
             </button>`;
 
+        const rowBgClass = isReassignmentPending ? 'bg-amber-50/70 hover:bg-amber-100/60' : 'hover:bg-brand-light/40';
+
         return `
-        <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors appointment-row"
+        <tr class="border-b border-slate-100 ${rowBgClass} transition-colors appointment-row"
             data-id="${safeId}"
             data-patient="${safePatientName.toLowerCase()}"
             data-doctor="${safeDoctorName.toLowerCase()}"
@@ -1635,6 +1741,10 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
 
             <td class="px-4 py-3">
                 <p class="font-medium text-slate-800 text-xs">${safeDoctorName}</p>
+                ${isReassignmentPending ? `
+                    <div class="bg-amber-100 text-amber-900 border border-amber-300 rounded px-1.5 py-0.5 text-[10px] font-bold mt-1 inline-flex items-center gap-1 shadow-xs" title="Doctor Unavailable">
+                        <i class="fa-solid fa-note-sticky text-amber-600"></i> Doctor Not Available
+                    </div>` : ''}
             </td>
 
             <td class="px-4 py-3">
@@ -1656,7 +1766,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
 
             <td class="px-4 py-3">
                 <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusClass}">
-                    ${safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1)}
+                    ${statusText}
                 </span>
             </td>
 
@@ -1667,9 +1777,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                         <i class="fa-solid fa-eye text-sm"></i>
                     </button>
                     ${assessmentBtn}
-                    ${checkInBtn}
-                    ${cancelBtn}
-                    ${consultBtn}
+                    ${actionButtonsHtml}
                 </div>
             </td>
         </tr>`;
@@ -1857,7 +1965,12 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
     // ============================================================
     function editAppointment(id) {
         const a = APPOINTMENTS_DATA[id];
-        if (!a) { alert('Appointment not found'); return; }
+        if (!a) { 
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                ModalSystem.toast.error('Appointment record not found.', { title: 'Error' });
+            }
+            return; 
+        }
 
         document.getElementById('edit_id').value = a.id;
         document.getElementById('edit_patient_id').value = a.patient_id;
@@ -2083,8 +2196,100 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
     const LOGGED_IN_DOCTOR_ID = <?php echo json_encode($loggedInDoctorId); ?>;
     const LOGGED_IN_DOCTOR_NAME = <?php echo json_encode($loggedInDoctorName); ?>;
 
+    function requestDoctorNotAvailable(id) {
+        const idInput = document.getElementById('not_available_appointment_id');
+        const reasonSelect = document.getElementById('not_available_reason_select');
+        const notesInput = document.getElementById('not_available_notes_input');
+
+        if (idInput) idInput.value = id || '';
+        if (reasonSelect) reasonSelect.value = 'IN_EMERGENCY_CONSULT';
+        if (notesInput) notesInput.value = '';
+
+        if (typeof ModalSystem !== 'undefined') {
+            ModalSystem.open('markDoctorNotAvailableModal');
+        } else {
+            executeDoctorNotAvailableRequest(id, 'IN_EMERGENCY_CONSULT', '');
+        }
+    }
+
+    async function submitFormalNotAvailableRequest(e) {
+        if (e) e.preventDefault();
+        const id = document.getElementById('not_available_appointment_id').value;
+        const reasonSelect = document.getElementById('not_available_reason_select');
+        const notesInput = document.getElementById('not_available_notes_input');
+
+        const reason = reasonSelect ? reasonSelect.value : 'IN_EMERGENCY_CONSULT';
+        const notes = notesInput ? notesInput.value : '';
+
+        if (!id) return;
+
+        await executeDoctorNotAvailableRequest(id, reason, notes);
+        if (typeof ModalSystem !== 'undefined') {
+            ModalSystem.close('markDoctorNotAvailableModal');
+        }
+    }
+
+    async function executeDoctorNotAvailableRequest(id, reason, notes) {
+        try {
+            const csrfToken = (typeof CrudAjax !== 'undefined' && CrudAjax.getCsrfToken) 
+                ? CrudAjax.getCsrfToken() 
+                : ((typeof CSRF_TOKEN !== 'undefined' && CSRF_TOKEN) ? CSRF_TOKEN : '');
+
+            const res = await fetch(`../../api/appointments.php?id=${encodeURIComponent(id)}&action=request_reassignment`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    id: id,
+                    doctor_id: LOGGED_IN_DOCTOR_ID || '',
+                    reason: reason || 'IN_EMERGENCY_CONSULT',
+                    notes: notes || '',
+                    csrf_token: csrfToken
+                })
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                const toastTitle = '✅ Transaction Applied Successfully';
+                const toastMsg = result.message || 'Doctor formally marked Not Available. Reassignment notification sent to Nurse Intake Staff.';
+                
+                if (typeof showAppToast === 'function') {
+                    showAppToast('success', toastMsg, toastTitle);
+                } else if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                    ModalSystem.toast.success(toastMsg, {
+                        title: toastTitle,
+                        duration: 5000
+                    });
+                }
+                checkPendingReassignments();
+                if (typeof loadAppointmentsData === 'function') {
+                    loadAppointmentsData();
+                } else {
+                    setTimeout(() => window.location.reload(), 800);
+                }
+            } else {
+                const errTitle = 'Transaction Failed';
+                const errMsg = result.message || 'Failed to process unavailability request.';
+                if (typeof showAppToast === 'function') {
+                    showAppToast('error', errMsg, errTitle);
+                } else if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                    ModalSystem.toast.error(errMsg, { title: errTitle });
+                }
+            }
+        } catch (err) {
+            console.error('Error requesting reassignment:', err);
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
+                ModalSystem.toast.error('An unexpected error occurred while processing the request.', { title: 'Error' });
+            }
+        }
+    }
+
     // Centralized Workflow: Auto-open & prefill Add Appointment modal if redirected from Consultation
     document.addEventListener('DOMContentLoaded', function() {
+
         if (LOGGED_IN_DOCTOR_ID && LOGGED_IN_DOCTOR_NAME && typeof selectDoctor === 'function') {
             selectDoctor('add', LOGGED_IN_DOCTOR_ID, LOGGED_IN_DOCTOR_NAME);
         }

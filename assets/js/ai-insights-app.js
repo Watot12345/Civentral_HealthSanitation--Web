@@ -1155,7 +1155,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var SUPABASE_URL = supabaseConfig.url;
     var SUPABASE_ANON_KEY = supabaseConfig.anonKey;
 
-    if (SUPABASE_URL && SUPABASE_ANON_KEY && typeof supabase !== 'undefined') {
+    if (SUPABASE_URL && SUPABASE_ANON_KEY && typeof supabase !== 'undefined' && supabase && typeof supabase.createClient === 'function') {
         try {
             var realtimeDebounceTimer = null;
             function debouncedRealtimeSync() {
