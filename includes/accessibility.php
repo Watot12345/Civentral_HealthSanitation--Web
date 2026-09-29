@@ -5,59 +5,124 @@
  * - Brand-aligned floating toggle button (#176B87 / #86B6F6 / #EEF5FF)
  * - Compact bottom-right popover (short modal, non-centered)
  * - Interactive hover states on toggle rows and keyboard shortcut keys
- * - 3 working display options with live On/Off status pills:
- *     1. High-Contrast Focus Rings  -> bold ring on mouse AND keyboard focus
- *     2. Enlarged Text Scale (+12%) -> body font scale
+ * - 3 fully functional checkmarks with precise visual targets & live On/Off status pills:
+ *     1. High-Contrast Focus Rings  -> bold brand ring on mouse AND keyboard focus
+ *     2. Enlarged Text Scale (+12%) -> root rem scale expanding tables, cards, & forms
  *     3. Reduce Motion & Effects    -> freezes CSS animations/transitions AND
  *        chart (ApexCharts) draw-in animation, which CSS alone cannot stop
- * - Persistent preferences via localStorage and Alt + K / Alt + A hotkey
+ * - Interactive Quick Keyboard Keys (Data masking Ctrl+Shift+D with live status pill, Escape, Tab, etc.)
+ * - Instant FOUC-free initialization and persistent preferences via localStorage
  */
 ?>
+<!-- Immediate Initialization (prevents FOUC before DOMContentLoaded) -->
+<script>
+(function() {
+  try {
+    var f = localStorage.getItem('civentral_a11y_focus') === 'true';
+    var t = localStorage.getItem('civentral_a11y_text') === 'true';
+    var m = localStorage.getItem('civentral_a11y_motion') === 'true';
+    var doc = document.documentElement;
+    if (f) doc.classList.add('a11y-focus-enhanced');
+    if (t) doc.classList.add('a11y-large-text');
+    if (m) doc.classList.add('a11y-reduced-motion');
+  } catch(e) {}
+})();
+</script>
+
 <style>
 /* ============================================================
    CIVENTRAL BRAND ACCESSIBILITY STYLES (#176B87 & #86B6F6)
    ============================================================ */
 
 /* 1. Enhanced High-Contrast Focus Mode
-   Targets :focus as well as :focus-visible so the ring is unmistakably
-   visible for BOTH mouse clicks and keyboard (Tab) navigation. */
+   Targets interactive elements (:focus and :focus-visible) so the ring
+   is unmistakably visible for BOTH mouse clicks and keyboard (Tab) navigation. */
+html.a11y-focus-enhanced *:focus,
+html.a11y-focus-enhanced *:focus-visible,
 body.a11y-focus-enhanced *:focus,
 body.a11y-focus-enhanced *:focus-visible {
-  outline: 3px solid #0d4f64 !important;
+  outline: 3px solid #176B87 !important;
   outline-offset: 2px !important;
-  box-shadow: 0 0 0 4px rgba(134, 182, 246, 0.55) !important;
+  box-shadow: 0 0 0 5px rgba(134, 182, 246, 0.75) !important;
+  transition: outline-offset 0.1s ease !important;
 }
-/* Focused text fields keep a readable tint (checkboxes/radios untouched) */
+
+/* Focused text fields keep a readable brand tint */
+html.a11y-focus-enhanced input:not([type="checkbox"]):not([type="radio"]):focus,
+html.a11y-focus-enhanced select:focus,
+html.a11y-focus-enhanced textarea:focus,
 body.a11y-focus-enhanced input:not([type="checkbox"]):not([type="radio"]):focus,
 body.a11y-focus-enhanced select:focus,
 body.a11y-focus-enhanced textarea:focus {
   background-color: #EEF5FF !important;
+  border-color: #176B87 !important;
 }
 
-/* Keep floating trigger button clean without heavy rings */
+/* Keep floating trigger button clean without heavy outer rings */
 #a11yFloatingWidget button:focus,
 #a11yFloatingWidget button:focus-visible {
   outline: 2px solid #86B6F6 !important;
   outline-offset: 2px !important;
-  box-shadow: none !important;
-  background-color: #0d4f64 !important;
+  box-shadow: 0 0 0 4px rgba(23, 107, 135, 0.5) !important;
 }
 
-/* 2. Large Text Mode */
-body.a11y-large-text {
-  font-size: 112% !important;
+/* 2. Large Text Mode (+12.5% Root Scale)
+   Scaling documentElement (root) reliably expands all rem-based typography
+   in Tailwind CSS across tables, cards, badges, and form controls. */
+html.a11y-large-text {
+  font-size: 112.5% !important; /* 16px -> 18px! All Tailwind rem units expand! */
 }
-body.a11y-large-text h1, body.a11y-large-text h2, body.a11y-large-text h3 {
-  letter-spacing: 0.01em !important;
+html.a11y-large-text body {
+  font-size: 1.05rem !important;
+}
+/* Tables: expand headers, cell contents, and action buttons */
+html.a11y-large-text table {
+  font-size: 0.95rem !important;
+}
+html.a11y-large-text table th {
+  font-size: 0.85rem !important;
+  letter-spacing: 0.03em !important;
+}
+html.a11y-large-text table td {
+  font-size: 0.95rem !important;
+}
+/* Forms & inputs: expand typography in inputs, selects, labels, and textareas */
+html.a11y-large-text input,
+html.a11y-large-text select,
+html.a11y-large-text textarea {
+  font-size: 0.95rem !important;
+}
+html.a11y-large-text label {
+  font-size: 0.95rem !important;
+}
+/* Cards & headings */
+html.a11y-large-text h1 { font-size: 1.85rem !important; }
+html.a11y-large-text h2 { font-size: 1.5rem !important; }
+html.a11y-large-text h3 { font-size: 1.25rem !important; }
+html.a11y-large-text h4 { font-size: 1.05rem !important; }
+
+/* Keep accessibility popover UI compact and contained so it doesn't push offscreen */
+#accessibilityPopover {
+  font-size: 12px !important;
+}
+#accessibilityPopover h3 {
+  font-size: 12px !important;
+}
+#accessibilityPopover p {
+  font-size: 11px !important;
 }
 
 /* 3. Reduced Motion Mode
    Duration-based (0.001ms instead of "none") on purpose: animations and
    transitions still fire their end events, so components that rely on
    animationend/transitionend are never left hanging. */
-html.a11y-reduced-motion {
+html.a11y-reduced-motion,
+html.a11y-reduced-motion * {
   scroll-behavior: auto !important;
 }
+html.a11y-reduced-motion *,
+html.a11y-reduced-motion *::before,
+html.a11y-reduced-motion *::after,
 body.a11y-reduced-motion *,
 body.a11y-reduced-motion *::before,
 body.a11y-reduced-motion *::after {
@@ -67,6 +132,17 @@ body.a11y-reduced-motion *::after {
   transition-duration: 0.001ms !important;
   transition-delay: 0ms !important;
   scroll-behavior: auto !important;
+}
+/* Instantly stops all Tailwind utility spinning/pulsing/bouncing animations */
+html.a11y-reduced-motion .animate-spin,
+html.a11y-reduced-motion .animate-pulse,
+html.a11y-reduced-motion .animate-bounce,
+html.a11y-reduced-motion .animate-ping,
+body.a11y-reduced-motion .animate-spin,
+body.a11y-reduced-motion .animate-pulse,
+body.a11y-reduced-motion .animate-bounce,
+body.a11y-reduced-motion .animate-ping {
+  animation: none !important;
 }
 
 /* 4. Live On/Off Status Pill (option feedback inside the popover) */
@@ -136,14 +212,34 @@ body.a11y-reduced-motion *::after {
   box-shadow: 0 4px 10px rgba(23, 107, 135, 0.35);
 }
 
-/* Interactive Card Hover Transition */
+/* Custom Styled Checkmarks & Card State Styling */
 .a11y-card-row {
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .a11y-card-row:hover {
   background-color: #EEF5FF !important;
   border-color: #86B6F6 !important;
   transform: translateY(-1px);
+}
+.a11y-card-row.is-checked {
+  background-color: #EEF5FF !important;
+  border-color: #86B6F6 !important;
+  box-shadow: 0 2px 10px rgba(134, 182, 246, 0.25) !important;
+}
+.a11y-card-row.is-checked .a11y-check-indicator {
+  background-color: #176B87 !important;
+  border-color: #176B87 !important;
+}
+.a11y-card-row.is-checked .a11y-check-indicator i {
+  display: inline-block !important;
+}
+.a11y-card-row:hover .a11y-check-indicator {
+  border-color: #86B6F6 !important;
+}
+input[type="checkbox"]:focus-visible + .a11y-check-indicator {
+  outline: 2px solid #176B87 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 3px rgba(134, 182, 246, 0.5) !important;
 }
 </style>
 
@@ -183,7 +279,7 @@ body.a11y-reduced-motion *::after {
     </div>
     <button type="button"
             onclick="CiventralA11y.closePanel()"
-            class="w-7 h-7 rounded-lg hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#86B6F6] transition"
+            class="w-7 h-7 rounded-lg hover:bg-white/20 text-white/80 hover:text-white flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[#86B6F6] transition cursor-pointer"
             aria-label="Close accessibility controls">
       <i class="fa-solid fa-xmark text-xs" aria-hidden="true"></i>
     </button>
@@ -193,7 +289,9 @@ body.a11y-reduced-motion *::after {
   <div class="p-4 space-y-3 text-slate-700 overflow-y-auto max-h-[calc(80vh-110px)] text-xs">
     
     <!-- Option 1: Enhanced Keyboard Focus Mode -->
-    <label class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none has-[:checked]:border-brand-medium has-[:checked]:bg-brand-light/40">
+    <div id="a11yCardFocus"
+         onclick="CiventralA11y.handleRowClick(event, 'focus')"
+         class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none transition-all">
       <div class="pr-3 flex-1">
         <div class="flex items-center gap-2 font-bold text-xs text-slate-900 group-hover:text-[#176B87] transition-colors">
           <i class="fa-solid fa-keyboard text-[#176B87] group-hover:scale-110 transition-transform" aria-hidden="true"></i>
@@ -202,22 +300,39 @@ body.a11y-reduced-motion *::after {
         <p class="text-[11px] text-slate-500 mt-1 leading-snug">
           Bold brand ring on every focused link, button, or field &mdash; with the mouse or the keyboard.
         </p>
-        <!-- Live status feedback for this option -->
-        <div class="mt-2 flex items-center gap-2">
-          <span class="a11y-state-pill" id="a11yStateFocus" data-on="false">Off</span>
-          <span class="text-[10px] font-semibold text-slate-400">Click any control to see the ring</span>
+        <!-- Live status feedback for this option + Interactive test button -->
+        <div class="mt-2.5 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="a11y-state-pill" id="a11yStateFocus" data-on="false">OFF</span>
+            <span class="text-[10px] font-semibold text-slate-400">Click any control to see the ring</span>
+          </div>
+          <button type="button"
+                  id="a11yTestFocusBtn"
+                  onclick="event.stopPropagation(); this.focus();"
+                  class="text-[10px] px-2 py-0.5 bg-white hover:bg-[#EEF5FF] text-[#176B87] font-bold border border-slate-300 rounded shadow-2xs hover:border-[#86B6F6] transition cursor-pointer"
+                  title="Click to test focus ring on this button">
+            Test Ring
+          </button>
         </div>
       </div>
-      <div class="pt-0.5">
+      <div class="pt-0.5 relative flex items-center justify-center cursor-pointer"
+           onclick="event.stopPropagation(); CiventralA11y.toggleOption('focus');">
         <input type="checkbox"
                id="a11yToggleFocus"
                onchange="CiventralA11y.toggleFocus(this.checked)"
-               class="w-5 h-5 accent-brand-dark rounded border-slate-300 focus:ring-2 focus:ring-[#86B6F6] cursor-pointer group-hover:scale-105 transition-transform" />
+               onclick="event.stopPropagation();"
+               class="w-5 h-5 opacity-0 absolute inset-0 cursor-pointer z-10 m-0" />
+        <div id="a11yCheckIndicatorFocus"
+             class="a11y-check-indicator w-5 h-5 rounded border-2 border-slate-300 bg-white flex items-center justify-center transition-all duration-200 group-hover:border-[#86B6F6] pointer-events-none">
+          <i class="fa-solid fa-check text-[10px] text-white hidden"></i>
+        </div>
       </div>
-    </label>
+    </div>
 
     <!-- Option 2: Large Text Mode -->
-    <label class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none has-[:checked]:border-brand-medium has-[:checked]:bg-brand-light/40">
+    <div id="a11yCardText"
+         onclick="CiventralA11y.handleRowClick(event, 'text')"
+         class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none transition-all">
       <div class="pr-3 flex-1">
         <div class="flex items-center gap-2 font-bold text-xs text-slate-900 group-hover:text-[#176B87] transition-colors">
           <i class="fa-solid fa-text-height text-[#176B87] group-hover:scale-110 transition-transform" aria-hidden="true"></i>
@@ -226,21 +341,29 @@ body.a11y-reduced-motion *::after {
         <p class="text-[11px] text-slate-500 mt-1 leading-snug">
           Expands typography sizing across tables, cards, and forms.
         </p>
-        <div class="mt-2 flex items-center gap-2">
-          <span class="a11y-state-pill" id="a11yStateText" data-on="false">Off</span>
+        <div class="mt-2.5 flex items-center gap-2">
+          <span class="a11y-state-pill" id="a11yStateText" data-on="false">OFF</span>
           <span class="text-[10px] font-semibold text-slate-400">Scales the whole interface</span>
         </div>
       </div>
-      <div class="pt-0.5">
+      <div class="pt-0.5 relative flex items-center justify-center cursor-pointer"
+           onclick="event.stopPropagation(); CiventralA11y.toggleOption('text');">
         <input type="checkbox"
                id="a11yToggleText"
                onchange="CiventralA11y.toggleLargeText(this.checked)"
-               class="w-5 h-5 accent-brand-dark rounded border-slate-300 focus:ring-2 focus:ring-[#86B6F6] cursor-pointer group-hover:scale-105 transition-transform" />
+               onclick="event.stopPropagation();"
+               class="w-5 h-5 opacity-0 absolute inset-0 cursor-pointer z-10 m-0" />
+        <div id="a11yCheckIndicatorText"
+             class="a11y-check-indicator w-5 h-5 rounded border-2 border-slate-300 bg-white flex items-center justify-center transition-all duration-200 group-hover:border-[#86B6F6] pointer-events-none">
+          <i class="fa-solid fa-check text-[10px] text-white hidden"></i>
+        </div>
       </div>
-    </label>
+    </div>
 
     <!-- Option 3: Reduced Motion -->
-    <label class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none has-[:checked]:border-brand-medium has-[:checked]:bg-brand-light/40">
+    <div id="a11yCardMotion"
+         onclick="CiventralA11y.handleRowClick(event, 'motion')"
+         class="a11y-card-row flex items-start justify-between p-3 bg-slate-50/90 rounded-xl border border-slate-200 cursor-pointer group select-none transition-all">
       <div class="pr-3 flex-1">
         <div class="flex items-center gap-2 font-bold text-xs text-slate-900 group-hover:text-[#176B87] transition-colors">
           <i class="fa-solid fa-person-walking-dashed-line-arrow-right text-[#176B87] group-hover:scale-110 transition-transform" aria-hidden="true"></i>
@@ -249,18 +372,24 @@ body.a11y-reduced-motion *::after {
         <p class="text-[11px] text-slate-500 mt-1 leading-snug">
           Freezes CSS animations, transitions, and chart draw-in motion instantly.
         </p>
-        <div class="mt-2 flex items-center gap-2">
-          <span class="a11y-state-pill" id="a11yStateMotion" data-on="false">Off</span>
+        <div class="mt-2.5 flex items-center gap-2">
+          <span class="a11y-state-pill" id="a11yStateMotion" data-on="false">OFF</span>
           <span class="text-[10px] font-semibold text-slate-400">Spinners, pulses &amp; charts settle</span>
         </div>
       </div>
-      <div class="pt-0.5">
+      <div class="pt-0.5 relative flex items-center justify-center cursor-pointer"
+           onclick="event.stopPropagation(); CiventralA11y.toggleOption('motion');">
         <input type="checkbox"
                id="a11yToggleMotion"
                onchange="CiventralA11y.toggleReducedMotion(this.checked)"
-               class="w-5 h-5 accent-brand-dark rounded border-slate-300 focus:ring-2 focus:ring-[#86B6F6] cursor-pointer group-hover:scale-105 transition-transform" />
+               onclick="event.stopPropagation();"
+               class="w-5 h-5 opacity-0 absolute inset-0 cursor-pointer z-10 m-0" />
+        <div id="a11yCheckIndicatorMotion"
+             class="a11y-check-indicator w-5 h-5 rounded border-2 border-slate-300 bg-white flex items-center justify-center transition-all duration-200 group-hover:border-[#86B6F6] pointer-events-none">
+          <i class="fa-solid fa-check text-[10px] text-white hidden"></i>
+        </div>
       </div>
-    </label>
+    </div>
 
     <!-- Keyboard Shortcuts Interactive Section -->
     <div class="pt-2 border-t border-slate-100">
@@ -273,7 +402,9 @@ body.a11y-reduced-motion *::after {
 
       <div class="grid grid-cols-1 gap-1.5">
         
-        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-[#EEF5FF] border border-slate-100 transition-colors group">
+        <div onclick="CiventralA11y.togglePanel(event)"
+             class="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-[#EEF5FF] border border-slate-100 transition-colors group cursor-pointer"
+             title="Toggle keyboard & display controls panel">
           <span class="text-[11px] text-slate-600 font-medium group-hover:text-[#176B87]">Toggle this menu</span>
           <div class="flex items-center gap-1.5">
             <kbd class="a11y-key-badge" title="Primary shortcut to toggle controls">Alt + K</kbd>
@@ -282,12 +413,19 @@ body.a11y-reduced-motion *::after {
           </div>
         </div>
 
-        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-[#EEF5FF] border border-slate-100 transition-colors group">
-          <span class="text-[11px] text-slate-600 font-medium group-hover:text-[#176B87]">Mask citizen data</span>
+        <div onclick="CiventralA11y.toggleDataMask()"
+             class="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-[#EEF5FF] border border-slate-100 transition-colors group cursor-pointer"
+             title="Click to toggle or press Ctrl + Shift + D">
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] text-slate-600 font-medium group-hover:text-[#176B87]">Mask citizen data</span>
+            <span id="a11yMaskStatePill" class="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-slate-200 text-slate-600">Off</span>
+          </div>
           <kbd class="a11y-key-badge" title="Toggle PII confidentiality masking">Ctrl + Shift + D</kbd>
         </div>
 
-        <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-[#EEF5FF] border border-slate-100 transition-colors group">
+        <div onclick="CiventralA11y.closePanel()"
+             class="flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-[#EEF5FF] border border-slate-100 transition-colors group cursor-pointer"
+             title="Close keyboard & display controls panel">
           <span class="text-[11px] text-slate-600 font-medium group-hover:text-[#176B87]">Close open dialogs</span>
           <kbd class="a11y-key-badge" title="Dismiss top-most active dialog or popover">Escape</kbd>
         </div>
@@ -319,12 +457,12 @@ body.a11y-reduced-motion *::after {
   <div class="flex justify-between items-center px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-xs">
     <button type="button"
             onclick="CiventralA11y.resetDefaults()"
-            class="text-[11px] text-slate-500 hover:text-[#176B87] font-semibold focus:outline-none focus-visible:underline">
+            class="text-[11px] text-slate-500 hover:text-[#176B87] font-semibold focus:outline-none focus-visible:underline cursor-pointer">
       Reset All
     </button>
     <button type="button"
             onclick="CiventralA11y.closePanel()"
-            class="px-3.5 py-1.5 bg-[#176B87] hover:bg-[#0d4f64] text-white font-bold rounded-lg text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#86B6F6] transition shadow-xs">
+            class="px-3.5 py-1.5 bg-[#176B87] hover:bg-[#0d4f64] text-white font-bold rounded-lg text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#86B6F6] transition shadow-xs cursor-pointer">
       Done
     </button>
   </div>
@@ -361,13 +499,79 @@ window.CiventralA11y = (function() {
     var pill = document.getElementById(id);
     if (!pill) return;
     pill.setAttribute('data-on', isOn ? 'true' : 'false');
-    pill.textContent = isOn ? 'On' : 'Off';
+    pill.innerHTML = isOn
+      ? '<i class="fa-solid fa-check text-[9px] mr-0.5"></i> ON'
+      : 'OFF';
+  }
+
+  function updateCardState(cardId, isChecked) {
+    var card = document.getElementById(cardId);
+    if (!card) return;
+    if (isChecked) {
+      card.classList.add('is-checked');
+      card.setAttribute('data-checked', 'true');
+    } else {
+      card.classList.remove('is-checked');
+      card.setAttribute('data-checked', 'false');
+    }
+
+    // Direct styling fallback to ensure immediate visual response in all browsers
+    var checkIcon = card.querySelector('.a11y-check-indicator i');
+    if (checkIcon) {
+      checkIcon.style.display = isChecked ? 'inline-block' : 'none';
+    }
+    var indicator = card.querySelector('.a11y-check-indicator');
+    if (indicator) {
+      indicator.style.backgroundColor = isChecked ? '#176B87' : '#ffffff';
+      indicator.style.borderColor = isChecked ? '#176B87' : '#cbd5e1';
+    }
+  }
+
+  function handleRowClick(e, type) {
+    if (e.target.closest('button')) return;
+    toggleOption(type);
+  }
+
+  function toggleOption(type) {
+    if (type === 'focus') {
+      var cur = readSetting(STORAGE_KEYS.focus);
+      toggleFocus(!cur);
+    } else if (type === 'text') {
+      var cur = readSetting(STORAGE_KEYS.text);
+      toggleLargeText(!cur);
+    } else if (type === 'motion') {
+      var cur = readSetting(STORAGE_KEYS.motion);
+      toggleReducedMotion(!cur);
+    }
+  }
+
+  function syncMaskState() {
+    var pill = document.getElementById('a11yMaskStatePill');
+    if (!pill) return;
+    var isMasked = typeof window.isDataMasked === 'function'
+      ? window.isDataMasked()
+      : (localStorage.getItem('data_masking_enabled') === 'true');
+    if (isMasked) {
+      pill.textContent = 'Hidden';
+      pill.className = 'text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-amber-100 text-amber-800 border border-amber-300';
+    } else {
+      pill.textContent = 'Visible';
+      pill.className = 'text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300';
+    }
+  }
+
+  function toggleDataMask() {
+    if (typeof window.toggleDataMask === 'function') {
+      window.toggleDataMask();
+    } else {
+      var cur = localStorage.getItem('data_masking_enabled') === 'true';
+      localStorage.setItem('data_masking_enabled', (!cur).toString());
+    }
+    syncMaskState();
   }
 
   /**
-   * Freeze motion on a single ApexCharts instance. ApexCharts reads
-   * chart.w.config while drawing and while running dynamic (updateSeries)
-   * animations, so patching that object is what actually stops the motion.
+   * Freeze motion on a single ApexCharts instance.
    */
   function freezeChartMotion(instance) {
     var config = instance && instance.w && instance.w.config;
@@ -401,9 +605,7 @@ window.CiventralA11y = (function() {
 
   /**
    * Watch window.ApexCharts so the hook is installed the moment the chart
-   * library lands on the page. Pages load ApexCharts after this file (from the
-   * header CDN tag with `defer`, or inline in the page body), so intercepting
-   * the global assignment closes every timing gap.
+   * library lands on the page.
    */
   function watchForChartLibrary() {
     if (hookChartLibrary()) return;
@@ -425,11 +627,11 @@ window.CiventralA11y = (function() {
   function ensureChartHook() {
     watchForChartLibrary();
     if (chartHookInstalled) return;
-    if (chartHookAttempts++ < 100) setTimeout(ensureChartHook, 50); // up to ~5s
+    if (chartHookAttempts++ < 100) setTimeout(ensureChartHook, 50);
   }
 
   function applyChartMotionPreference(reducedMotion) {
-    if (!reducedMotion) return; // never force motion back onto live charts
+    if (!reducedMotion) return;
     for (var i = 0; i < chartInstances.length; i++) {
       try { freezeChartMotion(chartInstances[i]); } catch (e) {}
     }
@@ -437,7 +639,6 @@ window.CiventralA11y = (function() {
 
   /**
    * Jump any animation running right now straight to its end state
-   * (Web Animations API motion such as in-flight fades and slides).
    */
   function settleRunningAnimations() {
     if (typeof document.getAnimations !== 'function') return;
@@ -455,36 +656,46 @@ window.CiventralA11y = (function() {
   }
 
   function applySettings() {
-    // Re-attempt the chart hook on every settings change (covers libraries or
-    // charts that were created long after page load).
     ensureChartHook();
 
     var enhancedFocus = readSetting(STORAGE_KEYS.focus);
     var largeText = readSetting(STORAGE_KEYS.text);
     var reducedMotion = readSetting(STORAGE_KEYS.motion);
 
+    // Apply classes to BOTH documentElement and body for universal specificity
+    var doc = document.documentElement;
     var body = document.body;
+
+    doc.classList.toggle('a11y-focus-enhanced', enhancedFocus);
+    doc.classList.toggle('a11y-large-text', largeText);
+    doc.classList.toggle('a11y-reduced-motion', reducedMotion);
+
     if (body) {
       body.classList.toggle('a11y-focus-enhanced', enhancedFocus);
       body.classList.toggle('a11y-large-text', largeText);
       body.classList.toggle('a11y-reduced-motion', reducedMotion);
     }
-    // html-level class keeps page scroll-behavior instant in reduce-motion mode
-    document.documentElement.classList.toggle('a11y-reduced-motion', reducedMotion);
 
+    // Synchronize checkmarks and card styling
     var focusCb = document.getElementById('a11yToggleFocus');
     if (focusCb) focusCb.checked = enhancedFocus;
+    updateCardState('a11yCardFocus', enhancedFocus);
 
     var textCb = document.getElementById('a11yToggleText');
     if (textCb) textCb.checked = largeText;
+    updateCardState('a11yCardText', largeText);
 
     var motionCb = document.getElementById('a11yToggleMotion');
     if (motionCb) motionCb.checked = reducedMotion;
+    updateCardState('a11yCardMotion', reducedMotion);
 
+    // Synchronize status pills
     setStatePill('a11yStateFocus', enhancedFocus);
     setStatePill('a11yStateText', largeText);
     setStatePill('a11yStateMotion', reducedMotion);
+    syncMaskState();
 
+    // Synchronize active indicator badge on floating button
     var badge = document.getElementById('a11yActiveBadge');
     if (badge) {
       if (enhancedFocus || largeText || reducedMotion) {
@@ -494,8 +705,7 @@ window.CiventralA11y = (function() {
       }
     }
 
-    // Motion lives outside CSS too: freeze charts and settle animations already
-    // on screen so switching the option on has an immediate visible effect.
+    // Motion controls outside CSS
     applyChartMotionPreference(reducedMotion);
     if (reducedMotion) settleRunningAnimations();
   }
@@ -503,7 +713,7 @@ window.CiventralA11y = (function() {
   function toggleFocus(enable) {
     localStorage.setItem(STORAGE_KEYS.focus, enable ? 'true' : 'false');
     applySettings();
-    notify(enable ? 'High-contrast focus rings enabled - click or Tab to see the ring' : 'Default focus rings restored');
+    notify(enable ? 'High-contrast focus rings enabled — click or Tab to see the ring' : 'Default focus rings restored');
   }
 
   function toggleLargeText(enable) {
@@ -515,7 +725,7 @@ window.CiventralA11y = (function() {
   function toggleReducedMotion(enable) {
     localStorage.setItem(STORAGE_KEYS.motion, enable ? 'true' : 'false');
     applySettings();
-    notify(enable ? 'Reduced motion enabled - animations and chart motion frozen' : 'Motion animations restored');
+    notify(enable ? 'Reduced motion enabled — animations and charts frozen' : 'Motion animations restored');
   }
 
   function resetDefaults() {
@@ -550,8 +760,14 @@ window.CiventralA11y = (function() {
 
   function notify(msg) {
     announce(msg);
-    if (typeof ModalSystem !== 'undefined' && ModalSystem.toast) {
-      ModalSystem.toast.info(msg);
+    try {
+      if (typeof ModalSystem !== 'undefined' && ModalSystem.toast && typeof ModalSystem.toast.info === 'function') {
+        ModalSystem.toast.info(msg);
+      } else if (typeof toast !== 'undefined' && typeof toast.info === 'function') {
+        toast.info(msg);
+      }
+    } catch(e) {
+      // Toast notification error should never break settings toggle
     }
   }
 
@@ -562,6 +778,7 @@ window.CiventralA11y = (function() {
 
     panel.classList.remove('hidden');
     if (btn) btn.setAttribute('aria-expanded', 'true');
+    syncMaskState();
     announce('Accessibility settings opened');
 
     var firstCb = document.getElementById('a11yToggleFocus');
@@ -593,6 +810,7 @@ window.CiventralA11y = (function() {
     }
   }
 
+  // Dismiss on outside click
   document.addEventListener('click', function(e) {
     var panel = document.getElementById('accessibilityPopover');
     var btn = document.getElementById('accessibilityToggleBtn');
@@ -603,6 +821,7 @@ window.CiventralA11y = (function() {
     }
   });
 
+  // Global Keyboard Navigation
   document.addEventListener('keydown', function(e) {
     if (e.altKey && (e.key === 'k' || e.key === 'K' || e.key === 'a' || e.key === 'A')) {
       e.preventDefault();
@@ -614,19 +833,29 @@ window.CiventralA11y = (function() {
         closePanel();
       }
     }
+    // Listen for data mask keypress to sync pill immediately
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'd' || e.key === 'D' || e.key === 'm' || e.key === 'M')) {
+      setTimeout(syncMaskState, 100);
+    }
   });
 
-  // Charts animate on their own before the panel is ever opened, so hook the
-  // chart library as early as possible (page-level scripts load after this one).
-  ensureChartHook();
-  document.addEventListener('DOMContentLoaded', ensureChartHook);
-  window.addEventListener('load', ensureChartHook);
+  // Storage sync across browser tabs
+  window.addEventListener('storage', function(e) {
+    if (e.key && (e.key.indexOf('civentral_a11y_') === 0 || e.key === 'data_masking_enabled')) {
+      applySettings();
+    }
+  });
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applySettings);
-  } else {
+  // Early and delayed chart hook
+  ensureChartHook();
+  document.addEventListener('DOMContentLoaded', function() {
+    ensureChartHook();
     applySettings();
-  }
+  });
+  window.addEventListener('load', function() {
+    ensureChartHook();
+    applySettings();
+  });
 
   return {
     openPanel: openPanel,
@@ -638,6 +867,10 @@ window.CiventralA11y = (function() {
     toggleFocus: toggleFocus,
     toggleLargeText: toggleLargeText,
     toggleReducedMotion: toggleReducedMotion,
+    toggleOption: toggleOption,
+    handleRowClick: handleRowClick,
+    toggleDataMask: toggleDataMask,
+    syncMaskState: syncMaskState,
     isReducedMotion: function() { return readSetting(STORAGE_KEYS.motion); },
     settleAnimations: settleRunningAnimations,
     resetDefaults: resetDefaults,
