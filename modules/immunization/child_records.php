@@ -487,134 +487,198 @@ $title = 'Child Records';
 <!-- REGISTER CHILD MODAL                                         -->
 <!-- ============================================================ -->
 <div id="registerChildModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
-            <h3 class="font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-child text-brand-medium"></i>
-                Register Child
-            </h3>
-            <button onclick="closeModal('registerChildModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
-                <i class="fa-solid fa-xmark"></i>
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200/80">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-md rounded-t-2xl z-10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark flex-shrink-0">
+                    <i class="fa-solid fa-child-reaching text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 text-base leading-tight">Register Child Record</h3>
+                    <p class="text-xs text-slate-500">Enter demographic, residency, and guardian details</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeModal('registerChildModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark text-sm"></i>
             </button>
         </div>
+
         <form id="registerChildForm" class="p-6 space-y-4" onsubmit="saveChildRegistration(event)">
-            <!-- Child Information -->
-            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">👶 Child Information</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- 1. Child Information -->
+            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
+                    <span class="w-5 h-5 rounded-md bg-brand-light text-brand-dark inline-flex items-center justify-center text-xs font-bold">
+                        <i class="fa-solid fa-child text-[11px]"></i>
+                    </span>
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Child Information</h4>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">First Name</label>
-                        <input type="text" id="child_first_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">First Name <span class="text-rose-500">*</span></label>
+                        <input type="text" id="child_first_name" required placeholder="e.g. Juan" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Name</label>
-                        <input type="text" id="child_last_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Last Name <span class="text-rose-500">*</span></label>
+                        <input type="text" id="child_last_name" required placeholder="e.g. Dela Cruz" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Gender</label>
-                        <select id="child_gender" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Gender <span class="text-rose-500">*</span></label>
+                        <select id="child_gender" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Date</label>
-                        <input type="date" id="child_birth_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Birth Date <span class="text-rose-500">*</span></label>
+                        <input type="date" id="child_birth_date" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Weight (kg)</label>
-                        <input type="number" id="child_birth_weight" min="0.1" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    
+                    <!-- Measurements & Blood Type: Balanced 3-column subgrid across full width -->
+                    <div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Birth Weight (kg)</label>
+                            <input type="number" id="child_birth_weight" min="0.1" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" placeholder="e.g. 3.2" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Birth Height (cm)</label>
+                            <input type="number" id="child_birth_height" min="20" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" placeholder="e.g. 50.0" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Blood Type</label>
+                            <select id="child_blood_type" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                                <option value="">Select (Optional)</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </select>
+                        </div>
                     </div>
+
+                    <!-- Zone and Barangay side-by-side -->
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Height (cm)</label>
-                        <input type="number" id="child_birth_height" min="20" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Blood Type</label>
-                        <select id="child_blood_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                            <option value="">Select</option>
-                            <option value="A+">A+</option>
-                            <option value="A-">A-</option>
-                            <option value="B+">B+</option>
-                            <option value="B-">B-</option>
-                            <option value="AB+">AB+</option>
-                            <option value="AB-">AB-</option>
-                            <option value="O+">O+</option>
-                            <option value="O-">O-</option>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Zone</label>
+                        <select id="child_zone" onchange="onZoneChange('child_zone', 'child_barangay')" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                            <option value="">All Zones (Select Zone)</option>
+                            <option value="Zone 1">Zone 1 (Brgy 1 to 4)</option>
+                            <option value="Zone 2">Zone 2 (Brgy 5 to 24)</option>
+                            <option value="Zone 3">Zone 3 (Brgy 25 to 35)</option>
+                            <option value="Zone 4">Zone 4 (Brgy 36 to 48)</option>
+                            <option value="Zone 5">Zone 5 (Brgy 49 to 58)</option>
+                            <option value="Zone 6">Zone 6 (Brgy 59 to 76)</option>
+                            <option value="Zone 7">Zone 7 (Brgy 77 to 81)</option>
+                            <option value="Zone 8">Zone 8 (Brgy 82 to 85)</option>
+                            <option value="Zone 9">Zone 9 (Brgy 86 to 98)</option>
+                            <option value="Zone 10">Zone 10 (Brgy 99 to 116)</option>
+                            <option value="Zone 11">Zone 11 (Brgy 117 to 131)</option>
+                            <option value="Zone 12">Zone 12 (Brgy 132 to 140)</option>
+                            <option value="Zone 13">Zone 13 (Brgy 141 to 150)</option>
+                            <option value="Zone 14">Zone 14 (Brgy 151 to 160)</option>
+                            <option value="Zone 15">Zone 15 (Brgy 161 to 164)</option>
+                            <option value="Zone 16">Zone 16 (Brgy 165 to 188)</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label>
-                        <select id="child_barangay" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                            <option value="Barangay San Jose">Barangay San Jose</option>
-                            <option value="Barangay Poblacion">Barangay Poblacion</option>
-                            <option value="Barangay Riverside">Barangay Riverside</option>
-                            <option value="Barangay San Roque">Barangay San Roque</option>
-                            <option value="Barangay Sta. Cruz">Barangay Sta. Cruz</option>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Barangay <span class="text-rose-500">*</span></label>
+                        <select id="child_barangay" onchange="onBarangayChange('child_barangay', 'child_zone')" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                            <option value="">Select Barangay</option>
+                            <?php for ($b = 1; $b <= 188; $b++): ?>
+                            <option value="Barangay <?= $b ?>">Barangay <?= $b ?></option>
+                            <?php endfor; ?>
                         </select>
                     </div>
+
+                    <!-- Address full width -->
                     <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Address</label>
-                        <input type="text" id="child_address" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Address <span class="text-rose-500">*</span></label>
+                        <input type="text" id="child_address" required placeholder="House No., Street name, Subdivision / Village" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                 </div>
             </div>
 
-            <!-- Mother Information -->
-            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">👩 Mother Information</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Mother's Name</label>
-                        <input type="text" id="child_mother_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            <!-- 2. Mother Information -->
+            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
+                    <span class="w-5 h-5 rounded-md bg-pink-100 text-pink-700 inline-flex items-center justify-center text-xs font-bold">
+                        <i class="fa-solid fa-person-dress text-[11px]"></i>
+                    </span>
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Mother Information</h4>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Mother's Full Name <span class="text-rose-500">*</span></label>
+                        <input type="text" id="child_mother_name" required placeholder="e.g. Maria Dela Cruz" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
-                        <input type="text" id="child_mother_contact" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Contact Number</label>
+                        <input type="text" id="child_mother_contact" placeholder="e.g. 09171234567" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Occupation</label>
-                        <input type="text" id="child_mother_occupation" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Occupation</label>
+                        <input type="text" id="child_mother_occupation" placeholder="e.g. Teacher, Self-employed" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                 </div>
             </div>
 
-            <!-- Father Information -->
-            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">👨 Father Information</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Father's Name</label>
-                        <input type="text" id="child_father_name" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            <!-- 3. Father Information -->
+            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
+                    <span class="w-5 h-5 rounded-md bg-blue-100 text-blue-700 inline-flex items-center justify-center text-xs font-bold">
+                        <i class="fa-solid fa-person text-[11px]"></i>
+                    </span>
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Father Information</h4>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Father's Full Name</label>
+                        <input type="text" id="child_father_name" placeholder="e.g. Juan Dela Cruz Sr." class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
-                        <input type="text" id="child_father_contact" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Contact Number</label>
+                        <input type="text" id="child_father_contact" placeholder="e.g. 09181234567" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Occupation</label>
-                        <input type="text" id="child_father_occupation" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Occupation</label>
+                        <input type="text" id="child_father_occupation" placeholder="e.g. Engineer, Driver" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                 </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Family History</label>
-                <textarea id="child_family_history" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Any family medical history..."></textarea>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Allergies</label>
-                <input type="text" id="child_allergies" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="None">
+            <!-- 4. Health & Medical Notes -->
+            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
+                    <span class="w-5 h-5 rounded-md bg-rose-100 text-rose-700 inline-flex items-center justify-center text-xs font-bold">
+                        <i class="fa-solid fa-notes-medical text-[11px]"></i>
+                    </span>
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Medical Notes & History</h4>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Allergies</label>
+                        <input type="text" id="child_allergies" placeholder="Known allergies (e.g. penicillin, dust) or None" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Family Medical History</label>
+                        <input type="text" id="child_family_history" placeholder="e.g. Asthma, Hypertension, Diabetes, or None" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                    </div>
+                </div>
             </div>
 
-            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <!-- Footer Actions -->
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <button type="button" onclick="closeModal('registerChildModal')"
-                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                        class="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-50 transition text-sm font-semibold shadow-sm">
                     Cancel
                 </button>
                 <button type="submit"
-                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                    <i class="fa-solid fa-child mr-1.5"></i> Register
+                        class="px-5 py-2.5 bg-brand-dark hover:bg-brand-medium text-white rounded-lg transition text-sm font-semibold shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-child"></i> Register Child
                 </button>
             </div>
         </form>
@@ -644,58 +708,63 @@ $title = 'Child Records';
 <!-- EDIT CHILD MODAL                                             -->
 <!-- ============================================================ -->
 <div id="editChildModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
-            <h3 class="font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-pen text-brand-medium"></i>
-                Edit Child Record
-            </h3>
-            <button onclick="closeModal('editChildModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
-                <i class="fa-solid fa-xmark"></i>
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200/80">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-md rounded-t-2xl z-10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark flex-shrink-0">
+                    <i class="fa-solid fa-pen text-base"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 text-base leading-tight">Edit Child Record</h3>
+                    <p class="text-xs text-slate-500">Update demographic, residency, and guardian details</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeModal('editChildModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark text-sm"></i>
             </button>
         </div>
+
         <form id="editChildForm" class="p-6 space-y-4" onsubmit="saveChildEdit(event)">
             <input type="hidden" id="edit_child_id">
             
-            <!-- Child Information -->
-            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">👶 Child Information</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <!-- 1. Child Information -->
+            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
+                    <span class="w-5 h-5 rounded-md bg-brand-light text-brand-dark inline-flex items-center justify-center text-xs font-bold">
+                        <i class="fa-solid fa-child text-[11px]"></i>
+                    </span>
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Child Information</h4>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">First Name</label>
-                        <input type="text" id="edit_first_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">First Name <span class="text-rose-500">*</span></label>
+                        <input type="text" id="edit_first_name" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Middle Name</label>
-                        <input type="text" id="edit_middle_name" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Middle Name</label>
+                        <input type="text" id="edit_middle_name" placeholder="Optional" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Name</label>
-                        <input type="text" id="edit_last_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Last Name <span class="text-rose-500">*</span></label>
+                        <input type="text" id="edit_last_name" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Gender</label>
-                        <select id="edit_gender" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Gender <span class="text-rose-500">*</span></label>
+                        <select id="edit_gender" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Date</label>
-                        <input type="date" id="edit_birth_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Birth Date <span class="text-rose-500">*</span></label>
+                        <input type="date" id="edit_birth_date" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Weight (kg)</label>
-                        <input type="number" id="edit_birth_weight" min="0.1" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Birth Height (cm)</label>
-                        <input type="number" id="edit_birth_height" min="20" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Blood Type</label>
-                        <select id="edit_blood_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                            <option value="">Select</option>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Blood Type</label>
+                        <select id="edit_blood_type" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                            <option value="">Select (Optional)</option>
                             <option value="A+">A+</option>
                             <option value="A-">A-</option>
                             <option value="B+">B+</option>
@@ -707,77 +776,128 @@ $title = 'Child Records';
                         </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label>
-                        <select id="edit_barangay" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                            <option value="Barangay San Jose">Barangay San Jose</option>
-                            <option value="Barangay Poblacion">Barangay Poblacion</option>
-                            <option value="Barangay Riverside">Barangay Riverside</option>
-                            <option value="Barangay San Roque">Barangay San Roque</option>
-                            <option value="Barangay Sta. Cruz">Barangay Sta. Cruz</option>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Birth Weight (kg)</label>
+                        <input type="number" id="edit_birth_weight" min="0.1" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Birth Height (cm)</label>
+                        <input type="number" id="edit_birth_height" min="20" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Zone</label>
+                        <select id="edit_zone" onchange="onZoneChange('edit_zone', 'edit_barangay')" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                            <option value="">All Zones (Select Zone)</option>
+                            <option value="Zone 1">Zone 1 (Brgy 1 to 4)</option>
+                            <option value="Zone 2">Zone 2 (Brgy 5 to 24)</option>
+                            <option value="Zone 3">Zone 3 (Brgy 25 to 35)</option>
+                            <option value="Zone 4">Zone 4 (Brgy 36 to 48)</option>
+                            <option value="Zone 5">Zone 5 (Brgy 49 to 58)</option>
+                            <option value="Zone 6">Zone 6 (Brgy 59 to 76)</option>
+                            <option value="Zone 7">Zone 7 (Brgy 77 to 81)</option>
+                            <option value="Zone 8">Zone 8 (Brgy 82 to 85)</option>
+                            <option value="Zone 9">Zone 9 (Brgy 86 to 98)</option>
+                            <option value="Zone 10">Zone 10 (Brgy 99 to 116)</option>
+                            <option value="Zone 11">Zone 11 (Brgy 117 to 131)</option>
+                            <option value="Zone 12">Zone 12 (Brgy 132 to 140)</option>
+                            <option value="Zone 13">Zone 13 (Brgy 141 to 150)</option>
+                            <option value="Zone 14">Zone 14 (Brgy 151 to 160)</option>
+                            <option value="Zone 15">Zone 15 (Brgy 161 to 164)</option>
+                            <option value="Zone 16">Zone 16 (Brgy 165 to 188)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Barangay <span class="text-rose-500">*</span></label>
+                        <select id="edit_barangay" onchange="onBarangayChange('edit_barangay', 'edit_zone')" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                            <option value="">Select Barangay</option>
+                            <?php for ($b = 1; $b <= 188; $b++): ?>
+                            <option value="Barangay <?= $b ?>">Barangay <?= $b ?></option>
+                            <?php endfor; ?>
                         </select>
                     </div>
                     <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Address</label>
-                        <input type="text" id="edit_address" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Address <span class="text-rose-500">*</span></label>
+                        <input type="text" id="edit_address" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                 </div>
             </div>
 
-            <!-- Mother Information -->
-            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">👩 Mother Information</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Mother's Name</label>
-                        <input type="text" id="edit_mother_name" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            <!-- 2. Mother Information -->
+            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
+                    <span class="w-5 h-5 rounded-md bg-pink-100 text-pink-700 inline-flex items-center justify-center text-xs font-bold">
+                        <i class="fa-solid fa-person-dress text-[11px]"></i>
+                    </span>
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Mother Information</h4>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Mother's Full Name <span class="text-rose-500">*</span></label>
+                        <input type="text" id="edit_mother_name" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
-                        <input type="text" id="edit_mother_contact" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Contact Number</label>
+                        <input type="text" id="edit_mother_contact" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Occupation</label>
-                        <input type="text" id="edit_mother_occupation" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Occupation</label>
+                        <input type="text" id="edit_mother_occupation" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                 </div>
             </div>
 
-            <!-- Father Information -->
-            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">👨 Father Information</h4>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Father's Name</label>
-                        <input type="text" id="edit_father_name" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            <!-- 3. Father Information -->
+            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
+                    <span class="w-5 h-5 rounded-md bg-blue-100 text-blue-700 inline-flex items-center justify-center text-xs font-bold">
+                        <i class="fa-solid fa-person text-[11px]"></i>
+                    </span>
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Father Information</h4>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Father's Full Name</label>
+                        <input type="text" id="edit_father_name" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
-                        <input type="text" id="edit_father_contact" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Contact Number</label>
+                        <input type="text" id="edit_father_contact" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
-                        <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Occupation</label>
-                        <input type="text" id="edit_father_occupation" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Occupation</label>
+                        <input type="text" id="edit_father_occupation" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                 </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Family History</label>
-                <textarea id="edit_family_history" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Any family medical history..."></textarea>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Allergies</label>
-                <input type="text" id="edit_allergies" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="None">
+            <!-- 4. Health & Medical Notes -->
+            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
+                    <span class="w-5 h-5 rounded-md bg-rose-100 text-rose-700 inline-flex items-center justify-center text-xs font-bold">
+                        <i class="fa-solid fa-notes-medical text-[11px]"></i>
+                    </span>
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Medical Notes & History</h4>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Allergies</label>
+                        <input type="text" id="edit_allergies" placeholder="Known allergies or None" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Family Medical History</label>
+                        <input type="text" id="edit_family_history" placeholder="Family medical history or None" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                    </div>
+                </div>
             </div>
 
-            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <!-- Footer Actions -->
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <button type="button" onclick="closeModal('editChildModal')"
-                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
+                        class="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-50 transition text-sm font-semibold shadow-sm">
                     Cancel
                 </button>
                 <button type="submit"
-                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                    <i class="fa-solid fa-save mr-1.5"></i> Save Changes
+                        class="px-5 py-2.5 bg-brand-dark hover:bg-brand-medium text-white rounded-lg transition text-sm font-semibold shadow-sm flex items-center gap-2">
+                    <i class="fa-solid fa-check"></i> Save Changes
                 </button>
             </div>
         </form>
@@ -1035,11 +1155,92 @@ $title = 'Child Records';
     // MODAL FUNCTIONS - Using ModalSystem
     // ============================================================
     function openModal(id) {
+        if (id === 'registerChildModal') {
+            const zoneSelect = document.getElementById('child_zone');
+            if (zoneSelect && !zoneSelect.value) {
+                populateBarangayDropdown('child_barangay', '', '');
+            }
+        }
         ModalSystem.open(id);
     }
 
     function closeModal(id) {
         ModalSystem.close(id);
+    }
+
+    // ============================================================
+    // CALOOCAN DISTRICT 1 ZONES & BARANGAYS CONFIGURATION
+    // ============================================================
+    const CALOOCAN_ZONES = {
+        'Zone 1':  [1, 2, 3, 4],
+        'Zone 2':  [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24],
+        'Zone 3':  [25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35],
+        'Zone 4':  [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48],
+        'Zone 5':  [49, 50, 51, 52, 53, 54, 55, 56, 57, 58],
+        'Zone 6':  [59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76],
+        'Zone 7':  [77, 78, 79, 80, 81],
+        'Zone 8':  [82, 83, 84, 85],
+        'Zone 9':  [86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98],
+        'Zone 10': [99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116],
+        'Zone 11': [117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131],
+        'Zone 12': [132, 133, 134, 135, 136, 137, 138, 139, 140],
+        'Zone 13': [141, 142, 143, 144, 145, 146, 147, 148, 149, 150],
+        'Zone 14': [151, 152, 153, 154, 155, 156, 157, 158, 159, 160],
+        'Zone 15': [161, 162, 163, 164],
+        'Zone 16': [165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188]
+    };
+
+    function getZoneForBarangay(barangayName) {
+        if (!barangayName) return '';
+        const match = String(barangayName).match(/\b(\d{1,3})\b/);
+        if (!match) return '';
+        const num = parseInt(match[1], 10);
+        for (const [zone, brgys] of Object.entries(CALOOCAN_ZONES)) {
+            if (brgys.includes(num)) return zone;
+        }
+        return '';
+    }
+
+    function populateBarangayDropdown(selectId, targetZone = '', selectedValue = '') {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        
+        const defaultText = selectId.startsWith('filter') ? 'All Barangays' : 'Select Barangay';
+        select.innerHTML = '<option value="">' + defaultText + '</option>';
+        
+        const brgysToRender = (targetZone && CALOOCAN_ZONES[targetZone])
+            ? CALOOCAN_ZONES[targetZone]
+            : Array.from({ length: 188 }, (_, i) => i + 1);
+            
+        brgysToRender.forEach(num => {
+            const val = `Barangay ${num}`;
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = val;
+            if (val === selectedValue) opt.selected = true;
+            select.appendChild(opt);
+        });
+        
+        if (selectedValue) {
+            select.value = selectedValue;
+        }
+    }
+
+    function onZoneChange(zoneSelectId, barangaySelectId) {
+        const zoneSelect = document.getElementById(zoneSelectId);
+        const zone = zoneSelect ? zoneSelect.value.trim() : '';
+        populateBarangayDropdown(barangaySelectId, zone, '');
+    }
+
+    function onBarangayChange(barangaySelectId, zoneSelectId) {
+        const barangaySelect = document.getElementById(barangaySelectId);
+        const zoneSelect = document.getElementById(zoneSelectId);
+        if (!barangaySelect || !zoneSelect) return;
+        
+        const zone = getZoneForBarangay(barangaySelect.value);
+        if (zone && zoneSelect.value !== zone) {
+            zoneSelect.value = zone;
+        }
     }
 
     // ============================================================
@@ -1197,7 +1398,7 @@ $title = 'Child Records';
         const fieldMap = {
             first_name: 'edit_first_name', middle_name: 'edit_middle_name', last_name: 'edit_last_name',
             gender: 'edit_gender', birth_date: 'edit_birth_date', birth_weight: 'edit_birth_weight',
-            birth_height: 'edit_birth_height', blood_type: 'edit_blood_type', barangay: 'edit_barangay',
+            birth_height: 'edit_birth_height', blood_type: 'edit_blood_type',
             address: 'edit_address', mother_name: 'edit_mother_name', mother_contact: 'edit_mother_contact',
             mother_occupation: 'edit_mother_occupation', father_name: 'edit_father_name',
             father_contact: 'edit_father_contact', father_occupation: 'edit_father_occupation',
@@ -1207,6 +1408,13 @@ $title = 'Child Records';
             const el = document.getElementById(elId);
             if (el) el.value = c[key] ?? '';
         });
+
+        // Resolve and pre-select Zone and Barangay
+        const brgy = c.barangay ?? '';
+        const zone = getZoneForBarangay(brgy);
+        const editZoneSelect = document.getElementById('edit_zone');
+        if (editZoneSelect) editZoneSelect.value = zone;
+        populateBarangayDropdown('edit_barangay', zone, brgy);
 
         openModal('editChildModal');
     }
@@ -1590,6 +1798,9 @@ $title = 'Child Records';
             onSuccess: () => {
                 closeModal('registerChildModal');
                 event.target.reset();
+                const zoneSelect = document.getElementById('child_zone');
+                if (zoneSelect) zoneSelect.value = '';
+                populateBarangayDropdown('child_barangay', '', '');
             }
         });
     }

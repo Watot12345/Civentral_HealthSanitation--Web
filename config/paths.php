@@ -36,6 +36,18 @@ function site_url($path = '') {
     return rtrim(BASE_URL, '/') . '/' . ltrim($clean, '/');
 }
 
+if (!function_exists('csrf_token')) {
+    function csrf_token(): string {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
+            @session_start();
+        }
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION['csrf_token'];
+    }
+}
+
 // Helper to accurately detect client IP address in real-world environments
 if (!function_exists('getClientIP')) {
     function getClientIP(): string {

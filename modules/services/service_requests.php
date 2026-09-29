@@ -15,6 +15,12 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('wastewater services');
 
+// If accessed directly via GET, redirect to unified Service Requests & Maintenance page
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    header('Location: ' . site_url('modules/services/services_management.php?tab=requests'));
+    exit;
+}
+
 // AJAX API Endpoint Handler
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
@@ -67,7 +73,12 @@ $pendingRequests = $counts['pending'];
 $inProgressRequests = $counts['in_progress'];
 $completedRequests = $counts['completed'];
 $cancelledRequests = $counts['cancelled'];
-$avgRating = array_sum(array_filter(array_column($serviceRequests, 'rating'))) / max(1, count(array_filter($serviceRequests, fn($r) => $r['rating'])));
+$completedForStats = array_filter($serviceRequests, fn($r) => $r['status'] === 'completed' && !empty($r['completed_at']) && !empty($r['created_at']));
+$avgCompletionDays = null;
+if (count($completedForStats) > 0) {
+    $totalDays = array_sum(array_map(fn($r) => max(0, round((strtotime($r['completed_at']) - strtotime($r['created_at'])) / 86400, 1)), $completedForStats));
+    $avgCompletionDays = round($totalDays / count($completedForStats), 1);
+}
 
 $title = 'Service Requests';
 ?>
@@ -181,22 +192,22 @@ $title = 'Service Requests';
             </div>
         </div>
 
-        <!-- Card 5: Avg Rating -->
+        <!-- Card 5: Avg Completion Time -->
         <div class="relative overflow-hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 hover:shadow-lg transition group">
-            <div class="absolute -top-12 -right-12 w-24 h-24 bg-amber-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
+            <div class="absolute -top-12 -right-12 w-24 h-24 bg-violet-100 rounded-full opacity-50 group-hover:scale-110 transition"></div>
             <div class="relative">
                 <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-200">
-                        <i class="fa-solid fa-star text-lg"></i>
+                    <div class="w-11 h-11 bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200">
+                        <i class="fa-solid fa-stopwatch text-lg"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-black text-amber-600"><?php echo number_format($avgRating, 1); ?></p>
-                        <p class="text-xs font-medium text-slate-500">Avg Rating</p>
+                        <p class="text-2xl font-black text-violet-600"><?php echo $avgCompletionDays !== null ? $avgCompletionDays . 'd' : '—'; ?></p>
+                        <p class="text-xs font-medium text-slate-500">Avg Completion</p>
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">⭐ Quality</span>
-                    <span class="text-[10px] text-slate-400"><?php echo $avgRating >= 4 ? 'Excellent' : 'Good'; ?></span>
+                    <span class="px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-[10px] font-bold">⏱ Speed</span>
+                    <span class="text-[10px] text-slate-400"><?php echo $avgCompletionDays !== null ? ($avgCompletionDays <= 3 ? 'Fast response' : 'Track turnaround') : 'No data yet'; ?></span>
                 </div>
             </div>
         </div>
@@ -340,16 +351,12 @@ $title = 'Service Requests';
                                         <i class="fa-solid fa-check text-sm"></i>
                                     </button>
                                 <?php endif; ?>
-                                <?php if ($request['status'] === 'completed' && !$request['feedback']): ?>
-                                    <button onclick="addFeedback(<?php echo $request['id']; ?>)"
-                                            class="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition" title="Feedback">
-                                        <i class="fa-solid fa-comment text-sm"></i>
-                                    </button>
-                                <?php endif; ?>
+                                <?php if (in_array($request['status'], ['completed', 'in_progress'])): ?>
                                 <a href="wastewater_billing.php?client=<?php echo urlencode($request['owner_name']); ?>&tank_id=<?php echo urlencode($request['tank_id']); ?>&service_type=<?php echo urlencode($request['service_type']); ?>&action=new_quote"
                                    class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="Proceed to Wastewater Billing">
                                     <i class="fa-solid fa-file-invoice-dollar text-sm"></i>
                                 </a>
+                                <?php endif; ?>
                                 <button onclick="editRequest(<?php echo $request['id']; ?>)"
                                         class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
                                     <i class="fa-solid fa-pen text-sm"></i>
@@ -660,53 +667,7 @@ $title = 'Service Requests';
     </div>
 </div>
 
-<!-- ============================================================ -->
-<!-- FEEDBACK MODAL                                               -->
-<!-- ============================================================ -->
-<div id="feedbackModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
-            <h3 class="font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-comment text-brand-medium"></i>
-                Customer Feedback
-            </h3>
-            <button onclick="closeModal('feedbackModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <form id="feedbackForm" class="p-6 space-y-4" onsubmit="saveFeedback(event)">
-            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
-            <input type="hidden" id="feedback_request_id">
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Rating</label>
-                <div class="flex gap-2" id="ratingStars">
-                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                    <button type="button" onclick="setRating(<?php echo $i; ?>)" 
-                            class="rating-star text-2xl text-slate-300 hover:text-amber-400 transition" data-rating="<?php echo $i; ?>">
-                        ☆
-                    </button>
-                    <?php endfor; ?>
-                </div>
-                <input type="hidden" id="feedback_rating" value="0">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Feedback</label>
-                <textarea id="feedback_text" rows="3" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="Share your experience..."></textarea>
-            </div>
 
-            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button type="button" onclick="closeModal('feedbackModal')"
-                        class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">
-                    Cancel
-                </button>
-                <button type="submit"
-                        class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
-                    <i class="fa-solid fa-check mr-1.5"></i> Submit Feedback
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
 
 <!-- Toast notification -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white items-center gap-2">
@@ -717,14 +678,7 @@ $title = 'Service Requests';
 <!-- ============================================================ -->
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
-<style>
-    .rating-star.active {
-        color: #f59e0b;
-    }
-    .rating-star.active ~ .rating-star {
-        color: #d1d5db;
-    }
-</style>
+
 
 <!-- Leaflet CSS & JS for Interactive Map -->
 <link rel="stylesheet" href="<?= site_url('assets/css/leaflet.css'); ?>" />
@@ -909,7 +863,6 @@ $title = 'Service Requests';
             const isPending    = r.status === 'pending';
             const isInProgress = r.status === 'in_progress';
             const isCompleted  = r.status === 'completed';
-            const needsFeedback = isCompleted && !r.feedback;
 
             actionsTd.innerHTML = `
                 <div class="flex items-center justify-center gap-1">
@@ -937,11 +890,11 @@ $title = 'Service Requests';
                             <i class="fa-solid fa-check text-sm"></i>
                         </button>
                     ` : ''}
-                    ${needsFeedback ? `
-                        <button onclick="addFeedback(${r.id})"
-                                class="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition" title="Feedback">
-                            <i class="fa-solid fa-comment text-sm"></i>
-                        </button>
+                    ${(isInProgress || isCompleted) ? `
+                        <a href="wastewater_billing.php?client=${encodeURIComponent(r.owner_name)}&tank_id=${encodeURIComponent(r.tank_id)}&service_type=${encodeURIComponent(r.service_type)}&action=new_quote"
+                           class="p-1.5 text-brand-dark hover:bg-brand-light rounded-lg transition" title="Proceed to Wastewater Billing">
+                            <i class="fa-solid fa-file-invoice-dollar text-sm"></i>
+                        </a>
                     ` : ''}
                     <button onclick="editRequest(${r.id})"
                             class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
@@ -952,55 +905,7 @@ $title = 'Service Requests';
         }
     }
 
-    // ============================================================
-    // FEEDBACK
-    // ============================================================
-    let selectedRating = 0;
 
-    function setRating(rating) {
-        selectedRating = rating;
-        document.getElementById('feedback_rating').value = rating;
-        document.querySelectorAll('.rating-star').forEach(star => {
-            const starRating = parseInt(star.dataset.rating);
-            star.classList.toggle('active', starRating <= rating);
-            star.textContent = starRating <= rating ? '★' : '☆';
-        });
-    }
-
-    function addFeedback(id) {
-        const r = REQUESTS[id];
-        if (!r) return;
-        
-        document.getElementById('feedback_request_id').value = id;
-        document.getElementById('feedback_text').value = '';
-        selectedRating = 0;
-        document.getElementById('feedback_rating').value = 0;
-        document.querySelectorAll('.rating-star').forEach(star => {
-            star.classList.remove('active');
-            star.textContent = '☆';
-        });
-        
-        openModal('feedbackModal');
-    }
-
-    async function saveFeedback(event) {
-        event.preventDefault();
-        try {
-            const id = document.getElementById('feedback_request_id').value;
-            const r = REQUESTS[id];
-            if (!r) { showToast('Request record not found.', 'danger'); return; }
-            
-            r.rating = parseInt(document.getElementById('feedback_rating').value);
-            r.feedback = document.getElementById('feedback_text').value.trim();
-            
-            await sendAjaxRequest('save_feedback', { id: id, rating: r.rating, feedback: r.feedback });
-            closeModal('feedbackModal');
-            showToast('Thank you for your feedback!', 'success');
-        } catch (err) {
-            console.error('saveFeedback error:', err);
-            showToast('An error occurred: ' + err.message, 'danger');
-        }
-    }
 
     // ============================================================
     // SERVICE REQUEST ROUTE / LOCATION MAP
@@ -1269,22 +1174,6 @@ $title = 'Service Requests';
         document.getElementById('edit_request_notes').value = request.notes || '';
         openModal('editRequestModal');
     }
-
-    async function saveRequestEdit(event) {
-        event.preventDefault();
-        try {
-            const id = document.getElementById('edit_request_id').value;
-            const timeRaw = document.getElementById('edit_request_time').value;
-            const payload = {
-                tank_id: document.getElementById('edit_request_tank').value.trim(),
-                owner_name: document.getElementById('edit_request_owner').value.trim(),
-                service_type: document.getElementById('edit_request_type').value,
-                preferred_date: document.getElementById('edit_request_date').value,
-                preferred_time: formatTime24to12(timeRaw),
-                priority: document.getElementById('edit_request_priority').value,
-                status: document.getElementById('edit_request_status').value,
-                notes: document.getElementById('edit_request_notes').value.trim()
-            };
 
     function renderNewRequestRowHtml(r) {
         const statusColors = {

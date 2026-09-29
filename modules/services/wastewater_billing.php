@@ -104,7 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) || isset($
             ];
 
             $feeStructure[] = $newFee;
-            file_put_contents($feeConfigFile, json_encode($feeStructure, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            if (file_put_contents($feeConfigFile, json_encode($feeStructure, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX) === false) {
+                echo json_encode(['success' => false, 'message' => 'Failed to save fee structure. File write error.']);
+                exit;
+            }
 
             if (class_exists('ActivityLog')) {
                 try {
@@ -149,7 +152,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) || isset($
                 $feeStructure[$index]['category'] = htmlspecialchars(trim($_POST['category']), ENT_QUOTES, 'UTF-8');
             }
 
-            file_put_contents($feeConfigFile, json_encode($feeStructure, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            if (file_put_contents($feeConfigFile, json_encode($feeStructure, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX) === false) {
+                echo json_encode(['success' => false, 'message' => 'Failed to save fee structure. File write error.']);
+                exit;
+            }
 
             echo json_encode([
                 'success' => true,
@@ -168,7 +174,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) || isset($
 
             $deletedName = $feeStructure[$index]['category'];
             array_splice($feeStructure, $index, 1);
-            file_put_contents($feeConfigFile, json_encode($feeStructure, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+            if (file_put_contents($feeConfigFile, json_encode($feeStructure, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX) === false) {
+                echo json_encode(['success' => false, 'message' => 'Failed to save fee structure. File write error.']);
+                exit;
+            }
 
             echo json_encode([
                 'success' => true,

@@ -15,6 +15,12 @@ require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('wastewater services');
 
+// If accessed directly via GET, redirect to unified Service Requests & Maintenance page
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    header('Location: ' . site_url('modules/services/services_management.php?tab=maintenance'));
+    exit;
+}
+
 // AJAX API Endpoint Handler
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
@@ -27,14 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     exit;
 }
 
-// Sample Technicians
-$technicians = [
-    ['id' => 1, 'name' => 'Roberto Silva', 'status' => 'on_site', 'assignment' => 'ST-002'],
-    ['id' => 2, 'name' => 'Jose Mendoza', 'status' => 'available', 'assignment' => null],
-    ['id' => 3, 'name' => 'Luis Torres', 'status' => 'en_route', 'assignment' => 'ST-001'],
-    ['id' => 4, 'name' => 'Carlos Santos', 'status' => 'available', 'assignment' => null],
-    ['id' => 5, 'name' => 'Ana Reyes', 'status' => 'on_site', 'assignment' => 'ST-003'],
-];
+// Load technicians from Supabase (replaces hardcoded array)
+require_once __DIR__ . '/../../app/Models/Technician.php';
+$technicianModel = new Technician();
+$technicians = $technicianModel->all();
 
 require_once __DIR__ . '/../../app/Models/MaintenanceRecord.php';
 require_once __DIR__ . '/../../app/Models/SepticTank.php';
@@ -68,21 +70,6 @@ foreach ($allSepticTanks as $st) {
     }
 }
 
-// Technicians
-$technicians = [
-    ['id' => 1, 'name' => 'Roberto Silva', 'status' => 'on_site', 'assignment' => 'ST-002'],
-    ['id' => 2, 'name' => 'Jose Mendoza', 'status' => 'available', 'assignment' => null],
-    ['id' => 3, 'name' => 'Luis Torres', 'status' => 'en_route', 'assignment' => 'ST-001'],
-    ['id' => 4, 'name' => 'Carlos Santos', 'status' => 'available', 'assignment' => null],
-    ['id' => 5, 'name' => 'Ana Reyes', 'status' => 'on_site', 'assignment' => 'ST-003'],
-];
-
-// Route Planning Data
-$routeData = [
-    ['technician' => 'Roberto Silva', 'tank' => 'ST-002', 'address' => '456 Mabini Ave., Poblacion', 'status' => 'In Progress'],
-    ['technician' => 'Jose Mendoza', 'tank' => 'ST-005', 'address' => '505 Bonifacio Rd., Riverside', 'status' => 'En Route'],
-    ['technician' => 'Luis Torres', 'tank' => 'ST-001', 'address' => '123 Rizal St., San Jose', 'status' => 'Completed'],
-];
 
 // Stats
 $counts = $maintenanceModel->countByStatus();
