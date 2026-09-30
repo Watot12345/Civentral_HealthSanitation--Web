@@ -19,6 +19,8 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../app/Models/TriageQueue.php';
 require_once __DIR__ . '/../../app/Models/Patient.php';
 
+$db = Database::getInstance();
+
 // Fetch Active Patients Waiting for Immunization Visits
 $triageQueueModel = new TriageQueue();
 $patientModel = new Patient();
@@ -214,11 +216,25 @@ foreach ($childrenRaw as $childId => $info) {
             continue;
         }
 
-        // Not administered yet — skip entirely, only show actual administered records
+        // Not administered yet — push pending or missed status to immunizations list
         if ($daysLeft < 0 || $daysLeft <= 30) {
-            $childHasMissed = true; // still track for the on-track badge
+            $childHasMissed = true;
+            $status = $daysLeft < 0 ? 'missed' : 'pending';
+            $immunizations[] = [
+                'id' => 'sched_' . $childId . '_' . $schedule['dose'],
+                'child_id' => $info['child_code'],
+                'child_db_id' => $childId,
+                'child_name' => $info['name'],
+                'vaccine' => $vaccine,
+                'dose' => $dose,
+                'date' => null,
+                'next_due' => $dueDate->format('Y-m-d'),
+                'batch_number' => null,
+                'administered_by' => null,
+                'health_center' => '—',
+                'status' => $status,
+            ];
         }
-        // Do NOT push to $immunizations — only completed/administered doses appear in the table
     }
 
     $childTrackStatus[$childId] = $childHasMissed ? 'not_on_track' : 'on_track';

@@ -220,7 +220,7 @@ class PaymentController extends BaseController
     {
         $this->validateCsrf();
         $this->requireDepartment('sanitation');
-        $this->requireCapability(Permissions::PERMITS_APPROVE);
+        $this->requireCapability(Permissions::PERMITS_CREATE);
 
         $this->handle(function () use ($id) {
             $payment = $this->paymentModel->getById($id);
@@ -270,7 +270,7 @@ class PaymentController extends BaseController
     {
         $this->validateCsrf();
         $this->requireDepartment('sanitation');
-        $this->requireCapability(Permissions::PERMITS_APPROVE);
+        $this->requireCapability(Permissions::PERMITS_CREATE);
 
         $this->handle(function () use ($id) {
             $payment = $this->paymentModel->getById($id);
@@ -301,10 +301,13 @@ class PaymentController extends BaseController
             $completed = $this->paymentModel->complete($id, $completionData);
             $updatedPayment = $completed[0] ?? $completed;
 
+            $validityDays = class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365;
             $this->permitModel->updateById($payment['permit_id'], [
                 'paid' => true,
                 'payment_method' => $payment['method'],
                 'status' => 'approved',
+                'approved_date' => date('Y-m-d'),
+                'expiry_date' => date('Y-m-d', strtotime("+{$validityDays} days")),
             ]);
 
             // Auto-generate Official Sanitation Permit document with unique QR Code

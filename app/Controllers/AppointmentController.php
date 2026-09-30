@@ -111,7 +111,7 @@ class AppointmentController extends BaseController
             $targetDate = $dbData['appointment_date'] ?? date('Y-m-d');
             $maxPerDay = class_exists('Settings') ? (int)Settings::get('modules.health_center.max_appointments_per_day', 50) : 50;
             if ($maxPerDay > 0) {
-                $existingCount = count($this->appointmentModel->all(['appointment_date' => $targetDate]));
+                $existingCount = $this->appointmentModel->countByDate($targetDate);
                 if ($existingCount >= $maxPerDay) {
                     return [
                         'success' => false,
@@ -363,23 +363,39 @@ class AppointmentController extends BaseController
                 try {
                     require_once __DIR__ . '/../Models/Triage.php';
                     $tModel = new Triage();
-                    $db = $tModel->getDb();
-                    $stmt = $db->prepare("UPDATE triage SET status = 'reassignment_pending', notes = ? WHERE patient_id = ? OR id = ?");
-                    $stmt->execute([$fullNotes, $patientId, $realId]);
+                    if ($sourceType === 'triage') {
+                        $tModel->updateById($realId, ['status' => 'reassignment_pending', 'notes' => $fullNotes]);
+                    } else {
+                        $pTriages = $tModel->getByPatientId($patientId);
+                        if (!empty($pTriages)) {
+                            foreach ($pTriages as $pt) {
+                                if (in_array(strtolower($pt['status'] ?? ''), ['pending', 'triaged', 'waiting', 'in_triage', 'reassignment_pending'])) {
+                                    $tModel->updateById($pt['id'], ['status' => 'reassignment_pending', 'notes' => $fullNotes]);
+                                }
+                            }
+                        }
+                    }
                 } catch (Throwable $e) {}
 
                 try {
                     require_once __DIR__ . '/../Models/TriageQueue.php';
                     $tqModel = new TriageQueue();
-                    $db = $tqModel->getDb();
-                    $stmt = $db->prepare("UPDATE triage_queue SET status = 'reassignment_pending', queue_status = 'reassignment_pending', notes = ? WHERE patient_id = ? OR id = ?");
-                    $stmt->execute([$fullNotes, $patientId, $realId]);
+                    if ($sourceType === 'triage_queue') {
+                        $tqModel->updateById($realId, ['status' => 'reassignment_pending', 'queue_status' => 'reassignment_pending', 'notes' => $fullNotes]);
+                    } else {
+                        $pQueues = $tqModel->getByPatientId($patientId);
+                        if (!empty($pQueues)) {
+                            foreach ($pQueues as $pq) {
+                                if (in_array(strtolower($pq['status'] ?? ''), ['pending', 'triaged', 'waiting', 'in_queue', 'reassignment_pending'])) {
+                                    $tqModel->updateById($pq['id'], ['status' => 'reassignment_pending', 'queue_status' => 'reassignment_pending', 'notes' => $fullNotes]);
+                                }
+                            }
+                        }
+                    }
                 } catch (Throwable $e) {}
 
                 try {
-                    $db = $this->appointmentModel->getDb();
-                    $stmt = $db->prepare("UPDATE appointments SET status = 'reassignment_pending', notes = ? WHERE patient_id = ? OR id = ?");
-                    $stmt->execute([$fullNotes, $patientId, $realId]);
+                    $this->appointmentModel->updateById($realId, ['status' => 'reassignment_pending', 'notes' => $fullNotes]);
                 } catch (Throwable $e) {}
             }
 
@@ -473,23 +489,39 @@ class AppointmentController extends BaseController
                 try {
                     require_once __DIR__ . '/../Models/Triage.php';
                     $tModel = new Triage();
-                    $db = $tModel->getDb();
-                    $stmt = $db->prepare("UPDATE triage SET status = 'sent_to_doctor', doctor_assigned = ?, doctor_id = ? WHERE patient_id = ? OR id = ?");
-                    $stmt->execute([$newDoctorName, $newDoctorId, $patientId, $realId]);
+                    if ($sourceType === 'triage') {
+                        $tModel->updateById($realId, ['status' => 'sent_to_doctor', 'doctor_assigned' => $newDoctorName, 'doctor_id' => $newDoctorId]);
+                    } else {
+                        $pTriages = $tModel->getByPatientId($patientId);
+                        if (!empty($pTriages)) {
+                            foreach ($pTriages as $pt) {
+                                if (in_array(strtolower($pt['status'] ?? ''), ['reassignment_pending', 'pending', 'triaged', 'waiting', 'in_triage'])) {
+                                    $tModel->updateById($pt['id'], ['status' => 'sent_to_doctor', 'doctor_assigned' => $newDoctorName, 'doctor_id' => $newDoctorId]);
+                                }
+                            }
+                        }
+                    }
                 } catch (Throwable $e) {}
 
                 try {
                     require_once __DIR__ . '/../Models/TriageQueue.php';
                     $tqModel = new TriageQueue();
-                    $db = $tqModel->getDb();
-                    $stmt = $db->prepare("UPDATE triage_queue SET status = 'sent_to_doctor', queue_status = 'sent_to_doctor', doctor_assigned = ?, doctor_id = ? WHERE patient_id = ? OR id = ?");
-                    $stmt->execute([$newDoctorName, $newDoctorId, $patientId, $realId]);
+                    if ($sourceType === 'triage_queue') {
+                        $tqModel->updateById($realId, ['status' => 'sent_to_doctor', 'queue_status' => 'sent_to_doctor', 'doctor_assigned' => $newDoctorName, 'doctor_id' => $newDoctorId]);
+                    } else {
+                        $pQueues = $tqModel->getByPatientId($patientId);
+                        if (!empty($pQueues)) {
+                            foreach ($pQueues as $pq) {
+                                if (in_array(strtolower($pq['status'] ?? ''), ['reassignment_pending', 'pending', 'triaged', 'waiting', 'in_queue'])) {
+                                    $tqModel->updateById($pq['id'], ['status' => 'sent_to_doctor', 'queue_status' => 'sent_to_doctor', 'doctor_assigned' => $newDoctorName, 'doctor_id' => $newDoctorId]);
+                                }
+                            }
+                        }
+                    }
                 } catch (Throwable $e) {}
 
                 try {
-                    $db = $this->appointmentModel->getDb();
-                    $stmt = $db->prepare("UPDATE appointments SET status = 'sent_to_other_doctor', employee_id = ? WHERE patient_id = ? OR id = ?");
-                    $stmt->execute([$newDoctorId, $patientId, $realId]);
+                    $this->appointmentModel->updateById($realId, ['status' => 'sent_to_other_doctor', 'employee_id' => $newDoctorId]);
                 } catch (Throwable $e) {}
             }
 

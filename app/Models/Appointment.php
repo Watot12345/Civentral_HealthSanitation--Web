@@ -130,6 +130,19 @@ class Appointment
         return true;
     }
 
+    /**
+     * Count appointments for a specific date (used for daily quota enforcement).
+     */
+    public function countByDate(string $date): int
+    {
+        try {
+            return $this->db->count($this->table, ['appointment_date' => 'eq.' . $date]);
+        } catch (\Throwable $e) {
+            error_log("Appointment::countByDate error: " . $e->getMessage());
+            return 0;
+        }
+    }
+
     public function generateAppointmentId(): string
     {
         try {

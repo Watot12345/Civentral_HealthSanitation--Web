@@ -180,6 +180,7 @@ try {
 $consultationModel = new Consultation();
 $consultations = [];
 $consultationMap = [];
+$rawConsultations = [];
 
 try {
     $rawConsultations = $consultationModel->all(['order' => 'date.desc']);

@@ -27,8 +27,8 @@ class AuthorizationMiddleware
         if (!$permService->hasPermission($slug)) {
             $permService->logUnauthorizedAttempt($slug, $context);
 
-            if (session_status() === PHP_SESSION_NONE) {
-                session_start();
+            if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
+                @session_start();
             }
 
             // API json response if header or URI indicates API endpoint
@@ -62,7 +62,7 @@ class AuthorizationMiddleware
      */
     public static function authorizeDepartment(string $moduleDepartment, string $context = ''): void
     {
-        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
             @session_start();
         }
 

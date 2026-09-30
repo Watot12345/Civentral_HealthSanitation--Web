@@ -1524,12 +1524,15 @@ $title = 'Child Records';
         };
 
         const submitBtn = event.target.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '<?php echo $_SESSION['csrf_token'] ?? ''; ?>';
         try {
             const response = await fetch(`${API_BASE}?id=${encodeURIComponent(childId)}&action=record`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({ ...payload, csrf_token: csrfToken })
             });
             const result = await response.json();
             if (!response.ok || !result.success) {
@@ -1732,11 +1735,15 @@ $title = 'Child Records';
         const submitBtn = event.target.querySelector('button[type="submit"]');
         submitBtn.disabled = true;
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '<?php echo $_SESSION['csrf_token'] ?? ''; ?>';
         try {
             const response = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({ ...formData, csrf_token: csrfToken })
             });
 
             let result;
@@ -2100,11 +2107,19 @@ $title = 'Child Records';
     async function confirmAndSend(id, { confirmMsg, method, body, successMsg, failMsg }) {
         const modalId = 'archiveChildModal';
         if (!await requestConfirmation(modalId)) return;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '<?php echo $_SESSION['csrf_token'] ?? ''; ?>';
         try {
+            const headers = {
+                'X-CSRF-Token': csrfToken
+            };
+            if (body) {
+                headers['Content-Type'] = 'application/json';
+            }
+            const reqBody = body ? { ...body, csrf_token: csrfToken } : { csrf_token: csrfToken };
             const response = await fetch(`${API_BASE}?id=${id}`, {
                 method,
-                headers: body ? { 'Content-Type': 'application/json' } : undefined,
-                body: body ? JSON.stringify(body) : undefined
+                headers: headers,
+                body: JSON.stringify(reqBody)
             });
             const result = await response.json();
 

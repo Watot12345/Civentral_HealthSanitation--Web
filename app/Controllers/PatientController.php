@@ -128,8 +128,8 @@ class PatientController extends BaseController
             }
 
             $dbData['contact'] = preg_replace('/\D+/', '', (string)$dbData['contact']);
-            if (!preg_match('/^\d{12}$/', $dbData['contact'])) {
-                return ['success' => false, 'message' => 'Contact number must contain exactly 12 digits', 'code' => 422];
+            if (!preg_match('/^(09\d{9}|639\d{9})$/', $dbData['contact'])) {
+                return ['success' => false, 'message' => 'Contact number must be a valid Philippine mobile number (e.g. 09171234567 or 639171234567)', 'code' => 422];
             }
             
             // Make sure birth_date is set for new patient
@@ -202,8 +202,8 @@ class PatientController extends BaseController
 
             if (isset($dbData['contact'])) {
                 $dbData['contact'] = preg_replace('/\D+/', '', (string)$dbData['contact']);
-                if (!preg_match('/^\d{12}$/', $dbData['contact'])) {
-                    return ['success' => false, 'message' => 'Contact number must contain exactly 12 digits', 'code' => 422];
+                if (!preg_match('/^(09\d{9}|639\d{9})$/', $dbData['contact'])) {
+                    return ['success' => false, 'message' => 'Contact number must be a valid Philippine mobile number (e.g. 09171234567 or 639171234567)', 'code' => 422];
                 }
             }
             

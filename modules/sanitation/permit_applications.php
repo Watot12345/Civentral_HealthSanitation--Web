@@ -1398,8 +1398,8 @@ document.getElementById('newPermitForm').addEventListener('submit', async functi
         ModalSystem.toast.error('Please fill in all required fields');
         return;
     }
-    if (!/^\d{12}$/.test(data.contact)) {
-        ModalSystem.toast.error('Contact number must contain exactly 12 digits');
+    if (!/^(09\d{9}|639\d{9})$/.test(data.contact)) {
+        ModalSystem.toast.error('Contact number must be a valid Philippine mobile number (e.g. 09171234567 or 639171234567)');
         return;
     }
 
@@ -1475,8 +1475,8 @@ document.getElementById('editPermitForm').addEventListener('submit', async funct
         ModalSystem.toast.error('Please fill in all required fields');
         return;
     }
-    if (!/^\d{12}$/.test(data.contact)) {
-        ModalSystem.toast.error('Contact number must contain exactly 12 digits');
+    if (!/^(09\d{9}|639\d{9})$/.test(data.contact)) {
+        ModalSystem.toast.error('Contact number must be a valid Philippine mobile number (e.g. 09171234567 or 639171234567)');
         return;
     }
 

@@ -153,10 +153,7 @@ class ConsultationController extends BaseController
                     $triageModel->updateStatus($triageId, 'consulted');
                 } elseif (!empty($dbData['patient_id'])) {
                     // Auto-resolve open triage for this patient
-                    $openTriages = $triageModel->all([
-                        'patient_id' => $dbData['patient_id'],
-                        'order' => 'created_at.desc'
-                    ]);
+                    $openTriages = $triageModel->getByPatientId($dbData['patient_id']);
                     if (!empty($openTriages)) {
                         $latest = $openTriages[0];
                         if (in_array(strtolower($latest['status'] ?? ''), ['triaged', 'pending', 'in_triage', 'waiting', 'in_consultation'])) {

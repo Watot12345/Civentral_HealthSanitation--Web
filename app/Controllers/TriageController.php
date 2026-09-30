@@ -215,10 +215,11 @@ class TriageController extends BaseController
         $status = $data['status'] ?? $_GET['status'] ?? null;
 
         $this->handle(function() use ($id, $status) {
-            if (!$status || !in_array($status, ['pending', 'triaged', 'consulted', 'cancelled'])) {
+            $validStatuses = ['pending', 'triaged', 'consulted', 'cancelled', 'reassignment_pending', 'sent_to_doctor'];
+            if (!$status || !in_array($status, $validStatuses, true)) {
                 return [
                     'success' => false,
-                    'message' => 'Invalid status value provided',
+                    'message' => 'Invalid status value provided. Valid: ' . implode(', ', $validStatuses),
                     'code' => 400
                 ];
             }

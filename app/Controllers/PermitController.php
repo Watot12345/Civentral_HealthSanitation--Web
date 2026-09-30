@@ -172,8 +172,8 @@ class PermitController extends BaseController
             }
 
             $contact = preg_replace('/\D+/', '', (string)$data['contact']);
-            if (!preg_match('/^\d{12}$/', $contact)) {
-                return ['success' => false, 'message' => 'Contact number must contain exactly 12 digits', 'code' => 422];
+            if (!preg_match('/^(09\d{9}|639\d{9})$/', $contact)) {
+                return ['success' => false, 'message' => 'Contact number must be a valid Philippine mobile number (e.g. 09171234567 or 639171234567)', 'code' => 422];
             }
             $data['contact'] = $contact;
 
@@ -238,8 +238,8 @@ class PermitController extends BaseController
 
             if (isset($data['contact'])) {
                 $contact = preg_replace('/\D+/', '', (string)$data['contact']);
-                if (!preg_match('/^\d{12}$/', $contact)) {
-                    return ['success' => false, 'message' => 'Contact number must contain exactly 12 digits', 'code' => 422];
+                if (!preg_match('/^(09\d{9}|639\d{9})$/', $contact)) {
+                    return ['success' => false, 'message' => 'Contact number must be a valid Philippine mobile number (e.g. 09171234567 or 639171234567)', 'code' => 422];
                 }
                 $data['contact'] = $contact;
             }
@@ -299,6 +299,29 @@ class PermitController extends BaseController
                 $updateData['inspection_date'] = date('Y-m-d');
             }
             if ($status === 'approved' || $status === 'completed') {
+                require_once __DIR__ . '/../Models/Payment.php';
+                $paymentModel = new Payment();
+                $permitDbId = (int)($permit['id'] ?? $id);
+                $payments = $paymentModel->getByPermitId($permitDbId);
+                
+                $hasPaid = !empty($permit['paid']);
+                foreach ($payments as $p) {
+                    $pStatus = strtolower(trim($p['status'] ?? ''));
+                    if ($pStatus === 'paid' || $pStatus === 'completed') {
+                        $hasPaid = true;
+                        break;
+                    }
+                }
+                
+                $hasOverride = !empty($data['bypass_payment_verification']) || !empty($data['fee_waived']);
+                if (!$hasPaid && !$hasOverride && !empty($payments)) {
+                    return [
+                        'success' => false,
+                        'message' => 'Cannot approve permit: Sanitation permit fees are unpaid. Please complete fee payment before granting approval.',
+                        'code'    => 422
+                    ];
+                }
+
                 $updateData['approved_date'] = date('Y-m-d');
                 $validityDays = class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365;
                 $updateData['expiry_date'] = date('Y-m-d', strtotime("+{$validityDays} days"));
@@ -403,6 +426,29 @@ class PermitController extends BaseController
             }
 
             if ($status === 'approved' || $status === 'completed') {
+                require_once __DIR__ . '/../Models/Payment.php';
+                $paymentModel = new Payment();
+                $permitDbId = (int)($permit['id'] ?? $id);
+                $payments = $paymentModel->getByPermitId($permitDbId);
+                
+                $hasPaid = !empty($permit['paid']);
+                foreach ($payments as $p) {
+                    $pStatus = strtolower(trim($p['status'] ?? ''));
+                    if ($pStatus === 'paid' || $pStatus === 'completed') {
+                        $hasPaid = true;
+                        break;
+                    }
+                }
+                
+                $hasOverride = !empty($data['bypass_payment_verification']) || !empty($data['fee_waived']);
+                if (!$hasPaid && !$hasOverride && !empty($payments)) {
+                    return [
+                        'success' => false,
+                        'message' => 'Cannot approve permit: Sanitation permit fees are unpaid. Please complete fee payment before granting approval.',
+                        'code'    => 422
+                    ];
+                }
+
                 $updateData['approved_date'] = date('Y-m-d');
                 $validityDays = class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365;
                 $updateData['expiry_date'] = date('Y-m-d', strtotime("+{$validityDays} days"));

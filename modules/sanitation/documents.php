@@ -38,7 +38,7 @@ function normalizeDateFilter(mixed $value): ?string
 
 // Initialize models using your existing Database singleton
 $permitDocumentModel = new PermitDocument(Database::getInstance());
-$permitModel = new Permit(Database::getInstance());
+$permitModel = new Permit();
 $employeeModel = new Employee(Database::getInstance());
 
 // Get statistics from model (business logic moved to model)

@@ -101,7 +101,7 @@ class WastewaterInvoice
             $all = $this->db->select($this->table, ['tank_id' => $tankId]);
             foreach ($all as $inv) {
                 $status = strtolower($inv['status'] ?? '');
-                if (in_array($status, ['pending', 'overdue'])) {
+                if (in_array($status, ['pending', 'overdue', 'partially_paid'])) {
                     if ($serviceType === null || strcasecmp($inv['service_type'] ?? '', $serviceType) === 0) {
                         return $inv;
                     }
@@ -111,6 +111,33 @@ class WastewaterInvoice
         } catch (Throwable $e) {
             error_log('WastewaterInvoice Model Error (findActiveByTankId): ' . $e->getMessage());
             return null;
+        }
+    }
+
+    public function findActiveByServiceRequestId(string|int $serviceRequestId): ?array
+    {
+        try {
+            $all = $this->db->select($this->table, ['service_request_id' => $serviceRequestId]);
+            foreach ($all as $inv) {
+                $status = strtolower($inv['status'] ?? '');
+                if (in_array($status, ['pending', 'overdue', 'partially_paid'])) {
+                    return $inv;
+                }
+            }
+            return null;
+        } catch (Throwable $e) {
+            error_log('WastewaterInvoice Model Error (findActiveByServiceRequestId): ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function findByServiceRequestId(string|int $serviceRequestId): array
+    {
+        try {
+            return $this->db->select($this->table, ['service_request_id' => $serviceRequestId]);
+        } catch (Throwable $e) {
+            error_log('WastewaterInvoice Model Error (findByServiceRequestId): ' . $e->getMessage());
+            return [];
         }
     }
 

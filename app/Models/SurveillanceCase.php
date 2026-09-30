@@ -40,10 +40,36 @@ class SurveillanceCase
         }
     }
 
+    public function generateCaseCode(?string $year = null): string
+    {
+        $yr = $year ?: date('Y');
+        $prefix = "CS-{$yr}-";
+        $maxNum = 0;
+
+        try {
+            $cases = $this->all();
+            foreach ($cases as $c) {
+                $code = $c['case_code'] ?? '';
+                if (str_starts_with($code, $prefix)) {
+                    $numPart = substr($code, strlen($prefix));
+                    if (is_numeric($numPart)) {
+                        $num = (int)$numPart;
+                        if ($num > $maxNum) {
+                            $maxNum = $num;
+                        }
+                    }
+                }
+            }
+        } catch (Throwable $e) {}
+
+        $nextNum = $maxNum + 1;
+        return $prefix . str_pad((string)$nextNum, 3, '0', STR_PAD_LEFT);
+    }
+
     public function create(array $data): array
     {
         if (empty($data['case_code'])) {
-            $data['case_code'] = 'CS-2026-' . str_pad((string) rand(100, 999), 3, '0', STR_PAD_LEFT);
+            $data['case_code'] = $this->generateCaseCode();
         }
         try {
             $encryptedData = EncryptionHelper::encryptModel($this->table, $data);

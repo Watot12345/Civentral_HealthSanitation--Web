@@ -1,11 +1,16 @@
 <?php
 // app/Controllers/ChildController.php
 
+require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../../Core/Response.php';
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../Constants/Permissions.php';
 require_once __DIR__ . '/../Models/Child.php';
 
-class ChildController
+use App\Constants\Permissions;
+use App\Services\PermissionService;
+
+class ChildController extends BaseController
 {
     private Child $childModel;
 
@@ -41,6 +46,9 @@ class ChildController
 
     public function index(): void
     {
+        $this->requireDepartment('immunization & nutrition');
+        $this->requireCapability(Permissions::IMMUNIZATION_VIEW);
+
         $children = $this->childModel->all();
         Response::success('Children retrieved successfully', $children, 200, [
             'total' => count($children)
@@ -49,6 +57,9 @@ class ChildController
 
     public function paginated(): void
     {
+        $this->requireDepartment('immunization & nutrition');
+        $this->requireCapability(Permissions::IMMUNIZATION_VIEW);
+
         $page = max(1, (int)($this->getQueryParam('page', '1')));
         $limit = max(1, min(self::MAX_LIMIT, (int)($this->getQueryParam('limit', (string)self::DEFAULT_LIMIT))));
         $offset = ($page - 1) * $limit;
@@ -73,7 +84,7 @@ class ChildController
             'nutrition_status' => $nutritionStatus,
             'barangay' => $barangay
         ]);
-        $totalPages = max(1, ceil($total / $limit));
+        $totalPages = max(1, (int)ceil($total / $limit));
 
         Response::success('Children retrieved', $children, 200, [
             'page' => $page,
@@ -84,9 +95,14 @@ class ChildController
         ]);
     }
 
-    public function show(string $id): void
+    public function show(string|int $id): void
     {
-        $child = $this->childModel->find($id);
+        $this->requireDepartment('immunization & nutrition');
+        $this->requireCapability(Permissions::IMMUNIZATION_VIEW);
+
+        $child = method_exists($this->childModel, 'findWithVaccinations')
+            ? $this->childModel->findWithVaccinations($id)
+            : $this->childModel->find($id);
 
         if (!$child) {
             Response::error('Child not found', 404);
@@ -97,8 +113,17 @@ class ChildController
 
     public function store(): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('immunization & nutrition');
+        $this->requireCapability(Permissions::IMMUNIZATION_CREATE);
+
         try {
-            $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+            $data = $this->input();
+            if (empty($data)) {
+                $raw = file_get_contents('php://input');
+                $decoded = json_decode($raw, true);
+                $data = is_array($decoded) ? array_merge($_POST, $decoded) : $_POST;
+            }
 
             $errors = $this->validate($data, [
                 'first_name', 'last_name', 'gender', 'birth_date', 'address', 'barangay', 'mother_name', 'health_center'
@@ -121,7 +146,7 @@ class ChildController
             if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
                 require_once __DIR__ . '/../Models/ActivityLog.php';
                 try {
-                    $logger = new ActivityLog();
+                    $logger = new \ActivityLog();
                     $cName = trim(($preparedData['first_name'] ?? '') . ' ' . ($preparedData['last_name'] ?? ''));
                     $cCode = $preparedData['child_id'] ?? ($insertedRecord['child_id'] ?? 'Child');
                     $logger->log("Registered Child Health Record: {$cName} ({$cCode})", [
@@ -140,15 +165,28 @@ class ChildController
         }
     }
 
-    public function update(string $id): void
+    public function update(string|int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('immunization & nutrition');
+
+        $permService = PermissionService::getInstance();
+        if (!$permService->hasPermission(Permissions::IMMUNIZATION_EDIT) && !$permService->hasPermission(Permissions::IMMUNIZATION_CREATE)) {
+            $this->requireCapability(Permissions::IMMUNIZATION_EDIT);
+        }
+
         $child = $this->childModel->find($id);
 
         if (!$child) {
             Response::error('Child not found', 404);
         }
 
-        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $data = $this->input();
+        if (empty($data)) {
+            $raw = file_get_contents('php://input');
+            $decoded = json_decode($raw, true);
+            $data = is_array($decoded) ? array_merge($_POST, $decoded) : $_POST;
+        }
 
         if (empty($data)) {
             Response::error('No data provided', 400);
@@ -162,11 +200,29 @@ class ChildController
         $preparedData = $this->prepareDbData($data, true);
         $result = $this->childModel->update($id, $preparedData);
 
+        if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+            require_once __DIR__ . '/../Models/ActivityLog.php';
+            try {
+                $logger = new \ActivityLog();
+                $cName = trim(($child['first_name'] ?? '') . ' ' . ($child['last_name'] ?? ''));
+                $cCode = $child['child_id'] ?? "CH-{$id}";
+                $logger->log("Updated Child Health Record: {$cName} ({$cCode})", [
+                    'module'  => 'Immunization & Nutrition',
+                    'details' => "Updated health record details",
+                    'status'  => 'Success'
+                ]);
+            } catch (\Throwable $e) {}
+        }
+
         Response::success('Child updated successfully', $result);
     }
 
-    public function destroy(string $id): void
+    public function destroy(string|int $id): void
     {
+        $this->validateCsrf();
+        $this->requireDepartment('immunization & nutrition');
+        $this->requireCapability(Permissions::IMMUNIZATION_EDIT);
+
         $child = $this->childModel->find($id);
 
         if (!$child) {
@@ -176,6 +232,19 @@ class ChildController
         $success = $this->childModel->delete($id);
 
         if ($success) {
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new \ActivityLog();
+                    $cName = trim(($child['first_name'] ?? '') . ' ' . ($child['last_name'] ?? ''));
+                    $cCode = $child['child_id'] ?? "CH-{$id}";
+                    $logger->log("Deleted Child Health Record: {$cName} ({$cCode})", [
+                        'module'  => 'Immunization & Nutrition',
+                        'details' => "Removed child profile and associated health tracking data",
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
             Response::success('Child deleted successfully');
         } else {
             Response::error('Failed to delete child', 500);
@@ -184,6 +253,9 @@ class ChildController
 
     public function stats(): void
     {
+        $this->requireDepartment('immunization & nutrition');
+        $this->requireCapability(Permissions::IMMUNIZATION_VIEW);
+
         $stats = $this->childModel->getStats();
         Response::success('Statistics retrieved successfully', $stats);
     }

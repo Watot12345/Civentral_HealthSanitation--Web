@@ -1,8 +1,8 @@
 <?php
+declare(strict_types=1);
 date_default_timezone_set('Asia/Manila');
 // api/consent.php
 
-declare(strict_types=1);
 
 require_once __DIR__ . '/../Core/Env.php';
 require_once __DIR__ . '/../Core/Response.php';

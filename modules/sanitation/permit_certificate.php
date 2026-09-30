@@ -7,9 +7,9 @@ require_once __DIR__ . '/../../app/Models/PermitDocument.php';
 require_once __DIR__ . '/../../app/Models/Payment.php';
 
 $db = Database::getInstance();
-$permitModel = new Permit($db);
+$permitModel = new Permit();
 $docModel = new PermitDocument($db);
-$paymentModel = new Payment($db);
+$paymentModel = new Payment();
 
 $permitId = isset($_GET['permit_id']) ? (int)$_GET['permit_id'] : 0;
 $docId = isset($_GET['id']) ? (int)$_GET['id'] : 0;

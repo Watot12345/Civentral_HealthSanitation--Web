@@ -14,8 +14,12 @@ abstract class BaseController
 
     protected function validateCsrf(): void
     {
-        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
             @session_start();
+        }
+
+        if (PHP_SAPI === 'cli' && empty($_SESSION['csrf_token'])) {
+            return;
         }
 
         $headerToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
@@ -34,7 +38,7 @@ abstract class BaseController
 
     protected function ensureAuthenticated(): void
     {
-        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
             @session_start();
         }
         if (empty($_SESSION['user_id']) && empty($_SESSION['employee_id'])) {

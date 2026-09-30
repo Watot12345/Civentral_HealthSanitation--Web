@@ -24,7 +24,7 @@ class DepartmentResolver
      */
     public function resolveDepartmentName(): string
     {
-        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
             @session_start();
         }
 
@@ -119,7 +119,7 @@ class DepartmentResolver
     {
         $dLower = strtolower(trim($d));
         return match($dLower) {
-            'health center', 'health center services' => 'health center services',
+            'health center', 'health center services', 'health_center' => 'health center services',
             'sanitation', 'sanitation permits' => 'sanitation permits',
             'immunization', 'nutrition', 'immunization & nutrition' => 'immunization & nutrition',
             'wastewater', 'wastewater services' => 'wastewater services',
@@ -231,7 +231,7 @@ class DepartmentResolver
      */
     public function canAccessDepartment(string $targetDepartment): bool
     {
-        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
             @session_start();
         }
 

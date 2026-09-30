@@ -8,12 +8,19 @@
 //   'brand-border': '#B8E0DC',
 // ============================================================
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+require_once __DIR__ . '/../../config/paths.php';
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../app/Middleware/AuthorizationMiddleware.php';
+
+if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
+    @session_start();
 }
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
+
+// 🛡️ Enforce Health Surveillance department access guard before any action or render
+requireDepartmentAccess('health surveillance');
 
 // ============================================================
 // AJAX API HANDLER FOR POST SUBMISSIONS
@@ -36,9 +43,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         switch ($action) {
             case 'create':
             case 'report_case':
-                $caseYear = date('Y');
-                $existingCount = count($caseModel->all());
-                $newCaseCode = 'CS-' . $caseYear . '-' . str_pad((string)($existingCount + 1), 3, '0', STR_PAD_LEFT);
+                $newCaseCode = method_exists($caseModel, 'generateCaseCode') 
+                    ? $caseModel->generateCaseCode() 
+                    : ('CS-' . date('Y') . '-' . str_pad((string)(count($caseModel->all()) + 1), 3, '0', STR_PAD_LEFT));
                 $newCase = [
                     'case_code'         => $newCaseCode,
                     'disease'           => trim($_POST['disease'] ?? ''),

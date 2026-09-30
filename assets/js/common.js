@@ -118,6 +118,12 @@ document.addEventListener('DOMContentLoaded', function () {
 window._toastTimer = window._toastTimer || null;
 
 function showToast(message, type = 'success') {
+    if (typeof window.toast !== 'undefined') {
+        const mappedType = (type === 'danger' || type === 'error') ? 'error' : (type === 'warning' ? 'warning' : (type === 'success' ? 'success' : 'info'));
+        if (typeof window.toast[mappedType] === 'function') {
+            return window.toast[mappedType](message, { title: (type === 'warning' ? 'Warning' : (type === 'error' || type === 'danger' ? 'Error' : 'Notification')) });
+        }
+    }
     const toast = document.getElementById('toast');
     if (!toast) return;
     const colors = {

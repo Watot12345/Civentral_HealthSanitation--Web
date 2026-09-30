@@ -721,6 +721,9 @@ const ModalSystem = (function() {
             if (typeof toast !== 'undefined' && toast.error) return toast.error(msg, opts);
             console.log('[toast:error]', msg);
         },
+        danger: function(msg, opts) {
+            return this.error(msg, opts);
+        },
         info: function(msg, opts) {
             opts = opts || {}; opts.type = 'info';
             if (typeof toast !== 'undefined' && toast.info) return toast.info(msg, opts);

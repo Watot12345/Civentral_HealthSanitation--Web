@@ -2,24 +2,121 @@
 date_default_timezone_set('Asia/Manila');
 // api/immunization.php
 
+require_once __DIR__ . '/../config/paths.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../Core/Response.php';
+require_once __DIR__ . '/../app/Constants/Permissions.php';
+require_once __DIR__ . '/../app/Middleware/AuthorizationMiddleware.php';
 require_once __DIR__ . '/../app/Models/Child.php';
 require_once __DIR__ . '/../app/Controllers/ChildController.php';
 
-// Handle CORS
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+use App\Constants\Permissions;
+use App\Middleware\AuthorizationMiddleware;
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
+if (PHP_SAPI !== 'cli') {
+    // Handle CORS
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+        http_response_code(200);
+        exit;
+    }
+
+    header('Content-Type: application/json');
 }
 
-header('Content-Type: application/json');
+/**
+ * Helper function to calculate vaccine compliance based on distinct required EPI antigens.
+ * Standard EPI schedule consists of 14 target doses:
+ * - BCG (1)
+ * - Hepatitis B (1)
+ * - Pentavalent / DPT-HepB-Hib (3)
+ * - OPV (3)
+ * - IPV (1)
+ * - PCV (3)
+ * - MMR / Measles (2)
+ */
+function calculateVaccineCompliance(Database $db, int $childId): int
+{
+    try {
+        $allDoses = $db->select('immunizations', ['child_id' => $childId]);
+        if (empty($allDoses) || !is_array($allDoses)) {
+            return 0;
+        }
 
-try {
+        $targetDoses = [
+            'bcg'         => 1,
+            'hepb'        => 1,
+            'pentavalent' => 3,
+            'opv'         => 3,
+            'ipv'         => 1,
+            'pcv'         => 3,
+            'mmr'         => 2
+        ];
+        $totalRequiredDoses = array_sum($targetDoses); // 14
+
+        $achievedDoses = [
+            'bcg'         => [],
+            'hepb'        => [],
+            'pentavalent' => [],
+            'opv'         => [],
+            'ipv'         => [],
+            'pcv'         => [],
+            'mmr'         => []
+        ];
+
+        foreach ($allDoses as $doseRow) {
+            $vaccineName = strtolower(trim((string)($doseRow['vaccine'] ?? '')));
+            $rawDose = $doseRow['dose'] ?? 1;
+            $doseNum = 1;
+            if (is_numeric($rawDose)) {
+                $doseNum = max(1, (int)$rawDose);
+            } elseif (preg_match('/\d+/', (string)$rawDose, $matches)) {
+                $doseNum = max(1, (int)$matches[0]);
+            }
+
+            $category = null;
+            if (str_contains($vaccineName, 'penta') || str_contains($vaccineName, 'dpt')) {
+                $category = 'pentavalent';
+            } elseif (str_contains($vaccineName, 'bcg')) {
+                $category = 'bcg';
+            } elseif (str_contains($vaccineName, 'hepb') || str_contains($vaccineName, 'hepatitis')) {
+                $category = 'hepb';
+            } elseif (str_contains($vaccineName, 'ipv') || str_contains($vaccineName, 'inactivated polio')) {
+                $category = 'ipv';
+            } elseif (str_contains($vaccineName, 'opv') || str_contains($vaccineName, 'oral polio') || str_contains($vaccineName, 'polio')) {
+                $category = 'opv';
+            } elseif (str_contains($vaccineName, 'pcv') || str_contains($vaccineName, 'pneumococcal')) {
+                $category = 'pcv';
+            } elseif (str_contains($vaccineName, 'mmr') || str_contains($vaccineName, 'measles')) {
+                $category = 'mmr';
+            }
+
+            if ($category && isset($targetDoses[$category])) {
+                $cappedDose = min($doseNum, $targetDoses[$category]);
+                $achievedDoses[$category][$cappedDose] = true;
+            }
+        }
+
+        $validCreditedCount = 0;
+        foreach ($achievedDoses as $dosesMap) {
+            $validCreditedCount += count($dosesMap);
+        }
+
+        return min(100, (int)round(($validCreditedCount / $totalRequiredDoses) * 100));
+    } catch (\Throwable $e) {
+        error_log('Compliance calculation error: ' . $e->getMessage());
+        return 0;
+    }
+}
+
+if (PHP_SAPI !== 'cli' || isset($_SERVER['REQUEST_METHOD'])) {
+    try {
+        // 1. Authorize department access for the Immunization API
+        AuthorizationMiddleware::authorizeDepartment('immunization & nutrition', 'Immunization API');
+
     $childModel = new Child();
     $controller = new ChildController($childModel);
 
@@ -30,10 +127,12 @@ try {
     // Find the position of this script in the URL path to handle base URLs correctly
     $scriptPos = array_search('immunization.php', $parts, true);
     
-    $targetId = $childId ?? (isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : null);
+    $targetId = isset($_GET['id']) && is_numeric($_GET['id']) ? (int)$_GET['id'] : null;
 
     switch ($method) {
         case 'GET':
+            AuthorizationMiddleware::authorize(Permissions::IMMUNIZATION_VIEW, 'Immunization API View');
+
             if (isset($_GET['stats'])) {
                 $controller->stats();
             } elseif ($targetId && isset($_GET['export']) && $_GET['export'] === 'pdf') {
@@ -41,7 +140,7 @@ try {
                 require_once __DIR__ . '/../app/services/ExportService.php';
                 require_once __DIR__ . '/../app/Models/ActivityLog.php';
 
-                $child = $childModel->find((string)$targetId);
+                $child = $childModel->find($targetId);
                 if (!$child) {
                     Response::error('Child record not found', 404);
                 }
@@ -88,7 +187,7 @@ try {
                     "child_{$targetId}_immunization.pdf"
                 );
             } elseif ($targetId) {
-                $controller->show($targetId);
+                $controller->show((string)$targetId);
             } elseif (isset($_GET['page'])) {
                 $controller->paginated();
             } else {
@@ -107,6 +206,19 @@ try {
             }
 
             if ($isVaccinationRecord) {
+                AuthorizationMiddleware::authorize(Permissions::IMMUNIZATION_CREATE, 'Immunization API Record Dose');
+
+                // Validate CSRF token if session exists
+                if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
+                    @session_start();
+                }
+                $headerCsrf = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
+                $bodyCsrf = $data['csrf_token'] ?? null;
+                $csrfToken = $headerCsrf ?: $bodyCsrf;
+                if (!empty($_SESSION['csrf_token']) && (empty($csrfToken) || !hash_equals($_SESSION['csrf_token'], (string)$csrfToken))) {
+                    Response::error('Invalid or missing CSRF token', 403);
+                }
+
                 $db = Database::getInstance();
                 
                 // Resolve child_id / target child
@@ -192,15 +304,27 @@ try {
                 try {
                     $res = $db->insert('immunizations', $record);
 
-                    // Recalculate child's vaccine compliance score
+                    // Recalculate child's vaccine compliance score based on EPI antigen schedule
                     try {
-                        $allDoses = $db->select('immunizations', ['child_id' => (int)$childId]);
-                        $doseCount = is_array($allDoses) ? count($allDoses) : 1;
-                        // Standard childhood target is ~10 primary doses in EPI schedule
-                        $compliance = min(100, (int)round(($doseCount / 10) * 100));
-                        $db->update('children', ['vaccine_compliance' => $compliance], ['id' => (int)$childId]);
+                        $compliance = calculateVaccineCompliance($db, (int)$childId);
+                        $db->update('children', [
+                            'vaccine_compliance' => $compliance,
+                            'last_visit'         => $dateAdministered
+                        ], ['id' => (int)$childId]);
                     } catch (\Throwable $ce) {
                         error_log('Notice updating child vaccine compliance: ' . $ce->getMessage());
+                    }
+
+                    if (file_exists(__DIR__ . '/../app/Models/ActivityLog.php')) {
+                        require_once __DIR__ . '/../app/Models/ActivityLog.php';
+                        try {
+                            $logger = new \ActivityLog();
+                            $logger->log("Recorded Vaccination: {$vaccine} (Dose {$dose})", [
+                                'module'  => 'Immunization & Nutrition',
+                                'details' => "Child ID: {$childId} | Administered By: " . ($administeredBy ?? 'Staff') . " | Health Center: {$healthCenter}",
+                                'status'  => 'Success'
+                            ]);
+                        } catch (\Throwable $le) {}
                     }
 
                     Response::success('Vaccination recorded successfully', $res, 201);
@@ -218,19 +342,27 @@ try {
             if (!$targetId) {
                 Response::error('Child ID is required for update', 400);
             }
-            $controller->update($targetId);
+            $controller->update((string)$targetId);
+            break;
+
+        case 'DELETE':
+            if (!$targetId) {
+                Response::error('Child ID is required for deletion', 400);
+            }
+            $controller->destroy((string)$targetId);
             break;
 
         default:
             Response::error('Method not allowed', 405);
     }
 
-} catch (\Throwable $e) {
-    error_log('Immunization API Error: ' . $e->getMessage());
-    http_response_code(500);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Internal server error: ' . $e->getMessage()
-    ]);
-    exit;
+    } catch (\Throwable $e) {
+        error_log('Immunization API Error: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Internal server error: ' . $e->getMessage()
+        ]);
+        exit;
+    }
 }

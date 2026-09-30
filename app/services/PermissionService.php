@@ -288,7 +288,7 @@ class PermissionService
     public function getUserScope(?int $employeeId = null): array
     {
         if ($employeeId === null) {
-            if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+            if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
                 @session_start();
             }
             $userRoleDesc = trim($_SESSION['role_description'] ?? $_SESSION['user']['role_description'] ?? '');
@@ -356,7 +356,7 @@ class PermissionService
      */
     public function getGrantedPermissions(): array
     {
-        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
             @session_start();
         }
 
@@ -379,16 +379,21 @@ class PermissionService
             return $this->allSlugs;
         }
 
+        $roles = [];
         try {
             require_once __DIR__ . '/../Models/Role.php';
             require_once __DIR__ . '/../Models/ActivityLog.php';
             $roleModel = new Role();
             $roles = $roleModel->all();
+        } catch (\Throwable $e) {
+            $roles = [];
+        }
 
-            $normDesc = self::normalizeRoleTitle($userRoleDesc);
-            $normRole = self::normalizeRoleTitle($userRole);
+        $normDesc = self::normalizeRoleTitle($userRoleDesc);
+        $normRole = self::normalizeRoleTitle($userRole);
 
-            $matchedRole = null;
+        $matchedRole = null;
+        if (!empty($roles)) {
             foreach ($roles as $r) {
                 $rName = trim($r['name'] ?? '');
                 $rNorm = self::normalizeRoleTitle($rName);
@@ -399,59 +404,67 @@ class PermissionService
                     break;
                 }
             }
-
-            $grantedSlugs = [];
-            if ($matchedRole && !empty($matchedRole['permissions'])) {
-                foreach ($matchedRole['permissions'] as $p) {
-                    if (!empty($p['granted']) && !empty($p['slug'])) {
-                        $grantedSlugs[] = $p['slug'];
-                    }
-                }
-            }
-            
-            if (empty($grantedSlugs)) {
-                // Baseline matrix defaults if role not found in database or has no permissions configured
-                $matrix = self::defaultRolePermissionMatrix();
-                foreach ($matrix as $rName => $slugs) {
-                    $rNorm = self::normalizeRoleTitle($rName);
-                    if (($userRoleDesc !== '' && (strcasecmp(trim($rName), $userRoleDesc) === 0 || strcasecmp($rNorm, $normDesc) === 0))
-                        || strcasecmp(trim($rName), $userRole) === 0
-                        || strcasecmp($rNorm, $normRole) === 0) {
-                        $grantedSlugs = $slugs;
-                        break;
-                    }
-                }
-            }
-
-            // Department Heads RBAC Guarantee: They manage their own department staff inside User Management
-            $isDeptHead = \ActivityLog::isDepartmentHeadRole($userRoleDesc) || \ActivityLog::isDepartmentHeadRole($userRole);
-            if ($isDeptHead) {
-                $headBase = ['users.view', 'users.create', 'users.edit', 'dashboard.view'];
-                $grantedSlugs = array_merge($grantedSlugs, $headBase);
-
-                // Add module dashboard slug
-                $checkRoleStr = strtolower($userRoleDesc . ' ' . $userRole);
-                if (str_contains($checkRoleStr, 'health center') || str_contains($checkRoleStr, 'medical')) {
-                    $grantedSlugs[] = 'dashboard.health_center';
-                } elseif (str_contains($checkRoleStr, 'sanitation')) {
-                    $grantedSlugs[] = 'dashboard.sanitation';
-                } elseif (str_contains($checkRoleStr, 'immunization') || str_contains($checkRoleStr, 'nutrition')) {
-                    $grantedSlugs[] = 'dashboard.immunization';
-                } elseif (str_contains($checkRoleStr, 'waste')) {
-                    $grantedSlugs[] = 'dashboard.wastewater';
-                } elseif (str_contains($checkRoleStr, 'surveillance')) {
-                    $grantedSlugs[] = 'dashboard.surveillance';
-                }
-            }
-
-            $grantedSlugs = array_values(array_unique($grantedSlugs));
-
-            $_SESSION['granted_permission_slugs_key'] = $currentSessionRoleKey;
-            $_SESSION['granted_permission_slugs'] = $grantedSlugs;
-            return $grantedSlugs;
-        } catch (Throwable $e) {
-            return [];
         }
+
+        $grantedSlugs = [];
+        if ($matchedRole && !empty($matchedRole['permissions'])) {
+            foreach ($matchedRole['permissions'] as $p) {
+                if (!empty($p['granted']) && !empty($p['slug'])) {
+                    $grantedSlugs[] = $p['slug'];
+                }
+            }
+        }
+        
+        if (empty($grantedSlugs)) {
+            // Baseline matrix defaults if role not found in database or has no permissions configured
+            $matrix = self::defaultRolePermissionMatrix();
+            foreach ($matrix as $rName => $slugs) {
+                $rNorm = self::normalizeRoleTitle($rName);
+                if (($userRoleDesc !== '' && (strcasecmp(trim($rName), $userRoleDesc) === 0 || strcasecmp($rNorm, $normDesc) === 0))
+                    || strcasecmp(trim($rName), $userRole) === 0
+                    || strcasecmp($rNorm, $normRole) === 0) {
+                    $grantedSlugs = $slugs;
+                    break;
+                }
+            }
+        }
+
+        // Cashiers in sanitation need permits.create to record and complete permit payments
+        if (strcasecmp($normDesc, 'Cashier') === 0 || strcasecmp($normRole, 'Cashier') === 0) {
+            if (!in_array('permits.create', $grantedSlugs, true)) {
+                $grantedSlugs[] = 'permits.create';
+            }
+        }
+
+        // Department Heads RBAC Guarantee: They manage their own department staff inside User Management
+        $isDeptHead = false;
+        if (class_exists('ActivityLog') && method_exists('ActivityLog', 'isDepartmentHeadRole')) {
+            $isDeptHead = \ActivityLog::isDepartmentHeadRole($userRoleDesc) || \ActivityLog::isDepartmentHeadRole($userRole);
+        }
+        if ($isDeptHead) {
+            $headBase = ['users.view', 'users.create', 'users.edit', 'dashboard.view'];
+            $grantedSlugs = array_merge($grantedSlugs, $headBase);
+
+            // Add module dashboard slug
+            $checkRoleStr = strtolower($userRoleDesc . ' ' . $userRole);
+            if (str_contains($checkRoleStr, 'health center') || str_contains($checkRoleStr, 'medical')) {
+                $grantedSlugs[] = 'dashboard.health_center';
+            } elseif (str_contains($checkRoleStr, 'sanitation')) {
+                $grantedSlugs[] = 'dashboard.sanitation';
+            } elseif (str_contains($checkRoleStr, 'immunization') || str_contains($checkRoleStr, 'nutrition')) {
+                $grantedSlugs[] = 'dashboard.immunization';
+            } elseif (str_contains($checkRoleStr, 'waste')) {
+                $grantedSlugs[] = 'dashboard.wastewater';
+            } elseif (str_contains($checkRoleStr, 'surveillance')) {
+                $grantedSlugs[] = 'dashboard.surveillance';
+            }
+        }
+
+        $grantedSlugs = array_values(array_unique($grantedSlugs));
+
+        $_SESSION['granted_permission_slugs_key'] = $currentSessionRoleKey;
+        $_SESSION['granted_permission_slugs'] = $grantedSlugs;
+        return $grantedSlugs;
     }
 
     /**
@@ -539,7 +552,7 @@ class PermissionService
                 'reports.view', 'reports.sanitation', 'permits.view', 'permits.create', 'inspections.view'
             ],
             'Cashier' => [
-                'dashboard.view', 'dashboard.sanitation', 'permits.view'
+                'dashboard.view', 'dashboard.sanitation', 'permits.view', 'permits.create'
             ],
             'Immunization Coordinator' => [
                 'dashboard.view', 'dashboard.immunization',
@@ -609,7 +622,7 @@ class PermissionService
      */
     public function hasPermission(string $slug): bool
     {
-        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
             @session_start();
         }
 
@@ -692,7 +705,7 @@ class PermissionService
      */
     public function invalidateCache(?int $userId = null): void
     {
-        if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
             @session_start();
         }
         unset($_SESSION['granted_permission_slugs'], $_SESSION['granted_permission_slugs_key']);

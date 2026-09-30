@@ -98,16 +98,32 @@ class WastewaterInvoiceController extends BaseController
 
             // 🛡️ Duplicate Invoice Check for Active/Unpaid Invoices
             $tankId = trim($d['tank_id'] ?? '');
+            $serviceRequestId = trim($d['service_request_id'] ?? '');
             $allowDuplicate = !empty($d['allow_duplicate']);
-            if ($tankId && !$allowDuplicate) {
-                $existingActive = $this->model->findActiveByTankId($tankId, $d['service_type']);
-                if ($existingActive) {
-                    return [
-                        'success' => false,
-                        'message' => "An active unpaid invoice ({$existingActive['invoice_id']}) already exists for Tank {$tankId} with status '{$existingActive['status']}'.",
-                        'duplicate_invoice' => $existingActive,
-                        'code' => 409
-                    ];
+
+            if (!$allowDuplicate) {
+                if ($serviceRequestId) {
+                    $existingByReq = $this->model->findActiveByServiceRequestId($serviceRequestId);
+                    if ($existingByReq) {
+                        return [
+                            'success' => false,
+                            'message' => "An active unpaid invoice ({$existingByReq['invoice_id']}) already exists for Service Request {$serviceRequestId} with status '{$existingByReq['status']}'.",
+                            'duplicate_invoice' => $existingByReq,
+                            'code' => 409
+                        ];
+                    }
+                }
+
+                if ($tankId) {
+                    $existingActive = $this->model->findActiveByTankId($tankId, $d['service_type']);
+                    if ($existingActive) {
+                        return [
+                            'success' => false,
+                            'message' => "An active unpaid invoice ({$existingActive['invoice_id']}) already exists for Tank {$tankId} with status '{$existingActive['status']}'.",
+                            'duplicate_invoice' => $existingActive,
+                            'code' => 409
+                        ];
+                    }
                 }
             }
 

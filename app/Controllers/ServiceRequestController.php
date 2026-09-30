@@ -286,6 +286,50 @@ class ServiceRequestController extends BaseController
 
             $result = $this->model->updateById($id, $data);
             $record = $result[0] ?? $result;
+
+            // ⚡ CASCADE: Sync linked MaintenanceRecord & SepticTank when status changes
+            $newStatus = strtolower($data['status'] ?? '');
+            $tankId    = $data['tank_id'] ?? ($existing['tank_id'] ?? null);
+
+            if (($newStatus === 'completed' || $newStatus === 'cancelled') && !empty($tankId)) {
+                try {
+                    require_once __DIR__ . '/../Models/MaintenanceRecord.php';
+                    $mModel = new MaintenanceRecord();
+
+                    // Find the linked active maintenance record for this tank
+                    $linkedMaint = $mModel->findActiveByTankId($tankId);
+
+                    if ($linkedMaint && !empty($linkedMaint['id'])) {
+                        if ($newStatus === 'completed') {
+                            // Mark maintenance as completed and update septic tank status
+                            $mModel->updateById($linkedMaint['id'], [
+                                'status'         => 'completed',
+                                'completed_date'  => date('Y-m-d'),
+                                'completed_time'  => date('h:i A'),
+                            ]);
+
+                            // Update septic tank last_maintenance date and status
+                            require_once __DIR__ . '/../Models/SepticTank.php';
+                            $tankModel = new SepticTank();
+                            $tank = $tankModel->findByTankId($tankId);
+                            if ($tank && !empty($tank['id'])) {
+                                $tankModel->updateById($tank['id'], [
+                                    'last_maintenance' => date('Y-m-d'),
+                                    'status'           => 'good'
+                                ]);
+                            }
+                        } elseif ($newStatus === 'cancelled') {
+                            // Cancel the linked maintenance record to unblock future scheduling
+                            $mModel->updateById($linkedMaint['id'], [
+                                'status' => 'cancelled',
+                            ]);
+                        }
+                    }
+                } catch (Throwable $e) {
+                    error_log('ServiceRequest cascade sync error: ' . $e->getMessage());
+                }
+            }
+
             return [
                 'success' => true,
                 'action'  => 'update',
@@ -304,8 +348,55 @@ class ServiceRequestController extends BaseController
             $this->requireCapability(Permissions::WASTEWATER_MANAGE);
 
             $existing = $this->model->find($id);
-            if (!$existing) return ['success' => false, 'message' => 'Service request not found', 'code' => 404];
+            if (!$existing) {
+                return ['success' => false, 'message' => 'Service request not found', 'code' => 404];
+            }
+
+            // 1. Business Rule: Can only delete pending or cancelled service requests
+            $currentStatus = strtolower(trim($existing['status'] ?? ''));
+            if (!in_array($currentStatus, ['pending', 'cancelled'], true)) {
+                return [
+                    'success' => false,
+                    'message' => "Cannot delete service request in '{$currentStatus}' status. Requests that are scheduled, in progress, or completed must be cancelled first or retained for auditing.",
+                    'code' => 422
+                ];
+            }
+
+            // 2. Financial Rule: Prevent deletion if billing invoices are attached
+            require_once __DIR__ . '/../Models/WastewaterInvoice.php';
+            $invoiceModel = new \WastewaterInvoice();
+            $invoices = $invoiceModel->findByServiceRequestId($id);
+            if (empty($invoices) && !empty($existing['request_id'])) {
+                $invoices = $invoiceModel->findByServiceRequestId($existing['request_id']);
+            }
+
+            if (!empty($invoices)) {
+                foreach ($invoices as $inv) {
+                    $invStatus = strtolower($inv['status'] ?? '');
+                    if (in_array($invStatus, ['pending', 'overdue', 'paid', 'partially_paid'], true)) {
+                        return [
+                            'success' => false,
+                            'message' => "Cannot delete service request with attached billing invoice ({$inv['invoice_id']}, status: {$invStatus}). Please void or resolve billing invoices prior to deletion.",
+                            'code' => 422
+                        ];
+                    }
+                }
+            }
+
             $this->model->deleteById($id);
+
+            if (file_exists(__DIR__ . '/../Models/ActivityLog.php')) {
+                require_once __DIR__ . '/../Models/ActivityLog.php';
+                try {
+                    $logger = new \ActivityLog();
+                    $logger->log("Deleted Wastewater Service Request: {$id}", [
+                        'module'  => 'Wastewater Services',
+                        'details' => "Status: {$currentStatus} | Type: " . ($existing['service_type'] ?? 'N/A'),
+                        'status'  => 'Success'
+                    ]);
+                } catch (\Throwable $e) {}
+            }
+
             return [
                 'success' => true,
                 'action'  => 'delete',

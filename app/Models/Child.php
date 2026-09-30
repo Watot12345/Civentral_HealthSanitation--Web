@@ -51,6 +51,23 @@ class Child
         }
     }
 
+    public function findWithVaccinations(string|int $id): ?array
+    {
+        $child = $this->find($id);
+        if (!$child) {
+            return null;
+        }
+
+        try {
+            $vaccinations = $this->db->select('immunizations', ['child_id' => $id], ['order' => 'date_administered.asc']);
+            $child['vaccinations'] = is_array($vaccinations) ? $vaccinations : [];
+        } catch (Throwable $e) {
+            $child['vaccinations'] = [];
+        }
+
+        return $child;
+    }
+
     public function create(array $data): array
     {
         if (empty($data['child_id'])) {

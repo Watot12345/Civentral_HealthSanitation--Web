@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../app/Models/Permit.php';
 require_once __DIR__ . '/../../app/Models/PermitDocument.php';
 
 $db = Database::getInstance();
-$permitModel = new Permit($db);
+$permitModel = new Permit();
 $docModel = new PermitDocument($db);
 
 $qrCode = isset($_GET['qr']) ? trim($_GET['qr']) : (isset($_GET['code']) ? trim($_GET['code']) : '');
@@ -165,5 +165,6 @@ $logoUrl = site_url('assets/images/logo.png');
         </div>
     </div>
 
+    <?php include_once __DIR__ . '/../../includes/toast.php'; ?>
 </body>
 </html>
