@@ -255,6 +255,22 @@ foreach ($rawPatients as $p) {
     // Sort timeline descending by timestamp
     usort($timeline, fn($a, $b) => $b['timestamp'] <=> $a['timestamp']);
 
+    // Calculate unique visit dates to prevent double-counting triage + consultation on the same visit
+    $visitDates = [];
+    foreach ($pTriages as $tr) {
+        $d = !empty($tr['created_at']) ? substr($tr['created_at'], 0, 10) : (!empty($tr['date']) ? substr($tr['date'], 0, 10) : '');
+        if ($d) $visitDates[$d] = true;
+    }
+    foreach ($pConsultations as $cn) {
+        $d = !empty($cn['date']) ? substr($cn['date'], 0, 10) : (!empty($cn['created_at']) ? substr($cn['created_at'], 0, 10) : '');
+        if ($d) $visitDates[$d] = true;
+    }
+    foreach ($pAppointments as $ap) {
+        $d = !empty($ap['appointment_date']) ? substr($ap['appointment_date'], 0, 10) : (!empty($ap['date']) ? substr($ap['date'], 0, 10) : '');
+        if ($d) $visitDates[$d] = true;
+    }
+    $totalVisitsCount = max(count($visitDates), max(count($pConsultations), count($pTriages)));
+
     $ehrDataMap[$pId] = [
         'profile' => $profile,
         'triages' => $pTriages,
@@ -265,7 +281,7 @@ foreach ($rawPatients as $p) {
         'legacy' => $pLegacy,
         'timeline' => $timeline,
         'stats' => [
-            'total_visits' => count($pTriages) + count($pConsultations),
+            'total_visits' => $totalVisitsCount,
             'total_consultations' => count($pConsultations),
             'total_prescriptions' => count($pPrescriptions),
             'total_referrals' => count($pReferrals),

@@ -88,6 +88,34 @@ class ConsultationController extends BaseController
                 return ['success' => false, 'message' => 'Patient selection is required', 'code' => 400];
             }
 
+            // DUPLICATE CONSULTATION SAFEGUARD: Prevent duplicate consultation records for same patient/appointment today
+            $targetPatientId = (int)$data['patient_id'];
+            $targetAppId = $data['appointment_id'] ?? null;
+            $todayStr = date('Y-m-d');
+
+            $allConsultations = $this->consultationModel->all(['order' => 'created_at.desc']);
+            foreach ($allConsultations as $ex) {
+                $exPatId = (int)($ex['patient_id'] ?? 0);
+                $exAppId = $ex['appointment_id'] ?? null;
+                $exDate = !empty($ex['date']) ? substr($ex['date'], 0, 10) : '';
+
+                if (!empty($targetAppId) && !empty($exAppId) && (string)$targetAppId === (string)$exAppId) {
+                    return [
+                        'success' => false,
+                        'message' => 'A consultation has already been recorded for this appointment. Duplicate entry blocked.',
+                        'code'    => 409
+                    ];
+                }
+
+                if ($exPatId === $targetPatientId && $exDate === $todayStr) {
+                    return [
+                        'success' => false,
+                        'message' => 'This patient already has a completed consultation recorded today (' . $todayStr . '). Duplicate entry blocked.',
+                        'code'    => 409
+                    ];
+                }
+            }
+
             // Enforce vital signs requirement from Settings
             $requireVitals = class_exists('Settings') ? (bool)Settings::get('modules.health_center.require_vital_signs', true) : true;
             if ($requireVitals) {
@@ -133,14 +161,30 @@ class ConsultationController extends BaseController
             
             error_log('STORE result: ' . json_encode($result));
 
-            // Update appointment status to completed if numeric appointment_id is provided
-            if (!empty($rawAppointmentId) && is_numeric($rawAppointmentId)) {
+            // Update appointment status to completed when consultation is done
+            if (!empty($rawAppointmentId)) {
                 try {
                     error_log('Updating appointment ' . $rawAppointmentId . ' to completed');
                     $this->appointmentModel->updateStatus((string)$rawAppointmentId, 'completed');
                     error_log('Appointment status updated successfully');
                 } catch (Throwable $e) {
                     error_log('Failed to update appointment status: ' . $e->getMessage());
+                }
+            }
+
+            // Auto-complete any open active appointments for this patient
+            if (!empty($dbData['patient_id'])) {
+                try {
+                    $openAppts = $this->appointmentModel->getByPatientId($dbData['patient_id']);
+                    foreach ($openAppts as $app) {
+                        $currSt = strtolower($app['status'] ?? '');
+                        if (in_array($currSt, ['scheduled', 'approved', 'confirmed', 'pending', 'triaged', 'sent_to_doctor'])) {
+                            error_log('Auto-completing open appointment ' . $app['id'] . ' for patient ' . $dbData['patient_id']);
+                            $this->appointmentModel->updateStatus($app['id'], 'completed');
+                        }
+                    }
+                } catch (Throwable $e) {
+                    error_log('Failed to auto-complete patient appointments: ' . $e->getMessage());
                 }
             }
 

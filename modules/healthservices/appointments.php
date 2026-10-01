@@ -84,6 +84,36 @@ $isAdminRole = (str_contains($_sessionRoleDesc, 'admin') || str_contains($_sessi
 $isDoctorOnly = ($isDoctorRole && !$isAdminRole);
 $isStaffOrNurse = (str_contains($_sessionRoleDesc, 'nurse') || str_contains($_sessionRoleDesc, 'staff') || str_contains($_sessionRoleDesc, 'clerk') || str_contains($_sessionRoleDesc, 'triage') || str_contains($_sessionRoleDesc, 'intake') || $isAdminRole || !$isDoctorRole);
 
+// FETCH CONSULTATIONS FOR APPOINTMENT LINKING
+$consultationModel = new Consultation();
+$consultations = [];
+$consultationMap = [];
+$completedPatientsMap = [];
+$rawConsultations = [];
+
+try {
+    $rawConsultations = $consultationModel->all(['order' => 'date.desc']);
+    $todayDateStr = date('Y-m-d');
+    foreach ($rawConsultations as $c) {
+        if (!empty($c['appointment_id'])) {
+            $consultationMap[(string)$c['appointment_id']] = $c['id'];
+            $consultationMap['TRG-' . $c['appointment_id']] = $c['id'];
+        }
+        if (!empty($c['triage_id'])) {
+            $consultationMap['TRG-' . $c['triage_id']] = $c['id'];
+            $consultationMap[(string)$c['triage_id']] = $c['id'];
+        }
+        if (!empty($c['patient_id'])) {
+            $cDate = !empty($c['date']) ? substr($c['date'], 0, 10) : '';
+            if ($cDate === $todayDateStr) {
+                $completedPatientsMap[(int)$c['patient_id']] = $c['id'];
+            }
+        }
+    }
+} catch (Throwable $e) {
+    error_log('Error loading consultations: ' . $e->getMessage());
+}
+
 // Fetch Appointments
 $appointmentModel = new Appointment();
 $appointments = [];
@@ -148,6 +178,15 @@ try {
         $dateStr = $a['appointment_date'] ?? ($a['date'] ?? date('Y-m-d'));
         $timeStr = $a['appointment_time'] ?? ($a['time'] ?? '09:00:00');
 
+        $appIdStr = (string)($a['id'] ?? '');
+        $appCode = (string)($a['appointment_id'] ?? '');
+        $appPatId = (int)($a['patient_id'] ?? 0);
+        $appStatus = strtolower($a['status'] ?? 'pending');
+
+        if (isset($consultationMap[$appIdStr]) || isset($consultationMap[$appCode]) || isset($completedPatientsMap[$appPatId])) {
+            $appStatus = 'completed';
+        }
+
         $appointments[] = [
             'id' => (int)($a['id'] ?? 0),
             'appointment_id' => $a['appointment_id'] ?? '',
@@ -163,7 +202,7 @@ try {
             'date' => $dateStr,
             'appointment_time' => !empty($timeStr) ? substr($timeStr, 0, 8) : '09:00:00',
             'time' => !empty($timeStr) ? date('h:i A', strtotime($timeStr)) : '09:00 AM',
-            'status' => strtolower($a['status'] ?? 'pending'),
+            'status' => $appStatus,
             'priority' => strtolower($a['priority'] ?? 'medium'),
             'notes' => $a['notes'] ?? '',
             'reminder_sent' => (bool)($a['reminder_sent'] ?? false),
@@ -172,27 +211,6 @@ try {
     }
 } catch (Throwable $e) {
     error_log("Error building appointments list: " . $e->getMessage());
-}
-
-// ============================================================
-// FETCH CONSULTATIONS FOR APPOINTMENT LINKING - ADD THIS SECTION
-// ============================================================
-$consultationModel = new Consultation();
-$consultations = [];
-$consultationMap = [];
-$rawConsultations = [];
-
-try {
-    $rawConsultations = $consultationModel->all(['order' => 'date.desc']);
-    
-    // Build a map of appointment_id -> consultation
-    foreach ($rawConsultations as $c) {
-        if (!empty($c['appointment_id'])) {
-            $consultationMap[$c['appointment_id']] = $c['id'];
-        }
-    }
-} catch (Throwable $e) {
-    error_log('Error loading consultations: ' . $e->getMessage());
 }
 
 // Doctor list for UI filters and dropdowns
@@ -262,12 +280,27 @@ try {
         $tTime = isset($t['created_at']) ? date('H:i:s', strtotime($t['created_at'])) : date('H:i:s');
 
         // Map triage status to appointment-like status
-        $tStatus = match(strtolower($t['status'] ?? '')) {
-            'waiting', 'in_triage' => 'pending',
-            'completed', 'sent_to_doctor', 'triaged', 'consulted' => 'approved',
-            'in_consultation' => 'approved',
-            default => 'pending'
-        };
+        $rawTriageStatus = strtolower($t['status'] ?? '');
+        $tIdStr = (string)($t['id'] ?? '');
+        $tCode = (string)($t['triage_id'] ?? '');
+        $tPatIdInt = (int)($tPatId ?? 0);
+
+        $hasConsultationCompleted = $rawTriageStatus === 'consulted' || 
+                                    $rawTriageStatus === 'completed' || 
+                                    isset($consultationMap['TRG-' . $tIdStr]) || 
+                                    isset($consultationMap[$tCode]) || 
+                                    isset($consultationMap[$tIdStr]) ||
+                                    isset($completedPatientsMap[$tPatIdInt]);
+
+        if ($hasConsultationCompleted) {
+            $tStatus = 'completed';
+        } else {
+            $tStatus = match($rawTriageStatus) {
+                'waiting', 'in_triage' => 'pending',
+                'sent_to_doctor', 'triaged', 'in_consultation' => 'approved',
+                default => 'pending'
+            };
+        }
 
         $tPriority = strtolower($t['priority'] ?? 'medium');
 
@@ -280,8 +313,8 @@ try {
             'patient_avatar'   => $tAvatar,
             'employee_id'      => $tDocId,
             'doctor_name'      => $tDocName,
-            'service_type'     => 'Triage Assessment',
-            'type'             => 'Triage Assessment',
+            'service_type'     => 'Patient Assessment',
+            'type'             => 'Patient Assessment',
             'appointment_date' => $tDate,
             'date'             => $tDate,
             'appointment_time' => $tTime,
@@ -747,19 +780,22 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                                         <i class="fa-solid fa-eye text-sm"></i>
                                     </button>
                                     <button onclick="viewPatientAssessmentForAppointment('<?php echo htmlspecialchars((string)($a['patient_id'] ?? $a['id'])); ?>', '<?php echo htmlspecialchars($a['patient_name'], ENT_QUOTES); ?>')"
-                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="View Patient Assessment / Triage Vitals">
+                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="View Patient Assessment Vitals">
                                         <i class="fa-solid fa-heart-pulse text-sm"></i>
                                     </button>
 
                                     <?php if ($isReassignmentPending): ?>
-                                        <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Doctor Unavailable — Consultation On Hold (Re-assign in Patient Assessment / Triage Desk)">
+                                        <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Doctor Unavailable — Consultation On Hold (Re-assign in Patient Assessment Desk)">
                                             <i class="fa-solid fa-user-slash text-sm"></i>
                                         </button>
+                                    <?php elseif (strtolower($a['status']) === 'completed'): ?>
+                                        <!-- Action button for creating/starting consultation is gone when completed -->
                                     <?php else: ?>
                                         <?php 
                                             $hasRegisteredPatient = !empty($a['patient_id']) && (int)$a['patient_id'] > 0;
+                                            $isFromTriage = ($a['source'] ?? '') === 'triage';
                                         ?>
-                                        <?php if (in_array($a['status'], ['approved', 'confirmed', 'pending']) && $hasRegisteredPatient): ?>
+                                        <?php if (in_array(strtolower($a['status']), ['approved', 'confirmed', 'pending', 'scheduled']) && $hasRegisteredPatient && !$isFromTriage): ?>
                                             <button onclick="checkInScheduledPatient('<?php echo htmlspecialchars((string)$a['patient_id']); ?>')"
                                                     class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient for Today's Visit (Scheduled via Patient Management)">
                                                 <i class="fa-solid fa-user-check text-sm"></i>
@@ -1384,7 +1420,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                             <i class="fa-solid fa-heart-pulse"></i>
                         </div>
                         <p class="font-bold text-slate-800 text-base">No Assessment Recorded Yet</p>
-                        <p class="text-xs text-slate-500 max-w-sm mx-auto">No vital signs or intake triage assessment has been recorded for ${CrudAjax.escapeHtml(patientName || 'this patient')} yet.</p>
+                        <p class="text-xs text-slate-500 max-w-sm mx-auto">No vital signs or intake patient assessment has been recorded for ${CrudAjax.escapeHtml(patientName || 'this patient')} yet.</p>
                         <button onclick="ModalSystem.close('viewTriageAssessmentModal')" class="mt-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 text-xs font-semibold">Close</button>
                     </div>
                 `;
@@ -1654,13 +1690,15 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
             (isReassignmentPending ? 'bg-amber-100 text-amber-900 border border-amber-300 font-extrabold shadow-xs inline-flex items-center gap-1.5' :
             (['approved', 'confirmed', 'scheduled'].includes(safeStatus) ? 'bg-emerald-100 text-emerald-700 font-semibold' :
             (safeStatus === 'pending' ? 'bg-amber-100 text-amber-700 font-semibold' :
-            (safeStatus === 'completed' ? 'bg-blue-100 text-blue-700 font-semibold' : 'bg-rose-100 text-rose-700 font-semibold'))));
+            (safeStatus === 'completed' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold inline-flex items-center gap-1' : 'bg-rose-100 text-rose-700 font-semibold'))));
 
         let statusText = safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1);
         if (isReassignmentPending) {
             statusText = '<i class="fa-solid fa-user-clock text-amber-600"></i> On Hold';
         } else if (isSentToOtherDoctor) {
             statusText = '<i class="fa-solid fa-user-doctor text-purple-600"></i> Reassigned to Other Doctor';
+        } else if (safeStatus === 'completed') {
+            statusText = '<i class="fa-solid fa-circle-check text-emerald-600"></i> Completed';
         }
 
         const nameParts = (a.patient_name || '').split(' ');
@@ -1674,12 +1712,15 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
         let actionButtonsHtml = '';
         if (isReassignmentPending) {
             actionButtonsHtml = `
-                <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Doctor Unavailable — Consultation On Hold (Re-assign in Patient Assessment / Triage Desk)">
+                <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Doctor Unavailable — Consultation On Hold (Re-assign in Patient Assessment Desk)">
                     <i class="fa-solid fa-user-slash text-sm"></i>
                 </button>`;
+        } else if (safeStatus === 'completed') {
+            actionButtonsHtml = '';
         } else {
             const hasRegisteredPatient = Boolean(a.patient_id && parseInt(a.patient_id) > 0);
-            const checkInBtn = (['approved', 'confirmed', 'pending'].includes(safeStatus) && hasRegisteredPatient) ? `
+            const isFromTriage = (a.source === 'triage');
+            const checkInBtn = (['approved', 'confirmed', 'pending', 'scheduled'].includes(safeStatus) && hasRegisteredPatient && !isFromTriage) ? `
                 <button onclick="checkInScheduledPatient('${a.patient_id}')"
                         class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient for Today's Visit (Scheduled via Patient Management)">
                     <i class="fa-solid fa-user-check text-sm"></i>
@@ -1702,7 +1743,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
 
         const assessmentBtn = `
             <button onclick="viewPatientAssessmentForAppointment('${a.patient_id || safeId}', '${safePatientName}')"
-                    class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="View Patient Assessment / Triage Vitals">
+                    class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="View Patient Assessment Vitals">
                 <i class="fa-solid fa-heart-pulse text-sm"></i>
             </button>`;
 

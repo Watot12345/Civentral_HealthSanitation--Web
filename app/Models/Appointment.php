@@ -101,9 +101,26 @@ class Appointment
         return is_array($updated) ? $updated : $updated;
     }
 
+    public function getByPatientId(string|int $patientId): array
+    {
+        try {
+            return $this->db->select($this->table, ['patient_id' => 'eq.' . $patientId], ['order' => 'created_at.desc']);
+        } catch (\Throwable $e) {
+            error_log("Appointment::getByPatientId error: " . $e->getMessage());
+            return [];
+        }
+    }
+
     public function updateStatus(string|int $id, string $status): array
     {
-        $updated = $this->db->update($this->table, ['status' => $status], ['id' => 'eq.' . $id], true);
+        $numericId = $id;
+        if (!is_numeric($id)) {
+            $found = $this->findByAppointmentId((string)$id);
+            if (!empty($found['id'])) {
+                $numericId = $found['id'];
+            }
+        }
+        $updated = $this->db->update($this->table, ['status' => $status], ['id' => 'eq.' . $numericId], true);
         if (is_array($updated) && isset($updated[0]) && is_array($updated[0])) {
             $updated = $updated[0];
         }

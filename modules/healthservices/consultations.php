@@ -179,9 +179,21 @@ $isDoctorOnly = ($isPractitionerRole && !$isAdminRole);
 // Fetch real consultations from database
 $consultationModel = new Consultation();
 $consultations = [];
+$completedTodayPatientIds = [];
+$completedAppointmentIds = [];
+$todayDateStr = date('Y-m-d');
 
 try {
     $rawConsultations = $consultationModel->all(['order' => 'date.desc,created_at.desc']);
+    foreach ($rawConsultations as $rc) {
+        $cDate = !empty($rc['date']) ? substr($rc['date'], 0, 10) : '';
+        if ($cDate === $todayDateStr && !empty($rc['patient_id'])) {
+            $completedTodayPatientIds[(int)$rc['patient_id']] = true;
+        }
+        if (!empty($rc['appointment_id'])) {
+            $completedAppointmentIds[(string)$rc['appointment_id']] = true;
+        }
+    }
     
     $patientsMap = [];
     foreach ($dbPatients as $p) {
@@ -561,12 +573,16 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                     <div class="flex items-center gap-1.5 flex-wrap">
                         <button onclick="viewConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye mr-1"></i> View</button>
                         <button onclick="editConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Record"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
+                        <?php if (strtolower($c['status'] ?? '') !== 'completed' && strtolower($c['status'] ?? '') !== 'cancelled'): ?>
                         <button onclick="cancelConsultation(<?php echo $c['id']; ?>)" class="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Cancel Record"><i class="fa-solid fa-ban mr-1"></i> Cancel</button>
+                        <?php endif; ?>
                     </div>
                     <div class="flex items-center gap-1 flex-wrap">
                         <button onclick="openPatientProfile(<?php echo $c['patient_id']; ?>)" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="View Patient Profile"><i class="fa-solid fa-address-card text-xs"></i></button>
                         <button onclick="issuePrescription(<?php echo $c['patient_id']; ?>, <?php echo $c['id']; ?>)" class="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition" title="Issue Prescription (Optional)"><i class="fa-solid fa-pills text-xs"></i></button>
+                        <?php if (strtolower($c['status'] ?? '') !== 'completed'): ?>
                         <button onclick="createReferral(<?php echo $c['patient_id']; ?>, <?php echo $c['id']; ?>)" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Create Referral (Optional)"><i class="fa-solid fa-arrow-right-from-bracket text-xs"></i></button>
+                        <?php endif; ?>
                         <button onclick="scheduleFollowUp(<?php echo $c['patient_id']; ?>, <?php echo $c['id']; ?>)" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Schedule Follow-up"><i class="fa-solid fa-calendar-plus text-xs"></i></button>
                         <button onclick="openMedicalRecord(<?php echo $c['patient_id']; ?>)" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Medical Record Archive"><i class="fa-solid fa-folder-open text-xs"></i></button>
                     </div>
@@ -633,8 +649,17 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
 <!-- REAL-TIME SURVEILLANCE & BARANGAY ACTIVE DISEASE NOTICE -->
 <div id="add_surveillance_barangay_alert" class="hidden p-3.5 rounded-xl border flex items-start gap-3 text-xs transition"></div>
 
+<!-- DUPLICATE CONSULTATION WARNING BANNER -->
+<div id="add_duplicate_consultation_alert" class="hidden p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold flex items-center gap-2.5 mb-3">
+    <i class="fa-solid fa-lock text-rose-600 text-lg flex-shrink-0"></i>
+    <div>
+        <p class="font-extrabold text-rose-900 text-xs">Consultation Already Completed Today</p>
+        <p class="text-[11px] text-rose-700 font-medium mt-0.5">A consultation has already been recorded for this patient/appointment today. Further submission is disabled to prevent duplicate data.</p>
+    </div>
+</div>
+
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Patient <span class="text-rose-500">*</span></label><select id="add_patient_id" onchange="checkPatientSurveillanceSignals(this.value)" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Patient</option><?php foreach ($dbPatients as $p): ?><option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['first_name'] . ' ' . $p['last_name']); ?> (<?php echo htmlspecialchars($p['patient_id'] ?? "P-{$p['id']}"); ?>)</option><?php endforeach; ?></select></div>
+<div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Patient <span class="text-rose-500">*</span></label><select id="add_patient_id" onchange="checkPatientSurveillanceSignals(this.value); checkDuplicateConsultation(this.value);" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Patient</option><?php foreach ($dbPatients as $p): $pId = (int)$p['id']; $isCompletedToday = !empty($completedTodayPatientIds[$pId]); ?><option value="<?php echo $p['id']; ?>" <?php echo $isCompletedToday ? 'disabled class="bg-slate-100 text-slate-400 font-semibold"' : ''; ?>><?php echo htmlspecialchars($p['first_name'] . ' ' . $p['last_name']); ?> (<?php echo htmlspecialchars($p['patient_id'] ?? "P-{$p['id']}"); ?>)<?php if ($isCompletedToday): ?> — [CONSULTATION COMPLETED TODAY]<?php endif; ?></option><?php endforeach; ?></select></div>
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Attending Doctor / Staff <span class="text-rose-500">*</span></label><select id="add_employee_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"><option value="">Select Doctor / Staff</option><?php foreach ($medicalStaff as $e): $displayName = $e['full_name'] ?? $e['name'] ?? "Employee #{$e['id']}"; $isSelected = ($loggedInDoctorId && (int)$e['id'] === (int)$loggedInDoctorId); ?><option value="<?php echo $e['id']; ?>" <?php echo $isSelected ? 'selected' : ''; ?>><?php echo htmlspecialchars($displayName); ?> (<?php echo htmlspecialchars($e['role_description'] ?? 'Doctor'); ?>)</option><?php endforeach; ?></select></div>
 </div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Date <span class="text-rose-500">*</span></label><input type="date" id="add_date" value="<?php echo date('Y-m-d'); ?>" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Time <span class="text-rose-500">*</span></label><input type="time" id="add_time" value="<?php echo date('H:i'); ?>" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
@@ -847,12 +872,14 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         <div class="flex items-center gap-1.5 flex-wrap">
             <button onclick="viewConsultation(${id})" class="px-2 py-1 text-xs font-semibold text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye mr-1"></i> View</button>
             <button onclick="editConsultation(${id})" class="px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Record"><i class="fa-solid fa-pen mr-1"></i> Edit</button>
-            <button onclick="cancelConsultation(${id})" class="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Cancel Record"><i class="fa-solid fa-ban mr-1"></i> Cancel</button>
+            ${(String(c.status || '').toLowerCase() !== 'completed' && String(c.status || '').toLowerCase() !== 'cancelled') ? `
+            <button onclick="cancelConsultation(${id})" class="px-2 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Cancel Record"><i class="fa-solid fa-ban mr-1"></i> Cancel</button>` : ''}
         </div>
         <div class="flex items-center gap-1 flex-wrap">
             <button onclick="openPatientProfile(${c.patient_id})" class="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="View Patient Profile"><i class="fa-solid fa-address-card text-xs"></i></button>
             <button onclick="issuePrescription(${c.patient_id}, ${id})" class="p-1.5 text-teal-600 hover:bg-teal-50 rounded-lg transition" title="Issue Prescription (Optional)"><i class="fa-solid fa-pills text-xs"></i></button>
-            <button onclick="createReferral(${c.patient_id}, ${id})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Create Referral (Optional)"><i class="fa-solid fa-arrow-right-from-bracket text-xs"></i></button>
+            ${String(c.status || '').toLowerCase() !== 'completed' ? `
+            <button onclick="createReferral(${c.patient_id}, ${id})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Create Referral (Optional)"><i class="fa-solid fa-arrow-right-from-bracket text-xs"></i></button>` : ''}
             <button onclick="scheduleFollowUp(${c.patient_id}, ${id})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Schedule Follow-up"><i class="fa-solid fa-calendar-plus text-xs"></i></button>
             <button onclick="openMedicalRecord(${c.patient_id})" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="Medical Record Archive"><i class="fa-solid fa-folder-open text-xs"></i></button>
         </div>
@@ -1055,9 +1082,10 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                         <button onclick="issuePrescription(${c.patient_id}, ${c.id})" class="px-3 py-1.5 bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-100 rounded-lg transition text-xs font-semibold flex items-center gap-1.5">
                             <i class="fa-solid fa-pills text-teal-600"></i> Issue Prescription
                         </button>
+                        ${String(c.status || '').toLowerCase() !== 'completed' ? `
                         <button onclick="createReferral(${c.patient_id}, ${c.id})" class="px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 rounded-lg transition text-xs font-semibold flex items-center gap-1.5">
                             <i class="fa-solid fa-arrow-right-from-bracket text-amber-600"></i> Create Referral
-                        </button>
+                        </button>` : ''}
                         <button onclick="scheduleFollowUp(${c.patient_id}, ${c.id})" class="px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 rounded-lg transition text-xs font-semibold flex items-center gap-1.5">
                             <i class="fa-solid fa-calendar-plus text-blue-600"></i> Schedule Follow-up
                         </button>
@@ -1706,6 +1734,11 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
     // CANCEL CONSULTATION
     // ============================================================
     async function cancelConsultation(id) {
+        const c = CONSULTATIONS_DATA[id];
+        if (c && String(c.status || '').toLowerCase() === 'completed') {
+            ModalSystem.toast.error('Completed consultations cannot be cancelled because the medical record is finalized.');
+            return;
+        }
         ModalSystem.confirm('This consultation record will be cancelled.', async () => {
             try {
                 const csrfToken = CrudAjax.getCsrfToken();
@@ -1922,14 +1955,45 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                 const ni=document.getElementById('add_notes');if(ni&&aid)ni.value=`Consultation from appointment #${aid}`;
                 const ai=document.getElementById('add_appointment_id');if(ai&&aid)ai.value=aid;
                 const tri=document.getElementById('add_triage_id');if(tri&&tid)tri.value=tid;
+                checkDuplicateConsultation(pid, aid);
                 ModalSystem.toast.info('Patient and assigned doctor auto-selected and locked for security',{title:'📋 Auto-filled',duration:3000});
             },500);
         }
 
         // Check surveillance status if patient pre-loaded
         const initialPid = document.getElementById('add_patient_id')?.value;
-        if (initialPid) checkPatientSurveillanceSignals(initialPid);
+        if (initialPid) {
+            checkPatientSurveillanceSignals(initialPid);
+            checkDuplicateConsultation(initialPid);
+        }
     });
+
+    window.COMPLETED_TODAY_PATIENTS = <?php echo json_encode(array_map('intval', array_keys($completedTodayPatientIds))); ?>;
+    window.COMPLETED_APPOINTMENT_IDS = <?php echo json_encode(array_map('strval', array_keys($completedAppointmentIds))); ?>;
+
+    function checkDuplicateConsultation(patientId, appointmentId = null) {
+        const alertBox = document.getElementById('add_duplicate_consultation_alert');
+        const submitBtn = document.getElementById('submitAddBtn');
+        if (!alertBox || !submitBtn) return;
+
+        const pid = parseInt(patientId || document.getElementById('add_patient_id')?.value || 0);
+        const aid = appointmentId || document.getElementById('add_appointment_id')?.value || null;
+
+        const isPatientCompletedToday = pid > 0 && window.COMPLETED_TODAY_PATIENTS && window.COMPLETED_TODAY_PATIENTS.includes(pid);
+        const isApptCompleted = aid && window.COMPLETED_APPOINTMENT_IDS && window.COMPLETED_APPOINTMENT_IDS.includes(String(aid));
+
+        if (isPatientCompletedToday || isApptCompleted) {
+            alertBox.classList.remove('hidden');
+            submitBtn.disabled = true;
+            submitBtn.className = "px-4 py-2 bg-slate-200 text-slate-500 border border-slate-300 rounded-lg cursor-not-allowed text-sm font-semibold flex items-center gap-1.5 opacity-80";
+            submitBtn.innerHTML = '<i class="fa-solid fa-lock"></i> Consultation Already Completed Today';
+        } else {
+            alertBox.classList.add('hidden');
+            submitBtn.disabled = false;
+            submitBtn.className = "px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5";
+            submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> Save Consultation';
+        }
+    }
 
     // ============================================================
     // HEALTH SURVEILLANCE PRIMARY SOURCE BRIDGE

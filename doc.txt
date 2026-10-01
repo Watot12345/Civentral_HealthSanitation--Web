@@ -1,0 +1,4131 @@
+DESIGN DEVELOPMENT OF A WEB-BASED HEALTH AND
+SANITATION MANAGEMENT INFORMATION SYSTEM WITH
+ GEMINI-POWERED AI ANALYTICS, DECISION SUPPORT
+      AND AUTOMATED REPORT GENERATION
+              FOR LOCAL GOVERNMENT
+                            UNIT
+
+                       A Capstone
+                 Presented to the Faculty
+               of The College of Computing
+       Studies at Bestlink College of the Philippines
+
+                     In Partial Fulfilment
+            of the Requirements for the Degree
+       Bachelor of Science in Information Technology
+
+                 JOHN MARK D. GIRAY
+                   RHYZON N. LACSI
+                     RAFFY P. LAPIZ
+             JOSHUA ARNCEL O. SIERRA
+                    JAIME L. TRONO
+
+                       August 2026
+
+                        APPROVAL SHEET
+
+       This research entitled DESIGN AND DEVELOPMENT OF A
+WEB-BASED         HEALTH      AND      SANITATION       MANAGEMENT
+INFORMATION SYSTEM WITH GEMINI-POWERED AI ANALYTICS,
+DECISION SUPPORT, AND AUTOMATED REPORT GENERATION
+FOR LOCAL GOVERNMENT UNIT, prepared and submitted by JOHN
+MARK D. GIRAY, RHYZON N. LACSI, RAFFY P. LAPIZ, JOSHUA
+ARNCEL O. SIERRA, and JAIME L. TRONO, in partial fulfillment of the
+requirements for the degree of Bachelor of Science in Information
+Technology, has been examined and is recommended for acceptance
+and approval for Oral Defense.
+
+                                                       JORGE B. LUCERO
+                                                           Adviser
+
+                      CAPSTONE REVIEW PANEL
+Approved by the Committee on Oral Examination with a grade of
+_______.
+
+FIRST, INITIAL, LAST, EXTENSION        FIRST, INITIAL, LAST, EXTENSION
+             Member                                  Member
+
+                     ROMMEL J. CONSTANTINO, DIT
+                            Chairperson
+ Accepted and approved in partial fulfillment of the requirements for the
+       degree of Bachelor of Science in Information Technology.
+                   ROSICAR E. ESCOBER. Ph.D., DIT
+                   Dean, College of Computer Studies
+
+                                                                        1
+
+                       ACKNOWLEDGEMENT
+
+      The researchers express their gratitude to the people who have
+
+contributed their time, knowledge, guidance, encouragement, and
+
+support throughout the completion of this capstone project. This
+
+accomplishment would not have been possible without their assistance:
+
+      Dr. Maria M. Vicente, President/CEO of Bestlink College of the
+
+Philippines, for her generosity and for providing the researchers with an
+
+environment that encourages learning, innovation, and personal growth;
+
+      Ms. Edith M. Vicente, Executive Vice President, for her
+
+continuous support, assistance, and encouragement throughout the
+
+completion of this capstone project;
+
+      Dr. Charlie I. Cariño, Vice President for Academic Affairs, for his
+
+unwavering support, encouragement, and guidance throughout the
+
+completion of this capstone project;
+
+      Dr. Rosicar E. Escober, Dean of the College of Computer
+
+Studies, for her invaluable support, guidance, and encouragement,
+
+which inspired the researchers to strive for excellence;
+
+                                                                       2
+
+       Mr. Rommel J. Constantino, Department Head of the IT
+
+Department, for his guidance, valuable insights, and support throughout
+
+the development of this capstone project;
+
+       Ms. Kris Villaflores, Program Research Coordinator, for her
+
+guidance and assistance with research-related requirements and
+
+processes,    as   well      as   her   valuable   recommendations   and
+
+encouragement;
+
+       Ms. Ma. Rose S. Savariz, Grammarian, for her careful review
+
+and corrections that helped improve the grammar, clarity, and overall
+
+quality of the manuscript;
+
+       Mr. Ronald G. Roldan Jr., Technical Adviser, for his technical
+
+guidance, valuable insights, and recommendations that helped improve
+
+the functionality and quality of the capstone project;
+
+       Mr. Jorge B. Lucero, Research Adviser, for his valuable
+
+guidance,    suggestions,     and   encouragement,       which helped the
+
+researchers improve and refine the project throughout its completion;
+
+                                                                        3
+
+      The Families and Friends of the Researchers, for their
+
+unconditional love, encouragement, understanding, and continuous
+
+moral and financial support throughout the development of this
+
+capstone project;
+
+      The Panelists, for sharing their time, expertise, and valuable
+
+recommendations, which helped the researchers improve the project
+
+and better understand its objectives and development;
+
+      Above all, the researchers express their gratitude to Almighty
+
+God for granting them wisdom, strength, guidance, and determination
+
+throughout this journey, and for helping them overcome every challenge
+
+and successfully complete this capstone project.
+
+                                                                    4
+
+                             DEDICATION
+
+       This capstone project is dedicated to the researchers' families for
+
+their unconditional love, guidance, encouragement, and continuous
+
+support throughout the development of this project.
+
+       It is also dedicated to Mr. Jorge B. Lucero, Research Adviser,
+
+for his valuable guidance and support, as well as to their professors,
+
+friends, and classmates for their encouragement throughout this
+
+journey.
+
+       The researchers also dedicate this project to Bestlink College
+
+of the Philippines for providing the knowledge and opportunities that
+
+contributed to its completion.
+
+       Above all, this project is dedicated to Almighty God for granting
+
+the researchers wisdom, strength, patience, and guidance throughout
+
+this journey.
+
+                                                                        5
+
+      Lastly, this project is dedicated to the researchers, JOHN MARK
+
+D. GIRAY, RHYZON N. LACSI, RAFFY P. LAPIZ, JOSHUA ARNCEL
+
+O. SIERRA, and JAIME L. TRONO, for their time, effort, sacrifices, and
+
+determination in completing this capstone project.
+
+                                                                    6
+
+                           ABSTRACT
+
+Title                 DESIGN   AND    DEVELOPMENT    OF   A
+                      WEB-BASED           HEALTH        AND
+                      SANITATION MANAGEMENT INFORMATION
+                      SYSTEM     WITH   GEMINI-POWERED    AI
+                      ANALYTICS,   DECISION SUPPORT, AND
+                      AUTOMATED REPORT GENERATION FOR
+                      LOCAL GOVERNMENT UNIT
+
+Author                John Mark D. Giray
+                      Rhyzon N. Lacsi
+                      Raffy P. Lapiz
+                      Joshua Arncel O. Sierra
+                      Jaime L. Trono
+
+Degree                Bachelor of Science in Information Management
+
+Majors                Information Management, Information Security,
+                      Network Administration
+
+Date of Completion:
+
+Keywords:
+
+                                                                      7
+
+                    TABLE OF CONTENTS
+APPROVAL SHEET                                        !
+ACKNOWLEDGEMENT                                       II
+DEDICATION                                           III
+
+ABSTRACT                                             IV
+CHAPTER 1                                            10
+     1 INTRODUCTION                                  10
+             1.1 Project Background and Motivation   11
+             1.2 Statement of the Problem            15
+             1.3 Project Vision and Scope            18
+
+                1.3.1 In-Scope                       18
+                1.3.2 Out-of-Scope                   21
+             1.4 Objectives and Goals                23
+             1.4.1 General Objective                 23
+
+                1.4.2 Specific Objectives            24
+             1.5 Significance and Relevance          25
+
+                1.5.1 Theoretical Significance       26
+                1.5.2 Practical Significance         26
+             1.7 Structure of the Document           34
+
+                                                       8
+
+CHAPTER
+    2 RELATED LITERATURE, STUDIES, AND TECHNICAL
+    BACKGROUND                                                  36
+          2.1 Review of Related Literature                      36
+          2.2 Analysis of Related Studies and Existing
+          Systems                                               41
+             Agile Methodology                                  42
+             Scrum Framework                                    43
+             Application of Agile Scrum in the Proposed Study   45
+            2.4.1 Microservices Architecture                    49
+            2.4.2 Artificial Intelligence (AI)                  52
+             2.4.3 Internet of Things (IoT)                     54
+            2.4.4 Data Analytics and Business Intelligence      56
+            2.4.5 Polyglot Persistence                          58
+            2.4.6 Cybersecurity                                 60
+            2.4.8 Software Quality Standards                    64
+            2.4.9 Cloud Computing                               65
+            2.4.10 Edge Computing                               68
+      2.5 DevOps Culture and CI/CD Practices                    69
+      2.6 Enterprise Architecture and System Integration        71
+CHAPTER
+    3 Methodology and Project Management                        78
+      3.1 The Adapted Agile Scrum Framework                     78
+
+                                                                  9
+
+    3.1.1 Team Roles and Responsibilities           80
+    3.1.2 Scrum Events                              81
+   3.1.2.1 Sprint Planning                          82
+    3.1.2.2 Daily Stand-up                          83
+    3.1.2.3 Sprint Review                           84
+    3.1.2.4 Sprint Retrospective                    85
+    3.1.2.5 Role of the Adviser as Product Owner    86
+    3.1.3 Scrum Artifacts                           86
+    3.1.4 Toolstack                                 89
+3.2 Architectural Design Decisions                  92
+   3.2.1 Why Microservices?                         93
+   3.2.2 Service Independence                       94
+   3.2.3 API-Based Communication                    94
+   3.2.4 Scalability                                95
+   3.2.5 Maintainability                            95
+   3.2.6 Security and Access Control                96
+   3.2.7 AI Service Integration                     97
+   3.2.8 Integration with the Larger LGU System     97
+3.3 Development, Operations and QA Methodology      98
+    3.3.1 DevOps Toolchain                          99
+    3.3.2 CI/CD Pipeline Design                    101
+    3.3.3 Testing Strategy                         103
+3.4 Innovation Framework                           104
+
+                                                     10
+
+             3.4.1 Gemini-Powered AI                              105
+             3.4.2 AI Analytics and Trend Analysis                106
+             3.4.3 Decision Support                               106
+             3.4.4 Automated Report Generation                    107
+             3.4.5 Health and Sanitation Monitoring               107
+             3.4.6 Data Visualization and Notifications           108
+             3.4.7 Future Expansion                               109
+        Overall Innovation                                        109
+
+                              CHAPTER 1
+
+                           INTRODUCTION
+
+      Local government units across the Philippines are under growing
+
+pressure to deliver public services faster and with fewer errors, and
+
+health and sanitation is one of the areas where this gap shows up the
+
+most. In South Caloocan , the Health and Sanitation Office manages
+
+everything from health center services and sanitation permits to
+
+immunization records, wastewater requests, and disease surveillance,
+
+but much of this still runs on scattered logbooks, spreadsheets, and
+
+manual processes that slow down retrieval, monitoring, and reporting.
+
+                                                                        11
+
+       This study proposes a web-based Health and Sanitation
+
+Management Information System that brings these services onto a
+
+single platform and adds Gemini-powered AI to help staff spot trends
+
+and generate reports faster, alongside a mobile app that lets residents
+
+book appointments, apply for permits, and check records without
+
+visiting an office in person.
+
+1.1 Project Background and Motivation
+
+       The continuous advancement of information technology has
+
+significantly transformed how government agencies manage information
+
+and deliver public services. One of the sectors that greatly benefits from
+
+digital transformation is public health and sanitation, where timely,
+
+accurate,   and    accessible   information is essential for protecting
+
+community health and supporting efficient government operations.
+
+       As urban populations continue to grow and public health demands
+
+become increasingly complex, local government units (LGUs) are
+
+encouraged to adopt integrated information systems that improve service
+
+delivery, operational efficiency, and evidence-based decision-making.
+
+                                                                        12
+
+       In the Caloocan City Government, the Health and Sanitation Office
+
+is responsible for managing various public health and sanitation services,
+
+including health center services, sanitation permit processing and
+
+inspections, immunization and nutrition monitoring, wastewater and
+
+septic service requests, and health surveillance activities.
+
+These services require the continuous collection, storage, and processing
+
+of large volumes of information originating from different operational units.
+
+When these records are maintained using fragmented or partially manual
+
+processes, retrieving information, monitoring service delivery, generating
+
+reports, and coordinating activities become more difficult, resulting in
+
+delays and reduced operational efficiency.
+
+       The increasing availability of Artificial Intelligence (AI) presents an
+
+opportunity to improve traditional information systems by providing
+
+intelligent data analysis and automation. AI technologies can process
+
+large datasets, identify meaningful patterns, generate analytical insights,
+
+and support evidence-based decision-making. In addition, AI can
+
+automate     repetitive   tasks,   such   as   report   generation,    allowing
+
+government personnel to focus on planning and implementing health and
+
+sanitation   programs     rather   than   spending      significant   time    on
+
+                                                                             13
+
+administrative work. Recent advances in Generative Artificial Intelligence
+
+have enabled government information systems to move beyond simple
+
+record management by providing intelligent analytics, natural language
+
+summarization, automated report generation, and decision
+
+support capabilities.
+
+       Unlike   conventional    management      information    systems that
+
+primarily   store   and   retrieve   data,   AI-enhanced      systems    assist
+
+administrators in interpreting information, identifying emerging trends,
+
+and producing timely reports that support strategic planning and
+
+operational     decision-making.      Within    the   proposed          system,
+
+Geminipowered AI serves strictly as a decision-support tool by generating
+
+summaries, identifying trends, and providing analytical insights, while
+
+final decisions remain under the authority of authorized government
+
+personnel. Citizens also experience challenges in accessing government
+
+health services due to physical visits, manual applications, and limited
+
+access to service information. Mobile technologies provide an opportunity
+
+to improve public service accessibility by enabling citizens to request
+
+services, submit applications, monitor requests, receive notifications, and
+
+access selected records using their smartphones.
+
+                                                                           14
+
+      Recognizing these challenges, this study proposes the Design and
+
+Development of a WebBased Health and Sanitation Management
+
+Information System with Gemini-Powered AI Analytics, Decision Support,
+
+and Automated Report Generation for the Caloocan City Government.
+
+The proposed solution consists of a centralized web-based management
+
+system for authorized personnel and a companion mobile application that
+
+enables citizens to conveniently access selected health and sanitation
+
+services such as appointment booking, permit application, immunization
+
+record viewing, wastewater service requests, and health concern
+
+reporting. By integrating Gemini-powered Artificial Intelligence (AI), the
+
+system is expected to analyze collected information, generate analytical
+
+insights, assist decisionmakers, and automate report preparation to
+
+improve operational efficiency and support data-driven governance.
+
+      The development of this system is expected to improve the
+
+efficiency, accuracy, and reliability of health and sanitation information
+
+management within the Caloocan City Government. It also supports the
+
+ongoing digitalization efforts of local government units by introducing
+
+innovative technologies that promote data-driven governance. Ultimately,
+
+the proposed system seeks to strengthen public health and sanitation
+
+                                                                      15
+
+services, enhance operational efficiency, and contribute to better
+
+decision-making that will benefit both government personnel and the
+
+residents of Caloocan City.
+
+1.2 Statement of the Problem
+
+      The Health and Sanitation Office of the Caloocan City Government
+
+plays a vital role in ensuring the implementation of health and sanitation
+
+programs, monitoring compliance with health regulations, and processing
+
+permits related to sanitation services. As the demand for these services
+
+continues to increase, the office handles a growing volume of records and
+
+documents that require efficient management and timely processing.
+
+Despite the existing practices, several operational challenges continue to
+
+affect the management of health and sanitation services. Patient
+
+information, consultation records, and appointment schedules are
+
+maintained across different records, making retrieval and monitoring
+
+more time-consuming. Sanitation permit processing and inspections
+
+require multiple manual verification procedures that may contribute to
+
+processing delays. Immunization and nutrition records require continuous
+
+monitoring   to   ensure timely vaccination and assessment, while
+
+wastewater service requests often involve manual scheduling and status
+
+                                                                      16
+
+tracking. Likewise, disease surveillance activities require timely reporting
+
+and consolidated information to support rapid public health response.
+
+These operational processes generate significant amounts of information
+
+that become difficult to manage efficiently when maintained through
+
+fragmented or partially manual systems. Collectively, these operational
+
+challenges demonstrate the need for an integrated and intelligent
+
+information   system   capable    of   centralizing   records, streamlining
+
+workflows, supporting analytical decision-making, improving citizen
+
+access to government services, and enhancing operational efficiency.
+
+Hence, this study proposes the Design and Development of a
+
+Web-Based Health and Sanitation Management Information System with
+
+Gemini-Powered AI Analytics, Decision Support, and Automated Report
+
+Generation for the Caloocan City Government.
+
+Specifically, this study seeks to answer the following questions:
+
+   ● How can a web-based Health and Sanitation Management
+
+       Information System centralize the management of health and
+
+       sanitation information for the Caloocan City Government?
+
+   ● How can the proposed system improve the efficiency of Health
+
+       Center Services, Sanitation Permit Management, Immunization
+
+                                                                        17
+
+      and Nutrition Management, Wastewater Services, and Health
+
+      Surveillance through digitalization?
+
+   ● How can Gemini-powered AI analytics support data analysis,
+
+      decision support, and operational planning? • How can automated
+
+      report generation improve report preparation?
+
+   ● How can the citizen mobile application improve accessibility to
+
+      government health and sanitation services? How acceptable is the
+
+      proposed system in terms of the following ISO/IEC 25010 quality
+
+      characteristics:
+
+   ● Functional Suitability;
+
+   ● Performance Efficiency;
+
+   ● Compatibility; • Usability;
+
+   ● Reliability; • Security;
+
+   ● Maintainability;
+
+   ● Portability.
+
+1.3 Project Vision and Scope
+
+      This study focuses on the design and development of a
+
+Web-Based Health and Sanitation Management Information System with
+
+Gemini-Powered AI Analytics, Decision Support, and Automated Report
+
+                                                                  18
+
+Generation for the Caloocan City Government. The proposed system
+
+aims to provide a centralized platform for managing health and sanitation
+
+information, improve operational efficiency through digitalization, support
+
+data-driven decision-making using AI-powered analytics, and automate
+
+report generation. It also includes a mobile application that allows citizens
+
+to access selected health and sanitation services conveniently. The
+
+scope of the study is limited to the features and functions described
+
+below.
+
+         1.3.1 In-Scope
+
+         The proposed system covers the following functionalities:
+
+            ● A    web-based     administrative   system     for   authorized
+
+               personnel to manage health and sanitation information
+
+               through a centralized database.
+
+            ● An interactive dashboard for monitoring health indicators,
+
+               permit statistics, surveillance cases, service requests, and
+
+               operational performance.
+
+            ● Gemini-powered AI analytics for analyzing available data,
+
+               identifying   trends,   providing   decision    support,   and
+
+                                                                          19
+
+   generating analytical insights for health and sanitation
+
+   management.
+
+● Automated report generation with options to create,
+
+   schedule, and export reports in different formats.
+
+● An     integrated        notification   mechanism    delivering
+
+   appointment reminders, permit status updates, vaccination
+
+   schedules, wastewater service notifications, and public
+
+   health advisories through email, SMS, push, and in-app
+
+   channels. The web-based administrative system consists of
+
+   five major operational modules:
+
+● Health Center Services – patient registration, consultations,
+
+   appointments, electronic medical records, prescriptions,
+
+   referrals, and triage.
+
+● Sanitation Permit Management – permit applications,
+
+   inspections, renewals, payments, digital permits, and
+
+   compliance monitoring.
+
+● Immunization and Nutrition Management – vaccination
+
+   records, child growth monitoring, nutrition assessment, and
+
+   vaccine inventory.
+
+                                                             20
+
+● Wastewater Services Management – septic tank registry,
+
+   wastewater service requests, maintenance scheduling,
+
+   billing, and provider management.
+
+● Health Surveillance Management – disease reporting,
+
+   outbreak monitoring, mapping, clustering, contact tracing,
+
+   and response management.
+
+● User and role management that provides different levels of
+
+   access    based    on   the     responsibilities   of   authorized
+
+   personnel.
+
+● System logs, audit trails, backup, notification settings, and
+
+   other system management features to support security and
+
+   system maintenance. A mobile application for citizens that
+
+   allows users to:
+
+● Book health center appointments;
+
+● Apply for sanitation permits;
+
+● View immunization and nutrition records;
+
+● Request wastewater services;
+
+● Track requests and applications;
+
+● Report health and sanitation concerns; and
+
+                                                                 21
+
+   ● Receive appointment reminders, permit status updates,
+
+       immunization schedules, wastewater service notifications,
+
+       and public health advisories.
+
+1.3.2 Out-of-Scope
+
+       The following features and activities are not included in the
+
+scope of this study:
+
+   ● The proposed system does not provide medical diagnosis,
+
+       treatment recommendations, or clinical decision-making, as
+
+       these remain the responsibility of licensed healthcare
+
+       professionals.
+
+   ● The system does not replace existing government policies,
+
+       health regulations, or official procedures implemented by
+
+       the Caloocan City Government.
+
+   ● Financial accounting, budgeting, payroll, procurement, and
+
+       other administrative systems outside the Health and
+
+       Sanitation Office are not included.
+
+   ● The study does not include integration with national
+
+       government databases or external healthcare information
+
+                                                                22
+
+   systems, unless such integration becomes available in
+
+   future developments.
+
+● Integration with external government agencies such as the
+
+   Department of Health (DOH), PhilHealth, SSS, PAG-IBIG,
+
+   Civil Registry, and other national information systems is not
+
+   included in this study.
+
+● The   system     does     not    support   online    telemedicine
+
+   consultations, electronic laboratory testing, or hospital
+
+   management functions.
+
+● The mobile application is intended only for accessing
+
+   selected citizen services and does not provide full
+
+   administrative functions available in the web-based system.
+
+● The predictive insights and recommendations generated by
+
+   Gemini-powered       AI    are    intended    only    to   assist
+
+   decision-making and should not be considered as final or
+
+   official decisions without human evaluation and approval.
+
+● The implementation, deployment, and maintenance of the
+
+   proposed system in other local government units are
+
+   beyond the scope of this study.
+
+                                                                23
+
+1.4 Objectives and Goals
+
+      1.4.1 General Objective
+
+             The primary objective of this study is to design and develop
+
+      a Web-Based Health and Sanitation Management Information
+
+      System with Gemini-Powered AI Analytics, Decision Support, and
+
+      Automated Report Generation for the Caloocan City Government.
+
+      The proposed system aims to provide a centralized platform for
+
+      managing health and sanitation information, improve the efficiency
+
+      of daily operations through digitalization, AI-powered decision
+
+      support, and automated report generation, and improve citizens'
+
+      access to selected government services through a companion
+
+      mobile application.
+
+      1.4.2 Specific Objectives
+
+      Specifically, this study aims to:
+
+         ● Develop a web-based information system that consolidates
+
+             health and sanitation records into a centralized database for
+
+             easier storage, retrieval, and management of information.
+
+                                                                      24
+
+● Improve the efficiency of Health Center Services, Sanitation
+
+   Permit       Management,      Immunization        and     Nutrition
+
+   Management, Wastewater Services Management, and
+
+   Health Surveillance through digitalized workflows and
+
+   centralized information management.
+
+● Integrate Gemini-powered Artificial Intelligence to perform
+
+   analytics, provide decision support, identify trends, and
+
+   generate analytical reports that can support planning and
+
+   decision-making.
+
+● Design an automated report generation feature that
+
+   produces accurate, timely, and standardized reports for
+
+   monitoring, evaluation, and administrative purposes.
+
+● Develop      a   citizen   mobile   application    that    enables
+
+   appointment booking, permit applications, service requests,
+
+   record viewing, request tracking, and health concern
+
+   reporting.
+
+● Develop an integrated notification mechanism that delivers
+
+   appointment      reminders,    permit   updates,        vaccination
+
+   schedules, wastewater service notifications, and public
+
+   health advisories through multiple communication channels.
+
+                                                                  25
+
+          ● Assess the acceptability of the proposed system based on
+
+             the ISO/IEC 25010 Software Quality Model in terms of:
+
+             Functional Suitability; Performance Efficiency; Compatibility;
+
+             Usability;     Reliability;   Security;   Maintainability;   and
+
+             Portability.
+
+1.5 Significance and Relevance
+
+      The design and development of a Web-Based Health and
+
+Sanitation Management Information System with Gemini-Powered AI
+
+Analytics, Decision Support, and Automated Report Generation is
+
+expected to improve the way health and sanitation information is
+
+managed in the Caloocan City Government. By providing a centralized
+
+web- based platform, the proposed system aims to make data
+
+management more organized, reduce manual work, support better
+
+decision-making through AI-powered analytics, and simplify report
+
+preparation through automation. The study is expected to contribute both
+
+to the advancement of information systems and to the improvement of
+
+public health and sanitation services.
+
+                                                                          26
+
+1.5.1 Theoretical Significance
+
+      This study contributes to the growing knowledge on the use
+
+of web-based information systems and Artificial Intelligence (AI) in
+
+local government services. It shows how AIpowered analytics,
+
+decision support, and automated report generation can be
+
+integrated into a health and sanitation management system to
+
+improve data management and operational efficiency. The findings
+
+of this study may also serve as a reference for future researchers
+
+who plan to develop similar systems or explore the application of
+
+AI in government information systems and public health services.
+
+1.5.2 Practical Significance
+
+      The proposed system is expected to benefit the following:
+
+Caloocan City Government. The study supports the city's
+
+digitalization efforts by providing a centralized information system
+
+that can improve the management of health and sanitation
+
+records, increase operational efficiency, and support better
+
+planning and decision-making.
+
+      Health and Sanitation Office. The proposed system can
+
+help the office manage records more efficiently by reducing
+
+                                                                27
+
+manual processes, organizing health and sanitation information in
+
+a   centralized     database, improving permit processing, and
+
+generating reports automatically. Health and Sanitation Personnel.
+
+         The system can assist personnel in performing their daily
+
+tasks more efficiently by providing faster access to records,
+
+reducing repetitive work, and helping them prepare accurate
+
+reports    within     a    shorter   period.   Decision   Makers    and
+
+Administrators.
+
+         Through Gemini-powered AI analytics and decision support,
+
+the system can provide useful insights from available data that
+
+may help officials monitor health and sanitation conditions, identify
+
+trends, and make informed decisions when planning programs and
+
+services. Citizens of Caloocan City.
+
+         The proposed mobile application provides residents with
+
+convenient access to selected government health and sanitation
+
+services through online appointment booking, permit applications,
+
+wastewater service requests, request tracking, immunization
+
+record     viewing,       and   health   concern   reporting,   reducing
+
+                                                                    28
+
+       unnecessary office visits and improving service accessibility.
+
+       Future Researchers.
+
+              This study may serve as a useful reference for future
+
+       studies   involving    web-based     information    systems,    Artificial
+
+       Intelligence, health information management, and digital solutions
+
+       for local government units. The findings and system design may
+
+       provide ideas and guidance for developing similar technologies in
+
+       other organizations.
+
+1.6 Definition of Terms
+
+       The following terms are defined to provide a clearer understanding
+
+of the key concepts used in this study. Artificial Intelligence (AI). Artificial
+
+Intelligence refers to the ability of computer systems to perform tasks that
+
+normally require human intelligence, such as analyzing data, recognizing
+
+patterns, and generating insights. In this study, it refers to the
+
+Gemini-powered AI integrated into the proposed system to analyze health
+
+and sanitation data, provide decision support, and assist in automated
+
+report generation. Automated Report Generation.
+
+       Automated report generation is the process of creating reports
+
+using computer systems with minimal manual intervention. In this study, it
+
+                                                                            29
+
+refers to the system feature that automatically prepares health and
+
+sanitation reports based on the data stored in the database. Centralized
+
+Database. A centralized database is a single repository where data is
+
+stored and managed in one location.
+
+       In this study, it refers to the database used by the proposed
+
+system to securely store and organize health and sanitation records for
+
+authorized users. Citizen Mobile Application. A mobile-based application
+
+developed as part of the proposed system that enables citizens to access
+
+selected health and sanitation services such as appointment booking,
+
+permit application, immunization record viewing, wastewater service
+
+requests, request tracking, and health concern reporting. Dashboard. A
+
+graphical interface that presents key performance indicators, system
+
+summaries, alerts, notifications, and operational statistics to support
+
+monitoring and decision-making.
+
+       Dashboard Analytics. Dashboard analytics refers to the visual
+
+presentation of processed data, trends, and performance indicators on
+
+the system dashboard. In this study, it refers to the charts, sparklines, and
+
+summary indicators that allow personnel to monitor health center, permit,
+
+                                                                        30
+
+immunization, wastewater, and surveillance activity at a glance. Decision
+
+Support.
+
+       The use of analytical tools and AI-generated insights to assist
+
+authorized personnel in evaluating information, identifying trends, and
+
+making informed decisions. In this study, Gemini-powered AI provides
+
+summaries, recommendations, and analytical outputs that support, but do
+
+not replace, human decision-making. Electronic Medical Record (EMR).
+
+An Electronic Medical Record is a digital version of a patient's health
+
+information, including consultations, diagnoses, prescriptions, and
+
+treatment history. In this study, it refers to the patient records maintained
+
+under the Health Center Services module. Gemini-Powered AI Analytics.
+
+Gemini-powered AI analytics refers to the application of Google's Gemini
+
+AI in examining data to identify patterns, trends, and useful information.
+
+In this study, it refers to the integration of Gemini AI in the proposed
+
+system to analyze health and sanitation data and generate meaningful
+
+insights for decision-making.
+
+       Health and Sanitation Management Information System. A Health
+
+and Sanitation Management Information System is a computerized
+
+system designed to collect, manage, process, and store health and
+
+                                                                        31
+
+sanitation information. In this study, it refers to the proposed web-based
+
+system developed for the Caloocan City Government to manage health
+
+records, sanitation permits, immunization, wastewater services, health
+
+surveillance, and related reports. Health Center Services. Health Center
+
+Services refer to the range of activities involved in delivering primary
+
+healthcare, including patient registration, consultations, appointments,
+
+prescriptions, referrals, and triage. In this study, it refers to the module
+
+that manages these activities within the proposed system. Health
+
+Surveillance.
+
+       Health surveillance is the continuous collection, analysis, and
+
+interpretation of health-related data for monitoring public health
+
+conditions. In this study, it refers to the module of the proposed system
+
+that records health cases, monitors disease trends, and supports
+
+outbreak detection and response. Key Performance Indicators (KPIs).
+
+Key Performance Indicators (KPIs) are measurable values used to
+
+monitor and evaluate the performance of an organization, program, or
+
+process. In this study, KPIs refer to the performance metrics displayed on
+
+the system dashboard to help authorized personnel monitor health and
+
+sanitation activities and support decision-making.
+
+                                                                        32
+
+       Management Information System (MIS). A computer-based
+
+information system that collects, processes, stores, and presents
+
+information    to    support    organizational operations and managerial
+
+decision-making. In this study, it refers to the proposed Health and
+
+Sanitation Management Information System for the Caloocan City
+
+Government. Mobile Application.
+
+       A mobile application is software designed to run on smartphones
+
+and other mobile devices. In this study, it refers to the citizen application
+
+that enables users to book appointments, apply for sanitation permits,
+
+request services, view immunization records, track requests, and report
+
+health and sanitation concerns. Notification System. A notification system
+
+is a feature that delivers timely alerts and updates to users through
+
+channels such as email, SMS, push notifications, or in-app messages.
+
+       In this study, it refers to the mechanism that informs citizens and
+
+personnel about appointments, permit status, immunization schedules,
+
+wastewater service requests, and public health advisories. Role-Based
+
+Access Control (RBAC). Role-Based Access Control (RBAC) is a security
+
+approach      that   limits    system   access   based   on   the roles and
+
+responsibilities assigned to each user. In this study, it refers to the system
+
+                                                                         33
+
+feature that allows authorized personnel to access only the modules and
+
+functions that are relevant to their assigned roles, helping protect
+
+sensitive health and sanitation information. Wastewater Management.
+
+       Wastewater management refers to the processes involved in
+
+monitoring, requesting, and maintaining septic and wastewater services.
+
+In this study, it refers to the module that manages the septic tank registry,
+
+service   requests,   maintenance     scheduling,   billing,   and   provider
+
+coordination.
+
+       Web-Based System. A web-based system is an application that
+
+can be accessed through a web browser using an internet connection. In
+
+this study, it refers to the proposed information system that allows
+
+authorized personnel to manage health and sanitation services through a
+
+secure online platform.
+
+1.7 Structure of the Document
+
+       This study is organized into five chapters to present the
+
+development and evaluation of the proposed system.
+
+Chapter 1 – Introduction. presents the project background and
+
+motivation, statement of the problem, project vision and scope,
+
+                                                                         34
+
+objectives, significance of the study, definition of terms, and the
+
+organization of the document.
+
+Chapter 2 – Review of Related Literature and Studies. discusses
+
+relevant literature, previous studies, existing technologies, and related
+
+systems that provide the theoretical and conceptual foundation of the
+
+proposed project.
+
+Chapter 3 – Methodology. describes the research methodology, software
+
+development    methodology,     system architecture, database design,
+
+technologies used, and system development procedures employed in the
+
+implementation of the proposed Health and Sanitation Management
+
+Information System.
+
+Chapter 4 – Results and Discussion. presents the developed system,
+
+implementation results, system functionalities, evaluation outcomes, and
+
+discussions of how the proposed system achieved the objectives of the
+
+study.
+
+Chapter 5 – Conclusions and Recommendations. summarizes the
+
+findings of the study, presents the conclusions based on the evaluation
+
+                                                                     35
+
+results, and provides recommendations for future improvements and
+
+further research.
+
+                           Chapter 2
+
+                                                             36
+
+    RELATED LITERATURE, STUDIES, AND TECHNICAL
+
+                           BACKGROUND
+
+2.1 Review of Related Literature
+
+      The study aimed to design and develop a Barangay Health
+
+Information System that integrates Google Maps as a key component. It
+
+utilizes rapid application development methodology and objectoriented
+
+analysis and design. The system was implemented using Laravel
+
+Framework, to create a robust and efficient BHIS. By integrating Google
+
+Maps, the BHIS can efficiently geolocate and map health facilities, patient
+
+populations, and other relevant data points.
+
+      This spatial visualization offers a comprehensive view of
+
+healthcare dynamics within the barangay, enabling evidence-based
+
+decision-making and resource allocation. The evaluation conducted on
+
+the app concluded that it is highly effective in terms of usability,
+
+relevance, functionality, maintainability, and portability, receiving an
+
+overall average rating of 4.52, which is very satisfactory. This underscore
+
+the system's potential to significantly enhance health information
+
+management and healthcare services delivery at the barangay level,
+
+fostering improved health outcomes for the community.
+
+                                                                       37
+
+      Alma Christie C. Reyna, (2023) The design and development of a
+
+Barangay Health Information System (BHIS) using Google Maps is a
+
+critical endeavor that aims to enhance the management and utilization of
+
+health-related data at the barangay (village) level in the Philippines. The
+
+integration of Google Maps into the BHIS offers significant potential in
+
+terms of improving data visualization, accessibility, and analysis, thereby
+
+facilitating evidence-based decision-making and resource allocation in
+
+healthcare settings.
+
+      Olipas (2019) This study aimed to design and develop a
+
+web-based Barangay Information and Record Management System. It
+
+integrated Short Message Service (SMS) to provide a more accessible
+
+means to distribute barangay announcements. The project utilized a
+
+developmental method of research. The proponents have designed and
+
+developed the system based on user requirements and specifications,
+
+observation and interview results among the key barangay officials, and
+
+analysis of the manual processes available documents. The designed
+
+and developed web-based system has been developed using different
+
+software development analysis and design tools and models such as
+
+Gantt chart, Use-case Models, Entity-relationship models, and Data flow
+
+diagrams. The proponents were able to design and develop the system,
+
+                                                                      38
+
+and it was found out that the developed system could provide better
+
+means of delivering services at the barangay level.
+
+      Meiyanto (2023) The clinic has several health facilities such as
+
+outpatient, inpatient, dental clinic, laboratory, family planning/MCH,
+
+pharmacy, and pharmacy. However, at the clinic, administrative
+
+processes are still carried out manually and are not computerized
+
+properly, making it difficult for staff because the process of storing and
+
+integrating data has not been carried out effectively and efficiently.
+
+Therefore we need a systematic and automatic information system to
+
+assist the administrative and managerial processes of the clinic. The
+
+information system developed in this study is based on a web application
+
+using the Laravel 8 framework. The method used for system
+
+development is the linear sequential model commonly known as the
+
+classic life cycle or waterfall development model.
+
+      Adejumobi (2025) A Patient Management System (PMS) is a
+
+software solution designed and implemented to automate and streamline
+
+tasks in healthcare organizations. This project focuses on the design and
+
+implementation of a web-based PMS aimed at addressing the problems
+
+presented by conventional methods of patient’s management, such as
+
+manual, time-consuming record-keeping, inaccuracy of data, and
+
+                                                                      39
+
+inefficiency and ineffectiveness in patient care. The PMS leverages
+
+modern web technologies such as Next.js, Tailwind Cascading Style
+
+Sheet (CSS), TypeScript, Hypertext Preprocessor (PHP) and MySQL. It
+
+offers a single platform for maintaining patient information, appointment
+
+scheduling, patient bills and Electronic Medical Records (EMRs) on a
+
+centralized platform. The PMS can therefore guarantee quick access to
+
+all essential patient information due to the conversion of traditional
+
+paper-based processes to a paperless, streamlined, and automated
+
+process.
+
+      Purnomo et al 2021 This research is motivated by an analysis of
+
+the need for a health service information system which is an important
+
+part that cannot be separated from the health system in a country. This
+
+study aims to provide fast service information to the public and can
+
+increase the role of health care institutions through the provision of
+
+information about health complaints that occur in the surrounding
+
+environment. Especially in the era of the industrial revolution 4.0 which is
+
+also known as the digital era, where many sectors of life are inseparable
+
+from the participation and use of computer technology. Community Health
+
+Centres (Puskesmas) is one of the health service centers at the
+
+sub-district level. The number of patients is quite large, causing problems
+
+                                                                       40
+
+in getting information about the patient, the number of patients, the
+
+number of visits, total income, data on drug supply and drug data that has
+
+been used by the puskesmas. Based on the existing problems, it is
+
+necessary to design a web-based health service information system
+
+using the PHP and HTML programming languages and MySQL as its
+
+storage media or database.
+
+      Lloyd (2025) This study aimed to design and evaluate a
+
+web-based Health Information System to improve data accuracy and
+
+service quality at Phana Hospital, Amnat Charoen. Methodology: A
+
+research and development design with a mixed-method sequential
+
+approach was employed. The system was developed using a structured
+
+SDLC framework and implemented over a three-month pilot period.
+
+Erdianto (2024) A website-based management information system is
+
+needed in dental practices as a public service center that is required to
+
+work quickly, precisely, and accurately. The performance of dental
+
+practices becomes more optimal with a computerized management
+
+information system. Objectives: This study aimed to develop and analyze
+
+a web-based management information system for dental practices to
+
+improve healthcare services in Indonesia. Methods: This is an action
+
+research design conducted at an independent dental practice in Kudus,
+
+                                                                      41
+
+Indonesia. The research utilized the waterfall method, which started with
+
+requirements analysis, design, implementation, testing, and deployment,
+
+as well as maintenance.
+
+2.2 Analysis of Related Studies and Existing Systems
+
+This research is motivated by an analysis of the need for a health service
+
+information system which is an important part that cannot be separated
+
+from the health system in a country. This study aims to provide fast
+
+service information to the public and can increase the role of health care
+
+institutions through the provision of information about health complaints
+
+that occur in the surrounding environment. Especially in the era of the
+
+industrial revolution 4.0 which is also known as the digital era, where
+
+many sectors of life are inseparable from the participation and use of
+
+computer technology.
+
+      2.2.1 Analysis of Related Studies
+
+             Med J Islam Repub Iran. (2022) A review on the health
+
+      information systems (HISs) of each country should not be limited
+
+      only to data collected and reported normally by the service
+
+      providers. In this regard, the first step for the development in any
+
+      national project is exploring the experiences of other countries
+
+      worldwide, especially those with economic, political, cultural, and
+
+                                                                      42
+
+      regional partnerships, and then using their resources and
+
+      documents to have a broader attitude and a better profitability in
+
+      planning the development strategy. This study was conducted to
+
+      review the studies conducted on the causes of HIS success and
+
+      failure, and the challenges faced by developing countries in using
+
+      these systems.
+
+            ANASI (2018) The Health Information System provides the
+
+      underpinning for health-related decision-making and has four key
+
+      functions: data generation, compilation, analysis and synthesis,
+
+      and communication and use. The Health Information System
+
+      collects data from the health sector and other related sectors,
+
+      analyzes the data and ensures their overall quality, relevance and
+
+      timeliness, and converts data into information for health-related
+
+      decision-making.
+
+2.3 Agile Scrum Methodology
+
+Agile Methodology
+
+      Agile Methodology is a software development approach that
+
+focuses on flexibility, collaboration, and continuous improvement
+
+throughout the development process. Instead of completing the entire
+
+                                                                    43
+
+system before testing and evaluation, Agile divides the project into
+
+smaller and manageable phases that allow developers to continuously
+
+build, test, and improve the system. This approach enables development
+
+teams to quickly respond to changing requirements and stakeholder
+
+feedback while maintaining the quality of the software being developed.
+
+       One of the main principles of Agile is the continuous delivery of
+
+functional software. Rather than waiting until the end of the project, each
+
+completed    feature   is   evaluated and improved before the next
+
+development cycle begins. This iterative process minimizes development
+
+risks, improves communication among team members, and ensures that
+
+the final product satisfies the needs of its intended users.
+
+Scrum Framework
+
+       Scrum is one of the most widely used frameworks under the Agile
+
+Methodology. It provides a structured process for managing software
+
+development through clearly defined roles, events, and artifacts. Scrum
+
+allows development teams to organize their work into short development
+
+cycles known as sprints. Each sprint focuses on completing a set of
+
+                                                                       44
+
+prioritized system functionalities that can be tested and evaluated before
+
+moving to the next sprint.
+
+       The Scrum Team consists of three primary roles. The Product
+
+Owner identifies and prioritizes the system requirements based on
+
+stakeholder needs. The Scrum Master ensures that Scrum practices are
+
+properly   implemented       and   helps the team overcome obstacles
+
+encountered    during    development.    The   Development     Team     is
+
+responsible for designing, developing, testing, and delivering working
+
+software at the end of every sprint.
+
+       The Scrum framework also follows several important events that
+
+guide the development process. Sprint Planning is conducted before
+
+each sprint to determine the tasks and objectives to be accomplished.
+
+During the sprint, the team continuously monitors its progress and
+
+collaborates to resolve development issues. At the end of every sprint, a
+
+Sprint Review is conducted to demonstrate the completed functionalities
+
+to stakeholders and gather feedback. Finally, the Sprint Retrospective
+
+allows the team to evaluate its performance and identify improvements
+
+for the succeeding sprint.
+
+                                                                      45
+
+       In addition, Scrum utilizes several important artifacts. The Product
+
+Backlog contains the complete list of system requirements and desired
+
+functionalities. The Sprint Backlog consists of the selected tasks that will
+
+be completed during the current sprint. After the sprint is completed, the
+
+finished functionalities become the Product Increment, representing a
+
+working version of the system that is ready for testing and evaluation.
+
+Application of Agile Scrum in the Proposed Study
+
+       The researchers selected the Agile Scrum Methodology for the
+
+development of the proposed Web-Based Health and Sanitation
+
+Management Information System with Gemini-Powered AI Analytics,
+
+Decision Support, and Automated Report Generation for the
+
+Caloocan City Government because it supports incremental and flexible
+
+software development. Considering that the proposed system consists of
+
+multiple   operational   modules,   including   Health   Center   Services,
+
+Sanitation Permit Management, Immunization and Nutrition Management,
+
+Wastewater Services Management, Health Surveillance Management,
+
+AI-powered analytics, automated report generation, and a citizen mobile
+
+application, Agile Scrum provides an organized approach to developing
+
+each module through a series of manageable sprints.
+
+                                                                          46
+
+       Each sprint focuses on completing specific system functionalities
+
+based on the priorities identified by the researchers and the Health and
+
+Sanitation Office. After every sprint, the completed features are tested,
+
+evaluated, and reviewed to ensure that they satisfy the operational
+
+requirements of the intended users. Feedback gathered during each
+
+development cycle is incorporated into succeeding sprints to further
+
+improve the system's performance, usability, and reliability.
+
+       The iterative nature of Agile Scrum also enables the researchers
+
+to accommodate changes in system requirements without significantly
+
+affecting the overall development process. Continuous collaboration with
+
+the Health and Sanitation Office ensures that the developed system
+
+remains aligned with the operational needs of the office while supporting
+
+centralized   information   management,      improved    service   delivery,
+
+AI-powered analytics, decision support, and automated report generation.
+
+For these reasons, the Agile Scrum Methodology was adopted as the
+
+software development methodology for this study. Its emphasis on
+
+continuous development, stakeholder collaboration, regular evaluation,
+
+and incremental delivery makes it suitable for developing a reliable,
+
+                                                                       47
+
+scalable,   and   user-centered   Health and Sanitation Management
+
+Information System for the Caloocan City Government.
+
+2.4 Emerging Technologies, Intelligent Systems, and Standards in
+
+Modern Information Systems
+
+      The continuous advancement of information technology has
+
+significantly transformed the development and implementation of modern
+
+information systems across various industries, including government,
+
+healthcare, education, and business. Organizations increasingly adopt
+
+emerging technologies to improve operational efficiency, enhance service
+
+delivery, strengthen data security, and support informed decision-making.
+
+These technologies enable information systems to process large volumes
+
+of data more efficiently, automate routine processes, and provide users
+
+with faster and more reliable access to information.
+
+      Modern information systems are expected to meet the growing
+
+demands of organizations and the public by providing solutions that are
+
+efficient, scalable, secure, and responsive. Emerging technologies allow
+
+systems to accommodate increasing numbers of users, transactions, and
+
+data while maintaining consistent performance. At the same time,
+
+                                                                     48
+
+intelligent    systems    support    organizations   by    analyzing     available
+
+information, identifying meaningful patterns, and providing insights that
+
+assist    decision-makers     in    planning and improving organizational
+
+operations.
+
+         Security and data protection have also become essential
+
+components of modern information systems due to the increasing amount
+
+of sensitive information being processed and stored electronically.
+
+Organizations      must     implement       appropriate     technologies      and
+
+internationally recognized standards to ensure the confidentiality,
+
+integrity, and availability of information while complying with applicable
+
+data     privacy   regulations.     These   technologies    not   only     protect
+
+organizational data but also strengthen public trust in digital services.
+
+         In addition, cloud-based platforms, intelligent data management
+
+techniques, and software quality standards enable organizations to
+
+develop reliable, maintainable, and scalable information systems that can
+
+adapt     to   changing    operational      requirements    and   technological
+
+advancements. These innovations help improve collaboration, simplify
+
+system maintenance, and support continuous service improvement.
+
+                                                                              49
+
+       For    the   proposed   Web-Based       Health   and    Sanitation
+
+Management Information System with Gemini-Powered AI Analytics,
+
+Decision Support, and Automated Report Generation for the
+
+Caloocan City Government, the integration of emerging technologies
+
+provides the technological foundation needed to support centralized
+
+information   management, AI-powered analytics, automated report
+
+generation, secure data processing, and improved citizen access to
+
+government health and sanitation services. The succeeding sections
+
+discuss the different emerging technologies, intelligent systems, and
+
+software quality standards that are relevant to the development of the
+
+proposed system and explain how each contributes to achieving the
+
+objectives of this study
+
+2.4.1 Microservices Architecture
+
+       Microservices Architecture is a software architectural approach
+
+that structures an application into a collection of small, independent, and
+
+loosely coupled services. Each service is designed to perform a specific
+
+business function and can be developed, deployed, maintained, and
+
+scaled independently without affecting the other services within the
+
+application. Communication between these services is commonly
+
+                                                                       50
+
+achieved through Application Programming Interfaces (APIs), allowing
+
+them to exchange data and perform coordinated operations efficiently.
+
+According to the National Institute of Standards and Technology (NIST),
+
+microservices architecture has become a preferred approach for
+
+developing enterprise and cloud-based applications because of its agility,
+
+scalability, modularity, and support for independent deployment of
+
+application components.
+
+      Compared with traditional monolithic architecture, Microservices
+
+Architecture enables development teams to divide a complex system into
+
+smaller and more manageable services. This approach simplifies
+
+software maintenance, accelerates system updates, and minimizes the
+
+impact of failures since modifications made to one service do not
+
+necessarily affect the entire application. It also supports continuous
+
+integration and deployment, allowing organizations to introduce new
+
+features and improvements more efficiently while maintaining system
+
+availability and performance.
+
+      For    the   proposed     Web-Based     Health    and   Sanitation
+
+Management Information System with Gemini-Powered AI Analytics,
+
+Decision Support, and Automated Report Generation, Microservices
+
+                                                                      51
+
+Architecture provides a flexible and scalable foundation for system
+
+development. The major system modules, such as Health Center
+
+Services, Sanitation Permit Management, Immunization and Nutrition
+
+Management, Wastewater Services Management, Health Surveillance
+
+Management, AI-powered analytics, and Automated Report Generation,
+
+can be designed as independent services that work together through
+
+secure APIs. This architecture allows future enhancements and
+
+maintenance to be implemented on individual modules without disrupting
+
+the operation of the entire system. As the number of users and health
+
+records increases, the system can also be scaled more efficiently to
+
+support the growing operational needs of the Caloocan City Health and
+
+Sanitation Office.
+
+       2.4.2 Artificial Intelligence (AI)
+
+              Artificial Intelligence (AI) refers to the capability of computer
+
+       systems to perform tasks that typically require human intelligence,
+
+       such as learning from data, recognizing patterns, understanding
+
+       language, solving problems, and supporting decision-making. AI
+
+                                                                          52
+
+technologies enable information systems to analyze large volumes
+
+of data, generate insights, and automate processes that would
+
+otherwise require significant human effort. As organizations
+
+continue to adopt digital transformation initiatives, AI has become
+
+an essential technology for improving efficiency, accuracy, and the
+
+quality of decision-making across various sectors, including
+
+healthcare and government services.
+
+      AI plays an important role in modern information systems by
+
+transforming raw data into meaningful information that supports
+
+operational and strategic decisions. Through machine learning,
+
+natural language processing, and predictive analytics, AI can
+
+identify trends, detect anomalies, generate reports, and provide
+
+recommendations based on available data. These capabilities help
+
+organizations reduce manual workloads, improve service delivery,
+
+and   respond     more    effectively   to   changing   operational
+
+requirements. According to Microsoft, AI enables organizations to
+
+build intelligent applications that enhance productivity, automate
+
+repetitive tasks, and assist users in making informed decisions
+
+through data-driven insights.
+
+                                                               53
+
+       For the proposed Web-Based Health and Sanitation
+
+Management Information System with Gemini-Powered AI
+
+Analytics,    Decision    Support,     and    Automated    Report
+
+Generation, Artificial Intelligence serves as a decision-support
+
+technology that enhances the efficiency of health and sanitation
+
+management. The integration of Gemini-powered AI enables the
+
+system to analyze health and sanitation records, identify trends
+
+and patterns, generate analytical summaries, and automate report
+
+preparation   for   authorized   personnel.   AI   can also assist
+
+decision-makers by providing timely insights that support planning,
+
+monitoring, and policy implementation. By reducing manual data
+
+analysis and report generation, the proposed system improves
+
+operational efficiency while helping the Caloocan City Health and
+
+Sanitation Office deliver faster, more accurate, and data-driven
+
+public services.
+
+                                                               54
+
+2.4.3 Internet of Things (IoT)
+
+       The Internet of Things (IoT) refers to a network of physical
+
+devices,   sensors,   and   other   connected   technologies    that
+
+communicate and exchange data through the internet. These
+
+devices collect, transmit, and process real-time information,
+
+enabling organizations to monitor operations, automate processes,
+
+and improve decision-making. According to Microsoft, IoT
+
+connects devices and systems to gather valuable data that helps
+
+organizations improve efficiency, optimize operations, and provide
+
+better services.
+
+       In modern information systems, IoT plays a significant role
+
+by enabling real-time data collection and monitoring. It allows
+
+organizations to gather accurate information from connected
+
+devices without relying solely on manual data entry. The
+
+integration of IoT improves operational efficiency, supports faster
+
+decision-making, and enhances service delivery through timely
+
+and reliable information. In the healthcare sector, IoT technologies
+
+are commonly used for monitoring medical equipment, tracking
+
+                                                               55
+
+environmental conditions, managing health-related data, and
+
+supporting public health initiatives through connected devices.
+
+        For the proposed Web-Based Health and Sanitation
+
+Management Information System with Gemini-Powered AI
+
+Analytics,      Decision   Support,    and     Automated      Report
+
+Generation, IoT provides opportunities for future integration with
+
+smart health and sanitation technologies. Connected devices and
+
+sensors may be used to monitor environmental conditions, water
+
+quality, waste management facilities, or other public health
+
+indicators that support health surveillance activities. Real-time data
+
+collected through IoT devices can be stored and analyzed by the
+
+system to provide timely information, improve decision-making,
+
+and support the Health and Sanitation Office in planning and
+
+delivering efficient public services. Although the current study
+
+primarily focuses on a web-based information system,
+
+considering IoT as an emerging technology demonstrates the
+
+system's potential for future expansion and integration with smart
+
+city initiatives.
+
+2.4.4 Data Analytics and Business Intelligence
+
+                                                                  56
+
+       Data     Analytics    and    Business   Intelligence   (BI)   are
+
+technologies used to collect, process, analyze, and present data in
+
+a   meaningful      manner     to    support   decision-making       and
+
+organizational operations. Data Analytics focuses on examining
+
+data to identify patterns, trends, relationships, and useful insights,
+
+while Business Intelligence involves the use of tools, dashboards,
+
+reports, and visualizations that help decision-makers understand
+
+information and make data-driven decisions. According to IBM,
+
+data analytics enables organizations to transform raw data into
+
+valuable insights that improve efficiency, optimize processes, and
+
+support strategic planning.
+
+       In modern information systems, Data Analytics and
+
+Business      Intelligence   play a significant role in improving
+
+operational     efficiency    and   decision-making.    Organizations
+
+generate large amounts of data from daily transactions and
+
+activities, making it difficult to extract meaningful information
+
+through manual analysis alone. By utilizing analytics and BI tools,
+
+organizations can monitor performance, identify trends, evaluate
+
+outcomes, and generate reports that support evidence-based
+
+                                                                     57
+
+decisions. These technologies also improve service delivery by
+
+providing accurate and timely information that assists managers
+
+and   stakeholders      in   responding   effectively   to   operational
+
+challenges.
+
+       For the proposed Web-Based Health and Sanitation
+
+Management Information System with Gemini-Powered AI
+
+Analytics,    Decision       Support,     and   Automated       Report
+
+Generation, Data Analytics and Business Intelligence serve as
+
+essential components for analyzing health and sanitation records,
+
+monitoring    service    performance,     and   supporting     informed
+
+decision-making. Through analytics and AI-powered processing,
+
+the system can identify health trends, summarize collected data,
+
+generate visual reports, and provide valuable insights that can
+
+assist the Health and Sanitation Office in planning, monitoring, and
+
+implementing public health programs. Business Intelligence
+
+features such as dashboards, reports, and data visualizations also
+
+enable authorized personnel to easily understand complex
+
+information and make data-driven decisions that improve service
+
+delivery and operational efficiency.
+
+                                                                    58
+
+2.4.5 Polyglot Persistence
+
+      Polyglot Persistence is a modern database management
+
+approach that involves using multiple database technologies within
+
+a single application to efficiently store and manage different types
+
+of data. Instead of relying on a single database management
+
+system, this approach allows developers to select the most
+
+appropriate    database     based       on   the    characteristics    and
+
+requirements of the data being processed. According to Microsoft,
+
+modern applications often benefit from using different data storage
+
+solutions because each database technology is designed to
+
+handle   specific   types     of    workloads,     such   as     structured,
+
+semi-structured, or unstructured data.
+
+      In modern information systems, Polyglot Persistence
+
+enhances flexibility, scalability, and overall system performance by
+
+allowing organizations to optimize data storage according to
+
+business requirements. Relational databases are commonly used
+
+for structured and transactional data, while NoSQL databases are
+
+suitable for handling large volumes of semi-structured or
+
+unstructured   information.        By   combining    different    database
+
+                                                                       59
+
+technologies,     organizations   can     improve   data       processing
+
+efficiency, simplify application development, and support future
+
+system expansion without being limited to a single database
+
+model.
+
+       For the proposed Web-Based Health and Sanitation
+
+Management Information System with Gemini-Powered AI
+
+Analytics,      Decision   Support,       and    Automated        Report
+
+Generation, Polyglot Persistence may be considered as a future
+
+enhancement to support the increasing volume and variety of data
+
+managed by the system. While the current implementation
+
+primarily utilizes a relational database for managing operational
+
+records, future versions of the system may benefit from integrating
+
+additional   database      technologies     to   efficiently     manage
+
+AI-generated analytics, system logs, and other non-relational data.
+
+This approach can improve scalability, optimize data management,
+
+and support the continuous development of the proposed
+
+information system as organizational requirements evolve.
+
+2.4.6 Cybersecurity
+
+                                                                     60
+
+        Cybersecurity refers to the practice of protecting computer
+
+systems, networks, applications, and digital information from cyber
+
+threats, unauthorized access, data breaches, and other malicious
+
+activities.   As   organizations   increasingly   rely   on   digital
+
+technologies, cybersecurity has become an essential component
+
+of modern information systems to ensure the confidentiality,
+
+integrity, and availability of information. According to the National
+
+Institute of Standards and Technology (NIST), cybersecurity
+
+involves identifying, protecting, detecting, responding to, and
+
+recovering from cybersecurity risks that may affect organizational
+
+operations and information assets.
+
+        In modern information systems, cybersecurity plays a vital
+
+role in safeguarding sensitive information and maintaining the
+
+reliability of digital services. Organizations implement various
+
+security measures, including user authentication, access control,
+
+data encryption, secure communication protocols, regular system
+
+updates, and continuous monitoring to protect their systems from
+
+cyberattacks. Effective cybersecurity practices help prevent
+
+unauthorized access, reduce security vulnerabilities, and ensure
+
+                                                                61
+
+business continuity while maintaining the trust of users and
+
+stakeholders.
+
+      For the proposed Web-Based Health and Sanitation
+
+Management Information System with Gemini-Powered AI
+
+Analytics,      Decision   Support,      and   Automated     Report
+
+Generation, cybersecurity is essential to protect confidential
+
+health records, sanitation data, and other sensitive information
+
+managed by the system. Security mechanisms such as user
+
+authentication,    role-based   access    control,   encrypted   data
+
+transmission, and regular data backups can help ensure that only
+
+authorized personnel have access to critical information. By
+
+implementing appropriate cybersecurity measures, the proposed
+
+system can minimize security risks, protect data from unauthorized
+
+access, and provide reliable and secure digital health and
+
+sanitation services for the Caloocan City Government.
+
+2.4.7 Data Privacy
+
+      Data Privacy refers to the proper collection, processing,
+
+storage, sharing, and protection of personal information to ensure
+
+                                                                 62
+
+that individuals' rights are respected and their data is safeguarded
+
+from unauthorized access, disclosure, misuse, or loss. As
+
+information systems continue to manage large volumes of
+
+personal and sensitive information, organizations are expected to
+
+implement appropriate privacy measures that comply with
+
+applicable laws and regulations. In the Philippines, the Data
+
+Privacy Act of 2012 (Republic Act No. 10173) establishes the legal
+
+framework for protecting personal information and promoting
+
+accountability among organizations that process personal data.
+
+         In modern information systems, data privacy is essential for
+
+maintaining the confidentiality and integrity of personal information
+
+while ensuring that data is collected and processed only for
+
+legitimate purposes. Organizations implement privacy measures
+
+such as obtaining user consent, limiting data access to authorized
+
+personnel, securely storing information, and complying with
+
+established privacy policies. These practices help prevent
+
+unauthorized disclosure of personal information, strengthen public
+
+trust,   and   ensure    compliance    with   legal   and   regulatory
+
+requirements.
+
+                                                                  63
+
+       For the proposed Web-Based Health and Sanitation
+
+Management Information System with Gemini-Powered AI
+
+Analytics,     Decision     Support,      and     Automated       Report
+
+Generation, data privacy is a critical consideration because the
+
+system manages personal and sensitive health-related information
+
+of citizens. The implementation of user authentication, role-based
+
+access control, secure data storage, and controlled access to
+
+records helps ensure that confidential information is accessed only
+
+by authorized personnel. Furthermore, compliance with the Data
+
+Privacy Act of 2012 (Republic Act No. 10173) supports the
+
+responsible handling of personal data and promotes the protection
+
+of citizens' privacy while improving the delivery of digital health and
+
+sanitation services in the Caloocan City Government.
+
+2.4.8 Software Quality Standards
+
+       Software Quality Standards are internationally recognized
+
+guidelines used to evaluate and ensure that software systems
+
+meet established quality requirements. These standards provide a
+
+structured framework for assessing various aspects of software,
+
+including its functionality, performance, reliability, security, usability,
+
+                                                                      64
+
+maintainability, and portability. By following recognized quality
+
+standards, organizations can develop software that is efficient,
+
+dependable, and capable of meeting user expectations while
+
+supporting continuous improvement throughout the software
+
+development life cycle.
+
+      One of the most widely recognized software quality
+
+standards    is   ISO/IEC    25010,    which   defines   the   quality
+
+characteristics used to evaluate software products and systems.
+
+According to the International Organization for Standardization
+
+(ISO), the ISO/IEC 25010 model consists of eight quality
+
+characteristics: Functional Suitability, Performance Efficiency,
+
+Compatibility, Usability, Reliability, Security, Maintainability, and
+
+Portability. These characteristics serve as criteria for determining
+
+whether a software system effectively satisfies user requirements
+
+and performs according to its intended purpose.
+
+      For the proposed Web-Based Health and Sanitation
+
+Management Information System with Gemini-Powered AI
+
+Analytics,    Decision      Support,    and    Automated       Report
+
+Generation, the ISO/IEC 25010 Software Quality Model provides
+
+                                                                 65
+
+an appropriate basis for evaluating the overall quality of the
+
+developed system. The quality characteristics help determine
+
+whether the system accurately performs its intended functions,
+
+protects   sensitive   health and sanitation data, provides a
+
+user-friendly interface, maintains reliable system performance, and
+
+supports future maintenance and enhancements. By applying
+
+these quality standards, the researchers can ensure that the
+
+proposed system meets acceptable software quality requirements
+
+and effectively supports the operational needs of the Caloocan
+
+City Health and Sanitation Office.
+
+2.4.9 Cloud Computing
+
+      Cloud Computing is a technology that enables users and
+
+organizations to access computing resources, such as servers,
+
+storage, databases, networking, software, and applications, over
+
+the internet instead of relying solely on local computers or
+
+on-premises infrastructure. This technology provides on-demand
+
+access to computing services, allowing organizations to efficiently
+
+                                                               66
+
+manage their resources while reducing the cost of purchasing and
+
+maintaining physical hardware. According to the National Institute
+
+of Standards and Technology (NIST), cloud computing is a model
+
+that provides convenient, on-demand network access to a shared
+
+pool of configurable computing resources that can be rapidly
+
+provisioned and released with minimal management effort.
+
+      In modern information systems, Cloud Computing plays a
+
+significant role in improving system scalability, accessibility,
+
+reliability, and operational efficiency. Cloud-based platforms enable
+
+organizations to store and process large amounts of data while
+
+allowing authorized users to securely access information anytime
+
+and anywhere with an internet connection. In addition, cloud
+
+services support automatic backups, disaster recovery, and
+
+system    updates,   helping   organizations    maintain   business
+
+continuity and reduce the risk of data loss. The flexibility of cloud
+
+computing also allows organizations to expand their computing
+
+resources as system demands increase without requiring major
+
+infrastructure investments.
+
+                                                                67
+
+       For the proposed Web-Based Health and Sanitation
+
+Management Information System with Gemini-Powered AI
+
+Analytics,    Decision        Support,      and   Automated      Report
+
+Generation, Cloud Computing provides a reliable platform for
+
+hosting the web application and securely managing health and
+
+sanitation   records.    By     utilizing   cloud-based   infrastructure,
+
+authorized personnel can conveniently access the system, monitor
+
+records, generate reports, and perform administrative functions
+
+from different locations with internet connectivity. Cloud Computing
+
+also supports data availability, scalability, and system reliability,
+
+enabling the proposed system to accommodate future growth
+
+while ensuring efficient delivery of digital health and sanitation
+
+services for the Caloocan City Government.
+
+2.4.10 Edge Computing
+
+       Edge Computing is a distributed computing technology that
+
+processes data closer to where it is generated instead of sending
+
+                                                                    68
+
+all information to centralized cloud servers. By performing data
+
+processing near the source, Edge Computing reduces network
+
+latency, minimizes bandwidth usage, and enables faster response
+
+times for applications that require real-time processing. According
+
+to Microsoft, Edge Computing enhances system performance by
+
+allowing data to be processed locally while still supporting
+
+communication with cloud-based services when necessary.
+
+      In modern information systems, Edge Computing plays an
+
+important role in improving operational efficiency, reliability, and
+
+real-time decision-making. It is commonly applied in environments
+
+that utilize Internet of Things (IoT) devices, smart sensors, and
+
+other connected technologies where immediate data processing is
+
+essential. By reducing dependence on continuous internet
+
+connectivity, Edge Computing enables systems to continue
+
+operating efficiently even when network conditions are unstable.
+
+This technology also strengthens data processing capabilities by
+
+distributing workloads between local devices and cloud platforms.
+
+      For the proposed Web-Based Health and Sanitation
+
+Management Information System with Gemini-Powered AI
+
+                                                                69
+
+      Analytics,    Decision    Support,     and    Automated     Report
+
+      Generation, Edge Computing may be considered as a potential
+
+      technology for future system enhancement. As the Health and
+
+      Sanitation Office adopts smart devices and IoT-based monitoring
+
+      systems, Edge Computing can support the local processing of
+
+      health and environmental data before transmitting it to the central
+
+      information system for storage and analysis. This capability can
+
+      improve system responsiveness, reduce communication delays,
+
+      and support real-time monitoring of health and sanitation services
+
+      as future technological requirements continue to evolve.
+
+2.5 DevOps Culture and CI/CD Practices
+
+      DevOps is a software development culture that promotes
+
+collaboration between software developers and information technology
+
+(IT) operations teams throughout the software development lifecycle. It
+
+emphasizes communication, automation, continuous improvement, and
+
+rapid software delivery to ensure that applications are developed, tested,
+
+and deployed efficiently. According to Amazon Web Services (AWS),
+
+DevOps combines cultural philosophies, practices, and tools that enable
+
+                                                                      70
+
+organizations to deliver applications and services more quickly while
+
+maintaining high software quality and reliability.
+
+       One of the fundamental practices of DevOps is Continuous
+
+Integration (CI), where developers frequently integrate code changes
+
+into a shared repository. This practice allows newly developed features
+
+and modifications to be tested regularly, making it easier to identify and
+
+resolve issues during the early stages of development. Another important
+
+practice is Continuous Delivery (CD), which prepares software for
+
+deployment     through   automated     testing   and   validation,   allowing
+
+organizations to release software updates more efficiently and with
+
+reduced deployment risks.
+
+       Version control systems such as GitHub play an important role in
+
+supporting DevOps practices. GitHub enables developers to manage
+
+source code, track changes, collaborate on development tasks, and
+
+maintain different versions of the application in a centralized repository.
+
+Through version control, development teams can work simultaneously on
+
+different features while preserving the integrity of the source code and
+
+simplifying project management.
+
+                                                                         71
+
+      For   the    proposed   Web-Based     Health   and   Sanitation
+
+Management Information System with Gemini-Powered AI Analytics,
+
+Decision Support, and Automated Report Generation, DevOps
+
+principles and CI/CD practices support an organized and collaborative
+
+software development process. The researchers utilized GitHub as the
+
+project's version control platform to manage source code, monitor
+
+development progress, and facilitate collaboration among team members.
+
+By maintaining a centralized code repository, the development team was
+
+able to record changes, manage different versions of the system, and
+
+efficiently integrate new features throughout the development process.
+
+These practices contributed to improving software quality, simplifying
+
+maintenance, and supporting the continuous enhancement of the
+
+proposed system.
+
+2.6 Enterprise Architecture and System Integration
+
+      Enterprise Architecture (EA) is a structured approach used by
+
+organizations to align business processes, information systems, data,
+
+and technology with organizational goals and objectives. It provides a
+
+comprehensive framework that guides the planning, development,
+
+integration, and management of information technology resources to
+
+                                                                  72
+
+ensure that systems effectively support organizational operations.
+
+According to The Open Group, Enterprise Architecture enables
+
+organizations     to      improve   decision-making,    enhance    operational
+
+efficiency, and achieve better coordination between business processes
+
+and information technology.
+
+      System Integration refers to the process of connecting different
+
+software applications, databases, and technologies to function as a
+
+unified information system. Rather than operating as separate and
+
+isolated applications, integrated systems allow data to be shared
+
+seamlessly among different modules, reducing data redundancy,
+
+improving data consistency, and increasing operational efficiency. Modern
+
+information     systems      commonly     utilize   Application   Programming
+
+Interfaces      (APIs),     centralized   databases,      and     standardized
+
+communication protocols to facilitate secure and reliable data exchange
+
+between system components.
+
+      Enterprise Architecture and System Integration play an important
+
+role in modern information systems by ensuring that different functional
+
+modules work together efficiently while supporting organizational
+
+objectives. A well-designed enterprise architecture provides a clear
+
+                                                                          73
+
+structure    for managing information, applications, and technology
+
+resources, while system integration enables departments to access
+
+accurate and up-to-date information through a centralized platform. This
+
+integrated     approach improves collaboration, streamlines business
+
+processes, and supports better decision-making by providing reliable and
+
+consistent information across the organization.
+
+      For      the     proposed       Web-Based   Health   and      Sanitation
+
+Management Information System with Gemini-Powered AI Analytics,
+
+Decision Support, and Automated Report Generation, Enterprise
+
+Architecture    and     System    Integration   provide the foundation for
+
+connecting the system's major modules into a single centralized platform.
+
+The   Health         Center   Services,   Sanitation   Permit   Management,
+
+Immunization      and     Nutrition    Management,     Wastewater     Services
+
+Management, Health Surveillance Management, AI-powered analytics,
+
+and Automated Report Generation modules are designed to work
+
+together by sharing information through a centralized database. This
+
+integration enables authorized personnel to access accurate records,
+
+monitor health and sanitation activities, generate analytical reports, and
+
+support informed decision-making using a unified information system. As
+
+                                                                          74
+
+a result, the proposed system improves operational efficiency, minimizes
+
+duplicate data entry, and enhances the delivery of health and sanitation
+
+services for the Caloocan City Government.
+
+2.7 Conceptual Framework
+
+      The conceptual framework of the study presents the relationship
+
+among the inputs, processes, outputs, and intended outcomes involved
+
+in the development of the proposed Web-Based Health and Sanitation
+
+Management Information System with Gemini-Powered AI Analytics,
+
+Decision Support, and Automated Report Generation for Local
+
+Government Unit.
+
+      The system will consider different types of health and sanitation
+
+information, including health and sanitation records, health center
+
+service data, sanitation permits and inspection records, immunization
+
+                                                                    75
+
+and nutrition data, wastewater and septic service data, and health
+
+surveillance data. These records may come from different health and
+
+sanitation activities conducted by the LGU.
+
+      The LGU requirements are also included as inputs because the
+
+system must be designed according to the actual needs of the
+
+personnel who will use it. These requirements may include the
+
+information that needs to be recorded, monitored, analyzed, and
+
+reported.
+
+2.8 Theoretical Paradigm
+
+      The proposed Web-Based Health and Sanitation Management
+
+Information System is anchored on the Technology Acceptance Model,
+
+the Information Systems Success Model, and AI Decision Support
+
+Theory. These theories collectively explain how users adopt the system,
+
+how system quality contributes to organizational effectiveness, and how
+
+artificial intelligence enhances decision-making through predictive
+
+analytics and automated report generation. Together, they provide the
+
+theoretical foundation for developing an intelligent health and sanitation
+
+management platform for local government units.
+
+                                                                       76
+
+      This theoretical paradigm is anchored on Information System
+
+Theory, which explains how data can be collected, processed, stored,
+
+and distributed efficiently. The Decision Support System (DSS) Theory
+
+supports   the   system's    capability   to   provide       evidence-based
+
+recommendations     for   local   government    officials.    The   Artificial
+
+Intelligence Theory serves as the foundation for Gemini-powered
+
+analytics, predictive insights, and automated report generation. Finally,
+
+the Technology Acceptance Model (TAM) explains how perceived
+
+usefulness and ease of use influence the adoption of the proposed
+
+system by health workers, sanitation officers, and LGU administrators.
+
+Together, these theories support the development of a web-based
+
+                                                                           77
+
+Health and Sanitation Management Information System that improves
+
+public health monitoring, decision-making, and service delivery within
+
+local government units.
+
+                                                                   78
+
+                             Chapter 3
+
+           Methodology and Project Management
+
+3.1 The Adapted Agile Scrum Framework
+
+      The researchers adopted the Agile Scrum Framework as the
+
+development methodology for the proposed Web-Based Health and
+
+Sanitation Management Information System. This methodology was
+
+deemed appropriate for the study because of its flexible, iterative, and
+
+collaborative nature, which allows a system to be developed and refined
+
+progressively rather than all at once. Given that the system was
+
+intended for use by a Local Government Unit (LGU), the researchers
+
+recognized that requirements and processes could evolve throughout
+
+development as new needs, concerns, or feedback emerged from the
+
+end users. Agile Scrum was therefore considered a fitting approach, as
+
+it accommodates these changes without disrupting the overall
+
+development timeline.
+
+      In implementing this framework, the researchers structured the
+
+development process into a series of sprints, with each sprint dedicated
+
+                                                                     79
+
+to specific modules or functionalities of the system. This setup enabled
+
+the development team to continuously assess the system's progress,
+
+identify issues early on, and apply improvements based on feedback
+
+gathered from clients and stakeholders. Rather than addressing
+
+revisions only after the system's completion, the team was able to
+
+incorporate changes as they arose, resulting in a more responsive and
+
+refined development process.
+
+      The Scrum framework likewise supported the workflow of the
+
+five-member subsystem team, as it allowed the division of tasks
+
+according to each member's assigned modules and responsibilities.
+
+This structure encouraged collaboration among team members,
+
+promoted a more organized distribution of workload, and made it
+
+possible for multiple components of the system to be developed
+
+simultaneously.
+
+      Development began with planning, requirements gathering, and
+
+UI prototyping, followed by sprints covering key modules authentication,
+
+health center services, sanitation permits, immunization and nutrition,
+
+wastewater services, health surveillance, and AI analytics before ending
+
+with testing and deployment. This phased approach allowed the system
+
+to be continuously refined in line with the LGU's operational needs.
+
+                                                                       80
+
+3.1.1 Team Roles and Responsibilities
+      As one of ten subsystem groups, the five-member team
+was assigned specific roles to ensure organized and efficient
+system development.
+
+Team Role         Primary                    Tools /
+                  Responsibilities           Technologies
+Project Leader    Project planning, client   Scrum, Git
+                  communication, task
+                  assignment, and sprint
+                  monitoring
+
+Backend           Develop server-side        PHP, API, MVC
+Developer/s
+                  functions, database
+                  integration, business
+                  logic, and APIs
+
+Frontend          Design and develop         Tailwind CSS,
+Developer/s                                  JavaScript, React
+                  user interfaces and
+                                             Native
+                  interactive system
+                  components
+
+Database          Design the database        PostgreSql, ERD
+
+                                                             81
+
+Designer           structure, create ERD,
+                   and perform database
+                   normalization
+
+Documentation      Prepare project            MS Word, UML,
+                                              Testing Tools
+                   documentation, UML
+                   diagrams, and testing
+                   records.
+
+3.1.2 Scrum Events
+      The development of the proposed Web-Based Health and
+
+Sanitation    Management        Information     System      with
+
+Gemini-Powered AI Analytics, Decision Support, and Automated
+
+Report Generation for the Local Government Unit will make use
+
+of Scrum events to help organize, monitor, and improve the
+
+development process. These events give the team a structured
+
+way to plan tasks, track progress, review completed features,
+
+and pinpoint areas that still need work. The four main Scrum
+
+events to be carried out are Sprint Planning, Daily Stand-up,
+
+Sprint Review, and Sprint Retrospective. Since this is a capstone
+
+project, the adviser may also take on the role of Product Owner
+
+                                                              82
+
+— providing requirements, evaluating the system's outputs, and
+
+giving feedback throughout the development process.
+
+3.1.2.1 Sprint Planning
+
+       Sprint Planning will be conducted at the beginning of
+
+every sprint to establish the objectives, tasks, and system
+
+features to be accomplished within that sprint. During this
+
+activity, the development team will review the list of prioritized
+
+requirements and determine which tasks can realistically be
+
+completed within the given timeframe. The selected tasks will
+
+then be distributed among the team members according to their
+
+assigned responsibilities and individual capabilities.
+
+       For the proposed system, Sprint Planning is expected to
+
+encompass tasks related to the development of health and
+
+sanitation   records,   user   management,        dashboards,   data
+
+analytics,   Gemini-powered      AI   features,     decision-support
+
+functions, and automated report generation. In instances where
+
+the adviser assumes the role of Product Owner, they may
+
+                                                                 83
+
+provide clarification on system requirements and assist the team
+
+in prioritizing features in accordance with the objectives and
+
+anticipated needs of the Local Government Unit.
+
+3.1.2.2 Daily Stand-up
+
+       The Daily Stand-up will be conducted regularly during the
+
+sprint to monitor the progress of the development team. Each
+
+member will provide a brief update regarding the tasks
+
+completed, the tasks currently being worked on, and any
+
+challenges or issues encountered. This event will help the team
+
+maintain effective communication and immediately address
+
+problems that may affect the progress of the project.
+
+       Daily Stand-ups will track progress on tasks such as
+
+database development, UI implementation, system integration,
+
+Gemini AI integration, analytics, testing, and automated report
+
+generator, with the team discussing any issues or delays to
+
+identify solutions.
+
+3.1.2.3 Sprint Review
+
+       The Sprint Review will be conducted at the end of each
+
+sprint to evaluate and demonstrate the system features that have
+
+                                                             84
+
+been completed. During this event, the development team will
+
+present the working increment of the system to the adviser and,
+
+where applicable, to other relevant stakeholders. The primary
+
+purpose of this activity is to determine whether the completed
+
+features meet the identified requirements and align with the
+
+objectives of the project.
+
+       For the proposed Health and Sanitation Management
+
+Information System, the team may present features such as
+
+health and sanitation data management, monitoring dashboards,
+
+Gemini-powered          AI      analytics,       decision-support
+
+recommendations, and automated report generation. Feedback
+
+gathered during the Sprint Review will be documented and taken
+
+into consideration when prioritizing requirements and planning
+
+improvements for the succeeding sprints.
+
+3.1.2.4 Sprint Retrospective
+
+       The Sprint Retrospective will be conducted after the Sprint
+
+Review to evaluate the development process undertaken during
+
+the completed sprint. The team will discuss the tasks
+
+accomplished, the difficulties encountered, and the practices that
+
+                                                               85
+
+may need improvement, promoting continuous growth in
+
+communication, coordination, and overall development practices.
+
+      For this capstone project, the team may evaluate
+
+concerns such as delays in completing assigned tasks, technical
+
+difficulties, database or system integration problems, challenges
+
+encountered in implementing Gemini-powered AI analytics, and
+
+issues related to team communication. The improvements
+
+identified during this activity will then be applied to the
+
+succeeding sprint to help ensure a more efficient and organized
+
+development process moving forward.
+
+3.1.2.5 Role of the Adviser as Product Owner
+
+      Since this project is undertaken as a capstone, the adviser
+
+may also assume the role of Product Owner throughout the
+
+development process — providing guidance on requirements,
+
+reviewing feature priorities, evaluating system increments, and
+
+offering feedback during Sprint Reviews to keep the system
+
+aligned with the study's objectives and the LGU's needs.
+
+      The involvement of the adviser as Product Owner will
+
+assist the development team in validating requirements and
+
+                                                              86
+
+continuously improving the system across the different sprints.
+
+Feedback provided by the adviser will be taken into account by
+
+the team when planning subsequent sprint activities and refining
+
+the system's functionality, usability, and overall performance.
+
+3.1.3 Scrum Artifacts
+       The Product Backlog is a prioritized list of all the features,
+
+requirements, improvements, and technical tasks that may be
+
+included in the proposed system. It serves as the main source of
+
+work for the development team throughout the project. The
+
+Product Backlog may be updated and reprioritized based on
+
+feedback from the adviser, intended users, and the results of
+
+system evaluation.
+
+       For the proposed Health and Sanitation Management
+
+Information System, the Product Backlog may include the
+
+following major system features:
+
+      Priority        Product Backlog Item                Description
+
+         1            Login and                  Allows authorized users to
+                      User/Employee              securely access the system
+                      Authentication             based    on      their   assigned
+                                                 roles.
+
+                                                                    87
+
+2   Dashboard            Provides      an     overview    of
+                         important          health       and
+                         sanitation            information,
+                         statistics,    and       monitoring
+                         indicators.
+
+3   Patient Records      Allows authorized personnel
+                         to create, manage, update,
+                         and retrieve patient-related
+                         records.
+
+4   Health Records       Manages        relevant      health
+    Management           information and records for
+                         monitoring                      and
+                         documentation.
+
+5   Inspection Module    Allows users to record and
+                         monitor health and sanitation
+                         inspections conducted within
+                         the Local Government Unit.
+
+6   Sanitation Records   Manages       sanitation-related
+                         information,             inspection
+                         findings,     and     compliance
+                         records.
+
+7   AI Analytics         Uses Gemini-powered AI to
+
+                                             88
+
+                                analyze available health and
+                                sanitation data and generate
+                                meaningful insights.
+
+8    Decision Support           Provides             data-driven
+                                recommendations that may
+                                assist authorized personnel
+                                in        making          informed
+                                decisions.
+
+9    Automated Report           Generates reports based on
+     Generation                 collected        health        and
+                                sanitation data and system
+                                analytics.
+
+10   Notifications and Alerts   Provides       notifications    or
+                                alerts    regarding important
+                                health,      sanitation,        or
+                                inspection-related
+                                information.
+
+11   Reports and Data           Presents            summarized
+     Visualization              information through charts,
+                                graphs,         tables,        and
+                                downloadable reports.
+
+12   User and Role              Allows                  authorized
+
+                                                   89
+
+                      Management                 administrators    to   manage
+                                                 users, roles, and access
+                                                 permissions.
+
+         13           Audit Trail                Records      important     user
+                                                 activities     and       system
+                                                 transactions for monitoring
+                                                 and accountability.
+
+3.1.4 Toolstack
+
+       The researchers utilized various tools and technologies in
+
+developing the proposed Web-Based Health and Sanitation
+
+Management Information System. These tools were selected
+
+based on their specific functions in supporting the development
+
+of the system, including the design of the user interface,
+
+implementation of the backend, management of the database,
+
+integration of Artificial Intelligence features, and version control.
+
+The following table presents the tools used by the researchers
+
+and their corresponding purposes in the development of the
+
+proposed system. The tools listed are consistent with the
+
+technologies identified in the team's development roles.
+
+Frontend
+
+                                                                  90
+
+       TOOL                          PURPOSE
+
+HTML             Used to structure the content and elements of the
+                 web pages.
+
+Tailwind CSS     Used to style the system interface and create
+                 responsive layouts.
+
+ PHP             It is used as a PHP templating engine for creating
+                 dynamic and reusable web pages.
+
+JavaScript       Used to provide interactive and dynamic
+                 functionalities within the system.
+
+Backend
+
+          Tool                        Purpose
+
+ PHP             Used as the server-side programming language for
+                 processing system requests and application logic.
+
+Database
+
+       TOOL                          PURPOSE
+
+PostgreSql       PostgreSQL is used to store, organize, and
+                 manage the structured data and records of the
+                 system.
+
+AI
+
+       TOOL                         PURPOSE
+
+                                                        91
+
+Gemini API           Used to integrate Gemini-powered Artificial
+                     Intelligence features for analytics, decision support,
+                     and automated report generation.
+
+Version Control
+
+         TOOL                             PURPOSE
+
+Git                  Used to track changes and manage different
+                     versions of the system's source code.
+
+GitHub               Used as the shared repository for storing source
+                     code and supporting collaboration among the
+                     researchers.
+
+Development
+
+        TOOL                              PURPOSE
+
+Visual Studio Code   Used as the primary code editor for writing, editing,
+(VS Code)            and managing the system's source code.
+
+Dokploy              Dokploy is used as the deployment platform for
+                     running the PHP application and PostgreSqL
+                     database.
+
+Design
+
+        TOOL                              PURPOSE
+
+Figma                Used to create and organize the system's user
+                     interface designs, wireframes, and prototypes before
+                     implementation.
+
+                                                               92
+
+3.2 Architectural Design Decisions
+
+       The proposed system uses Microservices Architecture as the
+
+main architectural approach for the integrated LGU system. The system
+
+is divided into different services, where each service is responsible for a
+
+specific government function. The Health and Sanitation Management
+
+System is one of these services and focuses on health and
+
+sanitation-related activities.
+
+       This architecture was chosen because the different services
+
+have different functions and requirements. Separating them makes the
+
+system easier to develop, update, and maintain. It also allows the
+
+different services to communicate with each other when needed while
+
+keeping their own functions separate.
+
+3.2.1 Why Microservices?
+
+              Microservices was chosen because the whole LGU
+
+       system contains many different services, such as health and
+
+       sanitation, permits and licensing, social services, education,
+
+       disaster response, and revenue services. Each service handles a
+
+                                                                        93
+
+different type of government activity, so placing all of them into
+
+one large application may make the system harder to manage.
+
+      With microservices, each service can focus on its own
+
+tasks. For the Health and Sanitation Management System, it
+
+handles Health Center Services, Sanitation Permit and
+
+Inspection, Immunization and Nutrition Tracker, Wastewater
+
+and Septic Services, and Health Surveillance System. This
+
+allows the team to work on the health and sanitation functions
+
+without making major changes to the other services.
+
+      This approach also makes it easier to improve the system
+
+in the future. If one service needs an update or additional
+
+features, the changes can be made mainly within that service.
+
+This helps reduce the effect of changes on the other parts of the
+
+integrated LGU system.
+
+3.2.2 Service Independence
+
+      Each service in the LGU system has its own specific
+
+responsibilities. The Health and Sanitation Management System
+
+focuses only on health and sanitation-related services.
+
+                                                               94
+
+This separation allows the team to develop and maintain the
+
+health and sanitation service without directly changing the
+
+internal functions of other LGU services. It also makes it easier to
+
+find and fix problems within a specific service.
+
+3.2.3 API-Based Communication
+
+       The different services communicate with each other
+
+through Application Programming Interfaces (APIs). APIs
+
+allow one service to request or send information to another
+
+service when needed.
+
+For example, the Health and Sanitation service may need
+
+information from another LGU service for a specific process.
+
+Instead of directly accessing the other service's internal
+
+functions, the services can communicate through their available
+
+APIs. This helps keep the services separate while still allowing
+
+them to work together.
+
+3.2.4 Scalability
+
+                                                                 95
+
+      Scalability was considered because the number of users
+
+and records may increase as the system is used by more people.
+
+With microservices, a service that receives more users or
+
+requests can be given additional resources without having to
+
+increase the resources of the entire LGU system.
+
+      For the Health and Sanitation service, this can be useful
+
+when the number of health records, permit requests, service
+
+requests, or health surveillance records increases over time.
+
+3.2.5 Maintainability
+
+      Microservices also makes the system easier to maintain
+
+because the different services are separated based on their
+
+functions. Developers can work on a specific service when fixing
+
+errors, updating features, or making improvements.
+
+      For the Health and Sanitation service, changes can focus
+
+on its own functions such as health center records, sanitation
+
+permits, immunization records, wastewater requests, and health
+
+surveillance without requiring major changes to unrelated
+
+services.
+
+                                                                96
+
+3.2.6 Security and Access Control
+
+      Security is also considered because the system handles
+
+health and other important government information. Only
+
+authorized users should be able to access information and
+
+functions based on their assigned roles.
+
+      The system uses authentication and access control to
+
+help limit access to authorized users. Communication between
+
+services should also be protected to help prevent unauthorized
+
+access to information. These security considerations are
+
+important because the proposed system manages records that
+
+should only be available to the appropriate users.
+
+3.2.7 AI Service Integration
+
+      The Health and Sanitation Management System uses the
+
+Gemini API to provide AI-based features. It is used to help
+
+analyze available health and sanitation data, identify trends,
+
+                                                           97
+
+provide useful information for decision-making, and assist in
+
+generating reports.
+
+       The AI is only intended to assist authorized personnel. It
+
+does not replace the decisions of health and sanitation
+
+personnel. Final decisions still remain with the authorized users
+
+of the system, consistent with the study's stated use of Gemini as
+
+a decision-support tool.
+
+3.2.8 Integration with the Larger LGU System
+
+       The Health and Sanitation Management System is part of
+
+a   larger   integrated    LGU   system   that contains different
+
+government services. These include Citizenship Information and
+
+Engagement, Permits and Licensing Management, Social
+
+Services Management, Education and Scholarship Management,
+
+Disaster Risk Reduction and Emergency Response, Urban
+
+Planning and Housing, Revenue and Treasury Services,
+
+Transport and Mobility Management, and Public Assets and
+
+Facilities Management.
+
+                                                               98
+
+              Although the Health and Sanitation service has its own
+
+       functions, it can still communicate with the other services when
+
+       information or a related process is needed. This allows the
+
+       different government services to work together while keeping
+
+       their individual functions separate
+
+3.3 Development, Operations and QA Methodology
+
+       The development of the proposed Health and Sanitation
+
+Management System follows a simple DevOps-based approach to
+
+organize the development, testing, and deployment of the system. The
+
+approach allows the researchers to manage source code, work on
+
+system features, test changes, and review the system with the client.
+
+Quality assurance is also included throughout the development process
+
+to help ensure that the system works properly and meets the needs of
+
+its intended users.
+
+       3.3.1 DevOps Toolchain
+
+              The researchers use different development tools to
+
+       support the creation, management, and testing of the proposed
+
+       system. These tools are used during different parts of the
+
+                                                                    99
+
+development process, from writing the source code to managing
+
+project files and preparing the system for deployment.
+
+       TOOLS                               PURPOSE
+
+ Git                   Used to track changes in the source code and
+                       manage different versions of the project.
+
+ GitHub                Used as the online repository for storing the
+                       project's source code and sharing updates
+                       among the developers.
+
+ Visual Studio Code    Used as the main code editor for writing and
+ (VS Code)             managing the system's source code.
+
+ XAMPP/Dokploy         XAMPP is used as the local development
+                       environment for running the PHP application and
+                       MySQL database, while Dokploy is used for
+                       deployment.
+
+ PostgreSql            PostgreSQL is used as the database for the web
+                       application's backend, storing data and
+                       supporting core business operations.
+
+ PHPMailer             Composer is used to manage the PHP packages
+                       and dependencies required by the Laravel
+                       application.
+
+ Node.js               Used to support the frontend development tools
+                       and packages required by the system.
+
+                                                              100
+
+         These tools work together to support the development
+
+process. Git and GitHub are used for source-code management,
+
+while VS Code is used for writing the code. XAMPP and Dokploy
+
+provide the local environment needed to run the application
+
+during    development.      PostgreSql   handles   the   main   web
+
+application    functions,    while   Composer      manages      PHP
+
+dependencies. Node.js supports the frontend development and
+
+asset processing.
+
+3.3.2 CI/CD Pipeline Design
+
+         The project does not use an automated CI/CD platform
+
+such as GitHub Actions. Instead, the researchers follow a simple
+
+development and deployment process that is suitable for the
+
+capstone project. Changes are first created and tested by the
+
+developer before being uploaded to the shared GitHub
+
+repository.
+
+                                                                101
+
+The general process is:
+
+      The developer first creates or updates a system feature
+
+and commits the changes using Git. The updated source code is
+
+                                                         102
+
+then pushed to the GitHub repository where it can be accessed
+
+and reviewed by the development team. The changes are tested
+
+to identify possible errors before deployment. Once the system
+
+or feature passes the required tests, it can be deployed for client
+
+review. Feedback from the client can then be used to identify
+
+changes or improvements for the next development cycle.
+
+       This process provides a simple way for the researchers to
+
+manage changes and maintain a clear record of the project's
+
+development without claiming the use of automated CI/CD tools
+
+that are not part of the actual project.
+
+3.3.3 Testing Strategy
+
+       Testing is performed throughout the development process
+
+to check whether the system functions correctly and meets the
+
+requirements    of   the   Health   and    Sanitation   Office.   The
+
+researchers use different testing approaches to check individual
+
+functions, communication between components, overall system
+
+behavior, usability, performance, and security.
+
+                                                                  103
+
+    Testing Type                            Purpose
+
+Unit Testing          Used to check individual functions or components to
+                      determine whether they work correctly.
+
+Integration Testing   Used to check whether different components or
+                      services communicate and work properly together.
+
+System Testing        Used to test the complete system and check
+                      whether its different functions work as expected.
+
+User Acceptance       Used to determine whether the system meets the
+Testing (UAT)         requirements and expectations of the intended
+                      users.
+
+Black Box Testing     Used to test system functions based on inputs and
+                      expected outputs without examining the internal
+                      source code.
+
+Usability Testing     Used to determine whether users can understand
+                      and use the system easily and efficiently.
+
+Performance           Used to check the basic response and performance
+Testing               of the system when performing common tasks and
+                      handling user requests.
+
+Security Testing      Used to check basic security functions such as
+                      authentication, access control, and protection
+                      against unauthorized access.
+
+      Testing is conducted during the development process, and
+
+identified issues are corrected and tested again. Client testing
+
+and review are also included when applicable. The intended
+
+users can provide feedback regarding the system's functions,
+
+                                                             104
+
+      usability, and overall performance. Their feedback is considered
+
+      by the researchers when making improvements to the system.
+
+      This testing process helps ensure that the proposed system is
+
+      functional, usable, and suitable for the requirements of the
+
+      Health and Sanitation Management service.
+
+3.4 Innovation Framework
+
+      The proposed Health and Sanitation Management Information
+
+System introduces several features that aim to improve the way health
+
+and sanitation information is managed and used. The system combines
+
+digital record management with Gemini-powered AI, analytics,
+
+decision support, automated report generation, monitoring, and data
+
+visualization. These features are intended to help authorized personnel
+
+work with health and sanitation data more easily and make better use of
+
+the information available in the system.
+
+      3.4.1 Gemini-Powered AI
+
+             The system integrates the Gemini API to provide
+
+      AI-supported features for the Health and Sanitation Management
+
+                                                                   105
+
+service. Gemini can assist in analyzing available records,
+
+summarizing information, identifying patterns, and generating
+
+useful insights from the data stored in the system.
+
+      The AI is designed to support authorized personnel in
+
+their work rather than replace their judgment. The information
+
+provided by the AI can serve as an additional reference when
+
+reviewing health and sanitation data.
+
+3.4.2 AI Analytics and Trend Analysis
+
+      The system uses analytics to help users understand the
+
+information collected from different health and sanitation
+
+services. Data can be reviewed and summarized to make
+
+changes and patterns easier to identify.
+
+      Trend analysis can also be used to compare records over
+
+different periods. For example, users may review changes in
+
+health-related cases, sanitation activities, or other recorded
+
+                                                          106
+
+information to determine whether a certain trend is increasing,
+
+decreasing, or remaining consistent. These results can help
+
+authorized personnel identify areas that may need further
+
+attention.
+
+3.4.3 Decision Support
+
+       The system provides decision support by presenting
+
+useful information based on the records available in the system.
+
+The analytics and AI-generated insights can help authorized
+
+personnel understand current conditions, compare information,
+
+and identify possible concerns.
+
+       The decision-support feature is intended only as an aid for
+
+users. Final decisions remain with the authorized personnel who
+
+are responsible for evaluating the information and deciding what
+
+action should be taken.
+
+3.4.4 Automated Report Generation
+
+       The system includes automated report generation to help
+
+reduce the time needed to prepare reports manually. The system
+
+                                                              107
+
+can use stored records and processed information to create
+
+summaries and reports based on the selected data.
+
+      This feature can make report preparation more organized
+
+and reduce repetitive work. It can also help provide reports in a
+
+more consistent format for monitoring and documentation
+
+purposes.
+
+3.4.5 Health and Sanitation Monitoring
+
+      The system supports monitoring of different health and
+
+sanitation activities. For the Health Surveillance System,
+
+recorded health-related information can be reviewed to help
+
+identify possible changes or patterns in reported cases.
+
+      For Sanitation Permit and Inspection, the system allows
+
+authorized personnel to monitor permit records, inspection
+
+schedules, inspection results, and related activities. These
+
+features provide a more organized way of tracking health and
+
+sanitation processes compared to relying only on manual
+
+records.
+
+                                                             108
+
+3.4.6 Data Visualization and Notifications
+
+      The system uses data visualization to present information
+
+through dashboards, charts, graphs, and other visual elements.
+
+This allows users to understand summarized information more
+
+easily and helps them identify comparisons and trends without
+
+having to review large amounts of raw data.
+
+      A notification system is also included to help users keep
+
+track of important activities and updates. Notifications may be
+
+used for activities such as inspection schedules, permit-related
+
+tasks, immunization reminders, and other events supported by
+
+the system.
+
+3.4.7 Future Expansion
+
+      The innovation framework also allows the system to be
+
+improved as the needs of the LGU change. Future versions may
+
+include additional AI features, analytics, reports, monitoring
+
+functions, and other health and sanitation services.
+
+                                                            109
+
+             Since the Health and Sanitation Management System is
+
+      part of the larger LGU microservices architecture, future
+
+      improvements can also include additional integrations with other
+
+      government services. This allows the system to grow while
+
+      keeping its existing functions organized and manageable.
+
+Overall Innovation
+
+      Overall, the innovation of the proposed system comes from
+
+combining   digital   health    and   sanitation   management      with
+
+Gemini-powered AI, analytics, decision support, and automated
+
+reporting. Instead of only storing records, the system also helps
+
+authorized personnel understand the information collected and use it for
+
+monitoring, reporting, and decision-making. This provides a more useful
+
+and organized approach to managing health and sanitation services
+
+within the integrated LGU system.
+
+                               References
+
+                                                                    110
+
+The Open Group. (2022). The TOGAF® Standard, 10th Edition.
+
+https://www.opengroup.org/togaf
+
+https://www.researchgate.net/publication/376615009_Web-Based_Heal
+
+th_Service_Management_Information_System_Development_With_The
+
+_Linear_Sequential_Model_Method
+
+https://www.e3s-conferences.org/articles/e3sconf/pdf/2023/102/e3sconf
+
+_icimece2023_02066.pdf
+
+https://www.researchgate.net/publication/402211235_Designing_a_Web
+
+-Based_Health_Information_System_to_Improve_Data_Accuracy_and_
+
+Service_Quality_at_Phana_Hospital_Amnat_Charoen
+
+http://repository.out.ac.tz/4449/1/RASHID%20SAID%20-%20Dissertatio
+
+n-19-05-2023.pdf
+
+https://iopscience.iop.org/article/10.1088/1742-6596/1764/1/012067
+
+IBM.       (2024).       What         is      system        integration?
+
+https://www.ibm.com/think/topics/system-integration
+
+                                                                     111
+
+Chandramouli, R. (2019). Security strategies for microservices-based
+
+application systems (NIST Special Publication 800-204). National
+
+Institute             of          Standards            and           Technology.
+
+https://doi.org/10.6028/NIST.SP.800-204
+
+Chandramouli,         R.,     &   Butcher,     Z.   (2020).    Building    secure
+
+microservices-based applications using service-mesh architecture (NIST
+
+Special Publication 800-204A). National Institute of Standards and
+
+Technology. https://doi.org/10.6028/NIST.SP.800-204A
+
+Microsoft. (2024). What is artificial intelligence (AI)? Microsoft Azure.
+
+https://azure.microsoft.com/en-us/resources/cloud-computing-dictionary/
+
+what-is-artificial-intelligence
+
+IBM.        (2024).        What   is   artificial   intelligence   (AI)?    IBM.
+
+https://www.ibm.com/think/topics/artificial-intelligence
+
+Microsoft. (2024). What is the Internet of Things (IoT)? Microsoft Azure.
+
+https://azure.microsoft.com/en-us/resources/cloud-computing-dictionary/
+
+what-is-iot
+
+                                                                            112
+
+IBM.   (2024).     What      is    the       Internet    of     Things   (IoT)?    IBM.
+
+https://www.ibm.com/think/topics/internet-of-things
+
+IBM.         (2024).        What          is          data        analytics?       IBM.
+
+https://www.ibm.com/think/topics/data-analytics
+
+Microsoft. (2024). What is business intelligence (BI)? Microsoft Power BI.
+
+https://powerbi.microsoft.com/en-us/what-is-business-intelligence/
+
+Microsoft.     (2024).    Choose         a      data     store.     Microsoft     Learn.
+
+https://learn.microsoft.com/azure/architecture/guide/technology-choices/d
+
+ata-store-overview
+
+MongoDB.          (2024).          What          is          polyglot    persistence?
+
+https://www.mongodb.com/resources/basics/databases/polyglot-persisten
+
+ce
+
+National Institute of Standards and Technology. (2024). Cybersecurity
+
+Framework (CSF) 2.0. https://www.nist.gov/cyberframework
+
+Cybersecurity and Infrastructure Security Agency. (2024). Cybersecurity
+
+best practices. https://www.cisa.gov/topics/cybersecurity-best-practices
+
+                                                                                   113
+
+International    Organization     for     Standardization.      (2023).     ISO/IEC
+
+25010:2023 Systems and software engineering—Systems and software
+
+Quality Requirements and Evaluation (SQuaRE)—Product quality model.
+
+https://www.iso.org/standard/78175.html
+
+International Organization for Standardization. (2023). ISO/IEC 25000
+
+SQuaRE series. https://www.iso.org/standard/35733.html
+
+National Privacy Commission. (2024). Data Privacy Act of 2012 (Republic
+
+Act No. 10173). https://privacy.gov.ph/data-privacy-act/
+
+National     Privacy    Commission.      (2024).   Protecting     personal    data.
+
+https://privacy.gov.ph/
+
+Mell, P., & Grance, T. (2011). The NIST definition of cloud computing
+
+(NIST Special Publication 800-145). National Institute of Standards and
+
+Technology. https://doi.org/10.6028/NIST.SP.800-145
+
+Microsoft.    (2024).     What   is     cloud   computing?      Microsoft    Azure.
+
+https://azure.microsoft.com/en-us/resources/cloud-computing-dictionary/
+
+what-is-cloud-computing
+
+                                                                              114
+
+Microsoft.    (2024).    What     is   edge        computing?      Microsoft    Azure.
+
+https://azure.microsoft.com/en-us/resources/cloud-computing-dictionary/
+
+what-is-edge-computing
+
+IBM.         (2024).      What         is          edge      computing?           IBM.
+
+https://www.ibm.com/think/topics/edge-computing
+
+Amazon         Web       Services.          (2024).       What        is     DevOps?
+
+https://aws.amazon.com/devops/what-is-devops/
+
+Atlassian.              (2024).              What                is            CI/CD?
+
+https://www.atlassian.com/continuous-delivery/ci-vs-ci-vs-cd
+
+GitHub. (2024). Features. https://github.com/features
+
+The Open Group. (2022). The TOGAF® Standard, 10th Edition.
+
+https://www.opengroup.org/togaf
+
+IBM.          (2024).        What             is          system           integration?
+
+https://www.ibm.com/think/topics/system-integration
+
+                                                                                 115
+
+116
+
+117
