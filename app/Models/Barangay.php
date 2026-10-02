@@ -78,12 +78,22 @@ class Barangay
         $this->db = $db ?? Database::getInstance();
     }
 
+    private static ?array $cachedList = null;
+
     /**
      * Retrieve all 46 District 1 Barangays from the database table
      * with fallback to exact default coordinates dictionary.
      */
     public function allForSurveillance(): array
     {
+        if (self::$cachedList !== null) {
+            return self::$cachedList;
+        }
+        if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION['cached_barangays'])) {
+            self::$cachedList = $_SESSION['cached_barangays'];
+            return self::$cachedList;
+        }
+
         $dict = self::$defaultBarangays;
 
         try {
@@ -122,6 +132,11 @@ class Barangay
                 'risk'          => 'Low',
                 'case_rate'     => 0,
             ];
+        }
+
+        self::$cachedList = $list;
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION['cached_barangays'] = $list;
         }
 
         return $list;

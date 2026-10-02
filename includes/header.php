@@ -40,7 +40,9 @@ $roleDescription = $_SESSION['role_description'] ?? 'employee';
 $displayRole     = !empty($_SESSION['role']) ? $_SESSION['role'] : (!empty($_SESSION['role_description']) ? $_SESSION['role_description'] : 'Employee');
 $userStatus      = $_SESSION['status'] ?? 'Active';
 
-if ($currentUserId > 0) {
+$now = time();
+$lastSync = (int)($_SESSION['last_employee_sync'] ?? 0);
+if ($currentUserId > 0 && ($now - $lastSync > 600 || empty($_SESSION['full_name']))) {
     try {
         require_once __DIR__ . '/../app/Models/Employee.php';
         $empModel = new Employee();
@@ -68,6 +70,7 @@ if ($currentUserId > 0) {
                 $_SESSION['full_name'] = $liveUser['full_name'];
                 $_SESSION['user_full_name'] = $liveUser['full_name'];
             }
+            $_SESSION['last_employee_sync'] = $now;
         }
     } catch (\Throwable $e) {}
 }

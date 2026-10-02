@@ -32,10 +32,10 @@ class NotificationService
             @session_start();
         }
 
-        // Fast In-Memory / Session Cache (45s TTL)
+        // Fast In-Memory / Session Cache (180s TTL)
         $userKey = 'notifs_' . ($_SESSION['user_id'] ?? 'anon') . '_' . md5(($_SESSION['role'] ?? '') . ($_SESSION['department'] ?? ''));
         if (isset($_SESSION['cache_' . $userKey]) && isset($_SESSION['cache_time_' . $userKey])) {
-            if (time() - (int)$_SESSION['cache_time_' . $userKey] < 45) {
+            if (time() - (int)$_SESSION['cache_time_' . $userKey] < 180) {
                 return (array)$_SESSION['cache_' . $userKey];
             }
         }
@@ -46,167 +46,185 @@ class NotificationService
             return [];
         }
 
+        $userRoleDesc = trim($_SESSION['role_description'] ?? '');
+        $userRole = trim($_SESSION['role'] ?? 'employee');
+        $isAdmin = $this->isAdmin($userRoleDesc) || $this->isAdmin($userRole);
+
+        $deptResolver = DepartmentResolver::getInstance();
+        $userDept = $deptResolver->resolveDepartmentName();
+        $userDeptNorm = $deptResolver->normalizeDepartmentName($userDept);
+
         // 1. Live Disease Surveillance & Outbreak Alerts (Health Cluster)
-        try {
-            $survModel = new SurveillanceAlert($this->db);
-            $survAlerts = $survModel->all(['limit' => 5]);
-            foreach (array_slice($survAlerts, 0, 4) as $idx => $sa) {
-                $severity = strtolower($sa['severity'] ?? 'warning');
-                $isCritical = $severity === 'critical' || $severity === 'emergency' || $severity === 'high';
+        if ($isAdmin || in_array($userDeptNorm, ['health surveillance', 'administration', 'health center services'])) {
+            try {
+                $survModel = new SurveillanceAlert($this->db);
+                $survAlerts = $survModel->all(['limit' => 5]);
+                foreach (array_slice($survAlerts, 0, 4) as $idx => $sa) {
+                    $severity = strtolower($sa['severity'] ?? 'warning');
+                    $isCritical = $severity === 'critical' || $severity === 'emergency' || $severity === 'high';
 
-                $item = [
-                    'id' => 'notif-surv-' . ($sa['id'] ?? ($idx + 1)),
-                    'category' => 'surveillance',
-                    'title' => ($sa['disease'] ?? 'Disease') . ' Surveillance Alert',
-                    'message' => $sa['message'] ?? ("Alert triggered in " . ($sa['barangay'] ?? 'Caloocan')),
-                    'time' => 'Live Alert',
-                    'url' => site_url('modules/surveillence/alerts.php'),
-                    'icon' => 'fas fa-biohazard',
-                    'icon_bg' => $isCritical ? 'bg-red-100' : 'bg-amber-100',
-                    'icon_color' => $isCritical ? 'text-red-500' : 'text-amber-500',
-                    'title_color' => $isCritical ? 'text-red-700' : 'text-amber-700',
-                    'badge' => ucfirst($sa['severity'] ?? 'Alert'),
-                    'badge_class' => $isCritical ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700',
-                    'created_at' => date('Y-m-d H:i:s'),
-                    'allowed_departments' => ['Health Surveillance', 'Administration'],
-                    'required_permissions' => ['surveillance.view', 'dashboard.surveillance']
-                ];
+                    $item = [
+                        'id' => 'notif-surv-' . ($sa['id'] ?? ($idx + 1)),
+                        'category' => 'surveillance',
+                        'title' => ($sa['disease'] ?? 'Disease') . ' Surveillance Alert',
+                        'message' => $sa['message'] ?? ("Alert triggered in " . ($sa['barangay'] ?? 'Caloocan')),
+                        'time' => 'Live Alert',
+                        'url' => site_url('modules/surveillence/alerts.php'),
+                        'icon' => 'fas fa-biohazard',
+                        'icon_bg' => $isCritical ? 'bg-red-100' : 'bg-amber-100',
+                        'icon_color' => $isCritical ? 'text-red-500' : 'text-amber-500',
+                        'title_color' => $isCritical ? 'text-red-700' : 'text-amber-700',
+                        'badge' => ucfirst($sa['severity'] ?? 'Alert'),
+                        'badge_class' => $isCritical ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700',
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'allowed_departments' => ['Health Surveillance', 'Administration'],
+                        'required_permissions' => ['surveillance.view', 'dashboard.surveillance']
+                    ];
 
-                if ($this->isNotificationAllowed($item)) {
-                    $notifications[] = $item;
+                    if ($this->isNotificationAllowed($item)) {
+                        $notifications[] = $item;
+                    }
                 }
+            } catch (Throwable $e) {
+                error_log("NotificationService Surv error: " . $e->getMessage());
             }
-        } catch (Throwable $e) {
-            error_log("NotificationService Surv error: " . $e->getMessage());
         }
 
         // 2. Pending Clinic Appointments & Consultations (Health Cluster)
-        try {
-            $apts = $this->db->select('appointments', ['status' => 'pending'], ['limit' => 3, 'order' => 'id.desc']);
-            if (is_array($apts)) {
-                foreach ($apts as $a) {
-                    $item = [
-                        'id' => 'notif-apt-' . $a['id'],
-                        'category' => 'health_center',
-                        'title' => 'Pending Appointment: ' . ($a['service_type'] ?? 'Consultation'),
-                        'message' => ($a['notes'] ?? 'Scheduled patient visit awaiting confirmation') . ' (' . ($a['appointment_id'] ?? ('APT-' . $a['id'])) . ')',
-                        'time' => $this->formatTimeAgo($a['created_at'] ?? 'now'),
-                        'url' => site_url('modules/healthservices/appointments.php'),
-                        'icon' => 'fas fa-calendar-check',
-                        'icon_bg' => 'bg-blue-100',
-                        'icon_color' => 'text-blue-500',
-                        'title_color' => 'text-blue-700',
-                        'badge' => 'Appointment',
-                        'badge_class' => 'bg-blue-100 text-blue-700',
-                        'created_at' => $a['created_at'] ?? date('Y-m-d H:i:s'),
-                        'allowed_departments' => ['Health Center Services', 'Immunization & Nutrition', 'Health Surveillance', 'Administration'],
-                        'required_permissions' => ['patients.view', 'consultations.view', 'triage.view', 'dashboard.health_center']
-                    ];
+        if ($isAdmin || in_array($userDeptNorm, ['health center services', 'immunization & nutrition', 'health surveillance', 'administration'])) {
+            try {
+                $apts = $this->db->select('appointments', ['status' => 'pending'], ['limit' => 3, 'order' => 'id.desc']);
+                if (is_array($apts)) {
+                    foreach ($apts as $a) {
+                        $item = [
+                            'id' => 'notif-apt-' . $a['id'],
+                            'category' => 'health_center',
+                            'title' => 'Pending Appointment: ' . ($a['service_type'] ?? 'Consultation'),
+                            'message' => ($a['notes'] ?? 'Scheduled patient visit awaiting confirmation') . ' (' . ($a['appointment_id'] ?? ('APT-' . $a['id'])) . ')',
+                            'time' => $this->formatTimeAgo($a['created_at'] ?? 'now'),
+                            'url' => site_url('modules/healthservices/appointments.php'),
+                            'icon' => 'fas fa-calendar-check',
+                            'icon_bg' => 'bg-blue-100',
+                            'icon_color' => 'text-blue-500',
+                            'title_color' => 'text-blue-700',
+                            'badge' => 'Appointment',
+                            'badge_class' => 'bg-blue-100 text-blue-700',
+                            'created_at' => $a['created_at'] ?? date('Y-m-d H:i:s'),
+                            'allowed_departments' => ['Health Center Services', 'Immunization & Nutrition', 'Health Surveillance', 'Administration'],
+                            'required_permissions' => ['patients.view', 'consultations.view', 'triage.view', 'dashboard.health_center']
+                        ];
 
-                    if ($this->isNotificationAllowed($item)) {
-                        $notifications[] = $item;
+                        if ($this->isNotificationAllowed($item)) {
+                            $notifications[] = $item;
+                        }
                     }
                 }
+            } catch (Throwable $e) {
+                error_log("NotificationService APT error: " . $e->getMessage());
             }
-        } catch (Throwable $e) {
-            error_log("NotificationService APT error: " . $e->getMessage());
         }
 
         // 3. Child Health & Immunization Records (Health Cluster)
-        try {
-            $children = $this->db->select('children', [], ['limit' => 2, 'order' => 'id.desc']);
-            if (is_array($children)) {
-                foreach ($children as $ch) {
-                    $cName = trim(($ch['first_name'] ?? '') . ' ' . ($ch['last_name'] ?? ''));
-                    $item = [
-                        'id' => 'notif-child-' . ($ch['id'] ?? uniqid()),
-                        'category' => 'immunization',
-                        'title' => 'Child Health Record: ' . ($cName ?: 'Pediatric Patient'),
-                        'message' => 'Vaccination & health record registered (' . ($ch['child_id'] ?? 'Child') . ')',
-                        'time' => $this->formatTimeAgo($ch['created_at'] ?? 'now'),
-                        'url' => site_url('modules/immunization/child_registry.php'),
-                        'icon' => 'fas fa-syringe',
-                        'icon_bg' => 'bg-emerald-100',
-                        'icon_color' => 'text-emerald-600',
-                        'title_color' => 'text-emerald-700',
-                        'badge' => 'Immunization',
-                        'badge_class' => 'bg-emerald-100 text-emerald-700',
-                        'created_at' => $ch['created_at'] ?? date('Y-m-d H:i:s'),
-                        'allowed_departments' => ['Immunization & Nutrition', 'Health Center Services', 'Health Surveillance', 'Administration'],
-                        'required_permissions' => ['immunization.view', 'patients.view', 'dashboard.immunization']
-                    ];
+        if ($isAdmin || in_array($userDeptNorm, ['immunization & nutrition', 'health center services', 'administration'])) {
+            try {
+                $children = $this->db->select('children', [], ['limit' => 2, 'order' => 'id.desc']);
+                if (is_array($children)) {
+                    foreach ($children as $ch) {
+                        $cName = trim(($ch['first_name'] ?? '') . ' ' . ($ch['last_name'] ?? ''));
+                        $item = [
+                            'id' => 'notif-child-' . ($ch['id'] ?? uniqid()),
+                            'category' => 'immunization',
+                            'title' => 'Child Health Record: ' . ($cName ?: 'Pediatric Patient'),
+                            'message' => 'Vaccination & health record registered (' . ($ch['child_id'] ?? 'Child') . ')',
+                            'time' => $this->formatTimeAgo($ch['created_at'] ?? 'now'),
+                            'url' => site_url('modules/immunization/child_registry.php'),
+                            'icon' => 'fas fa-syringe',
+                            'icon_bg' => 'bg-emerald-100',
+                            'icon_color' => 'text-emerald-600',
+                            'title_color' => 'text-emerald-700',
+                            'badge' => 'Immunization',
+                            'badge_class' => 'bg-emerald-100 text-emerald-700',
+                            'created_at' => $ch['created_at'] ?? date('Y-m-d H:i:s'),
+                            'allowed_departments' => ['Immunization & Nutrition', 'Health Center Services', 'Health Surveillance', 'Administration'],
+                            'required_permissions' => ['immunization.view', 'patients.view', 'dashboard.immunization']
+                        ];
 
-                    if ($this->isNotificationAllowed($item)) {
-                        $notifications[] = $item;
+                        if ($this->isNotificationAllowed($item)) {
+                            $notifications[] = $item;
+                        }
                     }
                 }
+            } catch (Throwable $e) {
+                error_log("NotificationService Child error: " . $e->getMessage());
             }
-        } catch (Throwable $e) {
-            error_log("NotificationService Child error: " . $e->getMessage());
         }
 
         // 4. Pending Desludging & Sanitation Service Requests (Sanitation & Wastewater Cluster)
-        try {
-            $reqs = $this->db->select('service_requests', ['status' => 'pending'], ['limit' => 3, 'order' => 'id.desc']);
-            if (is_array($reqs)) {
-                foreach ($reqs as $r) {
-                    $item = [
-                        'id' => 'notif-sr-' . $r['id'],
-                        'category' => 'wastewater',
-                        'title' => ucfirst($r['service_type'] ?? 'Sanitation') . ' Request Pending',
-                        'message' => ($r['owner_name'] ?? 'Applicant') . ' — ' . ($r['barangay'] ?? 'Location') . ' (' . ($r['request_id'] ?? ('SR-' . $r['id'])) . ')',
-                        'time' => $this->formatTimeAgo($r['created_at'] ?? 'now'),
-                        'url' => site_url('modules/services/service_requests.php'),
-                        'icon' => 'fas fa-water',
-                        'icon_bg' => 'bg-purple-100',
-                        'icon_color' => 'text-purple-500',
-                        'title_color' => 'text-purple-700',
-                        'badge' => 'Pending',
-                        'badge_class' => 'bg-purple-100 text-purple-700',
-                        'created_at' => $r['created_at'] ?? date('Y-m-d H:i:s'),
-                        'allowed_departments' => ['Wastewater Services', 'Sanitation Permits', 'Administration'],
-                        'required_permissions' => ['permits.view', 'inspections.view', 'wastewater.view']
-                    ];
+        if ($isAdmin || in_array($userDeptNorm, ['wastewater services', 'sanitation permits', 'administration'])) {
+            try {
+                $reqs = $this->db->select('service_requests', ['status' => 'pending'], ['limit' => 3, 'order' => 'id.desc']);
+                if (is_array($reqs)) {
+                    foreach ($reqs as $r) {
+                        $item = [
+                            'id' => 'notif-sr-' . $r['id'],
+                            'category' => 'wastewater',
+                            'title' => ucfirst($r['service_type'] ?? 'Sanitation') . ' Request Pending',
+                            'message' => ($r['owner_name'] ?? 'Applicant') . ' — ' . ($r['barangay'] ?? 'Location') . ' (' . ($r['request_id'] ?? ('SR-' . $r['id'])) . ')',
+                            'time' => $this->formatTimeAgo($r['created_at'] ?? 'now'),
+                            'url' => site_url('modules/services/service_requests.php'),
+                            'icon' => 'fas fa-water',
+                            'icon_bg' => 'bg-purple-100',
+                            'icon_color' => 'text-purple-500',
+                            'title_color' => 'text-purple-700',
+                            'badge' => 'Pending',
+                            'badge_class' => 'bg-purple-100 text-purple-700',
+                            'created_at' => $r['created_at'] ?? date('Y-m-d H:i:s'),
+                            'allowed_departments' => ['Wastewater Services', 'Sanitation Permits', 'Administration'],
+                            'required_permissions' => ['permits.view', 'inspections.view', 'wastewater.view']
+                        ];
 
-                    if ($this->isNotificationAllowed($item)) {
-                        $notifications[] = $item;
+                        if ($this->isNotificationAllowed($item)) {
+                            $notifications[] = $item;
+                        }
                     }
                 }
+            } catch (Throwable $e) {
+                error_log("NotificationService SR error: " . $e->getMessage());
             }
-        } catch (Throwable $e) {
-            error_log("NotificationService SR error: " . $e->getMessage());
         }
 
         // 5. Sanitation Permits & Renewals (Sanitation & Wastewater Cluster)
-        try {
-            $permits = $this->db->select('permits', ['status' => 'pending'], ['limit' => 2, 'order' => 'id.desc']);
-            if (is_array($permits)) {
-                foreach ($permits as $p) {
-                    $item = [
-                        'id' => 'notif-perm-' . $p['id'],
-                        'category' => 'sanitation',
-                        'title' => 'Sanitation Permit Application',
-                        'message' => ($p['business_name'] ?? 'Business') . ' — ' . ($p['business_type'] ?? 'Establishment'),
-                        'time' => $this->formatTimeAgo($p['created_at'] ?? 'now'),
-                        'url' => site_url('modules/sanitation/permit_applications.php'),
-                        'icon' => 'fas fa-file-signature',
-                        'icon_bg' => 'bg-rose-100',
-                        'icon_color' => 'text-rose-500',
-                        'title_color' => 'text-rose-700',
-                        'badge' => 'Permit',
-                        'badge_class' => 'bg-rose-100 text-rose-700',
-                        'created_at' => $p['created_at'] ?? date('Y-m-d H:i:s'),
-                        'allowed_departments' => ['Sanitation Permits', 'Wastewater Services', 'Administration'],
-                        'required_permissions' => ['permits.view', 'permits.approve', 'inspections.view']
-                    ];
+        if ($isAdmin || in_array($userDeptNorm, ['sanitation permits', 'wastewater services', 'administration'])) {
+            try {
+                $permits = $this->db->select('permits', ['status' => 'pending'], ['limit' => 2, 'order' => 'id.desc']);
+                if (is_array($permits)) {
+                    foreach ($permits as $p) {
+                        $item = [
+                            'id' => 'notif-perm-' . $p['id'],
+                            'category' => 'sanitation',
+                            'title' => 'Sanitation Permit Application',
+                            'message' => ($p['business_name'] ?? 'Business') . ' — ' . ($p['business_type'] ?? 'Establishment'),
+                            'time' => $this->formatTimeAgo($p['created_at'] ?? 'now'),
+                            'url' => site_url('modules/sanitation/permit_applications.php'),
+                            'icon' => 'fas fa-file-signature',
+                            'icon_bg' => 'bg-rose-100',
+                            'icon_color' => 'text-rose-500',
+                            'title_color' => 'text-rose-700',
+                            'badge' => 'Permit',
+                            'badge_class' => 'bg-rose-100 text-rose-700',
+                            'created_at' => $p['created_at'] ?? date('Y-m-d H:i:s'),
+                            'allowed_departments' => ['Sanitation Permits', 'Wastewater Services', 'Administration'],
+                            'required_permissions' => ['permits.view', 'permits.approve', 'inspections.view']
+                        ];
 
-                    if ($this->isNotificationAllowed($item)) {
-                        $notifications[] = $item;
+                        if ($this->isNotificationAllowed($item)) {
+                            $notifications[] = $item;
+                        }
                     }
                 }
+            } catch (Throwable $e) {
+                error_log("NotificationService Permit error: " . $e->getMessage());
             }
-        } catch (Throwable $e) {
-            error_log("NotificationService Permit error: " . $e->getMessage());
         }
 
         $userId = (int)($_SESSION['user_id'] ?? 0);

@@ -108,6 +108,14 @@ class PermitRecords
     public function update(int $id, array $data): array
     {
         $data['updated_at'] = date('Y-m-d H:i:s');
+        if (isset($data['status']) && ($data['status'] === 'approved' || $data['status'] === 'active')) {
+            if (empty($data['approved_date'])) {
+                $data['approved_date'] = date('Y-m-d');
+            }
+            if (empty($data['expiry_date'])) {
+                $data['expiry_date'] = date('Y-m-d', strtotime('+1 year'));
+            }
+        }
         $encryptedData = EncryptionHelper::encryptModel('permits', $data);
         return $this->db->update('permits', $encryptedData, ['id' => $id], true);
     }
@@ -126,18 +134,26 @@ class PermitRecords
      */
     public function getStats(): array
     {
+        $rows = $this->db->select('permits', [], ['select' => 'status,fee,paid']);
         $stats = [
-            'total' => $this->db->count('permits'),
-            'active' => $this->db->count('permits', ['status' => 'active']),
-            'pending' => $this->db->count('permits', ['status' => 'pending']),
-            'under_review' => $this->db->count('permits', ['status' => 'under_review']),
-            'expired' => $this->db->count('permits', ['status' => 'expired']),
-            'rejected' => $this->db->count('permits', ['status' => 'rejected']),
+            'total' => count($rows),
+            'active' => 0,
+            'pending' => 0,
+            'under_review' => 0,
+            'expired' => 0,
+            'rejected' => 0,
+            'total_revenue' => 0.0,
         ];
 
-        // Get total revenue
-        $result = $this->db->select('permits', [], ['select' => 'fee']);
-        $stats['total_revenue'] = array_sum(array_column($result, 'fee'));
+        foreach ($rows as $p) {
+            $status = strtolower($p['status'] ?? '');
+            if (isset($stats[$status])) {
+                $stats[$status]++;
+            }
+            if (!empty($p['paid']) || in_array($status, ['approved', 'completed', 'active'], true)) {
+                $stats['total_revenue'] += (float)($p['fee'] ?? 0);
+            }
+        }
 
         return $stats;
     }
@@ -242,9 +258,7 @@ class PermitRecords
      */
     public function generatePermitId(): string
     {
-        $year = date('Y');
-        $count = $this->db->count('permits') + 1;
-        return 'SP-' . $year . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        return 'SP-' . date('ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), -4));
     }
 
     /**

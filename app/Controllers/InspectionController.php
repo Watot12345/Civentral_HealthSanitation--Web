@@ -29,9 +29,11 @@ class InspectionController extends BaseController
 
         $this->handle(function() {
             $rawInspections = $this->visibleInspections($this->inspectionModel->all(['order' => 'created_at.desc']));
+            $permitsMap = $this->getPermitsMap();
+            $employeesMap = $this->getEmployeesMap();
 
-            $inspections = array_map(function ($i) {
-                return $this->enrichInspection($i);
+            $inspections = array_map(function ($i) use ($permitsMap, $employeesMap) {
+                return $this->enrichInspection($i, $permitsMap, $employeesMap);
             }, $rawInspections);
 
             return [
@@ -61,11 +63,14 @@ class InspectionController extends BaseController
             $allInspections = $this->visibleInspections($this->inspectionModel->all(['order' => 'created_at.desc']));
             $filtered = [];
 
-            // Need permit data for filtering by applicant
+            // Pre-fetch permits and employees maps to eliminate N+1 database queries
             $permitsMap = $this->getPermitsMap();
+            $employeesMap = $this->getEmployeesMap();
 
             foreach ($allInspections as $i) {
                 $permit = $permitsMap[$i['permit_id'] ?? 0] ?? null;
+                $inspectorId = (int)($i['inspector_id'] ?? 0);
+                $inspectorName = $employeesMap[$inspectorId] ?? ($inspectorId > 0 ? 'Inspector #' . $inspectorId : 'Unassigned');
 
                 $passesStatus = empty($status) || ($i['status'] ?? '') === $status;
                 $passesResult = empty($result) || ($i['overall_status'] ?? '') === $result;
@@ -73,10 +78,9 @@ class InspectionController extends BaseController
                 $passesDateFrom = empty($dateFrom) || $inspectionDate >= $dateFrom;
                 $passesDateTo = empty($dateTo) || $inspectionDate <= $dateTo;
 
-                // Inspector filter by ID (since inspector is numeric FK)
+                // Inspector filter
                 $passesInspector = true;
                 if (!empty($inspector)) {
-                    $inspectorName = $this->getInspectorName($i['inspector_id'] ?? null);
                     $passesInspector = stripos($inspectorName, $inspector) !== false;
                 }
 
@@ -84,7 +88,6 @@ class InspectionController extends BaseController
                 if (!empty($search)) {
                     $needle = strtolower($search);
                     $applicant = $permit ? strtolower($permit['applicant'] ?? '') : '';
-                    $inspectorName = strtolower($this->getInspectorName($i['inspector_id'] ?? null));
                     $permitNumber = $permit ? strtolower($permit['permit_id'] ?? '') : '';
                     $businessType = $permit ? strtolower($permit['business_type'] ?? '') : '';
                     $address = $permit ? strtolower($permit['address'] ?? '') : '';
@@ -94,7 +97,7 @@ class InspectionController extends BaseController
                         $businessType . ' ' .
                         $address . ' ' .
                         strtolower($i['scheduled_date'] ?? '') . ' ' .
-                        $inspectorName;
+                        strtolower($inspectorName);
                     $passesSearch = str_contains($haystack, $needle);
                 }
 
@@ -106,8 +109,8 @@ class InspectionController extends BaseController
             $total = count($filtered);
             $paginated = array_slice($filtered, $offset, $limit);
 
-            $inspections = array_map(function ($i) {
-                return $this->enrichInspection($i);
+            $inspections = array_map(function ($i) use ($permitsMap, $employeesMap) {
+                return $this->enrichInspection($i, $permitsMap, $employeesMap);
             }, $paginated);
 
             return [
@@ -185,13 +188,21 @@ class InspectionController extends BaseController
                 ];
             }
 
-            // Verify permit exists
+            // Verify permit exists and is paid
             $permit = $this->permitModel->find($data['permit_id']);
             if (!$permit) {
                 return [
                     'success' => false,
                     'message' => 'Permit not found',
                     'code' => 404
+                ];
+            }
+
+            if (empty($permit['paid'])) {
+                return [
+                    'success' => false,
+                    'message' => 'Permit fee must be paid before scheduling an inspection',
+                    'code' => 400
                 ];
             }
 
@@ -371,11 +382,23 @@ class InspectionController extends BaseController
                         'inspection_date' => date('Y-m-d')
                     ];
 
-                    $overall = $updateData['overall_status'] ?? 'partially_compliant';
                     if ($overall === 'compliant') {
                         $permitUpdate['status'] = 'approved';
                         $permitUpdate['approved_date'] = date('Y-m-d');
                         $permitUpdate['rejection_reason'] = null;
+
+                        // Auto-generate official Sanitary Permit document into documents container
+                        try {
+                            require_once __DIR__ . '/../Models/PermitDocument.php';
+                            $docModel = new PermitDocument(Database::getInstance());
+                            $permitObj = $this->permitModel->find($permitId);
+                            if ($permitObj) {
+                                $mergedPermit = array_merge($permitObj, $permitUpdate);
+                                $docModel->autoGenerateForPermit($mergedPermit);
+                            }
+                        } catch (\Throwable $de) {
+                            error_log('Permit document auto-generation error on inspection approval: ' . $de->getMessage());
+                        }
                     } elseif ($overall === 'non_compliant') {
                         $permitUpdate['status'] = 'rejected';
                         if (!empty($updateData['recommendations'])) {
@@ -671,18 +694,20 @@ class InspectionController extends BaseController
         return $dbData;
     }
 
-    private function enrichInspection(array $i): array
+    private function enrichInspection(array $i, array $permitsMap = [], array $employeesMap = []): array
     {
-        // Get permit data
-        $permit = null;
-        $permitId = $i['permit_id'] ?? 0;
-        if ($permitId) {
-            $permit = $this->permitModel->find($permitId);
+        // Get permit data from pre-fetched map or fallback
+        $permitId = (int)($i['permit_id'] ?? 0);
+        $permit = $permitsMap[$permitId] ?? null;
+        if (!$permit && $permitId > 0) {
+            try {
+                $permit = $this->permitModel->find($permitId);
+            } catch (\Throwable $e) {}
         }
 
-        // Get inspector name
-        $inspectorId = $i['inspector_id'] ?? null;
-        $inspectorName = $this->getInspectorName($inspectorId);
+        // Get inspector name from pre-fetched map or fallback
+        $inspectorId = (int)($i['inspector_id'] ?? 0);
+        $inspectorName = $employeesMap[$inspectorId] ?? ($inspectorId > 0 ? 'Inspector #' . $inspectorId : 'Unassigned');
 
         // Decode findings JSON
         $findings = [];
@@ -702,7 +727,7 @@ class InspectionController extends BaseController
             'applicant' => $permit['applicant'] ?? 'Unknown',
             'business_type' => $permit['business_type'] ?? '',
             'address' => $address,
-            'inspector_id' => (int)($inspectorId ?? 0),
+            'inspector_id' => $inspectorId,
             'inspector_name' => $inspectorName,
             'scheduled_date' => $i['scheduled_date'] ?? '',
             'scheduled_time' => $i['scheduled_time'] ?? '',
@@ -731,6 +756,42 @@ class InspectionController extends BaseController
         }
     }
 
+    private function getEmployeesMap(): array
+    {
+        try {
+            $allEmps = $this->employeeModel->all();
+            $map = [];
+            foreach ($allEmps as $emp) {
+                if (!empty($emp['id'])) {
+                    $map[(int)$emp['id']] = $emp['full_name'] ?? ($emp['name'] ?? ('Inspector #' . $emp['id']));
+                }
+            }
+            return $map;
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    private function currentEmployeeId(): int
+    {
+        $this->startSession();
+        $userId = (int)($_SESSION['user_id'] ?? 0);
+        $userEmail = strtolower(trim($_SESSION['email'] ?? ''));
+
+        if (!empty($userEmail)) {
+            try {
+                $allEmps = $this->employeeModel->all();
+                foreach ($allEmps as $emp) {
+                    if (!empty($emp['email']) && strtolower(trim($emp['email'])) === $userEmail) {
+                        return (int)$emp['id'];
+                    }
+                }
+            } catch (\Throwable $e) {}
+        }
+
+        return $userId;
+    }
+
     private function visibleInspections(array $inspections): array
     {
         if ($this->canViewAllInspections()) {
@@ -738,13 +799,12 @@ class InspectionController extends BaseController
         }
 
         $currentUserId = $this->currentUserId();
-        if ($currentUserId <= 0 || !$this->isInspectorUser()) {
-            return [];
-        }
+        $currentEmpId = $this->currentEmployeeId();
 
-        return array_values(array_filter($inspections, function ($inspection) use ($currentUserId) {
-            return (int)($inspection['inspector_id'] ?? 0) === $currentUserId
-                && ($inspection['status'] ?? '') === 'scheduled';
+        return array_values(array_filter($inspections, function ($inspection) use ($currentUserId, $currentEmpId) {
+            $inspId = (int)($inspection['inspector_id'] ?? 0);
+            return ($inspId === $currentUserId || $inspId === $currentEmpId)
+                && strtolower($inspection['status'] ?? '') === 'scheduled';
         }));
     }
 
@@ -754,17 +814,29 @@ class InspectionController extends BaseController
             return true;
         }
 
-        return $this->isInspectorUser()
-            && (int)($inspection['inspector_id'] ?? 0) === $this->currentUserId()
-            && ($inspection['status'] ?? '') === 'scheduled';
+        $inspId = (int)($inspection['inspector_id'] ?? 0);
+        return ($inspId === $this->currentUserId() || $inspId === $this->currentEmployeeId())
+            && strtolower($inspection['status'] ?? '') === 'scheduled';
     }
 
     private function canViewAllInspections(): bool
     {
         $roleText = $this->currentRoleText();
+        if (empty($roleText)) {
+            return true;
+        }
+
         return str_contains($roleText, 'admin')
             || str_contains($roleText, 'administrator')
-            || str_contains($roleText, 'sanitation director');
+            || str_contains($roleText, 'sanitation director')
+            || str_contains($roleText, 'director')
+            || str_contains($roleText, 'clerk')
+            || str_contains($roleText, 'staff')
+            || str_contains($roleText, 'officer')
+            || str_contains($roleText, 'head')
+            || str_contains($roleText, 'supervisor')
+            || str_contains($roleText, 'manager')
+            || str_contains($roleText, 'sanitation');
     }
 
     private function isInspectorUser(): bool

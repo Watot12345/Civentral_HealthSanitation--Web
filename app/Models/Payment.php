@@ -262,12 +262,11 @@ class Payment
     }
 
     /**
-     * Generate unique payment ID
+     * Generate unique payment ID with collision-safe suffix
      */
     private function generatePaymentId(): string
     {
-        $count = $this->db->count('payments') + 1;
-        return 'PAY-' . date('Ymd') . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        return 'PAY-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), -4));
     }
 
     /**
@@ -283,11 +282,10 @@ class Payment
     }
 
     /**
-     * Generate receipt number
+     * Generate receipt number with collision-safe suffix
      */
     public function generateReceiptNumber(): string
     {
-        $count = $this->db->count('payments', ['status' => 'completed']) + 1;
-        return 'RCP-' . date('Ymd') . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        return 'RCP-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(3)), -4));
     }
 }

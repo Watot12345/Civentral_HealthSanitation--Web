@@ -20,9 +20,18 @@ require_once __DIR__ . '/../../app/Models/Employee.php';
 
 $title = 'Inspections';
 $inspectionRoleText = strtolower(trim(($roleDescription ?? '') . ' ' . ($role ?? '') . ' ' . ($displayRole ?? '')));
-$canViewAllInspectionRows = str_contains($inspectionRoleText, 'admin')
+$canViewAllInspectionRows = empty($inspectionRoleText)
+    || str_contains($inspectionRoleText, 'admin')
     || str_contains($inspectionRoleText, 'administrator')
-    || str_contains($inspectionRoleText, 'sanitation director');
+    || str_contains($inspectionRoleText, 'sanitation director')
+    || str_contains($inspectionRoleText, 'director')
+    || str_contains($inspectionRoleText, 'clerk')
+    || str_contains($inspectionRoleText, 'staff')
+    || str_contains($inspectionRoleText, 'officer')
+    || str_contains($inspectionRoleText, 'head')
+    || str_contains($inspectionRoleText, 'supervisor')
+    || str_contains($inspectionRoleText, 'manager')
+    || str_contains($inspectionRoleText, 'sanitation');
 $isInspectorOnly = !$canViewAllInspectionRows && str_contains($inspectionRoleText, 'inspector');
 
 $permits = [];
@@ -322,9 +331,11 @@ try {
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Permit/Applicant</label>
                 <select id="insp_permit" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="">Select Permit</option>
-                    <?php foreach ($permits as $p): ?>
-                        <option value="<?php echo (int)$p['id']; ?>">
-                            <?php echo htmlspecialchars(($p['permit_id'] ?? '') . ' - ' . ($p['applicant'] ?? '') . ' (' . ($p['business_type'] ?? '') . ')'); ?>
+                    <?php foreach ($permits as $p): 
+                        $isPaid = !empty($p['paid']);
+                    ?>
+                        <option value="<?php echo (int)$p['id']; ?>" <?php echo !$isPaid ? 'disabled class="text-slate-400 bg-slate-50"' : ''; ?>>
+                            <?php echo htmlspecialchars(($p['permit_id'] ?? '') . ' - ' . ($p['applicant'] ?? '') . ' (' . ($p['business_type'] ?? '') . ')' . (!$isPaid ? ' [UNPAID - Payment Required]' : '')); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -776,10 +787,12 @@ function hasActiveFilters() {
         activeDateTo);
 }
 
-async function loadInspections(page = 1) {
+async function loadInspections(page = 1, isSilent = false) {
     currentPage = page;
     const tbody = document.getElementById('inspectionTableBody');
-    tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading inspections...</td></tr>`;
+    if (!isSilent || !tbody.children.length || tbody.querySelector('.fa-spinner')) {
+        tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading inspections...</td></tr>`;
+    }
 
     try {
         const params = buildQueryParams(page);
@@ -788,8 +801,10 @@ async function loadInspections(page = 1) {
         const json = await res.json();
 
         if (!json.success) {
-            showToast(json.message || 'Failed to load inspections', 'danger');
-            tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-10 text-center text-rose-500 text-sm">Failed to load inspections</td></tr>`;
+            if (!isSilent) {
+                showToast(json.message || 'Failed to load inspections', 'danger');
+                tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-10 text-center text-rose-500 text-sm">Failed to load inspections</td></tr>`;
+            }
             return;
         }
 
@@ -798,7 +813,9 @@ async function loadInspections(page = 1) {
         renderPagination(json.page || page, lastTotalPages, json.total || 0, json.limit || PAGE_LIMIT);
     } catch (e) {
         console.error(e);
-        showToast('Network error loading inspections', 'danger');
+        if (!isSilent) {
+            showToast('Network error loading inspections', 'danger');
+        }
     }
 }
 
@@ -1508,15 +1525,19 @@ function isConductModalOpen() {
 }
 
 function setupRealtimeInspectionSync() {
+    let syncTimer = null;
     const onRealtimeUpdate = (e) => {
         const detail = e.detail || {};
         console.log('⚡ Realtime Inspection sync triggered:', detail);
-        loadStats();
-        if (!isConductModalOpen()) {
-            loadInspections(currentPage);
-        } else {
-            console.log('Protecting active inspector draft session; skipping table rerender.');
-        }
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(() => {
+            loadStats();
+            if (!isConductModalOpen()) {
+                loadInspections(currentPage, true);
+            } else {
+                console.log('Protecting active inspector draft session; skipping table rerender.');
+            }
+        }, 300);
     };
 
     window.addEventListener('sanitationInspectionsUpdated', onRealtimeUpdate);
@@ -1529,7 +1550,7 @@ function setupRealtimeInspectionSync() {
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden && !isConductModalOpen()) {
             loadStats();
-            loadInspections(currentPage);
+            loadInspections(currentPage, true);
         }
     });
 
@@ -1537,7 +1558,7 @@ function setupRealtimeInspectionSync() {
     setInterval(() => {
         if (!document.hidden && !isConductModalOpen()) {
             loadStats();
-            loadInspections(currentPage);
+            loadInspections(currentPage, true);
         }
     }, 30000);
 }
@@ -1560,6 +1581,124 @@ async function viewInspection(id) {
         content.innerHTML = `<p class="text-sm text-rose-500 text-center py-6">Failed to load inspection details</p>`;
     }
 }
+
+const SANITATION_REQUIREMENTS_MATRIX = {
+    'Food Establishment': [
+        'Certificate of Water Potability (Drinking Water & Ice)',
+        'Contract for Abatement of Insect & Vermin (Accredited Pest Control)',
+        'Health Certificates for Food & Non-Food Handlers',
+        'Meat Handlers Permit (if serving meat)'
+    ],
+    'Water Refilling Station': [
+        'Certificate of Water Potability (HPC, Physical-Chemical, Microbiological)',
+        'Heterotrophic Plate Count (HPC) Test Result',
+        'Physical-Chemical Analysis of H2O (not more than 6 mos)',
+        'Microbiological Exam of H2O',
+        'Payment of Delinquency Receipt (for delinquent WRS)'
+    ],
+    'Spa / Massage / Therapeutic Clinic': [
+        'Certificate of Water Potability (a, b, c)',
+        'Photocopy of DOH & TESDA License for Masseur / Masseuse',
+        'Certificate of Training to Conduct Massage',
+        'Certificate of DOH Accreditation for Training Institution',
+        'Health Certificate of Registered Masseur and Attendants',
+        'Pest Control Contract from Accredited Operator'
+    ],
+    'Medical / Dental Clinic / Hospital / Laboratory': [
+        'DOH License to Operate',
+        'Certificate of Proficiency (Drug Testing, HIV-AIDS Accredited)',
+        'Contract for Collection & Disposal of Hazardous Waste & Sharps',
+        'Certificate of Water Potability (a, b, c)',
+        'Copy of Employees PRC Licenses',
+        'Pest Control Contract from Accredited Operator'
+    ],
+    'Market Vendor / Supermarket': [
+        'Certificate of Accreditation from NMIC',
+        'Certificate of Training from NMIC',
+        'Certificate of Water Potability (a, b, c)',
+        'Health Certificates / Meat Handlers Permit / Butchers Permit',
+        'Contract for Insect & Vermin Abatement from Accredited Operator'
+    ],
+    'Hotel / Lodging / Condominium': [
+        'Certificate of Water Potability (a, b, c)',
+        'Contract for Insect & Vermin Prevention & Control',
+        'Water Quality Monitoring (pH, HPC, Microbio) for Swimming Pools',
+        'Certified Lifeguards Training Certificates'
+    ],
+    'Movie House': [
+        'Contract for Pest Control from Accredited Operator',
+        'Certificate of Water Potability (a, b, c)',
+        'Health Certificates of Ushers, Ticket Attendants, Utilities'
+    ],
+    'Funeral Parlor': [
+        'DOH Registered Mortician / Embalmer License',
+        'Certificate of Water Potability (a, b, c)',
+        'Contract for Pest Control from Accredited Operator',
+        'DENR/DOH Certificate of Approval on Wastewater & Hazardous Waste Disposal'
+    ],
+    'Tiangge': [
+        'Certificate of Water Potability (a, b, c)',
+        'Contract for Pest Control',
+        'Contract for Solid Waste Collection & Disposal',
+        'Health Certificate for Food / Non-Food Handlers',
+        'Access to Toilet Facilities & Prescribed Refuse Bins'
+    ],
+    'Department Store': [
+        'Certificate of Water Potability (a, b, c)',
+        'List of Employees for Health Certificate',
+        'Contract for Pest Control from Accredited Operator',
+        'Contract for Solid Waste Collection & Disposal'
+    ],
+    'Recreational Facility': [
+        'Certificate of Water Potability (a, b, c)',
+        'Contract for Pest Control',
+        'Contract for Solid Waste Collection & Disposal',
+        'Health Certificates for Employees'
+    ],
+    'Pharmacy': [
+        'Registered Licensed Pharmacist PRC License',
+        'Health Certificates for Employees (Tellers, Attendants, Security, Cashiers)',
+        'Pest Control Contract from Accredited Operator'
+    ],
+    'Beauty Parlor / Salon / Barbershop': [
+        'Sterilizing Device for Manicure / Pedicure Equipment',
+        'Certificate of Water Potability (a, b, c)',
+        'Pest Control Contract from Accredited Operator',
+        'Health Certificate for Employees'
+    ],
+    'Facial / Skin Clinic': [
+        'Dermatologist PRC License / Accreditation',
+        'Certificate of Training for Aestheticians',
+        'Health Certificate for Employees',
+        'Certificate of Water Potability (a, b, c)',
+        'Pest Control Contract from Accredited Operator',
+        'Contract for Disposal of Sharps, Needles & Hazardous Waste'
+    ],
+    'Amusement Center': [
+        'Noise Level Monitoring Device Certification',
+        'Contract for Pest Control',
+        'Health Certificate for Employees'
+    ],
+    'Construction Site': [
+        'Zoning & Engineering Building Permit',
+        'Certificate of Water Potability (a, b, c)',
+        'Contract for Pest Control from Accredited Operator',
+        'Temporary Sanitary Permit for Food Providers',
+        'Environmental Compliance Certificate (ECC) & DENR Waste Water Disposal Cert',
+        'On-site Medical Facility (Clinic, Nurse/Doctor, Transport Vehicle & Affiliate Hospital)',
+        'Personal Protective Equipment (PPE) & Toilet Facilities Provision'
+    ],
+    'Bank / Financial Institution': [
+        'Certificate of Water Potability (a, b, c)',
+        'Pest Control Contract from Accredited Operator',
+        'Health Certificate for Employees (Tellers, Managers, Security)'
+    ],
+    'Industrial Establishment': [
+        'Certificate of Water Potability (a, b, c)',
+        'PPE Provision (Noise, Dust, Pollutants, Gaseous Materials, Helmets)',
+        'Environmental Safety & Waste Management Permits'
+    ]
+};
 
 function renderInspectionDetails(i) {
     // Decode findings

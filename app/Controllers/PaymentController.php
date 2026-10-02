@@ -180,11 +180,12 @@ class PaymentController extends BaseController
             $createdPayment = $payment[0] ?? $payment;
 
             if (($createdPayment['status'] ?? null) === 'completed') {
-                $this->permitModel->updateById($data['permit_id'], [
+                $permitObj = $this->permitModel->find($data['permit_id']);
+                $updateFields = [
                     'paid' => true,
                     'payment_method' => $data['method'],
-                    'status' => 'approved',
-                ]);
+                ];
+                $this->permitModel->updateById($data['permit_id'], $updateFields);
                 $this->autoGeneratePermitDocument((int)$data['permit_id'], $createdPayment['receipt_number'] ?? null);
             }
 
@@ -494,27 +495,7 @@ class PaymentController extends BaseController
             $docModel = new PermitDocument(Database::getInstance());
             $permit = $this->permitModel->find($permitId);
             if ($permit) {
-                $permitCode = $permit['permit_id'] ?? ('SP-' . date('Y') . '-' . str_pad((string)$permit['id'], 3, '0', STR_PAD_LEFT));
-                $applicantName = $permit['applicant'] ?? ($permit['business_name'] ?? 'Authorized Business Owner');
-                $qrCode = 'QR-SAN-' . date('Y') . '-' . str_pad((string)$permit['id'], 4, '0', STR_PAD_LEFT);
-                
-                if (!$docModel->exists((int)$permit['id'], 'sanitary_permit', 'Sanitation_Permit_' . $permitCode . '.pdf')) {
-                    $docModel->create([
-                        'permit_id'     => (int)$permit['id'],
-                        'applicant'     => $applicantName,
-                        'document_type' => 'sanitary_permit',
-                        'file_name'     => 'Sanitation_Permit_' . $permitCode . '.pdf',
-                        'file_path'     => 'permits/sanitary_permit_' . $permitCode . '.pdf',
-                        'file_size'     => 148500,
-                        'file_type'     => 'pdf',
-                        'mime_type'     => 'application/pdf',
-                        'status'        => 'verified',
-                        'verified'      => true,
-                        'qr_code'       => $qrCode,
-                        'expiry_date'   => date('Y-m-d', strtotime('+' . (class_exists('Settings') ? (int)Settings::get('modules.sanitation.permit_validity_days', 365) : 365) . ' days')),
-                        'notes'         => 'Official Sanitation Permit with QR Code generated upon verified payment (OR #' . ($receiptNumber ?? 'N/A') . ')'
-                    ]);
-                }
+                $docModel->autoGenerateForPermit($permit, $receiptNumber);
             }
         } catch (\Throwable $e) {
             error_log('PermitDocument auto-generation notice: ' . $e->getMessage());

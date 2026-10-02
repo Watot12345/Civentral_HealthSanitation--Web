@@ -199,21 +199,20 @@ $userScope = getUserScope();
             <i class="fa-solid fa-folder text-[10px] opacity-50"></i> 
             <span>Permit Records</span>
           </a>
-          
-          <a href="<?= site_url('modules/sanitation/payments.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'payments.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+
+          <?php if (!empty($userScope['is_admin']) || hasPermission('sanitation.manage') || hasPermission('treasury.manage')): ?>
+          <div class="pt-1.5 pb-0.5 px-3">
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Treasury & Archive</span>
+          </div>
+          <a href="<?= site_url('modules/sanitation/payments.php') ?>" class="flex items-center space-x-2 px-3 py-1.5 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'payments.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-400 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-money-bill-wave text-[10px] opacity-50"></i> 
-            <span>Payments</span>
+            <span>Payment Ledger</span>
           </a>
-          
-          <a href="<?= site_url('modules/sanitation/documents.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'documents.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/sanitation/documents.php') ?>" class="flex items-center space-x-2 px-3 py-1.5 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'documents.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-400 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-file text-[10px] opacity-50"></i> 
-            <span>Documents</span>
+            <span>Document Vault</span>
           </a>
-          
-          <a href="<?= site_url('modules/sanitation/renewals.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'renewals.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-rotate text-[10px] opacity-50"></i> 
-            <span>Renewals</span>
-          </a>
+          <?php endif; ?>
           <?php endif; ?>
 
         </div>

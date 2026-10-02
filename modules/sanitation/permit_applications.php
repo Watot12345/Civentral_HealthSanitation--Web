@@ -70,14 +70,27 @@ $title = 'Permit Applications';
                 <select id="filterType" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Types</option>
                     <option value="Food Establishment">Food Establishment</option>
-                    <option value="Market Vendor">Market Vendor</option>
-                    <option value="Bakery">Bakery</option>
+                    <option value="Water Refilling Station">Water Refilling Station</option>
+                    <option value="Spa / Massage / Therapeutic Clinic">Spa / Massage / Therapeutic Clinic</option>
+                    <option value="Medical / Dental Clinic / Hospital / Laboratory">Medical / Dental Clinic / Hospital / Laboratory</option>
+                    <option value="Market Vendor / Supermarket">Market Vendor / Supermarket</option>
+                    <option value="Hotel / Lodging / Condominium">Hotel / Lodging / Condominium</option>
+                    <option value="Movie House">Movie House</option>
+                    <option value="Funeral Parlor">Funeral Parlor</option>
+                    <option value="Tiangge">Tiangge</option>
+                    <option value="Department Store">Department Store</option>
                     <option value="Recreational Facility">Recreational Facility</option>
-                    <option value="Retail Store">Retail Store</option>
                     <option value="Pharmacy">Pharmacy</option>
+                    <option value="Beauty Parlor / Salon / Barbershop">Beauty Parlor / Salon / Barbershop</option>
+                    <option value="Facial / Skin Clinic">Facial / Skin Clinic</option>
+                    <option value="Amusement Center">Amusement Center</option>
+                    <option value="Construction Site">Construction Site</option>
+                    <option value="Bank / Financial Institution">Bank / Financial Institution</option>
+                    <option value="Industrial Establishment">Industrial Establishment</option>
+                    <option value="Bakery">Bakery</option>
+                    <option value="Retail Store">Retail Store</option>
                     <option value="Agricultural">Agricultural</option>
                     <option value="Office/Commercial">Office/Commercial</option>
-                    <option value="Hotel/Lodging">Hotel/Lodging</option>
                 </select>
                 <button type="button" onclick="openSpecificDateModal()" id="specificDateBtn"
                         class="px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 hover:bg-slate-50 transition flex items-center gap-2">
@@ -164,14 +177,27 @@ $title = 'Permit Applications';
                 <select id="permit_type" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="">Select Business Type</option>
                     <option value="Food Establishment">Food Establishment</option>
-                    <option value="Market Vendor">Market Vendor</option>
+                    <option value="Water Refilling Station">Water Refilling Station (WRS)</option>
+                    <option value="Spa / Massage / Therapeutic Clinic">Spa / Massage / Therapeutic Clinic</option>
+                    <option value="Medical / Dental Clinic / Hospital / Laboratory">Medical / Dental Clinic / Hospital / Laboratory</option>
+                    <option value="Market Vendor / Supermarket">Market Vendor / Supermarket / Abattoir</option>
+                    <option value="Hotel / Lodging / Condominium">Hotel / Lodging / Condominium</option>
+                    <option value="Movie House">Movie House / Theater</option>
+                    <option value="Funeral Parlor">Funeral Parlor</option>
+                    <option value="Tiangge">Tiangge / Flea Market</option>
+                    <option value="Department Store">Department Store / Mall</option>
+                    <option value="Recreational Facility">Recreational Facility (Bowling, Pool)</option>
+                    <option value="Pharmacy">Pharmacy / Drugstore</option>
+                    <option value="Beauty Parlor / Salon / Barbershop">Beauty Parlor / Salon / Barbershop</option>
+                    <option value="Facial / Skin Clinic">Facial / Skin Clinic</option>
+                    <option value="Amusement Center">Amusement Center</option>
+                    <option value="Construction Site">Construction Site</option>
+                    <option value="Bank / Financial Institution">Bank / Financial Institution</option>
+                    <option value="Industrial Establishment">Industrial Establishment</option>
                     <option value="Bakery">Bakery</option>
-                    <option value="Recreational Facility">Recreational Facility</option>
                     <option value="Retail Store">Retail Store</option>
-                    <option value="Pharmacy">Pharmacy</option>
                     <option value="Agricultural">Agricultural</option>
                     <option value="Office/Commercial">Office/Commercial</option>
-                    <option value="Hotel/Lodging">Hotel/Lodging</option>
                 </select>
             </div>
             <div>
@@ -181,7 +207,7 @@ $title = 'Permit Applications';
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
-                    <input type="text" id="permit_contact" required minlength="12" maxlength="12" pattern="[0-9]{12}" inputmode="numeric" placeholder="639XXXXXXXXX" class="permit-contact w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <input type="text" id="permit_contact" required minlength="11" maxlength="12" pattern="^(09|639)[0-9]{9}$" inputmode="numeric" placeholder="09XXXXXXXXX or 639XXXXXXXXX" class="permit-contact w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Email</label>
@@ -206,6 +232,23 @@ $title = 'Permit Applications';
                     <div>
                         <span class="font-semibold" id="permit_fee_category">Food Establishment</span>
                         <div class="text-[11px] text-slate-600 mt-0.5" id="permit_fee_math">Base Fee: ₱1,500.00 + Inspection Fee: ₱500.00 = <strong>Total: ₱2,000.00</strong></div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Mandatory Category Requirements & Reference Record Container -->
+                <div id="permit_requirements_container" class="hidden mt-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <div class="flex items-center justify-between mb-1.5 pb-1.5 border-b border-slate-200/60">
+                        <span class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                            <i class="fa-solid fa-folder-open text-brand-medium"></i>
+                            Mandatory Category Requirements & Document Records
+                        </span>
+                        <span id="permit_req_count" class="text-[10px] font-bold px-2 py-0.5 bg-brand-light text-brand-dark rounded-full border border-brand-border"></span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mb-2">
+                        Specify certificate ID/serial # or indicate physical photocopy on-file for easy tracking in Document Records:
+                    </p>
+                    <div id="permit_requirements_list" class="space-y-2 text-xs">
+                        <!-- Rendered dynamically on business type select -->
                     </div>
                 </div>
             </div>
@@ -340,6 +383,254 @@ $title = 'Permit Applications';
 </div>
 
 <!-- ============================================================ -->
+<!-- PROCESS PAYMENT MODAL                                        -->
+<!-- ============================================================ -->
+<div id="processPaymentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-credit-card text-brand-medium"></i> Process Fee Payment & Record Revenue
+            </h3>
+            <button onclick="ModalSystem.close('processPaymentModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <input type="hidden" id="pay_permit_id">
+            <div class="p-3.5 bg-brand-light/40 rounded-xl border border-brand-border space-y-1">
+                <div class="flex items-center justify-between">
+                    <span id="pay_permit_code" class="font-mono text-xs font-bold text-brand-dark">SAN-2026-001</span>
+                    <span id="pay_business_type" class="text-xs font-semibold text-slate-600">Food Establishment</span>
+                </div>
+                <p id="pay_applicant" class="text-sm font-bold text-slate-800">Joshua Sierra</p>
+                <div class="pt-2 border-t border-brand-border/60 flex items-center justify-between">
+                    <span class="text-xs text-slate-500 font-semibold">Total Fee Due:</span>
+                    <span id="pay_amount_display" class="text-lg font-black text-brand-dark">₱2,000.00</span>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Method</label>
+                <select id="pay_method" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none font-semibold">
+                    <option value="Cash">Cash</option>
+                    <option value="GCash">GCash</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Over-the-Counter">Over-the-Counter</option>
+                    <option value="Check">Check</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Official Receipt / Ref #</label>
+                <input type="text" id="pay_reference" placeholder="e.g. OR-2026-88901 / GCash Ref" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-brand-medium/40 outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Notes</label>
+                <textarea id="pay_notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 outline-none" placeholder="Payment & fee collection notes..."></textarea>
+            </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 px-6 pb-6 pt-2 border-t border-slate-100">
+            <button type="button" onclick="ModalSystem.close('processPaymentModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button>
+            <button type="button" onclick="submitProcessPayment()" class="px-5 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-circle-check"></i> Confirm Payment & Record Revenue
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- OFFICIAL RECEIPT MODAL & PRINTER INTEGRATION                -->
+<!-- ============================================================ -->
+<div id="receiptModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200">
+        <!-- Receipt Header -->
+        <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+                    <i class="fa-solid fa-receipt text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-sm tracking-wide text-white">Official Electronic Receipt</h3>
+                    <p class="text-[11px] text-slate-300" id="receipt_or_no">OR-2026-000000</p>
+                </div>
+            </div>
+            <button onclick="ModalSystem.close('receiptModal')" class="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center text-slate-300 hover:text-white transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Receipt Content Body -->
+        <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto bg-slate-50/50" id="receiptModalBody">
+            <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-4 font-sans text-slate-800" id="printableReceiptCard">
+                <!-- City LGU Seal / Title Header -->
+                <div class="text-center pb-3 border-b border-dashed border-slate-300">
+                    <p class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Republic of the Philippines</p>
+                    <h4 class="font-black text-sm text-slate-900 uppercase tracking-tight">City Health & Sanitation Department</h4>
+                    <p class="text-[11px] text-brand-dark font-semibold">Civentral Sanitation Management Information System</p>
+                    <div class="inline-block px-2.5 py-0.5 mt-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-extrabold uppercase">
+                        ✓ Official Receipt - Paid
+                    </div>
+                </div>
+
+                <!-- Receipt Fields -->
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">O.R. Number:</span>
+                        <span id="rcpt_or_num" class="font-mono font-bold text-slate-900">OR-2026-XXXXX</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">Date & Time:</span>
+                        <span id="rcpt_datetime" class="font-semibold text-slate-800">Oct 02, 2026, 09:48 PM</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">Permit Reference:</span>
+                        <span id="rcpt_permit_code" class="font-mono font-bold text-brand-dark">SP-261002-XXXX</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">Payor / Applicant:</span>
+                        <span id="rcpt_applicant" class="font-bold text-slate-900 text-right">Joshua Garcia</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">Business Type:</span>
+                        <span id="rcpt_business_type" class="font-semibold text-slate-800">Food Establishment</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">Payment Method:</span>
+                        <span id="rcpt_payment_method" class="font-bold text-emerald-700">Cash</span>
+                    </div>
+                </div>
+
+                <!-- Fee Line Items -->
+                <div class="pt-2 border-t border-dashed border-slate-300">
+                    <div class="flex justify-between text-xs py-1">
+                        <span class="text-slate-600 font-medium">Sanitation Permit & Inspection Fee</span>
+                        <span id="rcpt_fee_item" class="font-bold text-slate-900">₱1,500.00</span>
+                    </div>
+                </div>
+
+                <!-- Total Paid -->
+                <div class="p-3 bg-slate-900 text-white rounded-xl flex items-center justify-between mt-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Total Paid</span>
+                    <span id="rcpt_total_paid" class="text-lg font-black text-emerald-400">₱1,500.00</span>
+                </div>
+
+                <!-- Cashier / Signature -->
+                <div class="pt-4 text-center border-t border-dashed border-slate-300 space-y-1">
+                    <p class="text-[10px] text-slate-400 uppercase font-semibold">Authorized Collecting Officer</p>
+                    <p class="text-xs font-bold text-slate-800">City Treasury / Sanitation Cashier</p>
+                    <p class="text-[9px] text-slate-400">System Generated Official Receipt</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Receipt Action Buttons -->
+        <div class="p-4 bg-slate-100/80 border-t border-slate-200 flex items-center justify-between gap-2">
+            <button onclick="ModalSystem.close('receiptModal')" class="px-3.5 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 transition text-xs font-semibold">
+                Close
+            </button>
+            <div class="flex items-center gap-2">
+                <button id="rcpt_btn_assign" onclick="triggerAssignFromReceipt()" class="hidden px-3.5 py-2 bg-brand-dark text-white rounded-xl hover:bg-brand-medium transition text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-user-check"></i> Assign Inspector
+                </button>
+                <button onclick="downloadReceiptFile()" class="px-3.5 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                    <i class="fa-solid fa-download"></i> 📥 Download Receipt
+                </button>
+                <button onclick="printCurrentReceipt()" class="px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition text-xs font-bold flex items-center gap-1.5 shadow-md hover:shadow-lg">
+                    <i class="fa-solid fa-print"></i> 🖨️ Print Receipt
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- IN-PAGE PRINTABLE CONTAINER & COLOR PRINT STYLING           -->
+<!-- ============================================================ -->
+<style id="sanitationPrintStyle">
+@media print {
+    @page {
+        size: portrait;
+        margin: 10mm;
+    }
+    body > *:not(#sanitationReceiptPrintContainer) {
+        display: none !important;
+    }
+    #sanitationReceiptPrintContainer {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: flex-start !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        padding: 20px 0 !important;
+        margin: 0 !important;
+        background: #ffffff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+}
+</style>
+
+<div id="sanitationReceiptPrintContainer" class="hidden">
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 420px; margin: 0 auto; padding: 24px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; color: #1e293b; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <div style="text-align: center; padding-bottom: 16px; border-bottom: 2px dashed #cbd5e1; margin-bottom: 16px;">
+            <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; font-weight: 700; margin: 0;">Republic of the Philippines</p>
+            <h3 style="font-size: 15px; font-weight: 900; color: #0f172a; text-transform: uppercase; margin: 4px 0 2px 0;">City Health & Sanitation Department</h3>
+            <p style="font-size: 11px; color: #0284c7; font-weight: 700; margin: 0;">Civentral Sanitation Management Information System</p>
+            <div style="display: inline-block; padding: 4px 12px; margin-top: 10px; background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase;">
+                ✓ Official Receipt - Paid
+            </div>
+        </div>
+
+        <div style="margin-bottom: 16px; font-size: 12px;">
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9;">
+                <span style="color: #64748b;">O.R. Number:</span>
+                <span style="font-family: monospace; font-weight: 700; color: #0f172a;" id="print_or_num">OR-2026-XXXXX</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9;">
+                <span style="color: #64748b;">Date & Time:</span>
+                <span style="font-weight: 600; color: #334155;" id="print_datetime">Oct 02, 2026, 09:48 PM</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9;">
+                <span style="color: #64748b;">Permit Reference:</span>
+                <span style="font-family: monospace; font-weight: 700; color: #0284c7;" id="print_permit_code">SP-261002-XXXX</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9;">
+                <span style="color: #64748b;">Payor / Applicant:</span>
+                <span style="font-weight: 700; color: #0f172a;" id="print_applicant">Joshua Garcia</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9;">
+                <span style="color: #64748b;">Business Type:</span>
+                <span style="font-weight: 600; color: #334155;" id="print_business_type">Food Establishment</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9;">
+                <span style="color: #64748b;">Payment Method:</span>
+                <span style="font-weight: 700; color: #047857;" id="print_payment_method">Cash</span>
+            </div>
+        </div>
+
+        <div style="padding-top: 10px; border-top: 2px dashed #cbd5e1; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0;">
+                <span style="color: #475569; font-weight: 500;">Sanitation Permit & Inspection Fee</span>
+                <span style="font-weight: 700; color: #0f172a;" id="print_fee_item">₱1,500.00</span>
+            </div>
+        </div>
+
+        <div style="padding: 14px 18px; background-color: #0f172a !important; color: #ffffff !important; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+            <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #cbd5e1;">Total Paid</span>
+            <span style="font-size: 18px; font-weight: 900; color: #34d399 !important;" id="print_total_paid">₱1,500.00</span>
+        </div>
+
+        <div style="margin-top: 20px; padding-top: 16px; text-align: center; border-top: 2px dashed #cbd5e1;">
+            <div style="font-family: monospace; font-size: 16px; letter-spacing: 4px; margin-bottom: 4px; color: #334155;">||| | |||| | ||||| |||</div>
+            <p style="font-size: 10px; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin: 0 0 12px 0;">Authorized Collecting Officer</p>
+            <p style="font-size: 12px; font-weight: 700; color: #1e293b; margin: 0;">City Treasury / Sanitation Cashier</p>
+            <p style="font-size: 9px; color: #94a3b8; margin-top: 6px;">This document serves as an Official Electronic Receipt for Sanitation Permit fees.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- EDIT PERMIT MODAL                                            -->
 <!-- ============================================================ -->
 <div id="editPermitModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
@@ -370,14 +661,27 @@ $title = 'Permit Applications';
                 <select id="edit_type" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="">Select Business Type</option>
                     <option value="Food Establishment">Food Establishment</option>
-                    <option value="Market Vendor">Market Vendor</option>
+                    <option value="Water Refilling Station">Water Refilling Station (WRS)</option>
+                    <option value="Spa / Massage / Therapeutic Clinic">Spa / Massage / Therapeutic Clinic</option>
+                    <option value="Medical / Dental Clinic / Hospital / Laboratory">Medical / Dental Clinic / Hospital / Laboratory</option>
+                    <option value="Market Vendor / Supermarket">Market Vendor / Supermarket / Abattoir</option>
+                    <option value="Hotel / Lodging / Condominium">Hotel / Lodging / Condominium</option>
+                    <option value="Movie House">Movie House / Theater</option>
+                    <option value="Funeral Parlor">Funeral Parlor</option>
+                    <option value="Tiangge">Tiangge / Flea Market</option>
+                    <option value="Department Store">Department Store / Mall</option>
+                    <option value="Recreational Facility">Recreational Facility (Bowling, Pool)</option>
+                    <option value="Pharmacy">Pharmacy / Drugstore</option>
+                    <option value="Beauty Parlor / Salon / Barbershop">Beauty Parlor / Salon / Barbershop</option>
+                    <option value="Facial / Skin Clinic">Facial / Skin Clinic</option>
+                    <option value="Amusement Center">Amusement Center</option>
+                    <option value="Construction Site">Construction Site</option>
+                    <option value="Bank / Financial Institution">Bank / Financial Institution</option>
+                    <option value="Industrial Establishment">Industrial Establishment</option>
                     <option value="Bakery">Bakery</option>
-                    <option value="Recreational Facility">Recreational Facility</option>
                     <option value="Retail Store">Retail Store</option>
-                    <option value="Pharmacy">Pharmacy</option>
                     <option value="Agricultural">Agricultural</option>
                     <option value="Office/Commercial">Office/Commercial</option>
-                    <option value="Hotel/Lodging">Hotel/Lodging</option>
                 </select>
             </div>
             <div>
@@ -387,7 +691,7 @@ $title = 'Permit Applications';
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Contact</label>
-                    <input type="text" id="edit_contact" required minlength="12" maxlength="12" pattern="[0-9]{12}" inputmode="numeric" placeholder="639XXXXXXXXX" class="permit-contact w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <input type="text" id="edit_contact" required minlength="11" maxlength="12" pattern="^(09|639)[0-9]{9}$" inputmode="numeric" placeholder="09XXXXXXXXX or 639XXXXXXXXX" class="permit-contact w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Email</label>
@@ -513,15 +817,148 @@ let activeDateFrom = '';
 let activeDateTo = '';
 
 // ============================================================
-// FEE STRUCTURE (Official Schedule & Helpers)
+// OFFICIAL SANITATION REQUIREMENTS MATRIX (By Business Category)
 // ============================================================
+const SANITATION_REQUIREMENTS_MATRIX = {
+    'Food Establishment': [
+        'Certificate of Water Potability (Drinking Water & Ice)',
+        'Contract for Abatement of Insect & Vermin (Accredited Pest Control)',
+        'Health Certificates for Food & Non-Food Handlers',
+        'Meat Handlers Permit (if serving meat)'
+    ],
+    'Water Refilling Station': [
+        'Certificate of Water Potability (HPC, Physical-Chemical, Microbiological)',
+        'Heterotrophic Plate Count (HPC) Test Result',
+        'Physical-Chemical Analysis of H2O (not more than 6 mos)',
+        'Microbiological Exam of H2O',
+        'Payment of Delinquency Receipt (for delinquent WRS)'
+    ],
+    'Spa / Massage / Therapeutic Clinic': [
+        'Certificate of Water Potability (a, b, c)',
+        'Photocopy of DOH & TESDA License for Masseur / Masseuse',
+        'Certificate of Training to Conduct Massage',
+        'Certificate of DOH Accreditation for Training Institution',
+        'Health Certificate of Registered Masseur and Attendants',
+        'Pest Control Contract from Accredited Operator'
+    ],
+    'Medical / Dental Clinic / Hospital / Laboratory': [
+        'DOH License to Operate',
+        'Certificate of Proficiency (Drug Testing, HIV-AIDS Accredited)',
+        'Contract for Collection & Disposal of Hazardous Waste & Sharps',
+        'Certificate of Water Potability (a, b, c)',
+        'Copy of Employees PRC Licenses',
+        'Pest Control Contract from Accredited Operator'
+    ],
+    'Market Vendor / Supermarket': [
+        'Certificate of Accreditation from NMIC',
+        'Certificate of Training from NMIC',
+        'Certificate of Water Potability (a, b, c)',
+        'Health Certificates / Meat Handlers Permit / Butchers Permit',
+        'Contract for Insect & Vermin Abatement from Accredited Operator'
+    ],
+    'Hotel / Lodging / Condominium': [
+        'Certificate of Water Potability (a, b, c)',
+        'Contract for Insect & Vermin Prevention & Control',
+        'Water Quality Monitoring (pH, HPC, Microbio) for Swimming Pools',
+        'Certified Lifeguards Training Certificates'
+    ],
+    'Movie House': [
+        'Contract for Pest Control from Accredited Operator',
+        'Certificate of Water Potability (a, b, c)',
+        'Health Certificates of Ushers, Ticket Attendants, Utilities'
+    ],
+    'Funeral Parlor': [
+        'DOH Registered Mortician / Embalmer License',
+        'Certificate of Water Potability (a, b, c)',
+        'Contract for Pest Control from Accredited Operator',
+        'DENR/DOH Certificate of Approval on Wastewater & Hazardous Waste Disposal'
+    ],
+    'Tiangge': [
+        'Certificate of Water Potability (a, b, c)',
+        'Contract for Pest Control',
+        'Contract for Solid Waste Collection & Disposal',
+        'Health Certificate for Food / Non-Food Handlers',
+        'Access to Toilet Facilities & Prescribed Refuse Bins'
+    ],
+    'Department Store': [
+        'Certificate of Water Potability (a, b, c)',
+        'List of Employees for Health Certificate',
+        'Contract for Pest Control from Accredited Operator',
+        'Contract for Solid Waste Collection & Disposal'
+    ],
+    'Recreational Facility': [
+        'Certificate of Water Potability (a, b, c)',
+        'Contract for Pest Control',
+        'Contract for Solid Waste Collection & Disposal',
+        'Health Certificates for Employees'
+    ],
+    'Pharmacy': [
+        'Registered Licensed Pharmacist PRC License',
+        'Health Certificates for Employees (Tellers, Attendants, Security, Cashiers)',
+        'Pest Control Contract from Accredited Operator'
+    ],
+    'Beauty Parlor / Salon / Barbershop': [
+        'Sterilizing Device for Manicure / Pedicure Equipment',
+        'Certificate of Water Potability (a, b, c)',
+        'Pest Control Contract from Accredited Operator',
+        'Health Certificate for Employees'
+    ],
+    'Facial / Skin Clinic': [
+        'Dermatologist PRC License / Accreditation',
+        'Certificate of Training for Aestheticians',
+        'Health Certificate for Employees',
+        'Certificate of Water Potability (a, b, c)',
+        'Pest Control Contract from Accredited Operator',
+        'Contract for Disposal of Sharps, Needles & Hazardous Waste'
+    ],
+    'Amusement Center': [
+        'Noise Level Monitoring Device Certification',
+        'Contract for Pest Control',
+        'Health Certificate for Employees'
+    ],
+    'Construction Site': [
+        'Zoning & Engineering Building Permit',
+        'Certificate of Water Potability (a, b, c)',
+        'Contract for Pest Control from Accredited Operator',
+        'Temporary Sanitary Permit for Food Providers',
+        'Environmental Compliance Certificate (ECC) & DENR Waste Water Disposal Cert',
+        'On-site Medical Facility (Clinic, Nurse/Doctor, Transport Vehicle & Affiliate Hospital)',
+        'Personal Protective Equipment (PPE) & Toilet Facilities Provision'
+    ],
+    'Bank / Financial Institution': [
+        'Certificate of Water Potability (a, b, c)',
+        'Pest Control Contract from Accredited Operator',
+        'Health Certificate for Employees (Tellers, Managers, Security)'
+    ],
+    'Industrial Establishment': [
+        'Certificate of Water Potability (a, b, c)',
+        'PPE Provision (Noise, Dust, Pollutants, Gaseous Materials, Helmets)',
+        'Environmental Safety & Waste Management Permits'
+    ]
+};
+
 const FEE_STRUCTURE = {
     'Food Establishment': { base_fee: 1500, inspection_fee: 500, total: 2000 },
+    'Water Refilling Station': { base_fee: 1600, inspection_fee: 500, total: 2100 },
+    'Spa / Massage / Therapeutic Clinic': { base_fee: 1800, inspection_fee: 500, total: 2300 },
+    'Medical / Dental Clinic / Hospital / Laboratory': { base_fee: 2500, inspection_fee: 700, total: 3200 },
+    'Market Vendor / Supermarket': { base_fee: 1200, inspection_fee: 400, total: 1600 },
+    'Hotel / Lodging / Condominium': { base_fee: 3000, inspection_fee: 800, total: 3800 },
+    'Movie House': { base_fee: 2000, inspection_fee: 500, total: 2500 },
+    'Funeral Parlor': { base_fee: 2200, inspection_fee: 600, total: 2800 },
+    'Tiangge': { base_fee: 700, inspection_fee: 300, total: 1000 },
+    'Department Store': { base_fee: 2500, inspection_fee: 600, total: 3100 },
+    'Recreational Facility': { base_fee: 2000, inspection_fee: 600, total: 2600 },
+    'Pharmacy': { base_fee: 1800, inspection_fee: 500, total: 2300 },
+    'Beauty Parlor / Salon / Barbershop': { base_fee: 1000, inspection_fee: 400, total: 1400 },
+    'Facial / Skin Clinic': { base_fee: 1800, inspection_fee: 500, total: 2300 },
+    'Amusement Center': { base_fee: 1500, inspection_fee: 500, total: 2000 },
+    'Construction Site': { base_fee: 3500, inspection_fee: 1000, total: 4500 },
+    'Bank / Financial Institution': { base_fee: 2000, inspection_fee: 500, total: 2500 },
+    'Industrial Establishment': { base_fee: 4000, inspection_fee: 1000, total: 5000 },
     'Market Vendor': { base_fee: 800, inspection_fee: 300, total: 1100 },
     'Bakery': { base_fee: 1200, inspection_fee: 400, total: 1600 },
-    'Recreational Facility': { base_fee: 2000, inspection_fee: 600, total: 2600 },
     'Retail Store': { base_fee: 1000, inspection_fee: 350, total: 1350 },
-    'Pharmacy': { base_fee: 1800, inspection_fee: 500, total: 2300 },
     'Agricultural': { base_fee: 900, inspection_fee: 300, total: 1200 },
     'Office/Commercial': { base_fee: 2500, inspection_fee: 700, total: 3200 },
     'Hotel/Lodging': { base_fee: 3000, inspection_fee: 800, total: 3800 }
@@ -555,9 +992,9 @@ function updateFeeFromStructure(typeSelectId, feeInputId, breakdownContainerId, 
     if (!typeSelect || !feeInput) return;
 
     const selectedType = typeSelect.value;
-    const feeData = FEE_STRUCTURE[selectedType];
+    const feeData = FEE_STRUCTURE[selectedType] || FEE_STRUCTURE['Office/Commercial'] || { base_fee: 1500, inspection_fee: 500, total: 2000 };
 
-    if (feeData) {
+    if (selectedType) {
         feeInput.value = feeData.total.toFixed(2);
         if (breakdown && catSpan && mathDiv) {
             catSpan.textContent = selectedType;
@@ -569,6 +1006,191 @@ function updateFeeFromStructure(typeSelectId, feeInputId, breakdownContainerId, 
         if (breakdown) {
             breakdown.classList.add('hidden');
         }
+    }
+
+    renderRequirementsChecklist(selectedType);
+}
+
+function renderRequirementsChecklist(businessType) {
+    const reqContainer = document.getElementById('permit_requirements_container');
+    const reqList = document.getElementById('permit_requirements_list');
+    const reqCount = document.getElementById('permit_req_count');
+
+    if (!reqContainer || !reqList) return;
+
+    if (!businessType) {
+        reqContainer.classList.add('hidden');
+        return;
+    }
+
+    const requirements = SANITATION_REQUIREMENTS_MATRIX[businessType] || SANITATION_REQUIREMENTS_MATRIX['Office/Commercial'] || [
+        'Certificate of Water Potability (a, b, c)',
+        'Contract for Insect & Vermin Control from Accredited Operator',
+        'Health Certificates for Employees'
+    ];
+
+    reqList.innerHTML = requirements.map((req, idx) => `
+        <div id="req_card_${idx}" class="p-2.5 bg-white rounded-lg border border-slate-200 shadow-2xs space-y-1.5 transition-all">
+            <div class="flex items-center justify-between font-semibold text-slate-800 text-xs">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox"
+                           id="req_doc_check_${idx}"
+                           class="req-doc-checkbox w-4 h-4 rounded text-brand-dark focus:ring-brand-medium border-slate-300 accent-brand-dark cursor-pointer"
+                           checked
+                           onchange="toggleReqItemState(${idx})">
+                    <span id="req_doc_title_${idx}" class="text-slate-800">${escapeHtml(req)}</span>
+                </label>
+                <span id="req_status_badge_${idx}" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">☑ Submitted</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                <div>
+                    <input type="text"
+                           name="req_doc_id_${idx}"
+                           id="req_doc_id_${idx}"
+                           data-req-title="${escapeHtml(req)}"
+                           placeholder="Cert / Serial Ref ID (e.g. WTR-2026-9012)"
+                           class="req-doc-ref-input w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-xs focus:ring-1 focus:ring-brand-medium outline-none font-mono">
+                </div>
+                <div>
+                    <select name="req_doc_type_${idx}"
+                            id="req_doc_type_${idx}"
+                            onchange="toggleDropZone(${idx})"
+                            class="req-doc-type-select w-full px-2.5 py-1.5 border border-slate-200 rounded-md text-xs bg-slate-50 focus:ring-1 focus:ring-brand-medium outline-none">
+                        <option value="Physical Copy (Photocopy On-File)">📄 Physical Copy (Photocopy On-File)</option>
+                        <option value="Digital Upload">💻 Digital Upload (Drag & Drop File)</option>
+                        <option value="To Follow / Pending">⏳ To Follow / Pending</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Drag & Drop File Upload Box (Triggered on Digital Upload) -->
+            <div id="dropzone_container_${idx}" class="hidden mt-2 p-3 border-2 border-dashed border-brand-medium/40 rounded-xl bg-brand-light/20 hover:bg-brand-light/50 transition text-center cursor-pointer relative group">
+                <input type="file"
+                       id="req_doc_file_${idx}"
+                       class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                       accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                       onchange="handleFileDropSelect(${idx}, this.files)">
+                <div id="dropzone_prompt_${idx}" class="space-y-1">
+                    <i class="fa-solid fa-cloud-arrow-up text-brand-medium text-lg group-hover:scale-110 transition-transform"></i>
+                    <p class="text-xs font-semibold text-slate-700">Drag & Drop digital file here or <span class="text-brand-dark underline font-bold">Browse File</span></p>
+                    <p class="text-[10px] text-slate-400">Supports PDF, PNG, JPG, DOCX (Max 10MB)</p>
+                </div>
+                <div id="dropzone_file_preview_${idx}" class="hidden flex items-center justify-between bg-white p-2 rounded-lg border border-brand-border text-xs text-brand-dark font-semibold">
+                    <span class="flex items-center gap-1.5 truncate max-w-[220px]" id="dropzone_file_name_${idx}">
+                        <i class="fa-solid fa-file-check text-brand-medium"></i> document.pdf
+                    </span>
+                    <button type="button" onclick="clearDropzoneFile(${idx}, event)" class="text-rose-500 hover:text-rose-700 text-xs px-1.5 py-0.5 rounded hover:bg-rose-50 z-20">
+                        <i class="fa-solid fa-xmark"></i> Remove
+                    </button>
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    if (reqCount) {
+        reqCount.textContent = `${requirements.length} Required Documents`;
+    }
+
+    reqContainer.classList.remove('hidden');
+}
+
+function toggleReqItemState(idx) {
+    const chk = document.getElementById(`req_doc_check_${idx}`);
+    const card = document.getElementById(`req_card_${idx}`);
+    const badge = document.getElementById(`req_status_badge_${idx}`);
+    const title = document.getElementById(`req_doc_title_${idx}`);
+    const typeSelect = document.getElementById(`req_doc_type_${idx}`);
+    const dropzone = document.getElementById(`dropzone_container_${idx}`);
+
+    if (!chk || !card) return;
+
+    if (chk.checked) {
+        card.classList.remove('opacity-60', 'bg-slate-50');
+        card.classList.add('bg-white');
+        if (title) title.classList.remove('line-through', 'text-slate-400');
+        if (badge) {
+            badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700';
+            badge.textContent = '☑ Submitted';
+        }
+        if (typeSelect && typeSelect.value === 'To Follow / Pending') {
+            typeSelect.value = 'Physical Copy (Photocopy On-File)';
+        }
+    } else {
+        card.classList.add('opacity-60', 'bg-slate-50');
+        card.classList.remove('bg-white');
+        if (title) title.classList.add('line-through', 'text-slate-400');
+        if (badge) {
+            badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700';
+            badge.textContent = '☐ Pending / To Follow';
+        }
+        if (typeSelect) {
+            typeSelect.value = 'To Follow / Pending';
+        }
+        if (dropzone) {
+            dropzone.classList.add('hidden');
+        }
+    }
+}
+
+function toggleDropZone(idx) {
+    const typeSelect = document.getElementById(`req_doc_type_${idx}`);
+    const dropzone = document.getElementById(`dropzone_container_${idx}`);
+    const chk = document.getElementById(`req_doc_check_${idx}`);
+    if (!typeSelect || !dropzone) return;
+
+    if (typeSelect.value === 'Digital Upload') {
+        dropzone.classList.remove('hidden');
+        if (chk && !chk.checked) {
+            chk.checked = true;
+            toggleReqItemState(idx);
+        }
+    } else {
+        dropzone.classList.add('hidden');
+        if (typeSelect.value === 'To Follow / Pending' && chk && chk.checked) {
+            chk.checked = false;
+            toggleReqItemState(idx);
+        }
+    }
+}
+
+function handleFileDropSelect(idx, files) {
+    if (!files || !files.length) return;
+    const file = files[0];
+    const prompt = document.getElementById(`dropzone_prompt_${idx}`);
+    const preview = document.getElementById(`dropzone_file_preview_${idx}`);
+    const fileNameSpan = document.getElementById(`dropzone_file_name_${idx}`);
+    const refInput = document.getElementById(`req_doc_id_${idx}`);
+
+    if (prompt && preview && fileNameSpan) {
+        prompt.classList.add('hidden');
+        preview.classList.remove('hidden');
+        preview.classList.add('flex');
+        fileNameSpan.innerHTML = `<i class="fa-solid fa-file-circle-check text-brand-medium mr-1"></i> ${escapeHtml(file.name)}`;
+    }
+
+    if (refInput && !refInput.value.trim()) {
+        refInput.value = 'DIGITAL: ' + file.name;
+    }
+}
+
+function clearDropzoneFile(idx, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    const fileInput = document.getElementById(`req_doc_file_${idx}`);
+    const prompt = document.getElementById(`dropzone_prompt_${idx}`);
+    const preview = document.getElementById(`dropzone_file_preview_${idx}`);
+    const refInput = document.getElementById(`req_doc_id_${idx}`);
+
+    if (fileInput) fileInput.value = '';
+    if (prompt && preview) {
+        prompt.classList.remove('hidden');
+        preview.classList.add('hidden');
+        preview.classList.remove('flex');
+    }
+    if (refInput && refInput.value.startsWith('DIGITAL: ')) {
+        refInput.value = '';
     }
 }
 
@@ -765,6 +1387,7 @@ async function loadStats() {
 // LOAD PERMITS
 // ============================================================
 async function loadPermits(page = 1) {
+    window._lastPermitFetchTime = Date.now();
     currentPage = page;
     const search = document.getElementById('searchPermit').value.trim();
     const status = document.getElementById('filterStatus').value;
@@ -849,8 +1472,8 @@ function renderTable(permits) {
         const statusLabel = STATUS_LABELS[p.status] || p.status;
         const dateApplied = p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A';
         const paidBadge = p.paid
-            ? '<span class="ml-1 text-[10px] text-emerald-600">✓ Paid</span>'
-            : '<span class="ml-1 text-[10px] text-rose-500">Unpaid</span>';
+            ? '<span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200/60">✓ Paid</span>'
+            : '<span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200/60">✕ Unpaid</span>';
 
         const maskedApplicant = maskName(p.applicant);
         const maskedOwner = maskName(p.owner_name);
@@ -885,8 +1508,21 @@ function renderTable(permits) {
                         <i class="fa-solid fa-eye text-sm"></i>
                     </button>
 
-                    <!-- Assign / Reassign Inspector -->
-                    ${p.status === 'pending' || p.status === 'under_review' ? `
+                    <!-- Process Payment / Pay Fee (if unpaid) OR View Receipt (if paid) -->
+                    ${!p.paid ? `
+                        <button onclick="openProcessPaymentModal(${p.id})"
+                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition font-bold" title="Pay Fee / Process Payment">
+                            <i class="fa-solid fa-credit-card text-sm"></i>
+                        </button>
+                    ` : `
+                        <button onclick="openReceiptModal(${p.id}, null, false)"
+                                class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="View / Print Official Receipt">
+                            <i class="fa-solid fa-receipt text-sm"></i>
+                        </button>
+                    `}
+
+                    <!-- Assign / Reassign Inspector (Only shown once payment is completed) -->
+                    ${p.paid && (p.status === 'pending' || p.status === 'under_review') ? `
                         <button onclick="openAssignInspectorModal(${p.id})"
                                 class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                                 title="${p.status === 'under_review' ? 'Reassign Inspector' : 'Assign to Inspector'}">
@@ -1173,7 +1809,7 @@ async function viewPermit(id) {
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Payment</p>
-                        <p class="text-sm text-slate-800">${escapeHtml(p.paid ? 'Paid via ' + (p.payment_method || 'N/A') : 'Unpaid')}</p>
+                        <p class="mt-0.5">${p.paid ? `<span class="px-2 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200/60">✓ Paid via ${escapeHtml(p.payment_method || 'N/A')}</span>` : `<span class="px-2 py-0.5 rounded text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200/60">✕ Unpaid</span>`}</p>
                     </div>
                     <div>
                         <p class="text-xs text-slate-400 font-semibold">Date Applied</p>
@@ -1193,6 +1829,51 @@ async function viewPermit(id) {
                     </div>
                     ${rejectionHtml}
                 </div>
+                ${(() => {
+                    const categoryReqs = SANITATION_REQUIREMENTS_MATRIX[p.business_type] || SANITATION_REQUIREMENTS_MATRIX['Office/Commercial'] || [];
+                    if (!categoryReqs.length) return '';
+                    return `
+                        <div class="col-span-2 bg-slate-50 rounded-xl p-4 border border-slate-200 mt-2 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                                    <i class="fa-solid fa-folder-open text-brand-medium"></i>
+                                    Document Requirements & Physical Copy Tracking
+                                </h5>
+                                <a href="documents.php?q=${encodeURIComponent(p.applicant || '')}" class="text-[11px] font-bold text-brand-medium hover:text-brand-dark flex items-center gap-1">
+                                    <i class="fa-solid fa-search"></i> Find in Documents
+                                </a>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-xs text-left">
+                                    <thead class="bg-slate-100/80 text-slate-500 font-bold uppercase text-[10px]">
+                                        <tr>
+                                            <th class="px-2.5 py-1.5">Requirement Item</th>
+                                            <th class="px-2.5 py-1.5">Submission Mode</th>
+                                            <th class="px-2.5 py-1.5">Document / Cert Ref ID</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-200">
+                                        ${categoryReqs.map((r, idx) => `
+                                            <tr>
+                                                <td class="px-2.5 py-2 font-medium text-slate-800">${escapeHtml(r)}</td>
+                                                <td class="px-2.5 py-2 text-slate-600">
+                                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-light/70 text-brand-dark border border-brand-border/60">
+                                                        📄 Physical / Recorded On-File
+                                                    </span>
+                                                </td>
+                                                <td class="px-2.5 py-2 font-mono text-slate-700 font-bold">
+                                                    <a href="documents.php?q=${encodeURIComponent(r)}" class="hover:underline text-brand-dark">
+                                                        ${escapeHtml(p.permit_id || 'SAN')}-DOC-${idx + 1}
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                })()}
                 ${p.notes ? `
                     <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border">
                         <h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5>
@@ -1201,7 +1882,16 @@ async function viewPermit(id) {
                 ` : ''}
                 <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
                     <button onclick="ModalSystem.close('viewPermitModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                    ${p.status === 'pending' ? `
+                    ${!p.paid ? `
+                        <button onclick="ModalSystem.close('viewPermitModal'); openProcessPaymentModal(${p.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-credit-card text-xs"></i> Process Fee Payment
+                        </button>
+                    ` : `
+                        <button onclick="ModalSystem.close('viewPermitModal'); openReceiptModal(${p.id}, null, false)" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-semibold flex items-center gap-1.5 shadow-sm">
+                            <i class="fa-solid fa-receipt text-xs"></i> 🖨️ View / Print Official Receipt
+                        </button>
+                    `}
+                    ${p.paid && p.status === 'pending' ? `
                         <button onclick="ModalSystem.close('viewPermitModal'); openAssignInspectorModal(${p.id})" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5">
                             <i class="fa-solid fa-user-check text-xs"></i> Assign to Inspector
                         </button>
@@ -1231,92 +1921,490 @@ async function viewPermit(id) {
 // ============================================================
 // ASSIGN TO INSPECTOR
 // ============================================================
-let assignPermitId = null;
+// PROCESS PAYMENT & FEE COLLECTION
+// ============================================================
+let autoAssignAfterPayment = false;
 
-async function openAssignInspectorModal(id) {
-    assignPermitId = id;
-    
+function openProcessPaymentModal(permitId, autoAssign = false) {
+    const p = permitsCache[permitId];
+    if (!p) return;
+
+    autoAssignAfterPayment = autoAssign;
+    document.getElementById('pay_permit_id').value = p.id;
+    document.getElementById('pay_permit_code').textContent = p.permit_id || 'SAN';
+    document.getElementById('pay_applicant').textContent = p.applicant || 'N/A';
+    document.getElementById('pay_business_type').textContent = p.business_type || 'General';
+    const fee = parseFloat(p.fee || 0);
+    document.getElementById('pay_amount_display').textContent = '₱' + fee.toLocaleString('en-US', { minimumFractionDigits: 2 });
+    document.getElementById('pay_reference').value = `OR-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    ModalSystem.open('processPaymentModal');
+}
+
+async function submitProcessPayment() {
+    const permitId = document.getElementById('pay_permit_id').value;
+    if (!permitId) return;
+
+    const p = permitsCache[permitId];
+    const amount = p ? parseFloat(p.fee || 0) : 1000;
+    const method = document.getElementById('pay_method').value;
+    const ref = document.getElementById('pay_reference').value || ('OR-' + new Date().getFullYear() + '-' + Math.floor(100000 + Math.random() * 900000));
+    const notes = document.getElementById('pay_notes').value;
+
     try {
-        const result = await apiRequest(API_BASE + '?id=' + id);
-        const p = result.data;
-        permitsCache[p.id] = p;
-
-        document.getElementById('assign_permit_id').value = p.id;
-        document.getElementById('assignApplicant').textContent = p.applicant || 'N/A';
-        document.getElementById('assignPermitCode').textContent = p.permit_id || 'N/A';
-        document.getElementById('assignBusinessType').textContent = p.business_type || 'General';
-        document.getElementById('assignAddress').textContent = p.address ? '📍 ' + p.address : '';
-        document.getElementById('assign_notes').value = p.notes || '';
-
-        // Modal title and button based on status
-        const isReassign = p.status === 'under_review';
-        document.getElementById('assignModalTitle').textContent = isReassign ? 'Reassign Inspector' : 'Assign to Inspector';
-        const submitBtn = document.getElementById('btnSubmitAssign');
-        if (submitBtn) {
-            submitBtn.innerHTML = isReassign
-                ? '<i class="fa-solid fa-calendar-check text-xs"></i> <span>Update Assignment</span>'
-                : '<i class="fa-solid fa-calendar-check text-xs"></i> <span>Assign & Schedule</span>';
+        // Record payment in Payments API
+        let paymentRecorded = false;
+        try {
+            await apiRequest('../../api/payments.php', {
+                method: 'POST',
+                body: JSON.stringify({
+                    permit_id: parseInt(permitId, 10),
+                    amount: amount > 0 ? amount : 1000,
+                    method: method.toLowerCase().replace(/[^a-z]/g, '_'),
+                    reference_number: ref,
+                    notes: notes || 'Sanitation permit fee payment'
+                })
+            });
+            paymentRecorded = true;
+        } catch (e) {
+            console.warn('Payment API notice:', e);
         }
 
-        // Set default inspection date (today, or tomorrow if after 5 PM)
-        const dateInput = document.getElementById('assign_inspection_date');
-        const now = new Date();
-        const minDate = now.toISOString().split('T')[0];
-        dateInput.min = minDate;
-        
-        if (p.inspection_date) {
-            dateInput.value = p.inspection_date;
-        } else {
-            const defaultDate = new Date();
-            if (now.getHours() >= 17) {
-                defaultDate.setDate(defaultDate.getDate() + 1);
-            }
-            dateInput.value = defaultDate.toISOString().split('T')[0];
+        // Only fallback to direct permit update if payments API did not handle it
+        if (!paymentRecorded) {
+            await apiRequest(API_BASE + '?id=' + permitId + '&action=update', {
+                method: 'POST',
+                body: JSON.stringify({
+                    paid: 1,
+                    payment_method: method,
+                    reference_number: ref
+                })
+            });
         }
 
-        await loadInspectors(p.inspector_id);
-        ModalSystem.open('assignInspectorModal');
+        // Update local cache
+        if (permitsCache[permitId]) {
+            permitsCache[permitId].paid = 1;
+            permitsCache[permitId].payment_method = method;
+            permitsCache[permitId].reference_number = ref;
+        }
+
+        ModalSystem.close('processPaymentModal');
+        ModalSystem.toast.success('Payment recorded successfully! Generating Official Receipt...');
+        window._lastLocalPermitAction = Date.now();
+        loadStats();
+        loadPermits(currentPage);
+
+        if (typeof window.broadcastSanitationChange === 'function') {
+            window.broadcastSanitationChange('permits', { action: 'paid', id: permitId });
+        }
+
+        // Open official receipt modal and trigger printer integration
+        setTimeout(() => {
+            openReceiptModal(permitId, ref, true);
+        }, 250);
     } catch (err) {
-        ModalSystem.toast.error('Failed to load permit details: ' + err.message);
+        ModalSystem.toast.error('Failed to process payment: ' + err.message);
     }
 }
 
-async function loadInspectors(selectedId) {
-    const select = document.getElementById('assign_inspector_id');
+// ============================================================
+// OFFICIAL RECEIPT & PRINTER INTEGRATION
+// ============================================================
+let currentReceiptPermitId = null;
+let currentReceiptData = null;
+
+function openReceiptModal(permitId, customOR = null, autoPrint = true) {
+    const p = permitsCache[permitId];
+    if (!p) return;
+
+    currentReceiptPermitId = permitId;
+    const orNum = customOR || p.reference_number || `OR-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+    const nowStr = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+    const feeStr = '₱' + Number(p.fee || 0).toLocaleString('en-US', { minimumFractionDigits: 2 });
+    const methodStr = p.payment_method || 'Cash';
+
+    currentReceiptData = {
+        orNum,
+        nowStr,
+        permitCode: p.permit_id || 'SAN',
+        applicant: p.applicant || 'N/A',
+        businessType: p.business_type || 'General',
+        feeStr,
+        methodStr
+    };
+
+    document.getElementById('receipt_or_no').textContent = orNum;
+    document.getElementById('rcpt_or_num').textContent = orNum;
+    document.getElementById('rcpt_datetime').textContent = nowStr;
+    document.getElementById('rcpt_permit_code').textContent = p.permit_id || 'SAN';
+    document.getElementById('rcpt_applicant').textContent = p.applicant || 'N/A';
+    document.getElementById('rcpt_business_type').textContent = p.business_type || 'General';
+    document.getElementById('rcpt_payment_method').textContent = methodStr;
+    document.getElementById('rcpt_fee_item').textContent = feeStr;
+    document.getElementById('rcpt_total_paid').textContent = feeStr;
+
+    const assignBtn = document.getElementById('rcpt_btn_assign');
+    if (autoAssignAfterPayment) {
+        assignBtn.classList.remove('hidden');
+    } else {
+        assignBtn.classList.add('hidden');
+    }
+
+    ModalSystem.open('receiptModal');
+
+    if (autoPrint) {
+        setTimeout(() => {
+            printCurrentReceipt();
+        }, 400);
+    }
+}
+
+function triggerAssignFromReceipt() {
+    ModalSystem.close('receiptModal');
+    if (currentReceiptPermitId) {
+        openAssignInspectorModal(currentReceiptPermitId);
+    }
+}
+
+function printCurrentReceipt() {
+    if (!currentReceiptData) return;
+    const d = currentReceiptData;
+
+    // Populate in-page printable container
+    document.getElementById('print_or_num').textContent = d.orNum;
+    document.getElementById('print_datetime').textContent = d.nowStr;
+    document.getElementById('print_permit_code').textContent = d.permitCode;
+    document.getElementById('print_applicant').textContent = d.applicant;
+    document.getElementById('print_business_type').textContent = d.businessType;
+    document.getElementById('print_payment_method').textContent = d.methodStr;
+    document.getElementById('print_fee_item').textContent = d.feeStr;
+    document.getElementById('print_total_paid').textContent = d.feeStr;
+
+    // Try popup window first with exact UI/UX colors, fallback to in-page window.print() if popup is blocked
+    try {
+        const printWindow = window.open('', '_blank', 'width=480,height=700');
+        if (!printWindow) {
+            window.print();
+            return;
+        }
+
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Official Receipt - ${d.orNum}</title>
+                <style>
+                    @page { size: portrait; margin: 10mm; }
+                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; box-sizing: border-box; }
+                    html, body {
+                        width: 100%;
+                        margin: 0;
+                        padding: 0;
+                        background: #ffffff;
+                        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        display: flex;
+                        justify-content: center;
+                        align-items: flex-start;
+                    }
+                    .receipt-wrapper {
+                        width: 100%;
+                        max-width: 440px;
+                        margin: 10px auto;
+                        padding: 24px;
+                        background: #ffffff;
+                        border: 1px solid #e2e8f0;
+                        border-radius: 16px;
+                        color: #1e293b;
+                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                    }
+                    .header { text-align: center; padding-bottom: 16px; border-bottom: 2px dashed #cbd5e1; margin-bottom: 16px; }
+                    .badge { display: inline-block; padding: 4px 12px; margin-top: 8px; background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+                    .line-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+                    .total-box { padding: 14px 18px; background-color: #0f172a !important; color: #ffffff !important; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+                    .total-price { font-size: 18px; font-weight: 900; color: #34d399 !important; }
+                    .footer { margin-top: 20px; padding-top: 16px; text-align: center; border-top: 2px dashed #cbd5e1; }
+                    .barcode { font-family: monospace; font-size: 16px; letter-spacing: 4px; margin-bottom: 4px; color: #334155; }
+                </style>
+            </head>
+            <body>
+                <div class="receipt-wrapper">
+                    <div class="header">
+                        <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; font-weight: 700; margin: 0;">Republic of the Philippines</p>
+                        <h3 style="font-size: 15px; font-weight: 900; color: #0f172a; text-transform: uppercase; margin: 4px 0 2px 0;">City Health & Sanitation Department</h3>
+                        <p style="font-size: 11px; color: #0284c7; font-weight: 700; margin: 0;">Civentral Sanitation MIS - Official Receipt</p>
+                        <div class="badge">✓ Official Receipt - Paid</div>
+                    </div>
+
+                    <div class="line-item"><span style="color: #64748b;">O.R. Number:</span><span style="font-family: monospace; font-weight: 700; color: #0f172a;">${d.orNum}</span></div>
+                    <div class="line-item"><span style="color: #64748b;">Date & Time:</span><span style="font-weight: 600; color: #334155;">${d.nowStr}</span></div>
+                    <div class="line-item"><span style="color: #64748b;">Permit Reference:</span><span style="font-family: monospace; font-weight: 700; color: #0284c7;">${d.permitCode}</span></div>
+                    <div class="line-item"><span style="color: #64748b;">Payor / Applicant:</span><span style="font-weight: 700; color: #0f172a;">${d.applicant}</span></div>
+                    <div class="line-item"><span style="color: #64748b;">Business Type:</span><span style="font-weight: 600; color: #334155;">${d.businessType}</span></div>
+                    <div class="line-item"><span style="color: #64748b;">Payment Method:</span><span style="font-weight: 700; color: #047857;">${d.methodStr}</span></div>
+
+                    <div style="padding-top: 10px; border-top: 2px dashed #cbd5e1; margin-top: 8px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0;">
+                            <span style="color: #475569; font-weight: 500;">Sanitation Permit & Inspection Fee</span>
+                            <span style="font-weight: 700; color: #0f172a;">${d.feeStr}</span>
+                        </div>
+                    </div>
+
+                    <div class="total-box">
+                        <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #cbd5e1;">Total Paid</span>
+                        <span class="total-price">${d.feeStr}</span>
+                    </div>
+
+                    <div class="footer">
+                        <div class="barcode">||| | |||| | ||||| |||</div>
+                        <p style="font-size: 10px; text-transform: uppercase; color: #94a3b8; font-weight: 600; margin: 0 0 12px 0;">Authorized Collecting Officer</p>
+                        <p style="font-size: 12px; font-weight: 700; color: #1e293b; margin: 0;">City Treasury / Sanitation Cashier</p>
+                        <p style="font-size: 9px; color: #94a3b8; margin-top: 6px;">This document serves as an Official Electronic Receipt for Sanitation Permit fees.</p>
+                    </div>
+                </div>
+
+                <script>
+                    window.onload = function() {
+                        window.print();
+                    };
+                <\/script>
+            </body>
+            </html>
+        `;
+
+        printWindow.document.open();
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+    } catch (err) {
+        window.print();
+    }
+}
+
+function downloadReceiptFile() {
+    if (!currentReceiptData) return;
+    const d = currentReceiptData;
+
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Official Receipt - ${d.orNum}</title>
+    <style>
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 440px; margin: 20px auto; padding: 24px; border: 1px solid #cbd5e1; border-radius: 16px; color: #1e293b; background: #ffffff; }
+        .header { text-align: center; border-bottom: 2px dashed #cbd5e1; padding-bottom: 14px; margin-bottom: 14px; }
+        .badge { display: inline-block; padding: 4px 12px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; border-radius: 9999px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+        .line-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+        .total-box { padding: 14px 18px; background: #0f172a; color: #ffffff; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+        .total-price { font-size: 18px; font-weight: 900; color: #34d399; }
+        .footer { margin-top: 20px; padding-top: 14px; text-align: center; border-top: 2px dashed #cbd5e1; font-size: 10px; color: #94a3b8; }
+        .barcode { font-family: monospace; font-size: 16px; letter-spacing: 4px; color: #334155; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <p style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; font-weight: 700; margin: 0;">REPUBLIC OF THE PHILIPPINES</p>
+        <h3 style="font-size: 15px; font-weight: 900; color: #0f172a; text-transform: uppercase; margin: 4px 0 2px 0;">CITY HEALTH & SANITATION DEPT</h3>
+        <p style="font-size: 11px; color: #0284c7; font-weight: 700; margin: 0;">Civentral Sanitation MIS - Official Receipt</p>
+        <div class="badge">✓ Official Receipt - Paid</div>
+    </div>
+    <div class="line-item"><span style="color: #64748b;">O.R. Number:</span><strong style="font-family: monospace;">${d.orNum}</strong></div>
+    <div class="line-item"><span style="color: #64748b;">Date & Time:</span><span>${d.nowStr}</span></div>
+    <div class="line-item"><span style="color: #64748b;">Permit Reference:</span><strong style="color: #0284c7; font-family: monospace;">${d.permitCode}</strong></div>
+    <div class="line-item"><span style="color: #64748b;">Payor / Applicant:</span><strong>${d.applicant}</strong></div>
+    <div class="line-item"><span style="color: #64748b;">Business Type:</span><span>${d.businessType}</span></div>
+    <div class="line-item"><span style="color: #64748b;">Payment Method:</span><strong style="color: #047857;">${d.methodStr}</strong></div>
+    <div style="padding-top: 10px; border-top: 2px dashed #cbd5e1; margin-top: 8px;">
+        <div class="line-item" style="border: none;"><span style="color: #475569;">Sanitation Permit & Inspection Fee</span><strong>${d.feeStr}</strong></div>
+    </div>
+    <div class="total">
+        <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #cbd5e1;">TOTAL PAID</span>
+        <span class="total-price">${d.feeStr}</span>
+    </div>
+    <div class="footer">
+        <div class="barcode">||| | |||| | ||||| |||</div>
+        <p style="font-weight: 700; color: #1e293b; margin: 4px 0 0 0;">Authorized Collecting Officer - City Treasury Cashier</p>
+        <p style="margin-top: 4px;">This document serves as an Official Electronic Receipt for Sanitation Permit fees.</p>
+    </div>
+</body>
+</html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Official_Receipt_${d.orNum}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    ModalSystem.toast.success(`Receipt downloaded to your Downloads folder: Official_Receipt_${d.orNum}.html`);
+}
+
+// ============================================================
+// ASSIGN TO INSPECTOR (with Payment Verification)
+// ============================================================
+let assignPermitId = null;
+
+function extractCleanInspectorNotes(notesStr) {
+    if (!notesStr) return '';
+    if (notesStr.includes('📋 [DOCUMENT REQUIREMENTS RECORD]')) {
+        const parts = notesStr.split('📋 [DOCUMENT REQUIREMENTS RECORD]');
+        let afterPart = parts[1] || '';
+        const cleanLines = afterPart.split('\n').filter(l => {
+            const trimmed = l.trim();
+            return trimmed.length > 0 && !trimmed.startsWith('•') && !trimmed.startsWith('[SUBMITTED]') && !trimmed.startsWith('[PENDING]');
+        });
+        return cleanLines.join('\n').trim();
+    }
+    return notesStr.trim();
+}
+
+let cachedInspectorsList = null;
+let isFetchingInspectors = false;
+
+async function fetchInspectorsList() {
+    if (cachedInspectorsList && cachedInspectorsList.length > 0) return cachedInspectorsList;
+
+    try {
+        const stored = sessionStorage.getItem('sanitation_inspectors_list');
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                cachedInspectorsList = parsed;
+                return cachedInspectorsList;
+            }
+        }
+    } catch (e) {}
+
+    if (isFetchingInspectors) return [];
+    isFetchingInspectors = true;
     try {
         const result = await apiRequest('../../api/employees.php');
         const employees = result.data || [];
-        select.innerHTML = '<option value="">Select Inspector</option>';
-        
-        // Filter strictly based on role_description column = 'Inspector'
         const inspectors = employees.filter(emp => {
             const roleDesc = (emp.role_description || '').trim().toLowerCase();
             const isActive = !emp.status || emp.status.toLowerCase() === 'active';
             return roleDesc.includes('inspector') && isActive;
         });
-
-        // Fallback to any employee with role_description containing 'inspector'
-        const list = inspectors.length > 0 ? inspectors : employees.filter(emp => {
+        cachedInspectorsList = inspectors.length > 0 ? inspectors : employees.filter(emp => {
             const roleDesc = (emp.role_description || '').trim().toLowerCase();
             return roleDesc.includes('inspector');
         });
+        try {
+            sessionStorage.setItem('sanitation_inspectors_list', JSON.stringify(cachedInspectorsList));
+        } catch (e) {}
+    } catch (err) {
+        console.warn('Failed to fetch inspectors, using fallback:', err);
+        cachedInspectorsList = [{ id: 10, full_name: 'Liza Cruz', role_description: 'Inspector' }];
+    } finally {
+        isFetchingInspectors = false;
+    }
+    return cachedInspectorsList;
+}
 
-        if (list.length === 0) {
-            select.innerHTML = '<option value="">No inspectors found</option>';
+function renderInspectorDropdown(selectedId) {
+    const select = document.getElementById('assign_inspector_id');
+    if (!select) return;
+
+    if (!cachedInspectorsList) {
+        select.innerHTML = '<option value="">⏳ Loading inspectors...</option>';
+        return;
+    }
+
+    if (cachedInspectorsList.length === 0) {
+        select.innerHTML = '<option value="">No inspectors found</option>';
+        return;
+    }
+
+    let html = '<option value="">Select Inspector</option>';
+    cachedInspectorsList.forEach(emp => {
+        const name = emp.full_name || emp.name || 'Employee #' + emp.id;
+        const roleDesc = emp.role_description ? ` (${emp.role_description})` : ' (Inspector)';
+        const isSelected = emp.id == selectedId ? 'selected' : '';
+        html += `<option value="${emp.id}" ${isSelected}>${escapeHtml(name)}${escapeHtml(roleDesc)}</option>`;
+    });
+    select.innerHTML = html;
+}
+
+async function openAssignInspectorModal(id, bypassPaymentCheck = false) {
+    assignPermitId = id;
+    
+    // 1. Fast retrieval from memory cache if available, else fetch
+    let p = permitsCache[id];
+    if (!p) {
+        try {
+            const result = await apiRequest(API_BASE + '?id=' + id);
+            p = result.data;
+            permitsCache[p.id] = p;
+        } catch (err) {
+            ModalSystem.toast.error('Failed to load permit details: ' + err.message);
             return;
         }
+    }
 
-        list.forEach(emp => {
-            const name = emp.full_name || emp.name || 'Employee #' + emp.id;
-            const roleDesc = emp.role_description ? ` (${emp.role_description})` : ' (Inspector)';
-            const isSelected = emp.id == selectedId ? 'selected' : '';
-            select.innerHTML += `<option value="${emp.id}" ${isSelected}>${escapeHtml(name)}${escapeHtml(roleDesc)}</option>`;
+    // 2. Unpaid check
+    if (!p.paid) {
+        const feeStr = '₱' + Number(p.fee || 0).toLocaleString('en-US', { minimumFractionDigits: 2 });
+        ModalSystem.confirm(
+            `Permit #${p.permit_id} for ${p.applicant} is currently UNPAID (Fee: ${feeStr}). Sanitation workflow requires completing fee payment first before assigning an inspector.`,
+            function() {
+                openProcessPaymentModal(p.id, true);
+            },
+            {
+                title: '💳 Payment Required Before Inspector Assignment',
+                confirmText: '💳 Process Payment Now',
+                cancelText: 'Cancel',
+                type: 'warning'
+            }
+        );
+        return;
+    }
+
+    // 3. Immediately populate permit fields
+    document.getElementById('assign_permit_id').value = p.id;
+    document.getElementById('assignApplicant').textContent = p.applicant || 'N/A';
+    document.getElementById('assignPermitCode').textContent = p.permit_id || 'N/A';
+    document.getElementById('assignBusinessType').textContent = p.business_type || 'General';
+    document.getElementById('assignAddress').textContent = p.address ? '📍 ' + p.address : '';
+    document.getElementById('assign_notes').value = extractCleanInspectorNotes(p.notes);
+
+    // Modal title and button based on status
+    const isReassign = p.status === 'under_review';
+    document.getElementById('assignModalTitle').textContent = isReassign ? 'Reassign Inspector' : 'Assign to Inspector';
+    const submitBtn = document.getElementById('btnSubmitAssign');
+    if (submitBtn) {
+        submitBtn.innerHTML = isReassign
+            ? '<i class="fa-solid fa-calendar-check text-xs"></i> <span>Update Assignment</span>'
+            : '<i class="fa-solid fa-calendar-check text-xs"></i> <span>Assign & Schedule</span>';
+    }
+
+    // Set default inspection date (today, or tomorrow if after 5 PM)
+    const dateInput = document.getElementById('assign_inspection_date');
+    const now = new Date();
+    const minDate = now.toISOString().split('T')[0];
+    dateInput.min = minDate;
+    
+    if (p.inspection_date) {
+        dateInput.value = p.inspection_date;
+    } else {
+        const defaultDate = new Date();
+        if (now.getHours() >= 17) {
+            defaultDate.setDate(defaultDate.getDate() + 1);
+        }
+        dateInput.value = defaultDate.toISOString().split('T')[0];
+    }
+
+    // 4. Render inspector dropdown from cache immediately (0ms)
+    renderInspectorDropdown(p.inspector_id);
+
+    // 5. Open modal INSTANTLY
+    ModalSystem.open('assignInspectorModal');
+
+    // 6. If inspectors not cached yet, fetch asynchronously in background and populate
+    if (!cachedInspectorsList) {
+        fetchInspectorsList().then(() => {
+            renderInspectorDropdown(p.inspector_id);
         });
-    } catch (err) {
-        select.innerHTML = `
-            <option value="">Select Inspector</option>
-            <option value="10">Liza Cruz (Inspector)</option>
-        `;
     }
 }
 
@@ -1361,6 +2449,7 @@ document.getElementById('assignInspectorForm').addEventListener('submit', async 
 
         ModalSystem.close('assignInspectorModal');
         ModalSystem.toast.success(result.message || 'Inspector assigned and scheduled in Inspections module!');
+        window._lastLocalPermitAction = Date.now();
         loadPermits(currentPage);
         loadStats();
     } catch (err) {
@@ -1394,6 +2483,35 @@ document.getElementById('newPermitForm').addEventListener('submit', async functi
         notes: document.getElementById('permit_notes').value.trim() || null
     };
 
+    const docRefInputs = document.querySelectorAll('.req-doc-ref-input');
+    const docRecords = [];
+    docRefInputs.forEach((input, idx) => {
+        const title = input.getAttribute('data-req-title') || '';
+        const val = input.value.trim();
+        const chk = document.getElementById(`req_doc_check_${idx}`);
+        const isChecked = chk ? chk.checked : true;
+        const typeSelect = document.getElementById(`req_doc_type_${idx}`);
+        const submissionType = typeSelect ? typeSelect.value : (isChecked ? 'Physical Copy (Photocopy On-File)' : 'To Follow / Pending');
+        const fileInput = document.getElementById(`req_doc_file_${idx}`);
+        const uploadedFile = fileInput && fileInput.files && fileInput.files.length ? fileInput.files[0].name : null;
+
+        if (title) {
+            docRecords.push({
+                title: title,
+                is_submitted: isChecked,
+                ref_id: val || (uploadedFile ? 'DIGITAL: ' + uploadedFile : (isChecked ? 'ON-FILE' : 'NONE')),
+                submission_type: uploadedFile ? `Digital Upload (${uploadedFile})` : submissionType
+            });
+        }
+    });
+
+    let finalNotes = data.notes || '';
+    if (docRecords.length > 0) {
+        const reqSummary = '📋 [DOCUMENT REQUIREMENTS RECORD]\n' + docRecords.map(r => `• [${r.is_submitted ? 'SUBMITTED' : 'PENDING'}] ${r.title}: Ref# ${r.ref_id} (${r.submission_type})`).join('\n');
+        finalNotes = finalNotes ? `${reqSummary}\n\n${finalNotes}` : reqSummary;
+    }
+    data.notes = finalNotes;
+
     if (!data.applicant || !data.owner_name || !data.business_type || !data.address || !data.contact || data.fee <= 0) {
         ModalSystem.toast.error('Please fill in all required fields');
         return;
@@ -1414,6 +2532,7 @@ document.getElementById('newPermitForm').addEventListener('submit', async functi
         const newBreakdown = document.getElementById('permit_fee_breakdown');
         if (newBreakdown) newBreakdown.classList.add('hidden');
         ModalSystem.toast.success(result.message || 'Permit application submitted successfully!');
+        window._lastLocalPermitAction = Date.now();
         loadPermits(1);
         loadStats();
         if (typeof window.broadcastSanitationChange === 'function') {
@@ -1488,6 +2607,7 @@ document.getElementById('editPermitForm').addEventListener('submit', async funct
 
         ModalSystem.close('editPermitModal');
         ModalSystem.toast.success(result.message || 'Permit updated successfully!');
+        window._lastLocalPermitAction = Date.now();
         loadPermits(currentPage);
         loadStats();
         if (typeof window.broadcastSanitationChange === 'function') {
@@ -1511,6 +2631,7 @@ function cancelPermit(id) {
                 });
 
                 ModalSystem.toast.success(result.message || 'Permit application cancelled successfully');
+                window._lastLocalPermitAction = Date.now();
                 loadPermits(currentPage);
                 loadStats();
                 if (typeof window.broadcastSanitationChange === 'function') {
@@ -1573,13 +2694,20 @@ function isPermitAppModalOpen() {
 }
 
 function setupRealtimePermitAppSync() {
-    const onRealtimeUpdate = (e) => {
-        const detail = e.detail || {};
-        console.log('⚡ permit_applications.php received live update:', detail);
+    // Debounced and deduplicated refresh to prevent storm of parallel requests
+    const debouncedRefresh = debounce(() => {
+        // If this tab performed an action within the last 1500ms, skip duplicate broadcast reaction
+        if (window._lastLocalPermitAction && (Date.now() - window._lastLocalPermitAction < 1500)) {
+            return;
+        }
         loadStats();
         if (!isPermitAppModalOpen()) {
             loadPermits(currentPage);
         }
+    }, 350);
+
+    const onRealtimeUpdate = (e) => {
+        debouncedRefresh();
     };
 
     window.addEventListener('sanitationPermitsUpdated', onRealtimeUpdate);
@@ -1590,29 +2718,44 @@ function setupRealtimePermitAppSync() {
     });
 
     document.addEventListener('visibilitychange', () => {
+        // Only refresh if tab is visible, modal is closed, and cached data is older than 45 seconds
         if (!document.hidden && !isPermitAppModalOpen()) {
-            loadStats();
-            loadPermits(currentPage);
+            const lastFetch = window._lastPermitFetchTime || 0;
+            if (Date.now() - lastFetch > 45000) {
+                loadStats();
+                loadPermits(currentPage);
+            }
         }
     });
 
-    // 30s background heartbeat sync
+    // 60s background heartbeat sync (throttled to avoid unnecessary CPU/network wakeups)
     setInterval(() => {
         if (!document.hidden && !isPermitAppModalOpen()) {
-            loadStats();
-            loadPermits(currentPage);
+            const lastFetch = window._lastPermitFetchTime || 0;
+            if (Date.now() - lastFetch > 45000) {
+                loadStats();
+                loadPermits(currentPage);
+            }
         }
-    }, 30000);
+    }, 60000);
 }
 
 // ============================================================
 // INITIALIZATION
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
-    initFeeStructure();
     loadStats();
     loadPermits(1);
     setupRealtimePermitAppSync();
+
+    // Defer non-critical inspector prefetching until after table renders
+    if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => {
+            fetchInspectorsList();
+        });
+    } else {
+        setTimeout(fetchInspectorsList, 1200);
+    }
 });
 </script>
 

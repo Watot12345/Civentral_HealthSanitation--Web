@@ -83,11 +83,16 @@ class PermitDocument
                 $data['document_type'] = 'sanitary_permit';
             }
 
-            // Set defaults and timestamps
-            $defaultUploader = $_SESSION['employee_id'] ?? $_SESSION['user_id'] ?? 1;
-            $data['uploaded_by'] = !empty($data['uploaded_by']) ? (int)$data['uploaded_by'] : (int)$defaultUploader;
+            // Set defaults and timestamps (ensure valid employee ID fallback, never 0)
+            $defaultUploader = 1;
+            if (!empty($_SESSION['employee_id']) && (int)$_SESSION['employee_id'] > 0) {
+                $defaultUploader = (int)$_SESSION['employee_id'];
+            } elseif (!empty($_SESSION['user_id']) && (int)$_SESSION['user_id'] > 0) {
+                $defaultUploader = (int)$_SESSION['user_id'];
+            }
+            $data['uploaded_by'] = (!empty($data['uploaded_by']) && (int)$data['uploaded_by'] > 0) ? (int)$data['uploaded_by'] : $defaultUploader;
             if (!empty($data['verified']) && empty($data['verified_by'])) {
-                $data['verified_by'] = (int)$defaultUploader;
+                $data['verified_by'] = $defaultUploader;
                 $data['verified_at'] = date('Y-m-d H:i:sP');
             }
             $data['document_id'] = $data['document_id'] ?? $this->generateDocumentId();
@@ -276,6 +281,67 @@ class PermitDocument
                 'expiring_soon' => 0,
                 'total_size' => 0
             ];
+        }
+    }
+
+    /**
+     * Helper to auto-generate verified Sanitation Permit document with unique QR Code
+     */
+    public function autoGenerateForPermit(array $permit, ?string $receiptNumber = null): ?array
+    {
+        try {
+            $permitId = (int)($permit['id'] ?? 0);
+            if ($permitId <= 0) {
+                return null;
+            }
+
+            $permitCode = $permit['permit_id'] ?? ('SP-' . date('Y') . '-' . str_pad((string)$permitId, 3, '0', STR_PAD_LEFT));
+            $applicantName = $permit['applicant'] ?? ($permit['business_name'] ?? 'Authorized Business Owner');
+            $qrCode = 'QR-SAN-' . date('Y') . '-' . str_pad((string)$permitId, 4, '0', STR_PAD_LEFT);
+            $fileName = 'Sanitation_Permit_' . $permitCode . '.pdf';
+
+            // Check if existing document exists for this permit
+            $existing = $this->db->select($this->table, [
+                'permit_id' => $permitId,
+                'document_type' => 'sanitary_permit'
+            ]);
+
+            if (!empty($existing)) {
+                return $existing[0];
+            }
+
+            $validityDays = 365;
+            $expiryDate = !empty($permit['expiry_date']) ? $permit['expiry_date'] : date('Y-m-d', strtotime("+{$validityDays} days"));
+
+            return $this->create([
+                'permit_id'     => $permitId,
+                'applicant'     => $applicantName,
+                'document_type' => 'sanitary_permit',
+                'file_name'     => $fileName,
+                'file_path'     => 'permits/' . $fileName,
+                'file_size'     => 148500,
+                'file_type'     => 'pdf',
+                'mime_type'     => 'application/pdf',
+                'status'        => 'verified',
+                'verified'      => true,
+                'qr_code'       => $qrCode,
+                'expiry_date'   => $expiryDate,
+                'notes'         => 'Official Sanitation Permit with QR Code generated' . ($receiptNumber ? ' (OR #' . $receiptNumber . ')' : '')
+            ]);
+        } catch (Throwable $e) {
+            if (str_contains($e->getMessage(), 'duplicate key') || str_contains($e->getMessage(), '409')) {
+                try {
+                    $existing = $this->db->select($this->table, [
+                        'permit_id' => $permitId,
+                        'document_type' => 'sanitary_permit'
+                    ]);
+                    if (!empty($existing)) {
+                        return $existing[0];
+                    }
+                } catch (Throwable $ignored) {}
+            }
+            error_log('PermitDocument::autoGenerateForPermit() Notice: ' . $e->getMessage());
+            return null;
         }
     }
 }

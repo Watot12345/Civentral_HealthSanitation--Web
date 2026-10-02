@@ -59,44 +59,36 @@ class PermitController extends BaseController
                 'offset' => $offset
             ];
 
-            // Apply filters
+            // Apply database-level filters
             if (!empty($status)) {
-                $filters['status'] = 'eq.' . $status;
-            }
-
-            $allPermits = $this->permitModel->all(['order' => 'created_at.desc']);
-            $filtered = [];
-
-            $allowedStatuses = !empty($status) ? explode(',', $status) : [];
-            
-            foreach ($allPermits as $p) {
-                $passesStatus = empty($allowedStatuses) || in_array($p['status'] ?? '', $allowedStatuses);
-                $passesType = empty($type) || ($p['business_type'] ?? '') === $type;
-                $passesBarangay = empty($barangay) || ($p['barangay'] ?? '') === $barangay;
-                $permitDate = substr((string)($p['created_at'] ?? ''), 0, 10);
-                $passesDateFrom = empty($dateFrom) || $permitDate >= $dateFrom;
-                $passesDateTo = empty($dateTo) || $permitDate <= $dateTo;
-
-                $passesSearch = true;
-                if (!empty($search)) {
-                    $needle = strtolower($search);
-                    $haystack = strtolower(
-                        ($p['applicant'] ?? '') . ' ' .
-                        ($p['permit_id'] ?? '') . ' ' .
-                        ($p['business_type'] ?? '') . ' ' .
-                        ($p['owner_name'] ?? '') . ' ' .
-                        ($p['address'] ?? '')
-                    );
-                    $passesSearch = str_contains($haystack, $needle);
-                }
-
-                if ($passesStatus && $passesType && $passesBarangay && $passesSearch && $passesDateFrom && $passesDateTo) {
-                    $filtered[] = $p;
+                if (str_contains($status, ',')) {
+                    $filters['status'] = array_map('trim', explode(',', $status));
+                } else {
+                    $filters['status'] = $status;
                 }
             }
+            if (!empty($type)) {
+                $filters['business_type'] = $type;
+            }
+            if (!empty($barangay)) {
+                $filters['barangay'] = $barangay;
+            }
+            if (!empty($dateFrom) && !empty($dateTo)) {
+                $filters['created_at'] = ['gte' => $dateFrom . 'T00:00:00Z', 'lte' => $dateTo . 'T23:59:59Z'];
+            } elseif (!empty($dateFrom)) {
+                $filters['created_at'] = 'gte.' . $dateFrom . 'T00:00:00Z';
+            } elseif (!empty($dateTo)) {
+                $filters['created_at'] = 'lte.' . $dateTo . 'T23:59:59Z';
+            }
 
-            $total = count($filtered);
-            $paginated = array_slice($filtered, $offset, $limit);
+            if (!empty($search)) {
+                $encodedSearch = str_replace(['(', ')', ','], '', $search);
+                $options['or'] = "(applicant.ilike.*{$encodedSearch}*,permit_id.ilike.*{$encodedSearch}*,business_name.ilike.*{$encodedSearch}*,address.ilike.*{$encodedSearch}*,owner_name.ilike.*{$encodedSearch}*)";
+            }
+
+            $result = $this->permitModel->getPaginated($filters, $options);
+            $total = (int)($result['total'] ?? 0);
+            $paginated = $result['data'] ?? [];
 
             $permits = array_map(function ($p) {
                 return $this->enrichPermit($p);
@@ -246,9 +238,8 @@ class PermitController extends BaseController
 
             $dbData = $this->prepareDbData($data, true);
             $result = $this->permitModel->updateById($id, $dbData);
-
-            $updated = $this->permitModel->find($id);
-            $enriched = $this->enrichPermit($updated ?: array_merge($permit, $dbData));
+            $row = is_array($result) && isset($result[0]) && is_array($result[0]) ? $result[0] : (is_array($result) ? $result : []);
+            $enriched = $this->enrichPermit(!empty($row['id']) ? $row : array_merge($permit, $dbData));
 
             return [
                 'success' => true,
@@ -343,6 +334,17 @@ class PermitController extends BaseController
             }
 
             $result = $this->permitModel->updateById($id, $updateData);
+
+            if ($status === 'approved' || $status === 'completed') {
+                try {
+                    require_once __DIR__ . '/../Models/PermitDocument.php';
+                    $docModel = new PermitDocument(Database::getInstance());
+                    $mergedPermit = array_merge($permit, $updateData);
+                    $docModel->autoGenerateForPermit($mergedPermit);
+                } catch (\Throwable $de) {
+                    error_log('Permit document auto-generation notice in PermitController: ' . $de->getMessage());
+                }
+            }
 
             // Auto-schedule inspection in real time when status becomes under_review
             if ($status === 'under_review') {
@@ -634,32 +636,11 @@ class PermitController extends BaseController
         $this->requireCapability(Permissions::PERMITS_VIEW);
 
         $this->handle(function() {
-            $rawPermits = $this->permitModel->all();
-
-            $total = count($rawPermits);
-            $pending = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'pending'));
-            $underReview = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'under_review'));
-            $approved = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'approved'));
-            $completed = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'completed'));
-            $rejected = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'rejected'));
-            $expired = count(array_filter($rawPermits, fn($p) => ($p['status'] ?? '') === 'expired'));
-            $totalRevenue = array_sum(array_column($rawPermits, 'fee'));
-            $totalRenewals = array_sum(array_map(fn($p) => (int)($p['renewal_count'] ?? 0), $rawPermits));
+            $stats = $this->permitModel->getStatsSummary();
 
             return [
                 'success' => true,
-                'data' => [
-                    'total' => $total,
-                    'active' => $approved + $completed,
-                    'pending' => $pending,
-                    'under_review' => $underReview,
-                    'approved' => $approved,
-                    'completed' => $completed,
-                    'rejected' => $rejected,
-                    'expired' => $expired,
-                    'total_revenue' => $totalRevenue,
-                    'total_renewals' => $totalRenewals
-                ]
+                'data' => $stats
             ];
         });
     }

@@ -63,7 +63,7 @@ $barangayOptions = $barangayModel->allForSurveillance();
                 </div>
                 <div class="mt-3 flex items-center gap-2">
                     <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-file-lines mr-1"></i>All permits</span>
-                    <span class="text-[10px] text-slate-400"><span id="statActiveMini">0</span> active</span>
+                    <span class="text-[10px] text-slate-400"><span id="statRenewalsMini">0</span> renewals</span>
                 </div>
             </div>
         </div>
@@ -82,8 +82,8 @@ $barangayOptions = $barangayModel->allForSurveillance();
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-circle-check mr-1"></i>Valid</span>
-                    <span class="text-[10px] text-slate-400">Currently active</span>
+                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-circle-check mr-1"></i><span id="statActiveRate">0%</span></span>
+                    <span class="text-[10px] text-slate-400">Compliance</span>
                 </div>
             </div>
         </div>
@@ -164,53 +164,6 @@ $barangayOptions = $barangayModel->allForSurveillance();
                 <div class="mt-3 flex items-center gap-2">
                     <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-circle-xmark mr-1"></i>Denied</span>
                     <span class="text-[10px] text-slate-400">Non-compliant</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ============================================================ -->
-    <!-- MODERN SUMMARY CARDS                                        -->
-    <!-- ============================================================ -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <!-- Revenue Card -->
-        <div class="relative overflow-hidden bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl p-5 shadow-sm">
-            <div class="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full"></div>
-            <div class="relative flex items-center justify-between text-white">
-                <div>
-                    <p class="text-sm font-medium opacity-80"><i class="fa-solid fa-coins mr-1"></i>Total Revenue</p>
-                    <p class="text-2xl font-bold mt-1" id="statRevenue">₱0.00</p>
-                </div>
-                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                    <i class="fa-solid fa-coins text-2xl text-white/80"></i>
-                </div>
-            </div>
-        </div>
-
-        <!-- Renewals Card -->
-        <div class="relative overflow-hidden bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-5 shadow-sm">
-            <div class="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full"></div>
-            <div class="relative flex items-center justify-between text-white">
-                <div>
-                    <p class="text-sm font-medium opacity-80"><i class="fa-solid fa-rotate mr-1"></i>Total Renewals</p>
-                    <p class="text-2xl font-bold mt-1" id="statRenewals">0</p>
-                </div>
-                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                    <i class="fa-solid fa-rotate text-2xl text-white/80"></i>
-                </div>
-            </div>
-        </div>
-
-        <!-- Active Rate Card -->
-        <div class="relative overflow-hidden bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl p-5 shadow-sm">
-            <div class="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full"></div>
-            <div class="relative flex items-center justify-between text-white">
-                <div>
-                    <p class="text-sm font-medium opacity-80"><i class="fa-solid fa-chart-pie mr-1"></i>Active Rate</p>
-                    <p class="text-2xl font-bold mt-1" id="statActiveRate">0%</p>
-                </div>
-                <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-                    <i class="fa-solid fa-chart-pie text-2xl text-white/80"></i>
                 </div>
             </div>
         </div>
@@ -297,6 +250,7 @@ $barangayOptions = $barangayModel->allForSurveillance();
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Barangay</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Fee</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Requirements</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Expiry</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Renewals</th>
                         <th class="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider">Actions</th>
@@ -416,16 +370,109 @@ $barangayOptions = $barangayModel->allForSurveillance();
 <!-- ============================================================ -->
 <div id="viewPermitRecordModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
-            <h3 class="font-bold text-slate-900">Permit Record Details</h3>
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-file-invoice text-brand-medium"></i> Permit Record Details & Workflow
+            </h3>
             <button onclick="closeModal('viewPermitRecordModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
         <div id="permitRecordDetailsContent" class="p-6">
             <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
-                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
+                <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading details...
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- EDIT PERMIT RECORD MODAL                                     -->
+<!-- ============================================================ -->
+<div id="editPermitRecordModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-pen-to-square text-brand-medium"></i> Edit Permit Record
+            </h3>
+            <button onclick="closeModal('editPermitRecordModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <input type="hidden" id="edit_permit_db_id">
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Permit ID</label>
+                    <input type="text" id="edit_permit_id" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-100 font-mono font-bold text-slate-700 outline-none" readonly>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label>
+                    <select id="edit_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none font-semibold">
+                        <option value="pending">Pending</option>
+                        <option value="under_review">Under Review</option>
+                        <option value="approved">Approved / Active</option>
+                        <option value="expired">Expired</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Applicant Name</label>
+                <input type="text" id="edit_applicant" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Owner Name</label>
+                    <input type="text" id="edit_owner_name" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Business Type</label>
+                    <input type="text" id="edit_business_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Barangay</label>
+                    <input type="text" id="edit_barangay" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Fee (₱)</label>
+                    <input type="number" step="0.01" id="edit_fee" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Status</label>
+                    <select id="edit_paid" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                        <option value="1">Paid</option>
+                        <option value="0">Unpaid</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Payment Method</label>
+                    <select id="edit_payment_method" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                        <option value="Cash">Cash</option>
+                        <option value="GCash">GCash</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Check">Check</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Expiry Date</label>
+                <input type="date" id="edit_expiry_date" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes & Workflow Audit</label>
+                <textarea id="edit_notes" rows="3" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 outline-none" placeholder="Staff workflow notes..."></textarea>
+            </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 px-6 pb-6 pt-2 border-t border-slate-100">
+            <button type="button" onclick="closeModal('editPermitRecordModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button>
+            <button type="button" onclick="savePermitRecordEdit()" class="px-5 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5">
+                <i class="fa-solid fa-save"></i> Save Changes
+            </button>
         </div>
     </div>
 </div>
@@ -518,6 +565,127 @@ $barangayOptions = $barangayModel->allForSurveillance();
 <!-- ============================================================ -->
 <script>
     // ============================================================
+    // OFFICIAL SANITATION REQUIREMENTS MATRIX
+    // ============================================================
+    const SANITATION_REQUIREMENTS_MATRIX = {
+        'Food Establishment': [
+            'Certificate of Water Potability (Drinking Water & Ice)',
+            'Contract for Abatement of Insect & Vermin (Accredited Pest Control)',
+            'Health Certificates for Food & Non-Food Handlers',
+            'Meat Handlers Permit (if serving meat)'
+        ],
+        'Water Refilling Station': [
+            'Certificate of Water Potability (HPC, Physical-Chemical, Microbiological)',
+            'Heterotrophic Plate Count (HPC) Test Result',
+            'Physical-Chemical Analysis of H2O (not more than 6 mos)',
+            'Microbiological Exam of H2O',
+            'Payment of Delinquency Receipt (for delinquent WRS)'
+        ],
+        'Spa / Massage / Therapeutic Clinic': [
+            'Certificate of Water Potability (a, b, c)',
+            'Photocopy of DOH & TESDA License for Masseur / Masseuse',
+            'Certificate of Training to Conduct Massage',
+            'Certificate of DOH Accreditation for Training Institution',
+            'Health Certificate of Registered Masseur and Attendants',
+            'Pest Control Contract from Accredited Operator'
+        ],
+        'Medical / Dental Clinic / Hospital / Laboratory': [
+            'DOH License to Operate',
+            'Certificate of Proficiency (Drug Testing, HIV-AIDS Accredited)',
+            'Contract for Collection & Disposal of Hazardous Waste & Sharps',
+            'Certificate of Water Potability (a, b, c)',
+            'Copy of Employees PRC Licenses',
+            'Pest Control Contract from Accredited Operator'
+        ],
+        'Market Vendor / Supermarket': [
+            'Certificate of Accreditation from NMIC',
+            'Certificate of Training from NMIC',
+            'Certificate of Water Potability (a, b, c)',
+            'Health Certificates / Meat Handlers Permit / Butchers Permit',
+            'Contract for Insect & Vermin Abatement from Accredited Operator'
+        ],
+        'Hotel / Lodging / Condominium': [
+            'Certificate of Water Potability (a, b, c)',
+            'Contract for Insect & Vermin Prevention & Control',
+            'Water Quality Monitoring (pH, HPC, Microbio) for Swimming Pools',
+            'Certified Lifeguards Training Certificates'
+        ],
+        'Movie House': [
+            'Contract for Pest Control from Accredited Operator',
+            'Certificate of Water Potability (a, b, c)',
+            'Health Certificates of Ushers, Ticket Attendants, Utilities'
+        ],
+        'Funeral Parlor': [
+            'DOH Registered Mortician / Embalmer License',
+            'Certificate of Water Potability (a, b, c)',
+            'Contract for Pest Control from Accredited Operator',
+            'DENR/DOH Certificate of Approval on Wastewater & Hazardous Waste Disposal'
+        ],
+        'Tiangge': [
+            'Certificate of Water Potability (a, b, c)',
+            'Contract for Pest Control',
+            'Contract for Solid Waste Collection & Disposal',
+            'Health Certificate for Food / Non-Food Handlers',
+            'Access to Toilet Facilities & Prescribed Refuse Bins'
+        ],
+        'Department Store': [
+            'Certificate of Water Potability (a, b, c)',
+            'List of Employees for Health Certificate',
+            'Contract for Pest Control from Accredited Operator',
+            'Contract for Solid Waste Collection & Disposal'
+        ],
+        'Recreational Facility': [
+            'Certificate of Water Potability (a, b, c)',
+            'Contract for Pest Control',
+            'Contract for Solid Waste Collection & Disposal',
+            'Health Certificates for Employees'
+        ],
+        'Pharmacy': [
+            'Registered Licensed Pharmacist PRC License',
+            'Health Certificates for Employees (Tellers, Attendants, Security, Cashiers)',
+            'Pest Control Contract from Accredited Operator'
+        ],
+        'Beauty Parlor / Salon / Barbershop': [
+            'Sterilizing Device for Manicure / Pedicure Equipment',
+            'Certificate of Water Potability (a, b, c)',
+            'Pest Control Contract from Accredited Operator',
+            'Health Certificate for Employees'
+        ],
+        'Facial / Skin Clinic': [
+            'Dermatologist PRC License / Accreditation',
+            'Certificate of Training for Aestheticians',
+            'Health Certificate for Employees',
+            'Certificate of Water Potability (a, b, c)',
+            'Pest Control Contract from Accredited Operator',
+            'Contract for Disposal of Sharps, Needles & Hazardous Waste'
+        ],
+        'Amusement Center': [
+            'Noise Level Monitoring Device Certification',
+            'Contract for Pest Control',
+            'Health Certificate for Employees'
+        ],
+        'Construction Site': [
+            'Zoning & Engineering Building Permit',
+            'Certificate of Water Potability (a, b, c)',
+            'Contract for Pest Control from Accredited Operator',
+            'Temporary Sanitary Permit for Food Providers',
+            'Environmental Compliance Certificate (ECC) & DENR Waste Water Disposal Cert',
+            'On-site Medical Facility (Clinic, Nurse/Doctor, Transport Vehicle & Affiliate Hospital)',
+            'Personal Protective Equipment (PPE) & Toilet Facilities Provision'
+        ],
+        'Bank / Financial Institution': [
+            'Certificate of Water Potability (a, b, c)',
+            'Pest Control Contract from Accredited Operator',
+            'Health Certificate for Employees (Tellers, Managers, Security)'
+        ],
+        'Industrial Establishment': [
+            'Certificate of Water Potability (a, b, c)',
+            'PPE Provision (Noise, Dust, Pollutants, Gaseous Materials, Helmets)',
+            'Environmental Safety & Waste Management Permits'
+        ]
+    };
+
+    // ============================================================
     // PERMIT API CLIENT
     // ============================================================
     const API_BASE = '../../api/permitrecord.php';
@@ -586,49 +754,57 @@ $barangayOptions = $barangayModel->allForSurveillance();
     let currentLimit = <?php echo $limit; ?>;
     let totalPages = 1;
     let allPermits = {};
+    let isLoadingPermits = false;
 
     // ============================================================
-    // LOAD PERMITS FROM API
+    // LOAD PERMITS FROM API (with silent refresh support)
     // ============================================================
-    async function loadPermits(page = currentPage) {
+    async function loadPermits(page = currentPage, isSilent = false) {
+        if (isLoadingPermits && isSilent) return;
+        isLoadingPermits = true;
+
         try {
-            showLoading(true);
+            if (!isSilent) {
+                showLoading(true);
+            }
 
             const filters = {
                 page: page,
                 limit: currentLimit,
-                status: document.getElementById('filterStatus').value,
-                type: document.getElementById('filterType').value,
+                status: document.getElementById('filterStatus') ? document.getElementById('filterStatus').value : '',
+                type: document.getElementById('filterType') ? document.getElementById('filterType').value : '',
                 barangay: activeBarangay,
-                search: document.getElementById('searchPermitRecord').value,
+                search: document.getElementById('searchPermitRecord') ? document.getElementById('searchPermitRecord').value : '',
                 dateFrom: activeDateFrom,
                 dateTo: activeDateTo,
             };
 
             if (filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo) {
                 showToast('The start date cannot be after the end date', 'warning');
-                showLoading(false);
                 return;
             }
 
             const result = await getPermits(filters);
 
             allPermits = {};
-            result.data.forEach(p => {
-                allPermits[p.id] = p;
-            });
+            if (result && Array.isArray(result.data)) {
+                result.data.forEach(p => {
+                    allPermits[p.id] = p;
+                });
+                totalPages = result.total_pages || 1;
+                currentPage = page;
 
-            totalPages = result.total_pages || 1;
-            currentPage = page;
-
-            renderPermitTable(result.data);
-            updatePagination(result.page, result.total_pages, result.total);
-
-            showLoading(false);
+                renderPermitTable(result.data);
+                updatePagination(result.page || page, result.total_pages || 1, result.total || 0);
+            } else {
+                renderPermitTable([]);
+            }
         } catch (error) {
             console.error('Failed to load permits:', error);
             showToast('Failed to load permits: ' + error.message, 'danger');
+        } finally {
             showLoading(false);
+            isLoadingPermits = false;
         }
     }
 
@@ -638,36 +814,109 @@ $barangayOptions = $barangayModel->allForSurveillance();
     async function loadStats() {
         try {
             const result = await getStats();
-            const stats = result.data;
+            const stats = result.data || {};
 
             const total = Number(stats.total) || 0;
             const active = Number(stats.active ?? stats.approved) || 0;
 
-            document.getElementById('statTotal').textContent = total;
-            document.getElementById('statActive').textContent = active;
-            document.getElementById('statActiveMini').textContent = active;
-            document.getElementById('statPending').textContent = stats.pending || 0;
-            document.getElementById('statUnderReview').textContent = stats.under_review || 0;
-            document.getElementById('statExpired').textContent = stats.expired || 0;
-            document.getElementById('statRejected').textContent = stats.rejected || 0;
+            const setEl = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = val;
+            };
 
-            // Revenue
-            const revenue = parseFloat(stats.total_revenue) || 0;
-            document.getElementById('statRevenue').textContent = '₱' + revenue.toLocaleString('en-PH', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
+            setEl('statTotal', total);
+            setEl('statActive', active);
+            setEl('statActiveMini', active);
+            setEl('statPending', stats.pending || 0);
+            setEl('statUnderReview', stats.under_review || 0);
+            setEl('statExpired', stats.expired || 0);
+            setEl('statRejected', stats.rejected || 0);
 
             // Renewals
-            document.getElementById('statRenewals').textContent = stats.total_renewals || 0;
+            const renewals = stats.total_renewals || 0;
+            setEl('statRenewals', renewals);
+            setEl('statRenewalsMini', renewals);
 
-            // Active Rate
+            // Active / Compliance Rate
             const activeRate = total > 0 ? Math.round((active / total) * 100) : 0;
-            document.getElementById('statActiveRate').textContent = activeRate + '%';
+            setEl('statActiveRate', activeRate + '%');
+
+            // Revenue (Safely guarded if present)
+            const revenue = parseFloat(stats.total_revenue) || 0;
+            setEl('statRevenue', '₱' + revenue.toLocaleString('en-PH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }));
 
         } catch (error) {
             console.error('Failed to load stats:', error);
         }
+    }
+
+    // ============================================================
+    // RENDER PERMIT TABLE
+    // ============================================================
+    // HELPER & WORKFLOW FUNCTIONS
+    // ============================================================
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    async function apiUpdatePermit(id, data) {
+        return apiRequest(API_BASE + '?id=' + id + '&action=update', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+    }
+
+    async function quickUpdatePermitStatus(id, newStatus) {
+        try {
+            const updateData = { status: newStatus };
+            if (newStatus === 'approved') {
+                updateData.paid = 1;
+            }
+            await apiUpdatePermit(id, updateData);
+            showToast('Permit status updated to ' + newStatus.replace('_', ' ').toUpperCase(), 'success');
+            closeModal('viewPermitRecordModal');
+            closeModal('editPermitRecordModal');
+            loadPermits(currentPage);
+            loadStats();
+            if (typeof window.broadcastSanitationChange === 'function') {
+                window.broadcastSanitationChange('permits', { action: 'status_updated', id: id, status: newStatus });
+            }
+        } catch (error) {
+            showToast('Failed to update permit status: ' + error.message, 'danger');
+        }
+    }
+
+    // Parse requirement checklist stored in notes or requirements_data
+    function parsePermitRequirementsData(permit) {
+        const reqs = SANITATION_REQUIREMENTS_MATRIX[permit.business_type] || SANITATION_REQUIREMENTS_MATRIX['Office/Commercial'] || [];
+        let reqState = [];
+
+        if (permit.requirements_data) {
+            try {
+                reqState = typeof permit.requirements_data === 'string' ? JSON.parse(permit.requirements_data) : permit.requirements_data;
+            } catch (e) { reqState = []; }
+        }
+
+        if (!Array.isArray(reqState) || reqState.length === 0) {
+            // Default initialization
+            const defaultChecked = (permit.status === 'approved' || permit.status === 'active');
+            reqState = reqs.map((r, idx) => ({
+                title: r,
+                checked: defaultChecked,
+                ref_id: `${permit.permit_id || 'SAN'}-DOC-${idx + 1}`,
+                sub_type: defaultChecked ? '📄 Physical Copy / On-File' : '⏳ To Follow'
+            }));
+        }
+        return reqState;
     }
 
     // ============================================================
@@ -695,58 +944,88 @@ $barangayOptions = $barangayModel->allForSurveillance();
             rejected: 'bg-rose-100 text-rose-700'
         };
 
-        tbody.innerHTML = permits.map(permit => `
-        <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors permit-record-row"
-            data-applicant="${(permit.applicant || '').toLowerCase()}"
-            data-type="${(permit.business_type || '').toLowerCase()}"
-            data-status="${permit.status || ''}"
-            data-barangay="${permit.barangay || ''}"
-            data-id="${permit.permit_id || ''}">
-            <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${permit.permit_id || '—'}</td>
-            <td class="px-4 py-3">
-                <div>
-                    <p class="font-semibold text-slate-800 text-sm">${permit.applicant || '—'}</p>
-                    <p class="text-xs text-slate-400 maskable">${permit.owner_name || '—'}</p>
-                </div>
-            </td>
-            <td class="px-4 py-3 text-slate-600 text-xs">${permit.business_type || '—'}</td>
-            <td class="px-4 py-3 text-slate-600 text-xs maskable">${permit.barangay || '—'}</td>
-            <td class="px-4 py-3">
-                <span class="text-xs font-semibold text-slate-700">₱${parseFloat(permit.fee || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</span>
-            </td>
-            <td class="px-4 py-3">
-                <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[permit.status] || statusColors.pending}">
-                    ${(permit.status || 'pending').replace('_', ' ').toUpperCase()}
-                </span>
-            </td>
-            <td class="px-4 py-3 text-slate-500 text-xs">
-                ${permit.expiry_date ? new Date(permit.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
-            </td>
-            <td class="px-4 py-3 text-center">
-                <span class="text-xs font-semibold text-brand-dark">${permit.renewal_count || 0}</span>
-            </td>
-            <td class="px-4 py-3">
-                <div class="flex items-center justify-center gap-1">
-                    <button onclick="viewPermitRecord(${permit.id})"
-                            class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View">
-                        <i class="fa-solid fa-eye text-sm"></i>
+        tbody.innerHTML = permits.map(permit => {
+            const reqs = SANITATION_REQUIREMENTS_MATRIX[permit.business_type] || SANITATION_REQUIREMENTS_MATRIX['Office/Commercial'] || [];
+            const reqState = parsePermitRequirementsData(permit);
+            const metCount = reqState.filter(r => r.checked).length;
+            const totalReqs = reqs.length || 1;
+            const pct = Math.round((metCount / totalReqs) * 100);
+
+            return `
+            <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors permit-record-row"
+                data-applicant="${(permit.applicant || '').toLowerCase()}"
+                data-type="${(permit.business_type || '').toLowerCase()}"
+                data-status="${permit.status || ''}"
+                data-barangay="${permit.barangay || ''}"
+                data-id="${permit.permit_id || ''}">
+                <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${permit.permit_id || '—'}</td>
+                <td class="px-4 py-3">
+                    <div>
+                        <p class="font-semibold text-slate-800 text-sm">${escapeHtml(permit.applicant || '—')}</p>
+                        <p class="text-xs text-slate-400 maskable">${escapeHtml(permit.owner_name || '—')}</p>
+                    </div>
+                </td>
+                <td class="px-4 py-3 text-slate-600 text-xs">${escapeHtml(permit.business_type || '—')}</td>
+                <td class="px-4 py-3 text-slate-600 text-xs maskable">${escapeHtml(permit.barangay || '—')}</td>
+                <td class="px-4 py-3">
+                    <span class="text-xs font-semibold text-slate-700">₱${parseFloat(permit.fee || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</span>
+                </td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[permit.status] || statusColors.pending}">
+                        ${(permit.status || 'pending').replace('_', ' ').toUpperCase()}
+                    </span>
+                </td>
+                <td class="px-4 py-3">
+                    <button onclick="viewPermitRecord(${permit.id})" class="px-2 py-0.5 rounded-full text-[11px] font-bold ${metCount === totalReqs ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : (metCount > 0 ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-rose-100 text-rose-800 border border-rose-200')} hover:scale-105 transition flex items-center gap-1 w-max">
+                        <i class="fa-solid ${metCount === totalReqs ? 'fa-circle-check text-emerald-600' : 'fa-hourglass-half text-amber-600'}"></i>
+                        ${metCount}/${totalReqs} Met (${pct}%)
                     </button>
-                    ${permit.status === 'expired' ? `
-                        <button onclick="renewPermit(${permit.id})"
-                                class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Renew">
-                            <i class="fa-solid fa-rotate text-sm"></i>
+                </td>
+                <td class="px-4 py-3 text-slate-500 text-xs">
+                    ${permit.expiry_date ? new Date(permit.expiry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                </td>
+                <td class="px-4 py-3 text-center">
+                    <span class="text-xs font-semibold text-brand-dark">${permit.renewal_count || 0}</span>
+                </td>
+                <td class="px-4 py-3">
+                    <div class="flex items-center justify-center gap-1">
+                        <button onclick="viewPermitRecord(${permit.id})"
+                                class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details & Checklist">
+                            <i class="fa-solid fa-eye text-sm"></i>
                         </button>
-                    ` : ''}
-                    ${permit.status === 'approved' || permit.status === 'under_review' ? `
+                        ${permit.status === 'pending' ? `
+                            <button onclick="quickUpdatePermitStatus(${permit.id}, 'under_review')"
+                                    class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Move to Under Review / Inspection">
+                                <i class="fa-solid fa-clipboard-check text-sm"></i>
+                            </button>
+                        ` : ''}
+                        ${permit.status === 'under_review' ? `
+                            <button onclick="quickUpdatePermitStatus(${permit.id}, 'approved')"
+                                    class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Approve & Issue Sanitation Permit">
+                                <i class="fa-solid fa-circle-check text-sm"></i>
+                            </button>
+                        ` : ''}
+                        ${permit.status === 'approved' || permit.status === 'active' ? `
+                            <a href="permit_certificate.php?permit_id=${permit.id}" target="_blank"
+                               class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Print Official Sanitation Permit Certificate">
+                                <i class="fa-solid fa-certificate text-sm"></i>
+                            </a>
+                        ` : ''}
+                        ${permit.status === 'expired' ? `
+                            <button onclick="renewPermit(${permit.id})"
+                                    class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Renew Permit">
+                                <i class="fa-solid fa-rotate text-sm"></i>
+                            </button>
+                        ` : ''}
                         <button onclick="editPermitRecord(${permit.id})"
-                                class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit">
+                                class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit Record">
                             <i class="fa-solid fa-pen text-sm"></i>
                         </button>
-                    ` : ''}
-                </div>
-            </td>
-        </tr>
-    `).join('');
+                    </div>
+                </td>
+            </tr>
+        `;
+        }).join('');
     }
 
     // ============================================================
@@ -830,17 +1109,27 @@ $barangayOptions = $barangayModel->allForSurveillance();
     }
 
     // ============================================================
-    // VIEW PERMIT RECORD (via API)
+    // VIEW PERMIT RECORD & INTERACTIVE WORKFLOW MATRIX
     // ============================================================
+    let activeModalPermit = null;
+
     async function viewPermitRecord(id) {
         openModal('viewPermitRecordModal');
 
         try {
-            const result = await getPermit(id);
+            const [result, docsRes, payRes] = await Promise.all([
+                getPermit(id),
+                fetch(`../../api/permit_documents.php?by_permit=${id}`).then(r => r.json()).catch(() => ({ data: [] })),
+                fetch(`../../api/payments.php?permit_id=${id}`).then(r => r.json()).catch(() => ({ data: [] }))
+            ]);
+
             const p = result.data;
+            const docs = (docsRes && docsRes.data) || [];
+            const payments = (payRes && payRes.data) || [];
+            activeModalPermit = p;
 
             if (!p) {
-                document.getElementById('permitRecordDetailsContent').innerHTML = '<p class="text-center text-slate-500">Permit not found</p>';
+                document.getElementById('permitRecordDetailsContent').innerHTML = '<p class="text-center text-slate-500">Permit record not found</p>';
                 return;
             }
 
@@ -853,49 +1142,437 @@ $barangayOptions = $barangayModel->allForSurveillance();
                 rejected: 'bg-rose-100 text-rose-700'
             };
 
-            const docsHtml = (p.documents || []).map(d => `
-            <span class="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">${d.file_name || d}</span>
-        `).join('') || '<span class="text-xs text-slate-400">No documents</span>';
+            // Payment Calculations & Metadata
+            const latestPay = payments.length > 0 ? payments[0] : null;
+            const isPaid = p.paid || (latestPay && (latestPay.status === 'paid' || latestPay.status === 'completed'));
+            const paymentMethod = (latestPay && latestPay.method) || p.payment_method || 'Cash';
+            const orNumber = (latestPay && (latestPay.reference_number || latestPay.payment_id)) || p.payment_reference || 'OR-PENDING';
+            const paymentAmount = latestPay ? parseFloat(latestPay.amount) : parseFloat(p.fee || 0);
+            const paymentDate = (latestPay && (latestPay.paid_at || latestPay.created_at)) 
+                ? new Date(latestPay.paid_at || latestPay.created_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) 
+                : (isPaid ? 'Verified' : 'Pending');
+
+            // QR & Certificate Metadata
+            const qrCodeVal = p.qr_code || ('QR-SAN-' + (p.permit_id || id));
+
+            const categoryReqs = SANITATION_REQUIREMENTS_MATRIX[p.business_type] || SANITATION_REQUIREMENTS_MATRIX['Office/Commercial'] || [];
+            const reqState = parsePermitRequirementsData(p);
+            const checkedCount = reqState.filter(r => r.checked).length;
+            const totalCount = categoryReqs.length || 1;
+            const progressPct = Math.round((checkedCount / totalCount) * 100);
+
+            // Requirements Table HTML
+            let reqsTableHtml = '';
+            if (categoryReqs.length > 0) {
+                reqsTableHtml = `
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                                    <i class="fa-solid fa-folder-check text-brand-medium"></i>
+                                    Compliance Requirements Checklist
+                                </h5>
+                                <p class="text-[11px] text-slate-500 mt-0.5" id="modal_req_summary_text">
+                                    <span id="modal_req_checked_count">${checkedCount}</span> of ${totalCount} Requirements Met (${progressPct}%)
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="markAllModalReqs(true)" class="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition text-[11px] font-bold flex items-center gap-1">
+                                    <i class="fa-solid fa-check-double"></i> Mark All Met
+                                </button>
+                                <button type="button" onclick="saveModalRequirementsChecklist(${p.id})" class="px-2.5 py-1 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-[11px] font-bold flex items-center gap-1">
+                                    <i class="fa-solid fa-save"></i> Save Checklist
+                                </button>
+                            </div>
+                        </div>
+                        <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                            <div id="modal_req_progress_bar" class="bg-brand-dark h-full transition-all duration-300" style="width: ${progressPct}%"></div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs text-left">
+                                <thead class="bg-slate-100/80 text-slate-500 font-bold uppercase text-[10px]">
+                                    <tr>
+                                        <th class="px-2.5 py-1.5">Status</th>
+                                        <th class="px-2.5 py-1.5">Requirement Item</th>
+                                        <th class="px-2.5 py-1.5">Submission Type</th>
+                                        <th class="px-2.5 py-1.5">Document / Cert Ref ID</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200" id="modal_req_tbody">
+                                    ${categoryReqs.map((r, idx) => {
+                                        const isChecked = reqState[idx] ? reqState[idx].checked : (p.status === 'approved' || p.status === 'active');
+                                        const refId = (reqState[idx] && reqState[idx].ref_id) ? reqState[idx].ref_id : `${p.permit_id || 'SAN'}-DOC-${idx + 1}`;
+                                        const subType = (reqState[idx] && reqState[idx].sub_type) ? reqState[idx].sub_type : '📄 Physical Copy / On-File';
+                                        return `
+                                            <tr>
+                                                <td class="px-2.5 py-2">
+                                                    <input type="checkbox" id="modal_req_chk_${idx}" data-req-title="${escapeHtml(r)}" ${isChecked ? 'checked' : ''} onchange="updateModalReqProgress()" class="w-4 h-4 text-brand-dark rounded focus:ring-brand-medium accent-brand-dark cursor-pointer">
+                                                </td>
+                                                <td class="px-2.5 py-2 font-medium text-slate-800" id="modal_req_title_${idx}">${escapeHtml(r)}</td>
+                                                <td class="px-2.5 py-2">
+                                                    <select id="modal_req_type_${idx}" class="text-[11px] px-2 py-1 border border-slate-200 rounded-md bg-white font-medium text-slate-700 outline-none">
+                                                        <option value="📄 Physical Copy / On-File" ${subType.includes('Physical') ? 'selected' : ''}>📄 Physical Copy</option>
+                                                        <option value="💻 Digital Upload" ${subType.includes('Digital') ? 'selected' : ''}>💻 Digital Upload</option>
+                                                        <option value="⏳ To Follow" ${subType.includes('Follow') ? 'selected' : ''}>⏳ To Follow</option>
+                                                    </select>
+                                                </td>
+                                                <td class="px-2.5 py-2 font-mono text-slate-700">
+                                                    <input type="text" id="modal_req_ref_${idx}" value="${escapeHtml(refId)}" class="w-full px-2 py-1 border border-slate-200 rounded-md text-xs font-mono font-semibold outline-none focus:border-brand-medium">
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
 
             document.getElementById('permitRecordDetailsContent').innerHTML = `
             <div class="space-y-4">
+                <!-- Workflow Lifecycle Pipeline -->
+                <div class="bg-gradient-to-r from-brand-dark to-brand-medium text-white rounded-xl p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-bold text-sm">
+                            <i class="fa-solid fa-diagram-project"></i>
+                        </span>
+                        <div>
+                            <p class="text-[10px] uppercase font-bold tracking-wider opacity-80">Permit Workflow Stage</p>
+                            <p class="text-xs font-black capitalize">${(p.status || 'pending').replace('_', ' ')}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5 text-[10px] font-bold">
+                        <span class="px-2 py-0.5 rounded-full ${p.status === 'pending' ? 'bg-amber-400 text-slate-900 font-extrabold' : 'bg-white/10 opacity-70'}">1. Applied</span>
+                        <i class="fa-solid fa-chevron-right text-[8px] opacity-40"></i>
+                        <span class="px-2 py-0.5 rounded-full ${p.status === 'under_review' ? 'bg-blue-400 text-slate-900 font-extrabold' : 'bg-white/10 opacity-70'}">2. Inspection</span>
+                        <i class="fa-solid fa-chevron-right text-[8px] opacity-40"></i>
+                        <span class="px-2 py-0.5 rounded-full ${(p.status === 'approved' || p.status === 'active') ? 'bg-emerald-400 text-slate-900 font-extrabold' : 'bg-white/10 opacity-70'}">3. Permit Active</span>
+                    </div>
+                </div>
+
+                <!-- Establishment Banner -->
                 <div class="flex items-center gap-4 pb-4 border-b border-slate-200">
                     <div class="w-14 h-14 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">
                         ${(p.applicant || 'P').charAt(0)}
                     </div>
                     <div>
-                        <h4 class="text-lg font-bold text-slate-900">${p.applicant || '—'}</h4>
-                        <p class="text-sm text-slate-500">${p.permit_id || '—'} • ${p.business_type || '—'}</p>
+                        <h4 class="text-lg font-bold text-slate-900">${escapeHtml(p.applicant || '—')}</h4>
+                        <p class="text-sm text-slate-500">${escapeHtml(p.permit_id || '—')} • ${escapeHtml(p.business_type || '—')}</p>
                         <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold mt-1 ${statusColors[p.status] || statusColors.pending}">
                             ${(p.status || 'pending').replace('_', ' ').toUpperCase()}
                         </span>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div><p class="text-xs text-slate-400 font-semibold">Owner</p><p class="text-sm text-slate-800 maskable">${p.owner_name || '—'}</p></div>
-                    <div><p class="text-xs text-slate-400 font-semibold">Contact</p><p class="text-sm text-slate-800 maskable">${p.contact || '—'}</p></div>
-                    <div><p class="text-xs text-slate-400 font-semibold">Email</p><p class="text-sm text-slate-800 maskable">${p.email || '—'}</p></div>
-                    <div><p class="text-xs text-slate-400 font-semibold">Barangay</p><p class="text-sm text-slate-800 maskable">${p.barangay || p.address || '—'}</p></div>
-                    <div><p class="text-xs text-slate-400 font-semibold">Fee</p><p class="text-sm text-slate-800 font-bold">₱${parseFloat(p.fee || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</p></div>
-                    <div><p class="text-xs text-slate-400 font-semibold">Payment</p><p class="text-sm text-slate-800">${p.paid ? '<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>Paid' : '<i class="fa-solid fa-circle-xmark text-rose-600 mr-1"></i>Unpaid'} ${p.payment_method ? `(${p.payment_method})` : ''}</p></div>
-                    <div><p class="text-xs text-slate-400 font-semibold">Date Applied</p><p class="text-sm text-slate-800">${p.created_at ? new Date(p.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—'}</p></div>
-                    <div><p class="text-xs text-slate-400 font-semibold">Expiry Date</p><p class="text-sm text-slate-800">${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '—'}</p></div>
+
+                <!-- Establishment Details -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <div><p class="text-[10px] text-slate-400 font-bold uppercase">Owner</p><p class="text-xs font-semibold text-slate-800 maskable">${escapeHtml(p.owner_name || '—')}</p></div>
+                    <div><p class="text-[10px] text-slate-400 font-bold uppercase">Contact</p><p class="text-xs font-semibold text-slate-800 maskable">${escapeHtml(p.contact || '—')}</p></div>
+                    <div><p class="text-[10px] text-slate-400 font-bold uppercase">Barangay</p><p class="text-xs font-semibold text-slate-800 maskable">${escapeHtml(p.barangay || p.address || '—')}</p></div>
+                    <div><p class="text-[10px] text-slate-400 font-bold uppercase">Validity</p><p class="text-xs font-semibold text-slate-800">${p.expiry_date ? escapeHtml(p.expiry_date) : '1 Year from Approval'}</p></div>
                 </div>
-                <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                    <h5 class="text-sm font-bold text-slate-700 mb-2"><i class="fa-solid fa-paperclip mr-1"></i>Documents</h5>
-                    <div class="flex flex-wrap gap-2">${docsHtml}</div>
+
+                <!-- INTEGRATED 1: OFFICIAL PAYMENT & RECEIPT CARD -->
+                <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h5 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                            <i class="fa-solid fa-receipt text-emerald-600"></i>
+                            Official Fee Payment & Receipt
+                        </h5>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold ${isPaid ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}">
+                            <i class="fa-solid ${isPaid ? 'fa-circle-check text-emerald-600' : 'fa-clock text-amber-600'} mr-1"></i>
+                            ${isPaid ? 'PAID & VERIFIED' : 'UNPAID / FEE PENDING'}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+                        <div>
+                            <span class="text-[10px] text-slate-400 font-bold uppercase block">Amount</span>
+                            <span class="font-extrabold text-slate-900">₱${paymentAmount.toLocaleString('en-PH', {minimumFractionDigits: 2})}</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 font-bold uppercase block">Method</span>
+                            <span class="font-semibold text-slate-800 capitalize">${escapeHtml(paymentMethod.replace('_', ' '))}</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 font-bold uppercase block">Official Receipt / Ref</span>
+                            <span class="font-mono font-bold text-brand-dark">${escapeHtml(orNumber)}</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 font-bold uppercase block">Payment Date</span>
+                            <span class="font-medium text-slate-700">${escapeHtml(paymentDate)}</span>
+                        </div>
+                    </div>
                 </div>
-                ${p.notes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">📝 Notes</h5><p class="text-sm text-slate-800">${p.notes}</p></div>` : ''}
-                <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
-                    <button onclick="closeModal('viewPermitRecordModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Close</button>
-                    <a href="permit_certificate.php?permit_id=${p.id}" target="_blank" class="px-4 py-2 bg-brand-dark hover:bg-brand-medium text-white rounded-lg transition text-sm font-semibold flex items-center gap-1.5"><i class="fa-solid fa-certificate"></i> Print / Download Permit</a>
-                    ${p.status === 'expired' ? `<button onclick="closeModal('viewPermitRecordModal'); renewPermit(${p.id})" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-semibold"><i class="fa-solid fa-rotate mr-1.5"></i> Renew</button>` : ''}
+
+                <!-- INTEGRATED 2: OFFICIAL SANITARY PERMIT & QR CODE CARD -->
+                <div class="bg-gradient-to-br from-brand-dark/5 via-slate-50 to-brand-medium/10 rounded-xl p-4 border border-brand-border/60 shadow-2xs space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-white border border-brand-border flex items-center justify-center text-brand-dark shadow-xs flex-shrink-0">
+                                <i class="fa-solid fa-qrcode text-2xl"></i>
+                            </div>
+                            <div>
+                                <h5 class="text-xs font-bold text-slate-900 uppercase tracking-wide flex items-center gap-1.5">
+                                    Official Sanitary Permit & QR
+                                    <span class="px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-brand-light text-brand-dark border border-brand-border">Verified</span>
+                                </h5>
+                                <p class="text-xs font-mono font-bold text-brand-dark mt-0.5">${escapeHtml(qrCodeVal)}</p>
+                                <p class="text-[10px] text-slate-500">Valid until: ${p.expiry_date ? new Date(p.expiry_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : '1 Year from Issuance'}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <a href="permit_certificate.php?permit_id=${p.id}" target="_blank"
+                               class="px-3.5 py-2 bg-brand-dark hover:bg-brand-medium text-white rounded-lg transition font-bold text-xs flex items-center gap-1.5 shadow-xs">
+                                <i class="fa-solid fa-certificate"></i> Print Official Permit
+                            </a>
+                            <a href="../../api/permit_documents.php?qr=${encodeURIComponent(qrCodeVal)}" target="_blank"
+                               class="px-3 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg transition font-semibold text-xs flex items-center gap-1.5">
+                                <i class="fa-solid fa-shield-halved text-brand-medium"></i> Verify QR
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- INTEGRATED 3: ATTACHED COMPLIANCE DOCUMENTS VAULT -->
+                <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h5 class="text-xs font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                            <i class="fa-solid fa-folder-open text-blue-600"></i>
+                            Attached Files & Compliance Records (${docs.length})
+                        </h5>
+                        <button type="button" onclick="triggerRecordDocUpload(${p.id})" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition text-[11px] font-bold flex items-center gap-1">
+                            <i class="fa-solid fa-upload"></i> Attach File
+                        </button>
+                    </div>
+                    ${docs.length === 0 ? `
+                        <div class="py-4 text-center text-xs text-slate-400 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                            <i class="fa-solid fa-file-circle-question text-lg mb-1 block opacity-40"></i>
+                            No additional document files uploaded yet for this permit.
+                        </div>
+                    ` : `
+                        <div class="divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                            ${docs.map(d => `
+                                <div class="py-2 flex items-center justify-between gap-2 text-xs">
+                                    <div class="flex items-center gap-2 truncate">
+                                        <i class="fa-solid ${d.file_type === 'pdf' ? 'fa-file-pdf text-red-500' : 'fa-file text-slate-400'} text-base"></i>
+                                        <div class="truncate">
+                                            <p class="font-medium text-slate-800 truncate">${escapeHtml(d.file_name || d.document_type || 'Document')}</p>
+                                            <p class="text-[10px] text-slate-400 font-mono">${escapeHtml(d.document_id || '')} • ${(d.file_size ? (d.file_size / 1024).toFixed(1) + ' KB' : 'File')} • ${d.uploaded_at ? new Date(d.uploaded_at).toLocaleDateString('en-PH') : ''}</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                                        <span class="px-2 py-0.5 text-[9px] font-bold rounded-full ${d.verified ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}">
+                                            ${d.verified ? 'VERIFIED' : 'ON FILE'}
+                                        </span>
+                                        ${d.file_path ? `
+                                            <a href="../../uploads/${escapeHtml(d.file_path)}" target="_blank" class="p-1.5 text-brand-dark hover:bg-brand-light rounded transition" title="View Document">
+                                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                            </a>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `}
+                </div>
+
+                ${reqsTableHtml}
+
+                ${p.notes ? `<div class="bg-slate-50 rounded-xl p-3.5 border border-slate-200"><h5 class="text-xs font-bold text-slate-700 mb-1">📝 Notes & Audit Summary</h5><p class="text-xs text-slate-800 whitespace-pre-wrap">${escapeHtml(p.notes)}</p></div>` : ''}
+
+                <!-- Workflow Actions Footer -->
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-200">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-500">Quick Status:</span>
+                        <select onchange="quickUpdatePermitStatus(${p.id}, this.value)" class="text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-bold text-slate-800 outline-none">
+                            <option value="pending" ${p.status === 'pending' ? 'selected' : ''}>Pending</option>
+                            <option value="under_review" ${p.status === 'under_review' ? 'selected' : ''}>Under Review</option>
+                            <option value="approved" ${(p.status === 'approved' || p.status === 'active') ? 'selected' : ''}>Approved / Active</option>
+                            <option value="expired" ${p.status === 'expired' ? 'selected' : ''}>Expired</option>
+                            <option value="rejected" ${p.status === 'rejected' ? 'selected' : ''}>Rejected</option>
+                        </select>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="closeModal('viewPermitRecordModal')" class="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold">Close</button>
+                        ${p.status === 'pending' ? `
+                            <button onclick="quickUpdatePermitStatus(${p.id}, 'under_review')" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition text-xs font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-clipboard-check"></i> Move to Under Review / Inspection
+                            </button>
+                        ` : ''}
+                        ${p.status === 'under_review' ? `
+                            <a href="inspections.php" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition text-xs font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-clipboard-list"></i> View in Inspections
+                            </a>
+                            <button onclick="quickUpdatePermitStatus(${p.id}, 'approved')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition text-xs font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-circle-check"></i> Pass & Issue Permit
+                            </button>
+                        ` : ''}
+                        ${(p.status === 'approved' || p.status === 'active') ? `
+                            <a href="permit_certificate.php?permit_id=${p.id}" target="_blank" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-certificate"></i> Print Official Permit</a>
+                        ` : ''}
+                        ${p.status === 'expired' ? `
+                            <button onclick="closeModal('viewPermitRecordModal'); renewPermit(${p.id})" class="px-3.5 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-rotate"></i> Renew Permit</button>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
         `;
         } catch (error) {
             document.getElementById('permitRecordDetailsContent').innerHTML =
-                `<p class="text-center text-rose-500">Failed to load permit details: ${error.message}</p>`;
+                `<p class="text-center text-rose-500">Failed to load permit details: ${escapeHtml(error.message)}</p>`;
+        }
+    }
+
+    // Modal Document Upload Helper
+    function triggerRecordDocUpload(permitId) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pdf,.jpg,.jpeg,.png';
+        input.onchange = async () => {
+            if (!input.files || input.files.length === 0) return;
+            const file = input.files[0];
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('permit_id', permitId);
+            fd.append('document_type', 'sanitary_permit');
+            fd.append('status', 'verified');
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            fd.append('csrf_token', csrfToken);
+            try {
+                if (typeof toast !== 'undefined') toast.info('Uploading document attachment...', { title: 'Uploading' });
+                const resp = await fetch('../../api/permit_documents.php', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-Token': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+                    body: fd
+                });
+                const json = await resp.json();
+                if (json && json.success) {
+                    if (typeof toast !== 'undefined') toast.success('Document uploaded successfully!', { title: 'Success' });
+                    viewPermitRecord(permitId);
+                } else {
+                    throw new Error((json && json.message) || 'Upload failed');
+                }
+            } catch (err) {
+                if (typeof toast !== 'undefined') toast.error(err.message, { title: 'Upload Failed' });
+                else alert('Upload failed: ' + err.message);
+            }
+        };
+        input.click();
+    }
+
+    // Modal Requirements Interactivity
+    function updateModalReqProgress() {
+        const tbody = document.getElementById('modal_req_tbody');
+        if (!tbody) return;
+        const checkboxes = tbody.querySelectorAll('input[type="checkbox"]');
+        let checked = 0;
+        checkboxes.forEach(c => { if (c.checked) checked++; });
+        const total = checkboxes.length || 1;
+        const pct = Math.round((checked / total) * 100);
+
+        const countEl = document.getElementById('modal_req_checked_count');
+        const summaryText = document.getElementById('modal_req_summary_text');
+        const barEl = document.getElementById('modal_req_progress_bar');
+
+        if (countEl) countEl.textContent = checked;
+        if (summaryText) summaryText.innerHTML = `<span id="modal_req_checked_count">${checked}</span> of ${total} Requirements Met (${pct}%)`;
+        if (barEl) barEl.style.width = pct + '%';
+    }
+
+    function markAllModalReqs(met = true) {
+        const tbody = document.getElementById('modal_req_tbody');
+        if (!tbody) return;
+        tbody.querySelectorAll('input[type="checkbox"]').forEach(c => { c.checked = met; });
+        updateModalReqProgress();
+    }
+
+    async function saveModalRequirementsChecklist(permitId) {
+        const tbody = document.getElementById('modal_req_tbody');
+        if (!tbody || !permitId) return;
+
+        const reqs = [];
+        const rows = tbody.querySelectorAll('tr');
+        rows.forEach((row, idx) => {
+            const chk = row.querySelector(`#modal_req_chk_${idx}`);
+            const typeSel = row.querySelector(`#modal_req_type_${idx}`);
+            const refInp = row.querySelector(`#modal_req_ref_${idx}`);
+            if (chk) {
+                reqs.push({
+                    title: chk.dataset.reqTitle || '',
+                    checked: chk.checked,
+                    sub_type: typeSel ? typeSel.value : '📄 Physical Copy',
+                    ref_id: refInp ? refInp.value : ''
+                });
+            }
+        });
+
+        try {
+            await apiUpdatePermit(permitId, {
+                requirements_data: JSON.stringify(reqs)
+            });
+            showToast('Requirements checklist saved successfully!', 'success');
+            loadPermits(currentPage);
+        } catch (error) {
+            showToast('Failed to save requirements checklist: ' + error.message, 'danger');
+        }
+    }
+
+    // ============================================================
+    // EDIT PERMIT RECORD
+    // ============================================================
+    function editPermitRecord(id) {
+        const p = allPermits[id];
+        if (!p) {
+            showToast('Permit record not found', 'danger');
+            return;
+        }
+
+        document.getElementById('edit_permit_db_id').value = p.id;
+        document.getElementById('edit_permit_id').value = p.permit_id || '';
+        document.getElementById('edit_applicant').value = p.applicant || '';
+        document.getElementById('edit_owner_name').value = p.owner_name || '';
+        document.getElementById('edit_business_type').value = p.business_type || '';
+        document.getElementById('edit_barangay').value = p.barangay || p.address || '';
+        document.getElementById('edit_fee').value = p.fee || 0;
+        document.getElementById('edit_paid').value = p.paid ? '1' : '0';
+        document.getElementById('edit_payment_method').value = p.payment_method || 'Cash';
+        document.getElementById('edit_status').value = p.status || 'pending';
+        document.getElementById('edit_expiry_date').value = p.expiry_date || '';
+        document.getElementById('edit_notes').value = p.notes || '';
+
+        openModal('editPermitRecordModal');
+    }
+
+    async function savePermitRecordEdit() {
+        const id = document.getElementById('edit_permit_db_id').value;
+        if (!id) return;
+
+        const data = {
+            applicant: document.getElementById('edit_applicant').value,
+            owner_name: document.getElementById('edit_owner_name').value,
+            business_type: document.getElementById('edit_business_type').value,
+            barangay: document.getElementById('edit_barangay').value,
+            fee: parseFloat(document.getElementById('edit_fee').value) || 0,
+            paid: document.getElementById('edit_paid').value === '1' ? 1 : 0,
+            payment_method: document.getElementById('edit_payment_method').value,
+            status: document.getElementById('edit_status').value,
+            expiry_date: document.getElementById('edit_expiry_date').value,
+            notes: document.getElementById('edit_notes').value
+        };
+
+        try {
+            await apiUpdatePermit(id, data);
+            closeModal('editPermitRecordModal');
+            showToast('Permit record updated successfully!', 'success');
+            loadPermits(currentPage);
+            loadStats();
+            if (typeof window.broadcastSanitationChange === 'function') {
+                window.broadcastSanitationChange('permits', { action: 'updated', id: id });
+            }
+        } catch (error) {
+            showToast('Failed to save permit edits: ' + error.message, 'danger');
         }
     }
 
@@ -937,13 +1614,6 @@ $barangayOptions = $barangayModel->allForSurveillance();
         } catch (error) {
             showToast('Failed to renew permit: ' + error.message, 'danger');
         }
-    }
-
-    // ============================================================
-    // EDIT PERMIT RECORD
-    // ============================================================
-    function editPermitRecord(id) {
-        showToast('Edit feature coming soon (Permit ID: ' + id + ')', 'info');
     }
 
     // ============================================================
@@ -1289,15 +1959,24 @@ $barangayOptions = $barangayModel->allForSurveillance();
     }
 
     function setupRealtimePermitSync() {
+        let syncTimer = null;
+        let lastFetchTime = Date.now();
+        const debouncedRefresh = () => {
+            clearTimeout(syncTimer);
+            syncTimer = setTimeout(() => {
+                if (window._lastLocalRecordAction && (Date.now() - window._lastLocalRecordAction < 1500)) {
+                    return;
+                }
+                loadStats();
+                if (!isRecordModalOpen()) {
+                    loadPermits(currentPage, true);
+                    lastFetchTime = Date.now();
+                }
+            }, 350);
+        };
+
         const onRealtimeUpdate = (e) => {
-            const detail = e.detail || {};
-            console.log('⚡ Realtime Permit sync triggered:', detail);
-            loadStats();
-            if (!isRecordModalOpen()) {
-                loadPermits(currentPage);
-            } else {
-                console.log('User is in active modal dialog; postponing permit table refresh.');
-            }
+            debouncedRefresh();
         };
 
         window.addEventListener('sanitationPermitsUpdated', onRealtimeUpdate);
@@ -1308,19 +1987,21 @@ $barangayOptions = $barangayModel->allForSurveillance();
         });
 
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && !isRecordModalOpen()) {
+            if (!document.hidden && !isRecordModalOpen() && (Date.now() - lastFetchTime > 45000)) {
                 loadStats();
-                loadPermits(currentPage);
+                loadPermits(currentPage, true);
+                lastFetchTime = Date.now();
             }
         });
 
-        // 30s background heartbeat sync
+        // 60s background heartbeat sync (throttled)
         setInterval(() => {
-            if (!document.hidden && !isRecordModalOpen()) {
+            if (!document.hidden && !isRecordModalOpen() && (Date.now() - lastFetchTime > 45000)) {
                 loadStats();
-                loadPermits(currentPage);
+                loadPermits(currentPage, true);
+                lastFetchTime = Date.now();
             }
-        }, 30000);
+        }, 60000);
     }
 
     // ============================================================

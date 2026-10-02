@@ -19,14 +19,15 @@ class Employee
 
     public function all(array $options = []): array
     {
-        if (empty($options) && self::$cachedEmployees !== null && self::$cacheTime !== null && (time() - self::$cacheTime < 120)) {
+        $isStandardList = empty($options) || (count($options) === 1 && isset($options['order']));
+        if ($isStandardList && self::$cachedEmployees !== null && self::$cacheTime !== null && (time() - self::$cacheTime < 180)) {
             return self::$cachedEmployees;
         }
 
         try {
             $employees = $this->db->select($this->table, [], $options);
             $normalized = $this->normalizeEmployees($employees);
-            if (empty($options)) {
+            if ($isStandardList) {
                 self::$cachedEmployees = $normalized;
                 self::$cacheTime = time();
             }
@@ -36,7 +37,7 @@ class Employee
             try {
                 $users = $this->db->select('users', [], $options);
                 $normalized = $this->normalizeEmployees($users);
-                if (empty($options)) {
+                if ($isStandardList) {
                     self::$cachedEmployees = $normalized;
                     self::$cacheTime = time();
                 }
