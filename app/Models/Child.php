@@ -82,6 +82,9 @@ class Child
         if (empty($data['vaccine_compliance'])) {
             $data['vaccine_compliance'] = 0;
         }
+        if (empty($data['nutrition_status'])) {
+            $data['nutrition_status'] = 'Normal';
+        }
         $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
         $res = $this->db->insert($this->table, $encryptedData);
         return is_array($res) ? EncryptionHelper::decryptModel($this->table, $res) : $res;
@@ -221,8 +224,27 @@ class Child
      * Dynamically bridges pediatric patients (age <= 5) who registered or were assessed in Triage
      * into the Child Records table (EPI Immunization & Growth registry).
      */
-    public function syncUnder5Patients(): void
+    public function syncUnder5Patients(bool $force = false): void
     {
+        static $alreadyRunInRequest = false;
+        if ($alreadyRunInRequest && !$force) {
+            return;
+        }
+        $alreadyRunInRequest = true;
+
+        $throttleKey = 'last_under5_sync_time';
+        $throttleFile = sys_get_temp_dir() . '/last_under5_sync.timestamp';
+        if (!$force && file_exists($throttleFile) && (time() - (int)@file_get_contents($throttleFile) < 300)) {
+            return;
+        }
+        @file_put_contents($throttleFile, (string)time());
+        if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
+            @session_start();
+        }
+        if (isset($_SESSION)) {
+            $_SESSION[$throttleKey] = time();
+        }
+
         try {
             $fiveYearsAgo = date('Y-m-d', strtotime('-5 years'));
             $pediatricPatients = $this->db->select('patients', [

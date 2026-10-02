@@ -149,7 +149,7 @@ class VaccineInventory
                 'module'     => 'Vaccine Inventory',
                 'details'    => "Adjusted stock: {$type} {$qty} units (ID: {$invId}). Reason: {$reason}",
                 'ip_address' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
-                'status'     => 'success',
+                'status'     => 'Success',
                 'role'       => $role
             ]);
         } catch (Throwable $e) {

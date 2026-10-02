@@ -233,12 +233,18 @@ class NutritionController
         if (!$isUpdate && isset($data['child_id'])) {
             $record['child_id'] = (int)$data['child_id'];
         }
-        if (isset($data['date']))              $record['assessment_date']      = $this->sanitizeDate($data['date']);
+        $rawDate = $data['date'] ?? $data['assessment_date'] ?? (!$isUpdate ? date('Y-m-d') : null);
+        if ($rawDate !== null) {
+            $record['assessment_date'] = $this->sanitizeDate($rawDate);
+        }
         if (isset($data['weight']))            $record['weight']               = (float)$data['weight'];
         if (isset($data['height']))            $record['height']               = (float)$data['height'];
         if (isset($data['nutrition_status']))  $record['nutrition_status']     = $data['nutrition_status'];
         if (isset($data['risk_level']))        $record['risk_level']           = $data['risk_level'];
-        if (isset($data['next_assessment']))   $record['next_assessment_date'] = $this->sanitizeDate($data['next_assessment']);
+        $rawNext = $data['next_assessment'] ?? $data['next_assessment_date'] ?? null;
+        if ($rawNext !== null) {
+            $record['next_assessment_date'] = $this->sanitizeDate($rawNext);
+        }
         if (isset($data['status']) && in_array($data['status'], self::VALID_REC_STATUS)) {
             $record['status'] = $data['status'];
         }

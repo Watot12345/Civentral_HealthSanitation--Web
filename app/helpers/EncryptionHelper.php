@@ -2,6 +2,7 @@
 // app/helpers/EncryptionHelper.php
 
 require_once __DIR__ . '/../../Core/Env.php';
+require_once __DIR__ . '/../cache/CacheManager.php';
 
 class EncryptionHelper
 {
@@ -237,6 +238,15 @@ class EncryptionHelper
             return $ciphertext;
         }
 
+        // Check persistent file cache to avoid expensive GPG OS process forks
+        $cacheKey = 'dec_val_' . md5($ciphertext);
+        $cacheMgr = new \App\Cache\CacheManager();
+        $persisted = $cacheMgr->get($cacheKey);
+        if ($persisted !== null) {
+            self::$memoryCache[$ciphertext] = $persisted;
+            return $persisted;
+        }
+
         $key = self::getKey();
 
         // 1. Decrypt OpenSSL fallback format (ENC::...)
@@ -253,6 +263,7 @@ class EncryptionHelper
                     $decrypted = openssl_decrypt($encryptedData, $cipher, $derivedKey, OPENSSL_RAW_DATA, $iv);
                     if ($decrypted !== false) {
                         self::$memoryCache[$ciphertext] = $decrypted;
+                        $cacheMgr->set($cacheKey, $decrypted, 86400 * 30);
                         return $decrypted;
                     }
                 }
@@ -297,6 +308,7 @@ class EncryptionHelper
                         $status = proc_close($process);
                         if ($status === 0) {
                             self::$memoryCache[$ciphertext] = $decrypted;
+                            $cacheMgr->set($cacheKey, $decrypted, 86400 * 30);
                             return $decrypted;
                         }
                     }
@@ -338,6 +350,7 @@ class EncryptionHelper
                     $status = proc_close($process);
                     if ($status === 0) {
                         self::$memoryCache[$ciphertext] = $decrypted;
+                        $cacheMgr->set($cacheKey, $decrypted, 86400 * 30);
                         return $decrypted;
                     }
                 }
