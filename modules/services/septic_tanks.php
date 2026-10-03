@@ -171,28 +171,30 @@ $title = 'Septic Tank Registry';
 
     <!-- Search & Filter -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
-        <div class="flex flex-col lg:flex-row gap-3">
-            <div class="flex-1 min-w-[280px] relative">
-                <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        <div class="flex flex-col xl:flex-row items-stretch xl:items-center gap-3">
+            <div class="relative flex-1 min-w-[200px]">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-magnifying-glass text-sm"></i>
+                </div>
                 <input type="text"
                        id="searchTank"
                        placeholder="Search by tank ID, owner, or address..."
-                       class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
+                       class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition bg-white">
             </div>
-            <div class="flex gap-2 flex-wrap items-center">
-                <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+            <div class="flex gap-2 items-center flex-wrap sm:flex-nowrap shrink-0">
+                <select id="filterStatus" class="w-32 px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white text-slate-700 truncate">
                     <option value="">All Status</option>
                     <option value="good">Good</option>
-                    <option value="needs_maintenance">Needs Maintenance</option>
+                    <option value="needs_maintenance">Needs Maint.</option>
                     <option value="critical">Critical</option>
                 </select>
-                <select id="filterType" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                <select id="filterType" class="w-28 sm:w-32 px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white text-slate-700 truncate">
                     <option value="">All Types</option>
                     <option value="Concrete">Concrete</option>
                     <option value="Plastic">Plastic</option>
                     <option value="Fiberglass">Fiberglass</option>
                 </select>
-                <select id="filterZone" onchange="onFilterZoneChange()" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                <select id="filterZone" onchange="onFilterZoneChange()" class="w-32 sm:w-36 px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white text-slate-700 truncate">
                     <option value="">All Zones</option>
                     <option value="Zone 1">Zone 1 (Brgy 1–4)</option>
                     <option value="Zone 2">Zone 2 (Brgy 5–24)</option>
@@ -211,15 +213,17 @@ $title = 'Septic Tank Registry';
                     <option value="Zone 15">Zone 15 (Brgy 161–164)</option>
                     <option value="Zone 16">Zone 16 (Brgy 165–188)</option>
                 </select>
-                <select id="filterBarangay" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
+                <select id="filterBarangay" class="w-36 sm:w-44 px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white text-slate-700 truncate">
                     <option value="">All Barangays</option>
                 </select>
-                      <input type="date" id="filterDateFrom" aria-label="Maintenance date from"
-                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                      <input type="date" id="filterDateTo" aria-label="Maintenance date to"
-                          class="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                <button onclick="resetFilters()" title="Reset filters"
-                        class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition-colors text-sm">
+                <button type="button" onclick="openSpecificDateModal()" id="specificDateBtn"
+                        class="px-3.5 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 hover:bg-slate-50 transition flex items-center gap-2 whitespace-nowrap shadow-2xs shrink-0">
+                    <i class="fa-solid fa-calendar-days text-slate-400"></i>
+                    <span id="specificDateLabel">Specific Date</span>
+                    <span id="dateFilterBadge" class="hidden px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-brand-light text-brand-dark border border-brand-border">Active</span>
+                </button>
+                <button onclick="resetFilters()" title="Reset all filters"
+                        class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition text-sm flex items-center justify-center shrink-0">
                     <i class="fa-solid fa-rotate-right"></i>
                 </button>
             </div>
@@ -726,6 +730,51 @@ $title = 'Septic Tank Registry';
                 <span id="mapCoordinates" class="font-mono text-slate-400">Lat: 0, Lng: 0</span>
             </div>
             <div id="leafletMap" class="w-full h-80 rounded-xl border border-slate-200 shadow-inner z-10"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SPECIFIC DATE FILTER MODAL                                   -->
+<!-- ============================================================ -->
+<div id="specificDateModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2 text-sm">
+                <i class="fa-solid fa-calendar-days text-brand-medium"></i> Filter by Maintenance Date
+            </h3>
+            <button onclick="closeModal('specificDateModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Quick Date Presets</label>
+                <div class="grid grid-cols-3 gap-2 mb-2">
+                    <button type="button" onclick="setQuickDate('today')" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-brand-medium transition text-center">Today</button>
+                    <button type="button" onclick="setQuickDate('this_month')" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-brand-medium transition text-center">This Month</button>
+                    <button type="button" onclick="setQuickDate('this_year')" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-brand-medium transition text-center">This Year</button>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Date From</label>
+                <input type="date" id="modalFilterDateFrom" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Date To</label>
+                <input type="date" id="modalFilterDateTo" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+            </div>
+            <div id="modalDateError" class="hidden p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-600 flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span>The start date cannot be after the end date.</span>
+            </div>
+        </div>
+        <div class="flex items-center justify-between gap-2 px-6 pb-6 pt-3 border-t border-slate-100 bg-slate-50/50">
+            <button type="button" onclick="clearSpecificDateFilter()" class="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition text-xs font-semibold">Clear Filter</button>
+            <div class="flex gap-2">
+                <button type="button" onclick="closeModal('specificDateModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold">Cancel</button>
+                <button type="button" onclick="applySpecificDateFilter()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold shadow-xs">Apply Date Filter</button>
+            </div>
         </div>
     </div>
 </div>
@@ -1411,12 +1460,107 @@ $title = 'Septic Tank Registry';
     // ============================================================
     // SEARCH & FILTER
     // ============================================================
+    let activeDateFrom = '';
+    let activeDateTo = '';
+
     document.getElementById('searchTank').addEventListener('input', filterTanks);
     document.getElementById('filterStatus').addEventListener('change', filterTanks);
     document.getElementById('filterType').addEventListener('change', filterTanks);
     document.getElementById('filterBarangay').addEventListener('change', filterTanks);
-    document.getElementById('filterDateFrom').addEventListener('change', filterTanks);
-    document.getElementById('filterDateTo').addEventListener('change', filterTanks);
+
+    // ============================================================
+    // SPECIFIC DATE FILTER MODAL HANDLERS
+    // ============================================================
+    function openSpecificDateModal() {
+        document.getElementById('modalFilterDateFrom').value = activeDateFrom;
+        document.getElementById('modalFilterDateTo').value = activeDateTo;
+        document.getElementById('modalDateError').classList.add('hidden');
+        openModal('specificDateModal');
+    }
+
+    function setQuickDate(preset) {
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+        if (preset === 'today') {
+            document.getElementById('modalFilterDateFrom').value = todayStr;
+            document.getElementById('modalFilterDateTo').value = todayStr;
+        } else if (preset === 'this_month') {
+            const firstDay = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+            const lastDayObj = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            const lastDay = `${lastDayObj.getFullYear()}-${pad(lastDayObj.getMonth() + 1)}-${pad(lastDayObj.getDate())}`;
+            document.getElementById('modalFilterDateFrom').value = firstDay;
+            document.getElementById('modalFilterDateTo').value = lastDay;
+        } else if (preset === 'this_year') {
+            document.getElementById('modalFilterDateFrom').value = `${now.getFullYear()}-01-01`;
+            document.getElementById('modalFilterDateTo').value = `${now.getFullYear()}-12-31`;
+        }
+        document.getElementById('modalDateError').classList.add('hidden');
+    }
+
+    function applySpecificDateFilter() {
+        const fromVal = document.getElementById('modalFilterDateFrom').value;
+        const toVal = document.getElementById('modalFilterDateTo').value;
+        const errorEl = document.getElementById('modalDateError');
+
+        if (fromVal && toVal && fromVal > toVal) {
+            errorEl.classList.remove('hidden');
+            return;
+        }
+
+        errorEl.classList.add('hidden');
+        activeDateFrom = fromVal;
+        activeDateTo = toVal;
+        updateSpecificDateButtonState();
+        closeModal('specificDateModal');
+        filterTanks();
+    }
+
+    function clearSpecificDateFilter() {
+        activeDateFrom = '';
+        activeDateTo = '';
+        document.getElementById('modalFilterDateFrom').value = '';
+        document.getElementById('modalFilterDateTo').value = '';
+        document.getElementById('modalDateError').classList.add('hidden');
+        updateSpecificDateButtonState();
+        closeModal('specificDateModal');
+        filterTanks();
+    }
+
+    function updateSpecificDateButtonState() {
+        const label = document.getElementById('specificDateLabel');
+        const badge = document.getElementById('dateFilterBadge');
+        const btn = document.getElementById('specificDateBtn');
+
+        if (activeDateFrom || activeDateTo) {
+            if (activeDateFrom && activeDateTo) {
+                if (activeDateFrom === activeDateTo) {
+                    label.textContent = activeDateFrom;
+                } else {
+                    const d1 = new Date(activeDateFrom + 'T00:00:00');
+                    const d2 = new Date(activeDateTo + 'T00:00:00');
+                    const m1 = d1.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    const m2 = d2.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    label.textContent = `${m1} – ${m2}`;
+                }
+            } else if (activeDateFrom) {
+                const d1 = new Date(activeDateFrom + 'T00:00:00');
+                label.textContent = `From ${d1.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+            } else {
+                const d2 = new Date(activeDateTo + 'T00:00:00');
+                label.textContent = `Until ${d2.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+            }
+            badge.classList.remove('hidden');
+            btn.classList.add('border-brand-medium', 'text-brand-dark', 'bg-brand-light/30');
+            btn.classList.remove('border-slate-200');
+        } else {
+            label.textContent = 'Specific Date';
+            badge.classList.add('hidden');
+            btn.classList.remove('border-brand-medium', 'text-brand-dark', 'bg-brand-light/30');
+            btn.classList.add('border-slate-200');
+        }
+    }
 
     // ============================================================
     // VIEW MODE SWITCHER (Table Grid vs Box Grid)
@@ -1465,8 +1609,8 @@ $title = 'Septic Tank Registry';
         const type = document.getElementById('filterType').value;
         const zone = document.getElementById('filterZone')?.value || '';
         const barangay = document.getElementById('filterBarangay').value;
-        const dateFrom = document.getElementById('filterDateFrom').value;
-        const dateTo = document.getElementById('filterDateTo').value;
+        const dateFrom = activeDateFrom;
+        const dateTo = activeDateTo;
         let visibleCount = 0;
 
         document.querySelectorAll('.tank-card').forEach(card => {
@@ -1536,8 +1680,9 @@ $title = 'Septic Tank Registry';
         document.getElementById('filterType').value = '';
         if (document.getElementById('filterZone')) document.getElementById('filterZone').value = '';
         populateBarangayDropdown('filterBarangay');
-        document.getElementById('filterDateFrom').value = '';
-        document.getElementById('filterDateTo').value = '';
+        activeDateFrom = '';
+        activeDateTo = '';
+        updateSpecificDateButtonState();
         document.querySelectorAll('.tank-card').forEach(card => card.style.display = '');
         document.querySelectorAll('.tank-row').forEach(row => row.style.display = '');
         
