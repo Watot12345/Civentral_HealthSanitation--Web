@@ -222,10 +222,6 @@ $title = 'Septic Tank Registry';
                     <span id="specificDateLabel">Specific Date</span>
                     <span id="dateFilterBadge" class="hidden px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-brand-light text-brand-dark border border-brand-border">Active</span>
                 </button>
-                <button onclick="resetFilters()" title="Reset all filters"
-                        class="px-3 py-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200 hover:text-slate-700 transition text-sm flex items-center justify-center shrink-0">
-                    <i class="fa-solid fa-rotate-right"></i>
-                </button>
             </div>
         </div>
     </div>
