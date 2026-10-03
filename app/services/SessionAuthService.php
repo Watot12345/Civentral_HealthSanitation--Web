@@ -39,10 +39,36 @@ class SessionAuthService
     }
 
     /**
+     * Determines whether the given employee record holds an administrator role.
+     * Admin accounts are never allowed to use "Remember this device" and must always pass OTP.
+     * Mirrors PermissionService::isAdminRole() so it can be used without extra dependencies.
+     */
+    public static function isAdminAccount(array $employee): bool
+    {
+        foreach ([$employee['role_description'] ?? '', $employee['role'] ?? ''] as $role) {
+            $r = strtolower(trim((string)$role));
+            if ($r === '') {
+                continue;
+            }
+            if (in_array($r, ['system administrator', 'system admin', 'admin', 'administrator', 'sysadmin', 'super admin', 'lgu admin'], true)
+                || str_contains($r, 'system admin')
+                || str_contains($r, 'administrator')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Generates a 6-digit OTP code with 3-minute TTL, stores it in DB, and emails it to the employee.
      */
     public function generateAndSendOtp(array $employee, bool $rememberMe = true): array
     {
+        // Admin accounts can never be remembered
+        if (self::isAdminAccount($employee)) {
+            $rememberMe = false;
+        }
+
         $otpCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $otpExpiresAt = gmdate('Y-m-d H:i:sP', time() + (3 * 60));
         $sessionToken = bin2hex(random_bytes(32));
@@ -224,6 +250,14 @@ class SessionAuthService
             $_SESSION['user_role']        = $functionalRole;
             $_SESSION['session_token']    = $sessionToken;
             
+            // Admin accounts are never remembered: force session-only cookies & clear any device token
+            if (self::isAdminAccount($employee)) {
+                $rememberMe = false;
+                if (class_exists('App\Services\RememberMeService')) {
+                    \App\Services\RememberMeService::clearToken();
+                }
+            }
+
             // Set session expiration & cookies based on Remember this device toggle
             if ($rememberMe) {
                 $cookieDuration = self::getRememberDurationSeconds();

@@ -138,28 +138,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $authService = new SessionAuthService();
                 $twoFactorEnforced = class_exists('Settings') ? (bool)Settings::get('security.two_factor_auth', false) : false;
+
+                // Security Policy: Admin role ALWAYS requires OTP on every login and has NO remember me option
+                $isAdminAccount = SessionAuthService::isAdminAccount($user);
+                if ($isAdminAccount) {
+                    $rememberMe = false;
+                }
+
                 // Remembered Device Logic:
                 // If this device already has an active verified session/cookie and 2FA is not forced on every login, bypass OTP
+                // Admin accounts can NEVER bypass OTP via remembered device
                 $userCookieToken = $_COOKIE['civentral_session_' . $user['id']] ?? ($_COOKIE['civentral_session'] ?? '');
                 $deviceRemembered = false;
 
-                // 1. Check cryptographically signed Remember Me device cookie
-                if (class_exists('App\Services\RememberMeService') && \App\Services\RememberMeService::isDeviceRememberedForUser((int)$user['id'])) {
+                // 1. Check cryptographically signed Remember Me device cookie (skip for admin accounts)
+                if (!$isAdminAccount && class_exists('App\Services\RememberMeService') && \App\Services\RememberMeService::isDeviceRememberedForUser((int)$user['id'])) {
                     $deviceRemembered = true;
                 }
 
-                // 2. Fallback check active session cookie for this user
-                if (!$deviceRemembered && !empty($userCookieToken)) {
+                // 2. Fallback check active session cookie for this user (skip for admin accounts)
+                if (!$isAdminAccount && !$deviceRemembered && !empty($userCookieToken)) {
                     $deviceRemembered = $authService->validateActiveToken($userCookieToken);
                     if ($deviceRemembered && isset($_SESSION['user_id']) && $_SESSION['user_id'] != $user['id']) {
                         $deviceRemembered = false;
                     }
                 }
                 
-                $requireOtp = $twoFactorEnforced || !$deviceRemembered;
+                $requireOtp = $isAdminAccount || $twoFactorEnforced || !$deviceRemembered;
 
-                // Direct login if device is already verified
-                if (!$requireOtp) {
+                // Direct login if device is already verified (admins are strictly blocked from direct bypass)
+                if (!$requireOtp && !$isAdminAccount) {
                     $functionalRole               = $user['role_description'] ?? $user['role'] ?? 'Employee';
                     $_SESSION['user_id']          = $user['id'];
                     $_SESSION['employee_id']      = $user['employee_id'];
@@ -255,11 +263,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $maskedEmail = EncryptionHelper::maskEmail($user['email'] ?? null, 'lgu.gov.ph');
 
                 $responsePayload = [
-                    'success'       => true,
-                    'requires_otp'  => true,
-                    'session_token' => $otpResult['session_token'],
-                    'masked_email'  => $maskedEmail,
-                    'user'          => [
+                    'success'        => true,
+                    'requires_otp'   => true,
+                    'is_admin'       => $isAdminAccount,
+                    'allow_remember' => !$isAdminAccount,
+                    'session_token'  => $otpResult['session_token'],
+                    'masked_email'   => $maskedEmail,
+                    'user'           => [
                         'name'        => $user['full_name'],
                         'employee_id' => $user['employee_id']
                     ],
@@ -874,7 +884,7 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                     </div>
 
                     <div class="flex items-center justify-between pt-0.5">
-                        <label class="flex items-center space-x-2 cursor-pointer select-none">
+                        <label id="rememberMeLabel" class="flex items-center space-x-2 cursor-pointer select-none">
                             <input type="checkbox" id="rememberMe" name="remember_me" checked class="w-3.5 h-3.5 text-brand-medium border-gray-300 rounded focus:ring-brand-medium accent-brand-medium cursor-pointer" />
                             <span class="text-xs text-gray-500">Keep me signed in</span>
                         </label>
@@ -980,8 +990,8 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                         />
                     </div>
 
-                    <!-- Remember This Device Toggle (Default Toggled ON) -->
-                    <div class="flex items-center pt-1 pb-1">
+                    <!-- Remember This Device Toggle (Default Toggled ON; hidden for admin accounts) -->
+                    <div id="otpRememberRow" class="flex items-center pt-1 pb-1">
                         <label class="flex items-center space-x-2.5 cursor-pointer select-none">
                             <input
                                 type="checkbox"
@@ -996,6 +1006,7 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                             <span class="text-xs font-semibold text-gray-700">Remember this device</span>
                         </label>
                     </div>
+
 
                     <!-- Inline Error Banner -->
                     <div id="otpErrorBanner" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-600 text-center flex items-center justify-center gap-1.5 transition-all">
@@ -2008,10 +2019,16 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
                         devOtpBox.classList.remove('flex');
                     }
 
-                    // Auto-check Remember this device in OTP container when OTP is sent
+                    // Admin accounts cannot be remembered: hide & disable the toggle
                     const otpRemember = document.getElementById('otpRememberDevice');
+                    const otpRememberRow = document.getElementById('otpRememberRow');
+                    const allowRemember = data.allow_remember !== false && !data.is_admin;
                     if (otpRemember) {
-                        otpRemember.checked = true;
+                        otpRemember.checked = allowRemember;
+                        otpRemember.disabled = !allowRemember;
+                    }
+                    if (otpRememberRow) {
+                        otpRememberRow.classList.toggle('hidden', !allowRemember);
                     }
 
                     document.getElementById('otpModal').classList.remove('hidden');
@@ -2069,7 +2086,10 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
         event.preventDefault();
         const sessionToken = document.getElementById('otpSessionToken').value;
         const otpCode = document.getElementById('otpCodeInput').value.trim();
-        const rememberMe = document.getElementById('otpRememberDevice') ? document.getElementById('otpRememberDevice').checked : true;
+        const otpRememberEl = document.getElementById('otpRememberDevice');
+        const otpRememberRow = document.getElementById('otpRememberRow');
+        const isRememberVisible = otpRememberRow && !otpRememberRow.classList.contains('hidden');
+        const rememberMe = (isRememberVisible && otpRememberEl && !otpRememberEl.disabled) ? otpRememberEl.checked : false;
         const otpBtn = document.getElementById('otpSubmitBtn');
         const otpBtnText = document.getElementById('otpBtnText');
 
@@ -2131,6 +2151,13 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
         }
     }
 
+    function resendOtp() {
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            handleLogin(new Event('submit'));
+        }
+    }
+
     function resetButton(btn, textEl) {
         btn.disabled = false;
         textEl.textContent = 'Sign in';
@@ -2167,6 +2194,25 @@ if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
 
         document.getElementById('employeeId')?.addEventListener('input', clearLoginErrors);
         document.getElementById('password')?.addEventListener('input', clearLoginErrors);
+
+        // Dynamically hide "Keep me signed in" if user inputs an administrator employee ID
+        const empInput = document.getElementById('employeeId');
+        const rememberLabel = document.getElementById('rememberMeLabel');
+        const rememberInput = document.getElementById('rememberMe');
+        if (empInput && rememberLabel && rememberInput) {
+            const checkAdminInput = () => {
+                const val = empInput.value.trim().toLowerCase();
+                const isAdmin = val.includes('admin') || val.startsWith('adm');
+                if (isAdmin) {
+                    rememberInput.checked = false;
+                    rememberLabel.classList.add('invisible');
+                } else {
+                    rememberLabel.classList.remove('invisible');
+                }
+            };
+            empInput.addEventListener('input', checkAdminInput);
+            checkAdminInput();
+        }
     });
     </script>
     <?php include 'includes/toast.php'; ?>

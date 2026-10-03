@@ -15,5 +15,5 @@ storage/
 # Optional
 package-lock.json
 vendor/
+scratch/
 
-vendor/

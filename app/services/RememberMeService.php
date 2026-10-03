@@ -43,6 +43,13 @@ class RememberMeService
 
         $userId     = (int)($user['id'] ?? 0);
         $employeeId = trim($user['employee_id'] ?? '');
+
+        // Security rule: Admin roles can never have persistent "Remember Me" tokens
+        if (class_exists('SessionAuthService') && \SessionAuthService::isAdminAccount($user)) {
+            self::clearToken();
+            return;
+        }
+
         $pwdHash    = substr($user['password'] ?? '', 0, 16); // Hash slice
         $expiresAt  = time() + $lifetime;
 
@@ -106,6 +113,21 @@ class RememberMeService
 
             if ((int)$userId !== $targetUserId) {
                 return false;
+            }
+
+            // Security rule: Admin accounts cannot bypass OTP via remembered device
+            if (class_exists('Database') && class_exists('SessionAuthService')) {
+                try {
+                    $db = \Database::getInstance();
+                    $employees = $db->select('employees', ['id' => $targetUserId]);
+                    if (!empty($employees)) {
+                        $emp = class_exists('EncryptionHelper') ? \EncryptionHelper::decryptModel('employees', $employees[0]) : $employees[0];
+                        if (\SessionAuthService::isAdminAccount($emp)) {
+                            self::clearToken();
+                            return false;
+                        }
+                    }
+                } catch (\Throwable $ignored) {}
             }
 
             $expectedSignature = hash_hmac('sha256', $payload, self::$secretKey);
