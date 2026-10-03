@@ -21,40 +21,39 @@ require_once __DIR__ . '/../../app/Models/Triage.php';
 require_once __DIR__ . '/../../app/Models/TriageQueue.php'; // NEW: Triage Queue model
 require_once __DIR__ . '/../../app/Models/Appointment.php'; // Appointment model
 
-// Fetch Patients
-$patientModel = new Patient();
-$rawPatients = [];
-try {
-    $rawPatients = $patientModel->all();
-} catch (Throwable $e) {
-    error_log('Error fetching patients for triage: ' . $e->getMessage());
-}
-
-// Fetch Employees/Nurses
-$employeeModel = new Employee();
-$rawEmployees = [];
-try {
-    $rawEmployees = $employeeModel->all();
-} catch (Throwable $e) {
-    error_log('Error fetching employees for triage: ' . $e->getMessage());
-}
-
-// Fetch Triage Queue
-$triageModel = new Triage();
-$rawTriage = [];
-try {
-    $rawTriage = $triageModel->all(['order' => 'created_at.desc']);
-} catch (Throwable $e) {
-    error_log('Error fetching triage queue: ' . $e->getMessage());
-}
-
-// Fetch Appointments for today's doctor workload matching
+// Concurrently batch-fetch tables in a single HTTP multi-curl pass
+$patientModel     = new Patient();
+$employeeModel    = new Employee();
+$triageModel      = new Triage();
 $appointmentModel = new Appointment();
+$triageQueueModel = new TriageQueue();
+
+$rawPatients     = [];
+$rawEmployees    = [];
+$rawTriage       = [];
 $rawAppointments = [];
+$waitingCheckins = [];
+
 try {
-    $rawAppointments = $appointmentModel->all();
+    $batchData = Database::getInstance()->multiSelect([
+        'patients'     => ['order' => 'created_at.desc'],
+        'assessment'   => ['order' => 'created_at.desc'],
+        'appointments' => ['order' => 'created_at.desc'],
+        'triage_queue' => ['order' => 'created_at.asc'],
+    ]);
+
+    $rawPatients     = !empty($batchData['patients']) ? EncryptionHelper::decryptRows('patients', $batchData['patients']) : [];
+    $rawTriage       = $batchData['assessment'] ?? [];
+    $rawAppointments = $batchData['appointments'] ?? [];
+    $waitingCheckins = $batchData['triage_queue'] ?? [];
+    $rawEmployees    = $employeeModel->all(); // Instant via micro-cache
 } catch (Throwable $e) {
-    error_log('Error fetching appointments for triage: ' . $e->getMessage());
+    error_log('Error batch fetching triage datasets: ' . $e->getMessage());
+    $rawPatients     = $patientModel->all();
+    $rawEmployees    = $employeeModel->all();
+    $rawTriage       = $triageModel->all(['order' => 'created_at.desc']);
+    $rawAppointments = $appointmentModel->all();
+    $waitingCheckins = $triageQueueModel->all(['order' => 'created_at.asc']);
 }
 
 // Role checks
@@ -63,16 +62,6 @@ $isDoctorRole = (str_contains($_sessionRoleDesc, 'doctor') || str_contains($_ses
 $isAdminRole = (str_contains($_sessionRoleDesc, 'admin') || str_contains($_sessionRoleDesc, 'director') || str_contains($_sessionRoleDesc, 'system administrator'));
 $isDoctorOnly = ($isDoctorRole && !$isAdminRole);
 $isStaffOrNurse = (str_contains($_sessionRoleDesc, 'nurse') || str_contains($_sessionRoleDesc, 'staff') || str_contains($_sessionRoleDesc, 'clerk') || str_contains($_sessionRoleDesc, 'triage') || str_contains($_sessionRoleDesc, 'intake') || $isAdminRole || !$isDoctorRole);
-
-// NEW: Fetch Triage Queue (Check-in system)
-$triageQueueModel = new TriageQueue();
-$waitingCheckins = [];
-try {
-    $waitingCheckins = $triageQueueModel->all(['order' => 'created_at.asc']);
-} catch (Throwable $e) {
-    error_log('Error fetching triage queue check-ins: ' . $e->getMessage());
-    $waitingCheckins = [];
-}
 
 // ============================================================
 // Get IDs of patients already triaged TODAY to filter dropdown

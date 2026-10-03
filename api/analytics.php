@@ -57,8 +57,10 @@ try {
 
     $userScope = $permService->getUserScope();
     if (!empty($userScope['is_admin'])) {
-        // Admin Scope: sees all 5 municipal modules combined
-        $scope = 'admin';
+        // Admin Scope: defaults to all 5 municipal modules combined, or respects specific department filter if requested
+        $requestedScope = strtolower(trim($_GET['scope'] ?? 'admin'));
+        $allowedScopes = ['admin', 'health_center', 'sanitation', 'immunization', 'surveillance', 'wastewater'];
+        $scope = in_array($requestedScope, $allowedScopes, true) ? $requestedScope : 'admin';
     } else {
         // Department-scoped roles: HCD, SD, IL, WL, SL
         $rawDept = $userScope['department_slug'] ?? $userScope['department'] ?? '';

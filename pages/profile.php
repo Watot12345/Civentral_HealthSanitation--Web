@@ -82,33 +82,32 @@ $pageTitle = 'My Profile';
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 
-<div class="flex-1 flex min-h-0 bg-slate-50">
-    <main class="flex-1 bg-slate-50 min-h-screen px-4 sm:px-6 py-6 overflow-y-auto">
-        <div class="max-w-6xl mx-auto space-y-6">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div>
-                    <p class="text-xs font-bold uppercase tracking-[0.2em] text-c3/80">Account</p>
-                    <h1 class="text-2xl font-black text-slate-900">My Profile</h1>
-                </div>
-                <a href="<?= site_url('pages/dashboard.php') ?>" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-100 transition text-sm font-semibold">
-                    <i class="fa-solid fa-arrow-left"></i>
-                    Back to Dashboard
-                </a>
+<main class="flex-1 h-[calc(100vh-5rem)] overflow-y-auto bg-slate-50 px-4 sm:px-8 py-8">
+    <div class="max-w-6xl mx-auto space-y-6 pb-12">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-[#176B87]">Account</p>
+                <h1 class="text-2xl font-black text-slate-900">My Profile</h1>
             </div>
+            <a href="<?= site_url('pages/dashboard.php') ?>" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-100 transition text-sm font-semibold shadow-xs">
+                <i class="fa-solid fa-arrow-left"></i>
+                Back to Dashboard
+            </a>
+        </div>
 
-            <div id="profile" class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                <section class="xl:col-span-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                <div class="bg-gradient-to-r from-c3 to-c3d px-6 py-6 text-white">
-                    <div class="flex items-center gap-4">
-                        <div class="w-16 h-16 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/25 flex items-center justify-center text-2xl font-black shadow-sm">
-                            <?= htmlspecialchars($initials); ?>
-                        </div>
-                        <div>
-                            <h2 class="text-lg font-black truncate"><?= htmlspecialchars($fullName); ?></h2>
-                            <p class="text-xs uppercase tracking-[0.2em] text-slate-200"><?= htmlspecialchars($displayRole); ?></p>
-                        </div>
+        <div id="profile" class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <section class="xl:col-span-1 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-6 text-white" style="background: linear-gradient(135deg, #176B87, #0d4f64);">
+                <div class="flex items-center gap-4">
+                    <div class="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-2xl font-black shadow-sm">
+                        <?= htmlspecialchars($initials); ?>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-black truncate"><?= htmlspecialchars($fullName); ?></h2>
+                        <p class="text-xs uppercase tracking-[0.2em] text-slate-200"><?= htmlspecialchars($displayRole); ?></p>
                     </div>
                 </div>
+            </div>
 
                 <div class="p-6 space-y-4 text-sm">
                     <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
@@ -220,8 +219,8 @@ $pageTitle = 'My Profile';
                         </div>
 
                         <div class="flex justify-end gap-3 pt-2">
-                            <button type="reset" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition text-sm font-semibold">Reset</button>
-                            <button type="submit" class="px-4 py-2 bg-c3 text-white rounded-xl hover:bg-c3d transition text-sm font-semibold">Save Changes</button>
+                            <button type="reset" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition text-sm font-semibold cursor-pointer">Reset</button>
+                            <button type="submit" class="px-5 py-2 text-white rounded-xl hover:opacity-90 transition text-sm font-semibold shadow-sm cursor-pointer" style="background-color: #176B87;">Save Changes</button>
                         </div>
                     </form>
                 </div>
@@ -229,7 +228,6 @@ $pageTitle = 'My Profile';
             </div>
         </div>
     </main>
-</div>
 
 <script>
     (function() {

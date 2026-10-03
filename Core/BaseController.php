@@ -78,9 +78,47 @@ abstract class BaseController
         Response::validationError($errors, $message);
     }
 
+    /**
+     * Prevents rapid duplicate form submissions (idempotency guard / anti-spam).
+     * Blocks duplicate mutating actions (POST, PUT, PATCH, DELETE) within a 1.5-second debounce window.
+     */
+    protected function preventDoubleSubmission(float $windowSeconds = 1.5): void
+    {
+        $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+        if (!in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+            return;
+        }
+
+        if (session_status() === PHP_SESSION_NONE && !headers_sent() && PHP_SAPI !== 'cli') {
+            @session_start();
+        }
+
+        $userId = $_SESSION['user_id'] ?? $_SESSION['employee_id'] ?? (function_exists('session_id') ? session_id() : 'cli');
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        $rawInput = file_get_contents('php://input');
+        $hash = md5($userId . ':' . $uri . ':' . $rawInput . ':' . serialize($_POST));
+
+        $lockKey = 'submit_lock_' . $hash;
+        $now = microtime(true);
+
+        if (isset($_SESSION[$lockKey]) && ($now - (float)$_SESSION[$lockKey]) < $windowSeconds) {
+            Response::error('Duplicate submission detected. Please do not double-click.', 429);
+        }
+
+        $_SESSION[$lockKey] = $now;
+
+        // Cleanup older locks to keep session lean
+        foreach ($_SESSION as $k => $v) {
+            if (str_starts_with($k, 'submit_lock_') && is_float($v) && ($now - $v) > 10) {
+                unset($_SESSION[$k]);
+            }
+        }
+    }
+
     protected function handle(callable $callback): void
     {
         try {
+            $this->preventDoubleSubmission();
             $result = $callback();
             
             $success = $result['success'] ?? true;

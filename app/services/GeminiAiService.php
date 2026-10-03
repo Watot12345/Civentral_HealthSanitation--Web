@@ -18,14 +18,14 @@ class GeminiAiService
         Env::load();
         $this->apiKey = Env::get('GEMINI_API_KEY') ?: (getenv('GEMINI_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? null));
         $model = Env::get('GEMINI_MODEL');
-        $this->model = !empty($model) ? $model : 'gemini-3.6-flash';
+        $this->model = !empty($model) ? $model : 'gemini-2.5-flash';
         
         $fallbackConfig = Env::get('GEMINI_FALLBACK_MODELS');
         if ($fallbackConfig) {
             $configured = array_filter(array_map('trim', explode(',', $fallbackConfig)));
             $this->fallbackModels = $configured;
         } else {
-            $this->fallbackModels = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-2.0-flash'];
+            $this->fallbackModels = ['gemini-2.5-flash-lite', 'gemini-1.5-flash'];
         }
 
         $this->cacheDir = __DIR__ . '/../../storage/cache';
@@ -93,13 +93,14 @@ class GeminiAiService
     /**
      * Executes API call with automatic model fallback on HTTP 429 / 5xx / Rate Limits
      */
-    private function makeApiCallWithFallback(array $payload, int $timeout = 3): ?array
+    private function makeApiCallWithFallback(array $payload, int $timeout = 2): ?array
     {
         if (empty($this->apiKey) || !$this->canMakeApiCall()) {
             return null;
         }
 
-        $queue = $this->getModelQueue();
+        // Cap queue to top 2 models so user UI never waits more than ~1.5s
+        $queue = array_slice($this->getModelQueue(), 0, 2);
 
         foreach ($queue as $attemptedModel) {
             try {
@@ -238,7 +239,27 @@ class GeminiAiService
         $compliantCount = $metrics['compliant'] ?? 0;
         $urgentCount = $metrics['urgent'] ?? 0;
         $pendingCount = $metrics['pending'] ?? 0;
-        $complianceRate = $metrics['compliance_rate'] ?? ($totalCount > 0 ? round(($compliantCount / $totalCount) * 100, 1) : 94.5);
+        $complianceRate = $metrics['compliance_rate'] ?? ($totalCount > 0 ? round(($compliantCount / $totalCount) * 100, 1) : 0.0);
+
+        if ($totalCount === 0) {
+            $fallback = [
+                'department' => $deptTitle,
+                'executive_summary' => "No operational records were recorded for {$deptTitle} during the selected period ({$dateRange}). Department metrics and compliance rates cannot be evaluated until operational activity is logged.",
+                'key_findings' => [
+                    "0 total transactions recorded within {$dateRange}.",
+                    "Compliance and operational indexes remain at 0.0%.",
+                    "No urgent or pending backlog items detected."
+                ],
+                'recommendations' => [
+                    "Verify that department personnel are actively recording daily intake records.",
+                    "Expand the reporting date filter to inspect historical transaction cycles.",
+                    "Ensure service and intake modules are configured for active intake."
+                ],
+                'risk_level' => 'Optimal',
+                'ai_generated' => false
+            ];
+            return $fallback;
+        }
 
         $fallback = [
             'department' => $deptTitle,
@@ -448,6 +469,17 @@ class GeminiAiService
 
         if (empty($this->apiKey) || !$this->canMakeApiCall()) {
             return null;
+        }
+
+        // Zero-Data Hallucination Guard: Do not prompt AI if there is zero historical activity
+        $totalHistoricalPoints = 0;
+        foreach ($historicalMetrics as $metricSeries) {
+            if (is_array($metricSeries)) {
+                $totalHistoricalPoints += array_sum($metricSeries);
+            }
+        }
+        if ($totalHistoricalPoints === 0) {
+            return null; // Return null so caller safely applies grounded zeroed forecast
         }
 
         try {

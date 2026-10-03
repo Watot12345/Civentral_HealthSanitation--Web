@@ -43,13 +43,24 @@ $maintenanceModel= new MaintenanceRecord();
 $septicTankModel = new SepticTank();
 $technicianModel = new Technician();
 
-// ── Data fetch ────────────────────────────────────────────────
-$serviceRequests    = $requestModel->all();
-$maintenanceRecords = $maintenanceModel->all();
-$technicians        = $technicianModel->all();
-
-// De-duplicate septic tanks by tank_id
-$rawTanks      = $septicTankModel->all();
+// ── Data fetch (Concurrent Multi-cURL Batch) ───────────────────
+try {
+    $batch = Database::getInstance()->multiSelect([
+        'service_requests'    => ['order' => 'created_at.desc'],
+        'maintenance_records' => ['order' => 'created_at.desc'],
+        'septic_tanks'        => ['order' => 'created_at.desc'],
+    ]);
+    $serviceRequests    = $batch['service_requests'] ?? [];
+    $maintenanceRecords = $batch['maintenance_records'] ?? [];
+    $rawTanks           = $batch['septic_tanks'] ?? [];
+    $technicians        = $technicianModel->all(); // Instant from micro-cache
+} catch (Throwable $e) {
+    error_log('Error batch fetching services data: ' . $e->getMessage());
+    $serviceRequests    = $requestModel->all();
+    $maintenanceRecords = $maintenanceModel->all();
+    $technicians        = $technicianModel->all();
+    $rawTanks           = $septicTankModel->all();
+}
 $allSepticTanks= [];
 $seenTankIds   = [];
 foreach ($rawTanks as $st) {

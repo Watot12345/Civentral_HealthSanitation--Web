@@ -129,11 +129,36 @@ class CacheService
                 @unlink($f);
             }
         }
+        // Also scan and clean up any legacy analytics files
+        $allCache = glob($this->cacheDir . '/*.cache');
+        if (is_array($allCache)) {
+            foreach ($allCache as $f) {
+                $content = @file_get_contents($f);
+                if ($content && str_contains($content, '"key": "analytics_')) {
+                    @unlink($f);
+                }
+            }
+        }
+    }
+
+    /**
+     * Clear all cached Groq and Gemini AI natural language report summaries
+     */
+    public function clearAiSummaryCache(): void
+    {
+        $files = array_merge(
+            glob($this->cacheDir . '/groq_report_summary_*.json') ?: [],
+            glob($this->cacheDir . '/report_summary_*.json') ?: []
+        );
+        foreach ($files as $f) {
+            @unlink($f);
+        }
     }
 
     private function getFilePath(string $key): string
     {
-        $safeName = md5($key) . '.cache';
+        $prefix = str_starts_with($key, 'analytics_') ? 'analytics_' : '';
+        $safeName = $prefix . md5($key) . '.cache';
         return $this->cacheDir . '/' . $safeName;
     }
 }

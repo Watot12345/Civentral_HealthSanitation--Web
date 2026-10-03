@@ -1,4 +1,10 @@
 <?php
+// Transparent Gzip Compression for dynamic responses
+if (!headers_sent() && extension_loaded('zlib') && !ini_get('zlib.output_compression') && PHP_SAPI !== 'cli') {
+    @ini_set('zlib.output_compression', '4096');
+    @ini_set('zlib.output_compression_level', '5');
+}
+
 if (ob_get_level() === 0) {
     ob_start();
 }

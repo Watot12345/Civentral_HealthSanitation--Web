@@ -51,34 +51,38 @@ class DashboardService
             error_log("DashboardService Supabase connection error: " . $e->getMessage());
         }
 
-        $fetchTable = function(string $table, array $filters = [], array $options = ['limit' => 100]) use ($db): array {
-            if (!$db) return [];
-            try {
-                $res = $db->select($table, $filters, $options);
-                return is_array($res) ? $res : [];
-            } catch (\Throwable $e) {
-                error_log("DashboardService select error on [{$table}]: " . $e->getMessage());
-                return [];
-            }
-        };
+        $multiConfig = [
+            'patients'           => ['select' => 'id,patient_id,first_name,last_name,status,created_at', 'limit' => 100],
+            'consultations'      => ['select' => 'id,status,created_at,diagnosis,icd_code,date', 'limit' => 100],
+            'prescriptions'      => ['select' => 'id,status,created_at,dispensed_at', 'limit' => 100],
+            'permits'            => ['select' => 'id,status,created_at,paid,fee,expiry_date', 'limit' => 100],
+            'inspections'        => ['select' => 'id,status,overall_status,created_at,scheduled_date', 'limit' => 100],
+            'appointments'       => ['select' => 'id,status,created_at,priority,appointment_date', 'limit' => 100],
+            'children'           => ['select' => 'id,status,created_at,nutrition_status,vaccine_compliance', 'limit' => 100],
+            'septic_tanks'       => ['select' => 'id,tank_id,owner_name,status,created_at,type,barangay', 'limit' => 100],
+            'service_requests'   => ['select' => 'id,request_id,service_type,status,priority,created_at,preferred_date', 'limit' => 100],
+            'maintenance_records'=> ['select' => 'id,service_id,service_type,status,created_at,scheduled_date', 'limit' => 100],
+            'wastewater_invoices'=> ['select' => 'id,invoice_id,amount,total_amount,status,created_at', 'limit' => 100],
+            'service_providers'  => ['select' => 'id,provider_id,name,status,specialization,created_at', 'limit' => 100],
+            'surveillance_cases' => ['select' => 'id,disease,barangay,status,created_at', 'limit' => 100],
+        ];
 
-        $patients      = $fetchTable('patients', [], ['select' => 'id,patient_id,first_name,last_name,status,created_at', 'limit' => 100]);
-        $consultations = $fetchTable('consultations', [], ['select' => 'id,status,created_at,diagnosis,icd_code,date', 'limit' => 100]);
-        $prescriptions = $fetchTable('prescriptions', [], ['select' => 'id,status,created_at,dispensed_at', 'limit' => 100]);
-        $permits       = $fetchTable('permits', [], ['select' => 'id,status,created_at,paid,fee,expiry_date', 'limit' => 100]);
-        $inspections   = $fetchTable('inspections', [], ['select' => 'id,status,overall_status,created_at,scheduled_date', 'limit' => 100]);
-        $triage        = $fetchTable('appointments', [], ['select' => 'id,status,created_at,priority,appointment_date', 'limit' => 100]);
-        $childRecords  = $fetchTable('children', [], ['select' => 'id,status,created_at,nutrition_status,vaccine_compliance', 'limit' => 100]);
-        if (empty($childRecords)) {
-            $childRecords = $fetchTable('immunization_assessments', [], ['select' => 'id,created_at', 'limit' => 100]);
-        }
-        $septicTanks   = $fetchTable('septic_tanks', [], ['select' => 'id,tank_id,owner_name,status,created_at,type,barangay', 'limit' => 100]);
-        $serviceRequests = $fetchTable('service_requests', [], ['select' => 'id,request_id,service_type,status,priority,created_at,preferred_date', 'limit' => 100]);
-        $maintenanceRecords = $fetchTable('maintenance_records', [], ['select' => 'id,service_id,service_type,status,created_at,scheduled_date', 'limit' => 100]);
-        $wastewaterInvoices = $fetchTable('wastewater_invoices', [], ['select' => 'id,invoice_id,amount,total_amount,status,created_at', 'limit' => 100]);
-        $serviceProviders = $fetchTable('service_providers', [], ['select' => 'id,provider_id,name,status,specialization,created_at', 'limit' => 100]);
-        $wastewater    = !empty($septicTanks) ? $septicTanks : $fetchTable('permits', [], ['select' => 'id,created_at', 'limit' => 100]);
-        $survCases     = $fetchTable('surveillance_cases', [], ['select' => 'id,disease,barangay,status,created_at', 'limit' => 100]);
+        $batch = ($db !== null) ? $db->multiSelect($multiConfig) : [];
+
+        $patients           = $batch['patients'] ?? [];
+        $consultations      = $batch['consultations'] ?? [];
+        $prescriptions      = $batch['prescriptions'] ?? [];
+        $permits            = $batch['permits'] ?? [];
+        $inspections        = $batch['inspections'] ?? [];
+        $triage             = $batch['appointments'] ?? [];
+        $childRecords       = $batch['children'] ?? [];
+        $septicTanks        = $batch['septic_tanks'] ?? [];
+        $serviceRequests    = $batch['service_requests'] ?? [];
+        $maintenanceRecords = $batch['maintenance_records'] ?? [];
+        $wastewaterInvoices = $batch['wastewater_invoices'] ?? [];
+        $serviceProviders   = $batch['service_providers'] ?? [];
+        $wastewater         = !empty($septicTanks) ? $septicTanks : ($batch['permits'] ?? []);
+        $survCases          = $batch['surveillance_cases'] ?? [];
 
         $calcGrowth = function(array $records): string {
             if (empty($records)) return '0.0%';

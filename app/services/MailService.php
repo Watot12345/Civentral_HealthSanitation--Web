@@ -78,6 +78,8 @@ class MailService
             $mail->SMTPSecure = $this->encryption;
             $mail->Port       = $this->port;
             $mail->CharSet    = 'UTF-8';
+            $mail->Timeout    = 3;
+            $mail->Timelimit  = 3;
 
             $mail->setFrom($this->fromEmail, $this->fromName);
             $mail->addAddress($toEmail, $recipientName);

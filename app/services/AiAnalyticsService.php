@@ -4,6 +4,7 @@
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/GeminiAiService.php';
 require_once __DIR__ . '/CacheService.php';
+require_once __DIR__ . '/PermissionService.php';
 
 class AiAnalyticsService
 {
@@ -158,12 +159,14 @@ class AiAnalyticsService
             $consultCount = count($consultations);
             $triageCount  = count($appointments);
             $rxCount      = count($prescriptions);
+            $completedConsults = count(array_filter($consultations, fn($c) => in_array(strtolower($c['status'] ?? ''), ['completed', 'resolved', 'done'])));
+            $resolutionRate = $consultCount > 0 ? round(($completedConsults / $consultCount) * 100, 1) . '%' : '0.0%';
             return [
                 ['key' => 'patients', 'title' => 'Registered Patients', 'value' => number_format($patientCount), 'change' => $patientCount > 0 ? '↑ 14.2%' : '0%', 'status' => 'info', 'description' => 'Total active patient master records'],
                 ['key' => 'consultations', 'title' => 'Doctor Consultations', 'value' => number_format($consultCount), 'change' => $consultCount > 0 ? '↑ 8.5%' : '0%', 'status' => 'success', 'description' => 'Completed clinical consultations'],
                 ['key' => 'triage', 'title' => 'Appointments / Triage', 'value' => number_format($triageCount), 'change' => $triageCount > 0 ? '↑ 5.1%' : '0%', 'status' => 'warning', 'description' => 'Scheduled & queued clinic check-ins'],
                 ['key' => 'prescriptions', 'title' => 'Pharmacy Dispensary', 'value' => number_format($rxCount), 'change' => $rxCount > 0 ? '↑ 9.3%' : '0%', 'status' => 'success', 'description' => 'Prescriptions dispensed by clinic'],
-                ['key' => 'efficiency', 'title' => 'Clinic Resolution Rate', 'value' => '98.2%', 'change' => '↑ 1.8%', 'status' => 'success', 'description' => 'Average consultation turnaround time']
+                ['key' => 'efficiency', 'title' => 'Clinic Resolution Rate', 'value' => $resolutionRate, 'change' => $consultCount > 0 ? 'Live Metric' : 'No Data', 'status' => 'success', 'description' => 'Average consultation resolution efficiency']
             ];
         }
 
@@ -172,12 +175,13 @@ class AiAnalyticsService
             $inspectCount = count($inspections);
             $approvedCount= count(array_filter($permits, fn($p) => strtolower($p['status'] ?? '') === 'approved'));
             $renewalCount = count($renewals);
+            $sanitationPassRate = $permitCount > 0 ? round(($approvedCount / $permitCount) * 100, 1) . '%' : '0.0%';
             return [
                 ['key' => 'permits', 'title' => 'Permit Applications', 'value' => number_format($permitCount), 'change' => $permitCount > 0 ? '↑ 11.4%' : '0%', 'status' => 'info', 'description' => 'Sanitary permit submissions logged'],
                 ['key' => 'inspections', 'title' => 'Field Health Audits', 'value' => number_format($inspectCount), 'change' => $inspectCount > 0 ? '↑ 7.8%' : '0%', 'status' => 'warning', 'description' => 'Completed commercial inspections'],
                 ['key' => 'approved', 'title' => 'Approved Clearances', 'value' => number_format($approvedCount), 'change' => $approvedCount > 0 ? '↑ 15.0%' : '0%', 'status' => 'success', 'description' => 'Compliant commercial health permits'],
                 ['key' => 'renewals', 'title' => 'Annual Renewals', 'value' => number_format($renewalCount), 'change' => $renewalCount > 0 ? '↑ 4.2%' : '0%', 'status' => 'info', 'description' => 'License renewal compliance filings'],
-                ['key' => 'compliance', 'title' => 'Sanitation Pass Rate', 'value' => '95.6%', 'change' => '↑ 2.4%', 'status' => 'success', 'description' => 'Establishments meeting sanitary codes']
+                ['key' => 'compliance', 'title' => 'Sanitation Pass Rate', 'value' => $sanitationPassRate, 'change' => $permitCount > 0 ? 'Live Metric' : 'No Data', 'status' => 'success', 'description' => 'Establishments meeting sanitary codes']
             ];
         }
 
@@ -186,12 +190,15 @@ class AiAnalyticsService
             $alertCount   = count($alerts);
             $contactCount = count($contacts);
             $intervCount  = count($interventions);
+            $totalCases   = count($cases);
+            $resolvedCases = count(array_filter($cases, fn($c) => in_array(strtolower($c['status'] ?? ''), ['resolved', 'closed'])));
+            $outbreakIndex = $totalCases > 0 ? round(($resolvedCases / $totalCases) * 100, 1) . '%' : ($activeCasesCount === 0 ? '100.0%' : '0.0%');
             return [
                 ['key' => 'active_cases', 'title' => 'Active Disease Cases', 'value' => number_format($activeCasesCount), 'change' => $activeCasesCount > 0 ? '↑ 6.1%' : '0%', 'status' => 'danger', 'description' => 'Reported suspected & confirmed cases'],
                 ['key' => 'alerts', 'title' => 'Outbreak Alerts', 'value' => number_format($alertCount), 'change' => $alertCount > 0 ? 'Active Monitoring' : 'No Alerts', 'status' => 'warning', 'description' => 'Cluster threshold triggers active'],
                 ['key' => 'contacts', 'title' => 'Contact Tracing Logs', 'value' => number_format($contactCount), 'change' => $contactCount > 0 ? '↑ 12.8%' : '0%', 'status' => 'info', 'description' => 'Exposed individuals tracked'],
                 ['key' => 'interventions', 'title' => 'Field Interventions', 'value' => number_format($intervCount), 'change' => $intervCount > 0 ? '↑ 8.0%' : '0%', 'status' => 'success', 'description' => 'Misting & vector control operations'],
-                ['key' => 'index', 'title' => 'Early Outbreak Index', 'value' => '97.4%', 'change' => '↑ 1.1%', 'status' => 'success', 'description' => 'Containment and detection speed']
+                ['key' => 'index', 'title' => 'Early Outbreak Index', 'value' => $outbreakIndex, 'change' => $totalCases > 0 ? 'Live Metric' : 'Controlled', 'status' => 'success', 'description' => 'Containment and detection speed']
             ];
         }
 
@@ -199,12 +206,14 @@ class AiAnalyticsService
             $childCount   = count($children);
             $vaxCount     = count($vaccines);
             $rxCount      = count($prescriptions);
+            $assessedChildren = count(array_unique(array_filter(array_map(fn($v) => $v['child_id'] ?? ($v['patient_id'] ?? null), $vaccines))));
+            $vaxCoverage = $childCount > 0 ? round(($assessedChildren / $childCount) * 100, 1) . '%' : '0.0%';
             return [
                 ['key' => 'children', 'title' => 'Pediatric Registry', 'value' => number_format($childCount), 'change' => $childCount > 0 ? '↑ 16.5%' : '0%', 'status' => 'info', 'description' => 'Under-5 registered pediatric profiles'],
                 ['key' => 'vaccines', 'title' => 'Vaccine Assessments', 'value' => number_format($vaxCount), 'change' => $vaxCount > 0 ? '↑ 9.2%' : '0%', 'status' => 'success', 'description' => 'EPI routine vaccination sessions'],
                 ['key' => 'nutrition', 'title' => 'Nutrition Checks', 'value' => number_format($childCount), 'change' => $childCount > 0 ? 'Normal Growth' : '0', 'status' => 'success', 'description' => 'Under-5 weight and height screenings'],
                 ['key' => 'supplements', 'title' => 'Vitamin & Micronutrients', 'value' => number_format($rxCount), 'change' => $rxCount > 0 ? '↑ 5.0%' : '0%', 'status' => 'warning', 'description' => 'Micronutrient doses distributed'],
-                ['key' => 'coverage', 'title' => 'Immunization Coverage', 'value' => '93.7%', 'change' => '↑ 3.2%', 'status' => 'success', 'description' => 'City-wide complete child immunization rate']
+                ['key' => 'coverage', 'title' => 'Immunization Coverage', 'value' => $vaxCoverage, 'change' => $childCount > 0 ? 'Live Metric' : 'No Data', 'status' => 'success', 'description' => 'City-wide complete child immunization rate']
             ];
         }
 
@@ -212,12 +221,14 @@ class AiAnalyticsService
             $septicCount  = count($septicTanks);
             $invoiceCount = count($invoices);
             $permitCount  = count($permits);
+            $activeTanks  = count(array_filter($septicTanks, fn($t) => in_array(strtolower($t['status'] ?? ''), ['active', 'serviced', 'operational', 'compliant'])));
+            $envScore     = $septicCount > 0 ? round(($activeTanks / $septicCount) * 100, 1) . '%' : '0.0%';
             return [
                 ['key' => 'septic', 'title' => 'Septic Desludging Units', 'value' => number_format($septicCount), 'change' => $septicCount > 0 ? '↑ 7.1%' : '0%', 'status' => 'info', 'description' => 'Serviced residential septic tanks'],
                 ['key' => 'invoices', 'title' => 'Service Invoices', 'value' => number_format($invoiceCount), 'change' => $invoiceCount > 0 ? '↑ 11.3%' : '0%', 'status' => 'success', 'description' => 'Desludging billings processed'],
                 ['key' => 'clearances', 'title' => 'Discharge Clearances', 'value' => number_format($permitCount), 'change' => $permitCount > 0 ? '↑ 4.0%' : '0%', 'status' => 'warning', 'description' => 'Commercial effluent permits'],
                 ['key' => 'sampling', 'title' => 'Water Quality Tests', 'value' => number_format(count($inspections)), 'change' => 'Compliant', 'status' => 'success', 'description' => 'Water sampling tests logged'],
-                ['key' => 'compliance', 'title' => 'Environmental Index', 'value' => '94.8%', 'change' => '↑ 1.6%', 'status' => 'success', 'description' => 'City environmental sanitation score']
+                ['key' => 'compliance', 'title' => 'Environmental Index', 'value' => $envScore, 'change' => $septicCount > 0 ? 'Live Metric' : 'No Data', 'status' => 'success', 'description' => 'City environmental sanitation score']
             ];
         }
 
@@ -231,13 +242,16 @@ class AiAnalyticsService
         $highRiskZonesCount = count($activeAlerts);
         $barangays = array_unique(array_filter(array_map(fn($a) => $a['barangay'] ?? '', $activeAlerts)));
         $barangayStr = !empty($barangays) ? 'Barangays ' . implode(', ', array_slice($barangays, 0, 3)) : 'No high-risk zones detected in database';
+        $totalWorkload = $activeCasesCount + $resolvedCount;
+        $operationalEfficiency = $totalWorkload > 0 ? round(($resolvedCount / $totalWorkload) * 100, 1) . '%' : '0.0%';
+        $surveillanceScore = (count($cases) + count($alerts)) > 0 ? round(max(0, 100 - ($activeCasesCount * 2)), 1) . '%' : '100.0%';
 
         return [
             ['key' => 'active_cases', 'title' => 'Total Active Cases', 'value' => number_format($activeCasesCount), 'change' => $activeCasesCount > 0 ? '↑ 8.3%' : '0%', 'status' => 'warning', 'description' => 'Active cases in surveillance_cases & patients'],
             ['key' => 'resolved_cases', 'title' => 'Resolved & Processed', 'value' => number_format($resolvedCount), 'change' => $resolvedCount > 0 ? '↑ 12.4%' : '0%', 'status' => 'success', 'description' => 'Completed consultations & approved permits'],
             ['key' => 'high_risk_zones', 'title' => 'High Risk Zones', 'value' => (string)$highRiskZonesCount, 'change' => $barangayStr, 'status' => 'danger', 'description' => 'Active alerts in surveillance_alerts'],
-            ['key' => 'efficiency', 'title' => 'Operational Efficiency', 'value' => '96.8%', 'change' => '↑ 2.1%', 'status' => 'success', 'description' => 'Average staff resolution efficiency'],
-            ['key' => 'surveillance_index', 'title' => 'Surveillance Index', 'value' => '94.2%', 'change' => '↑ 1.5%', 'status' => 'info', 'description' => 'City-wide early outbreak detection score']
+            ['key' => 'efficiency', 'title' => 'Operational Efficiency', 'value' => $operationalEfficiency, 'change' => $totalWorkload > 0 ? 'Live Metric' : 'No Data', 'status' => 'success', 'description' => 'Average staff resolution efficiency'],
+            ['key' => 'surveillance_index', 'title' => 'Surveillance Index', 'value' => $surveillanceScore, 'change' => (count($cases) + count($alerts)) > 0 ? 'Live Metric' : 'Optimal', 'status' => 'info', 'description' => 'City-wide early outbreak detection score']
         ];
     }
 
@@ -589,9 +603,9 @@ class AiAnalyticsService
                     ['name' => 'Approved Clearances', 'data' => $resInspect['forecast']]
                 ],
                 'cards' => [
-                    ['key' => 'permits', 'title' => 'Sanitation Permits', 'value' => (string)$resPermits['forecast'][1], 'confidence' => $resPermits['confidence'] . '%', 'r_squared' => $resPermits['r_squared'], 'icon' => 'document', 'color' => 'amber', 'trend' => '6-Month Forward Projection'],
-                    ['key' => 'audits', 'title' => 'Food Audits', 'value' => (string)$resAudits['forecast'][1], 'confidence' => $resAudits['confidence'] . '%', 'r_squared' => $resAudits['r_squared'], 'icon' => 'document', 'color' => 'blue', 'trend' => '6-Month Forward Projection'],
-                    ['key' => 'inspections', 'title' => 'Approved Clearances', 'value' => (string)$resInspect['forecast'][1], 'confidence' => $resInspect['confidence'] . '%', 'r_squared' => $resInspect['r_squared'], 'icon' => 'document', 'color' => 'indigo', 'trend' => '6-Month Forward Projection']
+                    ['key' => 'permits', 'title' => 'Sanitation Permits', 'value' => (string)(int)round($resPermits['forecast'][1]), 'confidence' => $resPermits['confidence'] . '%', 'r_squared' => $resPermits['r_squared'], 'icon' => 'document', 'color' => 'amber', 'trend' => '6-Month Forward Projection'],
+                    ['key' => 'audits', 'title' => 'Food Audits', 'value' => (string)(int)round($resAudits['forecast'][1]), 'confidence' => $resAudits['confidence'] . '%', 'r_squared' => $resAudits['r_squared'], 'icon' => 'document', 'color' => 'blue', 'trend' => '6-Month Forward Projection'],
+                    ['key' => 'inspections', 'title' => 'Approved Clearances', 'value' => (string)(int)round($resInspect['forecast'][1]), 'confidence' => $resInspect['confidence'] . '%', 'r_squared' => $resInspect['r_squared'], 'icon' => 'document', 'color' => 'indigo', 'trend' => '6-Month Forward Projection']
                 ]
             ];
         }
@@ -635,9 +649,9 @@ class AiAnalyticsService
                     ['name' => 'Appointments / Triage', 'data' => $resTriage['forecast']]
                 ],
                 'cards' => [
-                    ['key' => 'patients', 'title' => 'Patient Queue', 'value' => (string)$resPatients['forecast'][1], 'confidence' => $resPatients['confidence'] . '%', 'r_squared' => $resPatients['r_squared'], 'icon' => 'health', 'color' => 'blue', 'trend' => '6-Month Forward Projection'],
-                    ['key' => 'consultations', 'title' => 'Consultations', 'value' => (string)$resConsult['forecast'][1], 'confidence' => $resConsult['confidence'] . '%', 'r_squared' => $resConsult['r_squared'], 'icon' => 'health', 'color' => 'indigo', 'trend' => '6-Month Forward Projection'],
-                    ['key' => 'triage', 'title' => 'Appointments', 'value' => (string)$resTriage['forecast'][1], 'confidence' => $resTriage['confidence'] . '%', 'r_squared' => $resTriage['r_squared'], 'icon' => 'health', 'color' => 'amber', 'trend' => '6-Month Forward Projection']
+                    ['key' => 'patients', 'title' => 'Patient Queue', 'value' => (string)(int)round($resPatients['forecast'][1]), 'confidence' => $resPatients['confidence'] . '%', 'r_squared' => $resPatients['r_squared'], 'icon' => 'health', 'color' => 'blue', 'trend' => '6-Month Forward Projection'],
+                    ['key' => 'consultations', 'title' => 'Consultations', 'value' => (string)(int)round($resConsult['forecast'][1]), 'confidence' => $resConsult['confidence'] . '%', 'r_squared' => $resConsult['r_squared'], 'icon' => 'health', 'color' => 'indigo', 'trend' => '6-Month Forward Projection'],
+                    ['key' => 'triage', 'title' => 'Appointments', 'value' => (string)(int)round($resTriage['forecast'][1]), 'confidence' => $resTriage['confidence'] . '%', 'r_squared' => $resTriage['r_squared'], 'icon' => 'health', 'color' => 'amber', 'trend' => '6-Month Forward Projection']
                 ]
             ];
         }
@@ -681,9 +695,9 @@ class AiAnalyticsService
                     ['name' => 'Growth Monitoring', 'data' => $resGrowth['forecast']]
                 ],
                 'cards' => [
-                    ['key' => 'vaccines', 'title' => 'Vaccine Demand', 'value' => (string)$resVaccines['forecast'][1], 'confidence' => $resVaccines['confidence'] . '%', 'r_squared' => $resVaccines['r_squared'], 'icon' => 'health', 'color' => 'blue', 'trend' => '6-Month Forward Projection'],
-                    ['key' => 'nutrition', 'title' => 'Nutrition Checks', 'value' => (string)$resNutrition['forecast'][1], 'confidence' => $resNutrition['confidence'] . '%', 'r_squared' => $resNutrition['r_squared'], 'icon' => 'health', 'color' => 'indigo', 'trend' => '6-Month Forward Projection'],
-                    ['key' => 'growth', 'title' => 'Prescriptions', 'value' => (string)$resGrowth['forecast'][1], 'confidence' => $resGrowth['confidence'] . '%', 'r_squared' => $resGrowth['r_squared'], 'icon' => 'health', 'color' => 'amber', 'trend' => '6-Month Forward Projection']
+                    ['key' => 'vaccines', 'title' => 'Vaccine Demand', 'value' => (string)(int)round($resVaccines['forecast'][1]), 'confidence' => $resVaccines['confidence'] . '%', 'r_squared' => $resVaccines['r_squared'], 'icon' => 'health', 'color' => 'blue', 'trend' => '6-Month Forward Projection'],
+                    ['key' => 'nutrition', 'title' => 'Nutrition Checks', 'value' => (string)(int)round($resNutrition['forecast'][1]), 'confidence' => $resNutrition['confidence'] . '%', 'r_squared' => $resNutrition['r_squared'], 'icon' => 'health', 'color' => 'indigo', 'trend' => '6-Month Forward Projection'],
+                    ['key' => 'growth', 'title' => 'Prescriptions', 'value' => (string)(int)round($resGrowth['forecast'][1]), 'confidence' => $resGrowth['confidence'] . '%', 'r_squared' => $resGrowth['r_squared'], 'icon' => 'health', 'color' => 'amber', 'trend' => '6-Month Forward Projection']
                 ]
             ];
         }
@@ -727,9 +741,9 @@ class AiAnalyticsService
                     ['name' => 'Active Infections', 'data' => $resAlerts['forecast']]
                 ],
                 'cards' => [
-                    ['key' => 'cases', 'title' => 'Suspected Cases', 'value' => (string)$resCases['forecast'][1], 'confidence' => $resCases['confidence'] . '%', 'r_squared' => $resCases['r_squared'], 'icon' => 'alert', 'color' => 'indigo', 'trend' => '6-Month Forward Projection'],
-                    ['key' => 'contacts', 'title' => 'Risk Alerts', 'value' => (string)$resContact['forecast'][1], 'confidence' => $resContact['confidence'] . '%', 'r_squared' => $resContact['r_squared'], 'icon' => 'alert', 'color' => 'amber', 'trend' => '6-Month Forward Projection'],
-                    ['key' => 'alerts', 'title' => 'Active Infections', 'value' => (string)$resAlerts['forecast'][1], 'confidence' => $resAlerts['confidence'] . '%', 'r_squared' => $resAlerts['r_squared'], 'icon' => 'alert', 'color' => 'blue', 'trend' => '6-Month Forward Projection']
+                    ['key' => 'cases', 'title' => 'Suspected Cases', 'value' => (string)(int)round($resCases['forecast'][1]), 'confidence' => $resCases['confidence'] . '%', 'r_squared' => $resCases['r_squared'], 'icon' => 'alert', 'color' => 'indigo', 'trend' => '6-Month Forward Projection'],
+                    ['key' => 'contacts', 'title' => 'Risk Alerts', 'value' => (string)(int)round($resContact['forecast'][1]), 'confidence' => $resContact['confidence'] . '%', 'r_squared' => $resContact['r_squared'], 'icon' => 'alert', 'color' => 'amber', 'trend' => '6-Month Forward Projection'],
+                    ['key' => 'alerts', 'title' => 'Active Infections', 'value' => (string)(int)round($resAlerts['forecast'][1]), 'confidence' => $resAlerts['confidence'] . '%', 'r_squared' => $resAlerts['r_squared'], 'icon' => 'alert', 'color' => 'blue', 'trend' => '6-Month Forward Projection']
                 ]
             ];
         }
@@ -773,9 +787,9 @@ class AiAnalyticsService
                     ['name' => 'Field Inspections', 'data' => $resSamples['forecast']]
                 ],
                 'cards' => [
-                    ['key' => 'septic', 'title' => 'Wastewater Units', 'value' => (string)$resSeptic['forecast'][1], 'confidence' => $resSeptic['confidence'] . '%', 'r_squared' => $resSeptic['r_squared'], 'icon' => 'document', 'color' => 'indigo', 'trend' => '6-Month Forward Projection'],
-                    ['key' => 'clearances', 'title' => 'Clearances', 'value' => (string)$resClearance['forecast'][1], 'confidence' => $resClearance['confidence'] . '%', 'r_squared' => $resClearance['r_squared'], 'icon' => 'document', 'color' => 'blue', 'trend' => '6-Month Forward Projection'],
-                    ['key' => 'samples', 'title' => 'Inspections', 'value' => (string)$resSamples['forecast'][1], 'confidence' => $resSamples['confidence'] . '%', 'r_squared' => $resSamples['r_squared'], 'icon' => 'document', 'color' => 'amber', 'trend' => '6-Month Forward Projection']
+                    ['key' => 'septic', 'title' => 'Wastewater Units', 'value' => (string)(int)round($resSeptic['forecast'][1]), 'confidence' => $resSeptic['confidence'] . '%', 'r_squared' => $resSeptic['r_squared'], 'icon' => 'document', 'color' => 'indigo', 'trend' => '6-Month Forward Projection'],
+                    ['key' => 'clearances', 'title' => 'Clearances', 'value' => (string)(int)round($resClearance['forecast'][1]), 'confidence' => $resClearance['confidence'] . '%', 'r_squared' => $resClearance['r_squared'], 'icon' => 'document', 'color' => 'blue', 'trend' => '6-Month Forward Projection'],
+                    ['key' => 'samples', 'title' => 'Inspections', 'value' => (string)(int)round($resSamples['forecast'][1]), 'confidence' => $resSamples['confidence'] . '%', 'r_squared' => $resSamples['r_squared'], 'icon' => 'document', 'color' => 'amber', 'trend' => '6-Month Forward Projection']
                 ]
             ];
         }
@@ -870,18 +884,18 @@ class AiAnalyticsService
             'confidence_vaccines'   => $resVaccines['confidence'],
             'confidence_wastewater' => $resWastewater['confidence'],
             'summary_kpis' => [
-                ['key' => 'cases', 'name' => 'Disease Cases', 'module' => 'Surveillance', 'value' => $resCases['forecast'][1], 'confidence' => $resCases['confidence'], 'conf_label' => $resCases['confidence'] . '% Certainty', 'color' => 'red'],
-                ['key' => 'consults', 'name' => 'Consultations', 'module' => 'Health Center', 'value' => $resConsults['forecast'][1], 'confidence' => $resConsults['confidence'], 'conf_label' => $resConsults['confidence'] . '% Certainty', 'color' => 'teal'],
-                ['key' => 'permits', 'name' => 'Permit Requests', 'module' => 'Sanitation', 'value' => $resPermits['forecast'][1], 'confidence' => $resPermits['confidence'], 'conf_label' => $resPermits['confidence'] . '% Certainty', 'color' => 'amber'],
-                ['key' => 'vaccines', 'name' => 'Vaccine Demand', 'module' => 'Immunization', 'value' => $resVaccines['forecast'][1], 'confidence' => $resVaccines['confidence'], 'conf_label' => $resVaccines['confidence'] . '% Certainty', 'color' => 'blue'],
-                ['key' => 'wastewater', 'name' => 'Wastewater Units', 'module' => 'Wastewater', 'value' => $resWastewater['forecast'][1], 'confidence' => $resWastewater['confidence'], 'conf_label' => $resWastewater['confidence'] . '% Certainty', 'color' => 'purple']
+                ['key' => 'cases', 'name' => 'Disease Cases', 'module' => 'Surveillance', 'value' => (int)round($resCases['forecast'][1]), 'confidence' => $resCases['confidence'], 'conf_label' => $resCases['confidence'] . '% Certainty', 'color' => 'red'],
+                ['key' => 'consults', 'name' => 'Consultations', 'module' => 'Health Center', 'value' => (int)round($resConsults['forecast'][1]), 'confidence' => $resConsults['confidence'], 'conf_label' => $resConsults['confidence'] . '% Certainty', 'color' => 'teal'],
+                ['key' => 'permits', 'name' => 'Permit Requests', 'module' => 'Sanitation', 'value' => (int)round($resPermits['forecast'][1]), 'confidence' => $resPermits['confidence'], 'conf_label' => $resPermits['confidence'] . '% Certainty', 'color' => 'amber'],
+                ['key' => 'vaccines', 'name' => 'Vaccine Demand', 'module' => 'Immunization', 'value' => (int)round($resVaccines['forecast'][1]), 'confidence' => $resVaccines['confidence'], 'conf_label' => $resVaccines['confidence'] . '% Certainty', 'color' => 'blue'],
+                ['key' => 'wastewater', 'name' => 'Wastewater Units', 'module' => 'Wastewater', 'value' => (int)round($resWastewater['forecast'][1]), 'confidence' => $resWastewater['confidence'], 'conf_label' => $resWastewater['confidence'] . '% Certainty', 'color' => 'purple']
             ],
             'cards' => [
-                ['key' => 'cases', 'title' => 'Disease Cases', 'value' => (string)$resCases['forecast'][1], 'confidence' => $resCases['confidence'] . '%', 'r_squared' => $resCases['r_squared'], 'icon' => 'alert', 'color' => 'rose', 'trend' => '6-Month Future Horizon'],
-                ['key' => 'consults', 'title' => 'Medical Consultations', 'value' => (string)$resConsults['forecast'][1], 'confidence' => $resConsults['confidence'] . '%', 'r_squared' => $resConsults['r_squared'], 'icon' => 'health', 'color' => 'teal', 'trend' => '6-Month Future Horizon'],
-                ['key' => 'permits', 'title' => 'Sanitation Permits', 'value' => (string)$resPermits['forecast'][1], 'confidence' => $resPermits['confidence'] . '%', 'r_squared' => $resPermits['r_squared'], 'icon' => 'document', 'color' => 'amber', 'trend' => '6-Month Future Horizon'],
-                ['key' => 'vaccines', 'title' => 'Vaccine Demand', 'value' => (string)$resVaccines['forecast'][1], 'confidence' => $resVaccines['confidence'] . '%', 'r_squared' => $resVaccines['r_squared'], 'icon' => 'health', 'color' => 'blue', 'trend' => '6-Month Future Horizon'],
-                ['key' => 'wastewater', 'title' => 'Wastewater Desludging', 'value' => (string)$resWastewater['forecast'][1], 'confidence' => $resWastewater['confidence'] . '%', 'r_squared' => $resWastewater['r_squared'], 'icon' => 'document', 'color' => 'purple', 'trend' => '6-Month Future Horizon']
+                ['key' => 'cases', 'title' => 'Disease Cases', 'value' => (string)(int)round($resCases['forecast'][1]), 'confidence' => $resCases['confidence'] . '%', 'r_squared' => $resCases['r_squared'], 'icon' => 'alert', 'color' => 'rose', 'trend' => '6-Month Future Horizon'],
+                ['key' => 'consults', 'title' => 'Medical Consultations', 'value' => (string)(int)round($resConsults['forecast'][1]), 'confidence' => $resConsults['confidence'] . '%', 'r_squared' => $resConsults['r_squared'], 'icon' => 'health', 'color' => 'teal', 'trend' => '6-Month Future Horizon'],
+                ['key' => 'permits', 'title' => 'Sanitation Permits', 'value' => (string)(int)round($resPermits['forecast'][1]), 'confidence' => $resPermits['confidence'] . '%', 'r_squared' => $resPermits['r_squared'], 'icon' => 'document', 'color' => 'amber', 'trend' => '6-Month Future Horizon'],
+                ['key' => 'vaccines', 'title' => 'Vaccine Demand', 'value' => (string)(int)round($resVaccines['forecast'][1]), 'confidence' => $resVaccines['confidence'] . '%', 'r_squared' => $resVaccines['r_squared'], 'icon' => 'health', 'color' => 'blue', 'trend' => '6-Month Future Horizon'],
+                ['key' => 'wastewater', 'title' => 'Wastewater Desludging', 'value' => (string)(int)round($resWastewater['forecast'][1]), 'confidence' => $resWastewater['confidence'] . '%', 'r_squared' => $resWastewater['r_squared'], 'icon' => 'document', 'color' => 'purple', 'trend' => '6-Month Future Horizon']
             ]
         ];
     }
@@ -955,29 +969,37 @@ class AiAnalyticsService
 
         $rSquared = $computeRSquared($historicalValues);
 
-        // If dataset has few data points, use damped baseline trajectory
-        if ($nonZeroCount <= 2 && $currentVal <= 10) {
-            $trajectory = [$currentVal];
-            $baseGrowth = max(0.5, $currentVal * 0.08);
-            for ($step = 1; $step <= $steps; $step++) {
-                $dampedDelta = $baseGrowth * pow(0.85, $step);
-                $projected = $trajectory[$step - 1] + $dampedDelta;
-                // Bound projection within reasonable municipal clinic growth (max 1.5x of current or current + 5)
-                $maxCap = max(6, (int)round($currentVal * 1.5) + 3);
-                $trajectory[] = min($maxCap, max(0, (int)round($projected)));
-            }
-            $lastProj = end($trajectory);
-            $growthPct = $currentVal > 0 ? round((($lastProj - $currentVal) / $currentVal) * 100, 1) : 0.0;
-            $confidence = $computeConfidence($historicalValues, $rSquared);
+        // Grounding Guard: When historical data is completely zero, project zero (no phantom numbers)
+        if ($nonZeroCount === 0 || array_sum($historicalValues) === 0) {
             return [
-                'current'    => $currentVal,
-                'forecast'   => $trajectory,
-                'confidence' => $confidence,
-                'r_squared'  => round($rSquared, 2),
-                'slope'      => round($baseGrowth, 3),
-                'growth_pct' => $growthPct
+                'current'    => 0,
+                'forecast'   => array_fill(0, $steps + 1, 0),
+                'confidence' => 0,
+                'r_squared'  => 0.0,
+                'slope'      => 0.0,
+                'growth_pct' => 0.0
             ];
         }
+
+        // Compute active non-zero historical baseline
+        $nonZeroVals = array_values($nonZero);
+        $activeAvg = $nonZeroCount > 0 ? (array_sum($nonZeroVals) / $nonZeroCount) : (float)$currentVal;
+
+        // In-progress current month normalization (e.g. Day 3 of the month only has partial days of activity)
+        $dayOfMonth = (int)date('j');
+        $daysInMonth = (int)date('t');
+        $prevVal = $n >= 2 ? (float)$historicalValues[$n - 2] : (float)$currentVal;
+
+        if ($dayOfMonth <= 7 && $prevVal > 0) {
+            // Early in month: blend annualized current run rate with prior full month tempo
+            $runRate = ($currentVal / max(1, $dayOfMonth)) * $daysInMonth;
+            $weightRunRate = min(1.0, $dayOfMonth / 15.0);
+            $effectiveBaseline = ($runRate * $weightRunRate) + ($prevVal * (1.0 - $weightRunRate));
+        } else {
+            $effectiveBaseline = $currentVal > 0 ? (float)$currentVal : ($nonZeroCount > 0 ? (float)end($nonZeroVals) : 0.0);
+        }
+
+        $effectiveBaseline = max(1.0, $effectiveBaseline);
 
         // Standard OLS with Damped Slope Extrapolation
         $sumX = 0; $sumY = 0; $sumXY = 0; $sumXX = 0;
@@ -989,35 +1011,70 @@ class AiAnalyticsService
         }
 
         $denom = ($n * $sumXX) - ($sumX * $sumX);
-        $rawSlope = $denom != 0 ? (($n * $sumXY) - ($sumX * $sumY)) / $denom : 0;
-        
-        // Damp slope to prevent exponential runaway from sparse data
-        $dampedSlope = max(-5.0, min(5.0, $rawSlope * 0.70));
+        $rawSlope = $denom != 0 ? (($n * $sumXY) - ($sumX * $sumY)) / $denom : 0.0;
 
-        // Generate forward trajectory with damping factor
-        $trajectory = [$currentVal];
-        $cumulativeGrowth = 0;
+        // If slope is artificially depressed due to early-month partial count, evaluate full completed months
+        if ($rawSlope <= 0 && $prevVal > $currentVal && $dayOfMonth <= 7) {
+            $fullMonths = array_slice($historicalValues, 0, $n - 1);
+            $fn = count($fullMonths);
+            if ($fn >= 2) {
+                $fSumX = 0; $fSumY = 0; $fSumXY = 0; $fSumXX = 0;
+                foreach ($fullMonths as $i => $y) {
+                    $fSumX += $i;
+                    $fSumY += $y;
+                    $fSumXY += $i * $y;
+                    $fSumXX += $i * $i;
+                }
+                $fDenom = ($fn * $fSumXX) - ($fSumX * $fSumX);
+                $rawSlope = $fDenom != 0 ? (($fn * $fSumXY) - ($fSumX * $fSumY)) / $fDenom : 0.0;
+            }
+        }
+
+        // Identify domain type to apply realistic seasonal and epidemiological dynamics
+        $normalizedMetric = strtolower($metricName);
+        $domain = match(true) {
+            str_contains($normalizedMetric, 'case') || str_contains($normalizedMetric, 'surveillance') || str_contains($normalizedMetric, 'infect') => 'disease',
+            str_contains($normalizedMetric, 'permit') || str_contains($normalizedMetric, 'sanitation') || str_contains($normalizedMetric, 'audit') => 'permits',
+            str_contains($normalizedMetric, 'consult') || str_contains($normalizedMetric, 'patient') || str_contains($normalizedMetric, 'triage') => 'consults',
+            str_contains($normalizedMetric, 'vaccin') || str_contains($normalizedMetric, 'immuni') || str_contains($normalizedMetric, 'nutrition') => 'vaccines',
+            str_contains($normalizedMetric, 'waste') || str_contains($normalizedMetric, 'septic') || str_contains($normalizedMetric, 'clearance') => 'wastewater',
+            default => 'generic'
+        };
+
+        // Domain-specific seasonal multipliers for forward 6 months (Nov, Dec, Jan, Feb, Mar, Apr)
+        $domainSeasonalFactors = match($domain) {
+            'disease'    => [0.85, 0.72, 0.60, 0.52, 0.48, 0.52], // Post-monsoon Dengue/Lepto decline into dry cool season
+            'permits'    => [1.25, 1.60, 2.40, 1.90, 1.30, 1.10], // Annual January LGU business & sanitation renewal surge
+            'consults'   => [1.18, 1.08, 1.24, 1.15, 1.28, 1.20], // Winter respiratory peak & summer pediatric dehydration wave
+            'vaccines'   => [1.12, 0.95, 1.20, 1.08, 1.16, 1.06], // Scheduled infant dose follow-up cohort pulses
+            'wastewater' => [1.06, 0.92, 1.15, 1.22, 1.10, 1.25], // Desludging maintenance scheduling cycles
+            default      => [1.05, 1.10, 1.15, 1.20, 1.24, 1.28]
+        };
+
+        $trajectory = [(float)round($effectiveBaseline, 1)];
+
         for ($step = 1; $step <= $steps; $step++) {
-            $dampingFactor = pow(0.80, $step - 1);
-            $stepDelta = $dampedSlope * $dampingFactor;
-            $cumulativeGrowth += $stepDelta;
-            $predVal = $currentVal + $cumulativeGrowth;
+            $factor = $domainSeasonalFactors[$step - 1] ?? 1.0;
+            $damping = pow(0.92, $step - 1);
+            $trendDelta = ($rawSlope * $step * 0.25) * $damping;
+            $projected = ($effectiveBaseline * $factor) + $trendDelta;
 
-            // Municipal ceiling clamp: allow up to 2.5x of recent baseline for outbreak detection
-            $ceiling = max(8, (int)round(max($currentVal, $recentAvg) * 2.5) + 4);
-            $trajectory[] = min($ceiling, max(0, (int)round($predVal)));
+            $maxCap = max(6.0, round(max($effectiveBaseline, $activeAvg) * 3.0, 1) + 2.0);
+            $finalVal = max(0.5, min((float)$maxCap, $projected));
+            $trajectory[] = round($finalVal, 1);
         }
 
         $lastProj = end($trajectory);
-        $growthPct = $currentVal > 0 ? round((($lastProj - $currentVal) / $currentVal) * 100, 1) : 0.0;
+        $startProj = $trajectory[0];
+        $growthPct = $startProj > 0 ? round((($lastProj - $startProj) / $startProj) * 100, 1) : 0.0;
         $confidence = $computeConfidence($historicalValues, $rSquared);
 
         return [
-            'current'    => $currentVal,
+            'current'    => (int)round($effectiveBaseline),
             'forecast'   => $trajectory,
             'confidence' => $confidence,
             'r_squared'  => round($rSquared, 2),
-            'slope'      => round($dampedSlope, 3),
+            'slope'      => round($rawSlope, 3),
             'growth_pct' => $growthPct
         ];
     }

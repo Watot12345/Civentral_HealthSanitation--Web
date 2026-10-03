@@ -824,13 +824,42 @@
             </div>
             <div class="flex flex-wrap items-center gap-3 bg-white/80 backdrop-blur-md px-4 py-2.5 rounded-xl border border-zinc-200 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.05)] no-print">
                 <span class="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Data Freshness</span>
-                <span class="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-lg text-xs font-bold" title="WebSocket Push active from Supabase">
+                <span class="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-lg text-xs font-bold" title="Live Realtime Data Sync">
                     <span class="relative flex h-2 w-2">
                         <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                         <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
                     </span>
-                    <span>Supabase Realtime</span>
+                    <span>Realtime</span>
                 </span>
+
+                <span class="w-px h-4 bg-zinc-200"></span>
+
+                <!-- Department Scope Selector -->
+                <div class="flex items-center gap-1.5" id="scopeSelectorWrap">
+                    <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                    <?php
+                    $userScopeData = \App\Services\PermissionService::getInstance()->getUserScope();
+                    $isAdminUser = !empty($userScopeData['is_admin']);
+                    $userDeptLabel = $userScopeData['department'] ?? 'Department Scoped';
+                    ?>
+                    <?php if ($isAdminUser): ?>
+                    <select id="scopeSelect" class="text-xs font-semibold bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg px-2.5 py-1 transition-all focus:outline-none focus:ring-2 focus:ring-zinc-100 cursor-pointer" title="Executive Authority: Switch Department Analytics Scope">
+                        <option value="admin" selected>All Departments (City-Wide)</option>
+                        <option value="health_center">Health Center Services</option>
+                        <option value="sanitation">Sanitation Permits</option>
+                        <option value="immunization">Immunization & Nutrition</option>
+                        <option value="surveillance">Disease Surveillance</option>
+                        <option value="wastewater">Wastewater Services</option>
+                    </select>
+                    <?php else: ?>
+                    <span class="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg text-xs font-semibold" title="Role-Scoped Access: Secured to your municipal department">
+                        <i class="fas fa-lock text-[10px] text-zinc-400"></i>
+                        <?= htmlspecialchars($userDeptLabel) ?>
+                    </span>
+                    <?php endif; ?>
+                </div>
 
                 <span class="w-px h-4 bg-zinc-200"></span>
 

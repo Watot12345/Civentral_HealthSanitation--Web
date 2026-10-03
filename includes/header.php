@@ -153,7 +153,7 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/apexcharts" defer></script>
   
-  <!-- Font Awesome 6 (Latest) -->
+  <!-- Font Awesome 6 (Latest CDN with full webfonts) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   
   <style type="text/tailwindcss">
@@ -168,6 +168,25 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
       --color-c3: #176B87;
       --color-c3d: #0d4f64;
     }
+  </style>
+
+  <style>
+    :root {
+      --color-brand-light: #EEF5FF;
+      --color-brand-border: #B4D4FF;
+      --color-brand-medium: #86B6F6;
+      --color-brand-dark: #176B87;
+      --color-c1: #B4D4FF;
+      --color-c2: #86B6F6;
+      --color-c3: #176B87;
+      --color-c3d: #0d4f64;
+    }
+    .bg-c3 { background-color: #176B87 !important; }
+    .bg-c3d { background-color: #0d4f64 !important; }
+    .text-c3 { color: #176B87 !important; }
+    .border-c3 { border-color: #176B87 !important; }
+    .from-c3 { --tw-gradient-from: #176B87 var(--tw-gradient-from-position); --tw-gradient-to: rgb(23 107 135 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+    .to-c3d { --tw-gradient-to: #0d4f64 var(--tw-gradient-to-position); }
   </style>
 
   <style>
@@ -362,9 +381,9 @@ $initialUnreadCount = count(array_filter($headerNotifications, fn($n) => empty($
   <script src="<?= site_url('assets/js/crud-ajax.js'); ?>?v=<?= filemtime(__DIR__ . '/../assets/js/crud-ajax.js') ?>"></script>
   <!-- Offline Transaction Queue & Auto-Sync (Bypassed) -->
   <!-- <script src="<?= site_url('assets/js/offline-sync.js'); ?>"></script> -->
-  <!-- Supabase Realtime Client -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="<?= site_url('assets/js/supabase-config.js'); ?>?v=<?= filemtime(__DIR__ . '/../assets/js/supabase-config.js') ?>"></script>
+  <!-- Supabase Realtime Client (Deferred) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="<?= site_url('assets/js/supabase-config.js'); ?>?v=<?= filemtime(__DIR__ . '/../assets/js/supabase-config.js') ?>" defer></script>
   <link rel="manifest" href="<?= site_url('manifest.json'); ?>">
 </head>
 <?php if (!$minimalHeader) {

@@ -576,7 +576,7 @@ document.addEventListener('DOMContentLoaded', function () {
             animations: { enabled: true, easing: 'easeinout', speed: 600 }
         },
         colors: ['#ef4444', '#14b8a6', '#f59e0b', '#3b82f6', '#9333ea'],
-        stroke: { curve: 'smooth', width: [3, 3, 3.5, 3, 3], dashArray: [0, 0, 4, 0, 0] },
+        stroke: { curve: 'smooth', width: 3, dashArray: 0 },
         xaxis: {
             categories: [],
             labels: { style: { colors: '#a1a1aa', fontSize: '10px', fontWeight: '500' } },
@@ -626,7 +626,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return html;
             }
         },
-        markers: { size: [3.5, 3.5, 5, 3.5, 3.5], hover: { size: 7 } }
+        markers: { size: 4, hover: { size: 6 } }
     };
     var predictiveChart = new ApexCharts(document.querySelector("#predictiveLineChart"), predictiveOptions);
     predictiveChart.render();
@@ -701,9 +701,9 @@ document.addEventListener('DOMContentLoaded', function () {
     var isFetchingAnalytics = false;
     var pendingAnalyticsFetch = null;
 
-    function getStoredAnalyticsCache(range, filter, yoy) {
+    function getStoredAnalyticsCache(range, filter, yoy, scope) {
         try {
-            var key = 'capstone_ai_analytics_' + range + '_' + filter + '_' + (yoy ? '1' : '0');
+            var key = 'capstone_ai_analytics_' + range + '_' + filter + '_' + (yoy ? '1' : '0') + '_' + (scope || 'admin');
             var raw = sessionStorage.getItem(key);
             if (raw) {
                 var parsed = JSON.parse(raw);
@@ -716,11 +716,44 @@ document.addEventListener('DOMContentLoaded', function () {
         return null;
     }
 
-    function setStoredAnalyticsCache(range, filter, yoy, data) {
+    function setStoredAnalyticsCache(range, filter, yoy, scope, data) {
         try {
-            var key = 'capstone_ai_analytics_' + range + '_' + filter + '_' + (yoy ? '1' : '0');
+            var key = 'capstone_ai_analytics_' + range + '_' + filter + '_' + (yoy ? '1' : '0') + '_' + (scope || 'admin');
             sessionStorage.setItem(key, JSON.stringify({ timestamp: Date.now(), data: data }));
         } catch (e) { }
+    }
+
+    function clearStoredAnalyticsCache() {
+        try {
+            for (var i = sessionStorage.length - 1; i >= 0; i--) {
+                var k = sessionStorage.key(i);
+                if (k && k.indexOf('capstone_ai_analytics_') === 0) {
+                    sessionStorage.removeItem(k);
+                }
+            }
+        } catch (e) { }
+    }
+
+    // Real-time synchronization: bust client cache whenever data mutations occur locally or across tabs
+    function triggerRealtimeSync() {
+        clearStoredAnalyticsCache();
+        if (typeof fetchLiveAnalytics === 'function') {
+            fetchLiveAnalytics(true, true);
+        }
+    }
+
+    window.addEventListener('capstone:data-updated', triggerRealtimeSync);
+    window.addEventListener('realtimeUpdate', triggerRealtimeSync);
+    window.addEventListener('realtimeDelete', triggerRealtimeSync);
+    window.addEventListener('sanitationPermitsUpdated', triggerRealtimeSync);
+    window.addEventListener('sanitationInspectionsUpdated', triggerRealtimeSync);
+
+    // Cross-Tab Instant BroadcastChannel Listener
+    if ('BroadcastChannel' in window) {
+        var analyticsBc = new BroadcastChannel('capstone_realtime_sync');
+        analyticsBc.onmessage = function (e) {
+            triggerRealtimeSync();
+        };
     }
 
     function renderAnalyticsPayload(data) {
@@ -801,8 +834,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 predictiveChart.updateOptions({
                     series: processedSeries,
                     colors: seriesColors,
-                    stroke: { curve: 'smooth', width: [3, 3, 3.5, 3, 3], dashArray: [0, 0, 4, 0, 0] },
-                    markers: { size: [3.5, 3.5, 5, 3.5, 3.5], hover: { size: 7 } },
+                    stroke: { curve: 'smooth', width: 3, dashArray: 0 },
+                    markers: { size: 4, hover: { size: 6 } },
                     xaxis: { categories: data.predictive.categories }
                 });
             }
@@ -861,6 +894,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var filterEl = document.getElementById('trendFilter');
         var filter = filterEl ? filterEl.value : 'combined';
         var yoy = document.getElementById('yoyToggle') ? document.getElementById('yoyToggle').checked : false;
+        var scopeEl = document.getElementById('scopeSelect');
+        var scope = scopeEl ? scopeEl.value : 'admin';
 
         // Concurrency Guard: prevent duplicate concurrent requests
         if (isFetchingAnalytics) {
@@ -874,7 +909,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Stale-While-Revalidate: render cached state immediately if available
         if (!forceRefresh) {
-            var cached = getStoredAnalyticsCache(range, filter, yoy);
+            var cached = getStoredAnalyticsCache(range, filter, yoy, scope);
             if (cached && cached.data) {
                 renderAnalyticsPayload(cached.data);
                 isSilent = true; // Background refresh: no skeleton flash
@@ -886,11 +921,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         try {
-            var url = '../api/analytics.php?range=' + range + '&filter=' + filter + '&yoy=' + yoy + (forceRefresh ? '&refresh=1' : '');
+            var url = '../api/analytics.php?range=' + range + '&filter=' + filter + '&yoy=' + yoy + '&scope=' + scope + (forceRefresh ? '&refresh=1' : '');
             var res = await fetch(url);
             var data = await res.json();
             if (data && data.success) {
-                setStoredAnalyticsCache(range, filter, yoy, data);
+                setStoredAnalyticsCache(range, filter, yoy, scope, data);
                 renderAnalyticsPayload(data);
             }
         } catch (err) {
@@ -990,6 +1025,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Manual Refresh Button Handler
     if (document.getElementById('btnManualRefresh')) {
         document.getElementById('btnManualRefresh').addEventListener('click', function () {
+            clearStoredAnalyticsCache();
             fetchLiveAnalytics(true, false);
         });
     }
@@ -1133,6 +1169,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     if (document.getElementById('yoyToggle')) {
         document.getElementById('yoyToggle').addEventListener('change', function () { fetchLiveAnalytics(true, false); });
+    }
+    if (document.getElementById('scopeSelect')) {
+        document.getElementById('scopeSelect').addEventListener('change', function () { fetchLiveAnalytics(true, false); });
     }
     if (document.getElementById('dateRangeSelect')) {
         document.getElementById('dateRangeSelect').addEventListener('change', function (e) {

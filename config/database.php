@@ -8,6 +8,55 @@ class Database
 {
     private static ?Database $instance = null;
     private static mixed $curlHandle = null;
+    private static array $requestMemoryCache = [];
+    private static ?array $tableVersions = null;
+
+    private static array $microCacheTables = [
+        'system_settings', 'settings', 'setting_categories', 'feature_flags', 'settings_versions',
+        'roles', 'role_permissions', 'employees', 'technicians', 'service_types', 'barangays'
+    ];
+
+    private static function getTableVersion(string $table): int
+    {
+        $vFile = __DIR__ . '/../storage/cache/table_versions.json';
+        if (self::$tableVersions === null) {
+            if (file_exists($vFile)) {
+                self::$tableVersions = @json_decode(@file_get_contents($vFile), true) ?: [];
+            } else {
+                self::$tableVersions = [];
+            }
+        }
+        return self::$tableVersions[$table] ?? 1;
+    }
+
+    private static function bumpTableVersion(string $table): void
+    {
+        $vFile = __DIR__ . '/../storage/cache/table_versions.json';
+        if (self::$tableVersions === null) {
+            if (file_exists($vFile)) {
+                self::$tableVersions = @json_decode(@file_get_contents($vFile), true) ?: [];
+            } else {
+                self::$tableVersions = [];
+            }
+        }
+        self::$tableVersions[$table] = time();
+        @file_put_contents($vFile, json_encode(self::$tableVersions), LOCK_EX);
+
+        // Bust AI & Analytics Caches when operational tables mutate so AI never serves stale data
+        $operationalTables = [
+            'patients', 'consultations', 'appointments', 'triage_queue',
+            'medical_records', 'prescriptions', 'permits', 'inspections',
+            'renewals', 'children', 'immunization_assessments', 'septic_tanks',
+            'wastewater_invoices', 'service_requests', 'surveillance_cases',
+            'surveillance_alerts', 'surveillance_contacts'
+        ];
+        if (in_array($table, $operationalTables, true)) {
+            require_once __DIR__ . '/../app/services/CacheService.php';
+            $cacheService = new CacheService();
+            $cacheService->clearAnalyticsCache();
+            $cacheService->clearAiSummaryCache();
+        }
+    }
 
     private string $url;
     private string $anonKey;
@@ -116,36 +165,63 @@ class Database
         }
 
         // PERFORMANCE CACHING LOGIC
+        $requestCacheKey = $method . ':' . $endpoint . ':' . $key;
+
+        // 1. In-Memory Request Cache: Instant 0ms return for repeated queries in the same HTTP request
+        if ($method === 'GET' && array_key_exists($requestCacheKey, self::$requestMemoryCache)) {
+            return self::$requestMemoryCache[$requestCacheKey];
+        }
+
+        // Mutation guard: writes bust in-memory cache and bump persistent table version
+        if ($method !== 'GET') {
+            self::$requestMemoryCache = [];
+            self::bumpTableVersion($table);
+        }
+
+        // 2. Persistent Micro-Cache & Settings Cache
         require_once __DIR__ . '/../app/cache/CacheManager.php';
         $cacheManager = new \App\Cache\CacheManager();
+        $isMicroCached = in_array($table, self::$microCacheTables, true);
         $cacheEnabled = false;
-        $cacheDuration = 3600;
+        $cacheDuration = 300;
         $cacheKey = '';
 
-        // Bypass cache for system and real-time operational tables where accuracy is critical
-        $skipCache = in_array($table, [
-            'system_settings', 'settings', 'setting_categories', 'feature_flags', 'settings_versions',
-            'audit_logs', 'system_logs', 'activity_logs', 'scheduler_logs', 'ai_analytics_logs',
-            'employees', 'roles', 'role_permissions', 'user_sessions', 'triage_queue',
-            'assessment', 'consultations', 'prescriptions', 'appointments', 'medical_records',
-            'patients', 'referrals', 'children', 'growth_measurements', 'nutrition_assessments',
-            'vaccine_inventory', 'vaccine_transactions', 'immunizations', 'immunization_records', 'surveillance_cases',
-            'permits', 'permit_documents', 'payments', 'inspections', 'renewals'
-        ]);
-
-        if (!$skipCache && $method === 'GET') {
-            $settingsCache = $cacheManager->get('all_settings_dictionary');
-            if ($settingsCache !== null && is_array($settingsCache)) {
-                $cacheEnabled = $settingsCache['performance.cache_enabled'] ?? false;
-                $cacheDuration = (int)($settingsCache['performance.cache_duration'] ?? 3600);
-            }
-
-            if ($cacheEnabled) {
-                // Generate a unique fingerprint for this specific query
-                $cacheKey = "db_query_" . md5($endpoint . json_encode($data) . $key . $prefer);
+        if ($method === 'GET') {
+            if ($isMicroCached) {
+                $version = self::getTableVersion($table);
+                $cacheKey = "micro_{$table}_v{$version}_" . md5($endpoint . $key);
                 $cachedResult = $cacheManager->get($cacheKey);
                 if ($cachedResult !== null) {
+                    self::$requestMemoryCache[$requestCacheKey] = $cachedResult;
                     return $cachedResult;
+                }
+            } else {
+                // Bypass cache for system and real-time operational tables where accuracy is critical
+                $skipCache = in_array($table, [
+                    'audit_logs', 'system_logs', 'activity_logs', 'scheduler_logs', 'ai_analytics_logs',
+                    'user_sessions', 'triage_queue',
+                    'assessment', 'consultations', 'prescriptions', 'appointments', 'medical_records',
+                    'patients', 'referrals', 'children', 'growth_measurements', 'nutrition_assessments',
+                    'vaccine_inventory', 'vaccine_transactions', 'immunizations', 'immunization_records', 'surveillance_cases',
+                    'permits', 'permit_documents', 'payments', 'inspections', 'renewals'
+                ]);
+
+                if (!$skipCache) {
+                    $settingsCache = $cacheManager->get('all_settings_dictionary');
+                    if ($settingsCache !== null && is_array($settingsCache)) {
+                        $cacheEnabled = $settingsCache['performance.cache_enabled'] ?? false;
+                        $cacheDuration = (int)($settingsCache['performance.cache_duration'] ?? 3600);
+                    }
+
+                    if ($cacheEnabled) {
+                        // Generate a unique fingerprint for this specific query
+                        $cacheKey = "db_query_" . md5($endpoint . json_encode($data) . $key . $prefer);
+                        $cachedResult = $cacheManager->get($cacheKey);
+                        if ($cachedResult !== null) {
+                            self::$requestMemoryCache[$requestCacheKey] = $cachedResult;
+                            return $cachedResult;
+                        }
+                    }
                 }
             }
         }
@@ -208,9 +284,15 @@ class Database
         $decoded = json_decode($response, true);
         $result = $decoded ?? [];
 
-        // Save successful GET requests to cache if caching is enabled
-        if ($cacheEnabled && $method === 'GET' && $httpCode >= 200 && $httpCode < 300) {
-            $cacheManager->set($cacheKey, $result, $cacheDuration);
+        // Save successful GET requests to memory and persistent cache
+        if ($method === 'GET' && $httpCode >= 200 && $httpCode < 300) {
+            self::$requestMemoryCache[$requestCacheKey] = $result;
+
+            if ($isMicroCached && !empty($cacheKey)) {
+                $cacheManager->set($cacheKey, $result, 300);
+            } elseif ($cacheEnabled && !empty($cacheKey)) {
+                $cacheManager->set($cacheKey, $result, $cacheDuration);
+            }
         }
 
         return $result;

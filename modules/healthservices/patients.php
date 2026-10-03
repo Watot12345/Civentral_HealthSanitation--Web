@@ -29,14 +29,33 @@ require_once '../../includes/sidebar.php';
 requireDepartmentAccess('health center services');
 
 
-// Load Data from Database
+// Load Data from Database via Concurrent Multi-cURL
 require_once __DIR__ . '/../../app/Models/Patient.php';
 require_once __DIR__ . '/../../app/Models/Child.php';
 require_once __DIR__ . '/../../app/Models/Appointment.php';
 $patientModel = new Patient();
 $childModel = new Child();
 $appointmentModel = new Appointment();
-$dbPatients = $patientModel->all(['order' => 'created_at.desc']);
+
+$dbPatients = [];
+$allAppointments = [];
+$dbChildren = [];
+
+try {
+    $batch = Database::getInstance()->multiSelect([
+        'patients'     => ['order' => 'created_at.desc'],
+        'appointments' => ['select' => 'id,status,appointment_date,date'],
+        'children'     => ['select' => 'id,birth_date'],
+    ]);
+    $dbPatients = !empty($batch['patients']) ? EncryptionHelper::decryptRows('patients', $batch['patients']) : [];
+    $allAppointments = $batch['appointments'] ?? [];
+    $dbChildren = $batch['children'] ?? [];
+} catch (Throwable $e) {
+    error_log('Error batch fetching patients data: ' . $e->getMessage());
+    $dbPatients = $patientModel->all(['order' => 'created_at.desc']);
+    $allAppointments = $appointmentModel->all();
+    $dbChildren = $childModel->all();
+}
 
 $patients = [];
 foreach ($dbPatients as $p) {
@@ -158,10 +177,12 @@ $title = 'Patient Management';
     $criticalConditions = ['Heart Disease'];
     $criticalCount = count(array_filter($patients, fn($p) => in_array($p['conditions'], $criticalConditions)));
     
-    // Dynamic real-time calculation of today's appointments
+    // Dynamic real-time calculation of today's appointments (using pre-batched data)
     $todaysAppointments = 0;
     try {
-        $allAppointments = $appointmentModel->all();
+        if (empty($allAppointments)) {
+            $allAppointments = $appointmentModel->all();
+        }
         $todayStr = date('Y-m-d');
         $todaysAppointments = count(array_filter($allAppointments, function($a) use ($todayStr) {
             $status = strtolower($a['status'] ?? 'pending');
@@ -196,9 +217,11 @@ $title = 'Patient Management';
         else $ageGroups['66+ yrs']++;
     }
 
-    // Include registered children under 5 from child records
+    // Include registered children under 5 from child records (using pre-batched data)
     try {
-        $dbChildren = $childModel->all();
+        if (empty($dbChildren)) {
+            $dbChildren = $childModel->all();
+        }
         if (!empty($dbChildren) && is_array($dbChildren)) {
             $now = new DateTime();
             foreach ($dbChildren as $c) {

@@ -21,6 +21,7 @@ class RoleController extends BaseController
      */
     public function index(): void
     {
+        $this->requireCapability('users.view', 'Roles API: list');
         $this->handle(function () {
             $roles = $this->roleModel->all(['order' => 'id.asc']);
             return [
@@ -36,6 +37,7 @@ class RoleController extends BaseController
      */
     public function show(string $id): void
     {
+        $this->requireCapability('users.view', 'Roles API: show');
         $this->handle(function () use ($id) {
             $role = $this->roleModel->find((int) $id);
             if (!$role) {
@@ -50,6 +52,8 @@ class RoleController extends BaseController
      */
     public function update(string $id): void
     {
+        $this->requireCapability('roles.manage', 'Roles API: update');
+        $this->validateCsrf();
         $data = $this->input();
 
         $this->handle(function () use ($id, $data) {

@@ -35,8 +35,8 @@ $recentActivities = [];
 
 if ($canViewActivityFeed) {
     $activityLogModel = new ActivityLog();
-    // Fetch logs to filter
-    $allDashboardLogs = $activityLogModel->all(['limit' => 60]);
+    // Fetch recent operational logs to filter (only need top 7 after filtering)
+    $allDashboardLogs = $activityLogModel->all(['limit' => 20]);
     
     $recentActivities = array_values(array_filter($allDashboardLogs, function($log) use ($isSysAdmin, $roleLower, $currentDept) {
         $module = strtolower($log['module'] ?? '');
@@ -167,14 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <?php unset($_SESSION['flash_error']); endif; ?>
-<!-- ADD FONT AWESOME CDN -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
-<!-- ADD APEXCHARTS CDN -->
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-
-<!-- ADD SUPABASE JS CDN FOR REALTIME WEBSOCKET PUSH -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <main class="bg-white flex-1 h-full flex flex-col overflow-hidden" role="main" aria-label="Dashboard content">
 

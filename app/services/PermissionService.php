@@ -34,6 +34,101 @@ class PermissionService
         return self::$instance;
     }
 
+    // ============================================================
+    // PERMISSION STATE (global version + explicitly configured roles)
+    // ------------------------------------------------------------
+    // Sessions cache granted slugs. The cache key includes the global
+    // version, so bumping it after any role-permission change forces
+    // every logged-in user to re-resolve on their next request.
+    // "configured_roles" records roles an admin has explicitly saved,
+    // so a role saved with zero permissions stays empty instead of
+    // falling back to the hardcoded default matrix.
+    // ============================================================
+    private static ?array $stateCache = null;
+
+    private static function stateFile(): string
+    {
+        return __DIR__ . '/../../storage/permissions_state.json';
+    }
+
+    private static function readState(bool $fresh = false): array
+    {
+        if (!$fresh && self::$stateCache !== null) {
+            return self::$stateCache;
+        }
+        $state = ['version' => 0, 'configured_roles' => []];
+        $file = self::stateFile();
+        if (is_file($file)) {
+            $decoded = json_decode((string) @file_get_contents($file), true);
+            if (is_array($decoded)) {
+                $state['version'] = (int) ($decoded['version'] ?? 0);
+                $state['configured_roles'] = array_values(array_map('intval', (array) ($decoded['configured_roles'] ?? [])));
+            }
+        }
+        return self::$stateCache = $state;
+    }
+
+    private static function writeState(callable $mutator): void
+    {
+        $file = self::stateFile();
+        $dir = dirname($file);
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+        $fh = @fopen($file, 'c+');
+        if ($fh === false) {
+            error_log('PermissionService: unable to open permission state file ' . $file);
+            return;
+        }
+        try {
+            flock($fh, LOCK_EX);
+            $raw = stream_get_contents($fh);
+            $decoded = json_decode((string) $raw, true);
+            $state = [
+                'version'          => (int) ($decoded['version'] ?? 0),
+                'configured_roles' => array_values(array_map('intval', (array) ($decoded['configured_roles'] ?? []))),
+            ];
+            $state = $mutator($state);
+            ftruncate($fh, 0);
+            rewind($fh);
+            fwrite($fh, json_encode($state, JSON_PRETTY_PRINT));
+            fflush($fh);
+            self::$stateCache = $state;
+        } finally {
+            flock($fh, LOCK_UN);
+            fclose($fh);
+        }
+    }
+
+    public static function getPermissionsVersion(): int
+    {
+        return self::readState()['version'];
+    }
+
+    public static function bumpPermissionsVersion(): void
+    {
+        self::writeState(function (array $s) {
+            $s['version'] = $s['version'] + 1;
+            return $s;
+        });
+    }
+
+    public static function markRoleConfigured(int $roleId): void
+    {
+        if ($roleId <= 0) return;
+        self::writeState(function (array $s) use ($roleId) {
+            if (!in_array($roleId, $s['configured_roles'], true)) {
+                $s['configured_roles'][] = $roleId;
+            }
+            return $s;
+        });
+    }
+
+    public static function isRoleConfigured(int $roleId): bool
+    {
+        return in_array($roleId, self::readState()['configured_roles'], true);
+    }
+
     public static function normalizeRoleTitle(string $role): string
     {
         $role = trim($role);
@@ -362,7 +457,7 @@ class PermissionService
 
         $userRoleDesc = trim($_SESSION['role_description'] ?? '');
         $userRole = trim($_SESSION['role'] ?? 'employee');
-        $currentSessionRoleKey = $userRoleDesc . ':' . $userRole . ':v7';
+        $currentSessionRoleKey = $userRoleDesc . ':' . $userRole . ':v8:' . self::getPermissionsVersion();
 
         // Return session cache if populated for current active role
         if (isset($_SESSION['granted_permission_slugs_key']) 
@@ -414,8 +509,11 @@ class PermissionService
                 }
             }
         }
+
+        // A role an admin has explicitly saved is authoritative, even when empty.
+        $roleIsConfigured = $matchedRole && !empty($matchedRole['permissions_configured']);
         
-        if (empty($grantedSlugs)) {
+        if (empty($grantedSlugs) && !$roleIsConfigured) {
             // Baseline matrix defaults if role not found in database or has no permissions configured
             $matrix = self::defaultRolePermissionMatrix();
             foreach ($matrix as $rName => $slugs) {
@@ -701,7 +799,8 @@ class PermissionService
     }
 
     /**
-     * Invalidate session permission cache for current user or session.
+     * Invalidate permission caches. Clears the caller's session cache and bumps the
+     * global permissions version so every other logged-in session re-resolves too.
      */
     public function invalidateCache(?int $userId = null): void
     {
@@ -709,6 +808,7 @@ class PermissionService
             @session_start();
         }
         unset($_SESSION['granted_permission_slugs'], $_SESSION['granted_permission_slugs_key']);
+        self::bumpPermissionsVersion();
     }
 
     /**

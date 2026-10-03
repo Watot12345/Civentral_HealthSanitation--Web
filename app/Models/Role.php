@@ -159,7 +159,9 @@ class Role
             $roleId = (int) $role['id'];
             $roleName = trim($role['name'] ?? '');
             $grantedIds = $grantedByRole[$roleId] ?? [];
-            $hasDbCustom = !empty($grantedIds);
+            $isConfigured = class_exists('\App\Services\PermissionService')
+                && \App\Services\PermissionService::isRoleConfigured($roleId);
+            $hasDbCustom = !empty($grantedIds) || $isConfigured;
 
             $defaultSlugs = [];
             if (!$hasDbCustom && !empty($roleName)) {
@@ -183,6 +185,7 @@ class Role
             }
 
             $role['permissions'] = $perms;
+            $role['permissions_configured'] = $hasDbCustom;
             $role['user_count'] = $userCountByRole[$roleId] ?? 0;
         }
 
@@ -348,6 +351,10 @@ class Role
         } catch (Throwable $e) {
             $grantedIds = [];
         }
+        if (!$hasDbCustom && class_exists('\App\Services\PermissionService')
+            && \App\Services\PermissionService::isRoleConfigured($roleId)) {
+            $hasDbCustom = true;
+        }
 
         // Get role name for matrix fallback
         $roleName = '';
@@ -426,6 +433,14 @@ class Role
             } catch (Throwable $e) {
                 // Ignore duplicates
             }
+        }
+
+        // 4. Record this role as explicitly configured and propagate the change
+        self::$cachedRoles = null;
+        self::$cacheTime = null;
+        if (class_exists('\App\Services\PermissionService')) {
+            \App\Services\PermissionService::markRoleConfigured($roleId);
+            \App\Services\PermissionService::bumpPermissionsVersion();
         }
     }
 

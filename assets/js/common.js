@@ -558,3 +558,164 @@ function throttle(fn, limit = 200) {
         }
     });
 })();
+
+// ============================================================
+// ANTI-SPAM & DOUBLE-SUBMISSION PROTECTION SYSTEM
+// ============================================================
+(function(window) {
+    'use strict';
+
+    const inFlightRequests = new Map();
+
+    /**
+     * Intercept window.fetch to deduplicate rapid mutating requests (POST, PUT, PATCH, DELETE)
+     */
+    if (window.fetch) {
+        const originalFetch = window.fetch;
+        window.fetch = function(resource, init) {
+            const method = (init && init.method ? init.method : 'GET').toUpperCase();
+            const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+
+            if (!isMutating) {
+                return originalFetch.apply(this, arguments);
+            }
+
+            let url = typeof resource === 'string' ? resource : (resource ? resource.url : '');
+            let body = '';
+            if (init && init.body) {
+                if (typeof init.body === 'string') {
+                    body = init.body;
+                } else if (init.body instanceof FormData) {
+                    const entries = [];
+                    init.body.forEach((v, k) => {
+                        if (!(v instanceof File)) entries.push(`${k}=${v}`);
+                    });
+                    body = entries.sort().join('&');
+                }
+            }
+
+            const signature = `${method}:${url}:${body}`;
+            const now = Date.now();
+
+            // Check if identical request is already actively in flight
+            if (inFlightRequests.has(signature)) {
+                const existing = inFlightRequests.get(signature);
+                if (now - existing.timestamp < 3000) {
+                    console.warn(`[AntiSpamGuard] Rapid duplicate request blocked for [${method} ${url}]. Reusing in-flight response.`);
+                    return existing.promise.then(res => res.clone());
+                }
+            }
+
+            const fetchPromise = originalFetch.apply(this, arguments)
+                .finally(() => {
+                    setTimeout(() => {
+                        inFlightRequests.delete(signature);
+                    }, 800);
+                });
+
+            inFlightRequests.set(signature, {
+                timestamp: now,
+                promise: fetchPromise
+            });
+
+            return fetchPromise;
+        };
+    }
+
+    /**
+     * Universal Form Submission & Double-Click Guard
+     */
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        if (!form || form.tagName !== 'FORM') return;
+
+        if (form.dataset.isSubmitting === 'true') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            console.warn('[AntiSpamGuard] Duplicate form submission blocked.');
+            return false;
+        }
+
+        form.dataset.isSubmitting = 'true';
+        const submitBtn = form.querySelector('button[type="submit"], input[type="submit"], .btn-submit');
+        if (submitBtn) {
+            submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            if (submitBtn.tagName === 'BUTTON') {
+                submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-xs mr-1.5"></i> Saving...';
+            }
+        }
+
+        // Safety auto-unlock after 5 seconds in case of validation stops or network delays
+        setTimeout(() => {
+            window.unlockForm(form);
+        }, 5000);
+    }, true);
+
+    window.unlockForm = function(form) {
+        if (!form) return;
+        form.dataset.isSubmitting = 'false';
+        const submitBtn = form.querySelector('button[type="submit"], input[type="submit"], .btn-submit');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            if (submitBtn.dataset.originalHtml) {
+                submitBtn.innerHTML = submitBtn.dataset.originalHtml;
+                delete submitBtn.dataset.originalHtml;
+            }
+        }
+    };
+
+    /**
+     * Universal helper for async modal buttons: onclick="withSubmitLock(this, async () => { ... })"
+     */
+    window.withSubmitLock = async function(target, asyncCallback) {
+        let btn = target;
+        if (target && target.target) {
+            btn = target.target.closest('button') || target.target;
+        } else if (typeof target === 'string') {
+            btn = document.querySelector(target);
+        }
+
+        if (btn && (btn.dataset.isSubmitting === 'true' || btn.disabled)) {
+            console.warn('[AntiSpamGuard] Action button is currently locked. Ignoring duplicate click.');
+            return;
+        }
+
+        let originalHtml = '';
+        if (btn) {
+            btn.dataset.isSubmitting = 'true';
+            btn.disabled = true;
+            originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-xs mr-1.5"></i> Processing...';
+        }
+
+        try {
+            const res = await asyncCallback();
+            // Data mutation hook: bust client-side AI analytics cache so updated data is instantly reflected
+            try {
+                for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                    const k = sessionStorage.key(i);
+                    if (k && k.indexOf('capstone_ai_analytics_') === 0) {
+                        sessionStorage.removeItem(k);
+                    }
+                }
+                window.dispatchEvent(new CustomEvent('capstone:data-updated'));
+                if ('BroadcastChannel' in window) {
+                    const bc = new BroadcastChannel('capstone_realtime_sync');
+                    bc.postMessage({ type: 'data-updated', timestamp: Date.now() });
+                    bc.close();
+                }
+            } catch (e) {}
+            return res;
+        } finally {
+            if (btn) {
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.dataset.isSubmitting = 'false';
+                    if (originalHtml) btn.innerHTML = originalHtml;
+                }, 600);
+            }
+        }
+    };
+})(window);
+

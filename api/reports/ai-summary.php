@@ -119,11 +119,11 @@ try {
             $pending = max(0, $total - $compliant - $urgent);
         }
     } catch (Throwable $dbErr) {
-        // Fallback default metrics if database query is empty
-        $total = isset($_REQUEST['total']) ? (int)$_REQUEST['total'] : 45;
-        $compliant = isset($_REQUEST['compliant']) ? (int)$_REQUEST['compliant'] : 38;
-        $urgent = isset($_REQUEST['urgent']) ? (int)$_REQUEST['urgent'] : 3;
-        $pending = isset($_REQUEST['pending']) ? (int)$_REQUEST['pending'] : 4;
+        // Fallback default metrics if database query fails or is empty
+        $total = isset($_REQUEST['total']) ? (int)$_REQUEST['total'] : 0;
+        $compliant = isset($_REQUEST['compliant']) ? (int)$_REQUEST['compliant'] : 0;
+        $urgent = isset($_REQUEST['urgent']) ? (int)$_REQUEST['urgent'] : 0;
+        $pending = isset($_REQUEST['pending']) ? (int)$_REQUEST['pending'] : 0;
     }
 
     // Accept overrides from frontend payload if passed explicitly
@@ -134,7 +134,7 @@ try {
         $pending = (int)($_REQUEST['pending'] ?? $pending);
     }
 
-    $complianceRate = $total > 0 ? round(($compliant / $total) * 100, 1) : 94.5;
+    $complianceRate = $total > 0 ? round(($compliant / $total) * 100, 1) : 0.0;
 
     $metrics = [
         'total' => $total,

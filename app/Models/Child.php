@@ -154,7 +154,6 @@ class Child
 
     public function count(array $filters = []): int
     {
-        $this->syncUnder5Patients();
         try {
             return $this->db->count($this->table, $filters);
         } catch (Throwable $e) {
@@ -166,27 +165,29 @@ class Child
     public function getStats(): array
     {
         try {
-            $all = $this->all();
-            $total = count($all);
+            $records = $this->db->select($this->table, [], [
+                'select' => 'id,status,nutrition_status,vaccine_compliance'
+            ]);
+            $total = count($records);
             $active = 0;
             $critical = 0;
             $normal = 0;
             $vaccineCompliant = 0;
 
-            foreach ($all as $child) {
-                $status = $child['status'] ?? '';
-                $nutrition = $child['nutrition_status'] ?? '';
+            foreach ($records as $child) {
+                $status = strtolower($child['status'] ?? '');
+                $nutrition = strtolower($child['nutrition_status'] ?? '');
                 $compliance = (int)($child['vaccine_compliance'] ?? 0);
 
                 if ($status === 'active') {
                     $active++;
                 }
 
-                if ($nutrition === 'Critical') {
+                if ($nutrition === 'critical') {
                     $critical++;
                 }
 
-                if ($nutrition === 'Normal') {
+                if ($nutrition === 'normal') {
                     $normal++;
                 }
 
@@ -234,7 +235,7 @@ class Child
 
         $throttleKey = 'last_under5_sync_time';
         $throttleFile = sys_get_temp_dir() . '/last_under5_sync.timestamp';
-        if (!$force && file_exists($throttleFile) && (time() - (int)@file_get_contents($throttleFile) < 300)) {
+        if (!$force && file_exists($throttleFile) && (time() - (int)@file_get_contents($throttleFile) < 3600)) {
             return;
         }
         @file_put_contents($throttleFile, (string)time());

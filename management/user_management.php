@@ -1762,6 +1762,7 @@ $title = 'User Management';
 
         fetch('user_management_api.php', {
             method: 'POST',
+            headers: { 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' },
             body: formData
         })
         .then(res => res.json())
@@ -2013,6 +2014,7 @@ $title = 'User Management';
 
         fetch('user_management_api.php', {
             method: 'POST',
+            headers: { 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '' },
             body: body
         })
         .then(res => res.json())

@@ -8,18 +8,20 @@
 //   'brand-border': '#B8E0DC',
 // ============================================================
 
+require_once __DIR__ . '/../../config/paths.php';
+
+// If accessed directly via GET, redirect cleanly to unified Service Requests & Maintenance page
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    header('Location: ' . site_url('modules/services/services_management.php?tab=maintenance'));
+    exit;
+}
+
 // ============================================================
 // 1. PHP BACKEND - Fetch Data
 // ============================================================
 require_once '../../includes/header.php';
 require_once '../../includes/sidebar.php';
 requireDepartmentAccess('wastewater services');
-
-// If accessed directly via GET, redirect to unified Service Requests & Maintenance page
-if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    header('Location: ' . site_url('modules/services/services_management.php?tab=maintenance'));
-    exit;
-}
 
 // AJAX API Endpoint Handler
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {

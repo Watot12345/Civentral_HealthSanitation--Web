@@ -17,6 +17,13 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Authentication guard: every action here requires a logged-in session
+if (empty($_SESSION['logged_in'])) {
+    http_response_code(401);
+    echo json_encode(['success' => false, 'message' => 'Authentication required.']);
+    exit;
+}
+
 $response = ['success' => false, 'message' => 'Invalid request.'];
 
 try {
@@ -302,6 +309,20 @@ try {
         // ==========================================================
         case 'save_permissions':
         case 'update_role_permissions':
+            // Capability + CSRF guard
+            if (!$isSystemAdmin && !hasPermission(\App\Constants\Permissions::USERS_EDIT)) {
+                http_response_code(403);
+                $response = ['success' => false, 'message' => 'Access Denied: You do not have permission to modify role permissions.'];
+                getPermissionService()->logUnauthorizedAttempt('roles.manage', 'User Management: save_permissions');
+                break;
+            }
+            $csrfSent = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['csrf_token'] ?? '');
+            if (empty($_SESSION['csrf_token']) || !is_string($csrfSent) || !hash_equals($_SESSION['csrf_token'], $csrfSent)) {
+                http_response_code(403);
+                $response = ['success' => false, 'message' => 'Invalid or missing CSRF token. Please refresh the page and try again.'];
+                break;
+            }
+
             $roleId = (int) ($_POST['role_id'] ?? 0);
             $permissionIds = [];
             if (!empty($_POST['permission_ids'])) {
