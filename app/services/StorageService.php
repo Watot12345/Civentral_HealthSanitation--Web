@@ -153,10 +153,12 @@ class StorageService
     public function getMetrics(bool $forceRefresh = false): array
     {
         $cacheFile = __DIR__ . '/../../storage/cache/supabase_storage_metrics.json';
-        if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < 60)) {
-            $cached = @json_decode(file_get_contents($cacheFile), true);
+        if (!$forceRefresh && file_exists($cacheFile)) {
+            $cached = @json_decode((string)@file_get_contents($cacheFile), true);
             if (is_array($cached) && !empty($cached['buckets'])) {
-                return $cached;
+                if (time() - filemtime($cacheFile) < 1800) {
+                    return $cached;
+                }
             }
         }
 
@@ -188,7 +190,7 @@ class StorageService
                         'Authorization: Bearer ' . $key,
                         'Content-Type: application/json'
                     ]);
-                    curl_setopt($c, CURLOPT_TIMEOUT, 6);
+                    curl_setopt($c, CURLOPT_TIMEOUT, 2);
                     curl_multi_add_handle($mh, $c);
                     $handles[$bName] = [
                         'handle' => $c,

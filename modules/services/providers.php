@@ -356,8 +356,133 @@ $title = 'Service Providers';
         </div>
     </div>
 
-    <!-- Providers Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="providersGrid">
+    <!-- View Mode Toolbar & Count Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-2.5">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Display Mode:</span>
+            <div class="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <button type="button" id="providerViewModeTableBtn" onclick="switchProviderViewMode('table')"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-slate-800"
+                        title="Display as structured Table Grid (Recommended for large registries)">
+                    <i class="fa-solid fa-table-list text-xs text-brand-medium"></i>
+                    <span>Table Grid</span>
+                </button>
+                <button type="button" id="providerViewModeBoxBtn" onclick="switchProviderViewMode('box')"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 transition"
+                        title="Display as responsive Box Cards">
+                    <i class="fa-solid fa-grip text-xs text-slate-400"></i>
+                    <span>Box Grid</span>
+                </button>
+            </div>
+        </div>
+        <div class="text-xs text-slate-500 font-medium">
+            Showing <span id="visibleProvidersCount" class="font-bold text-slate-900"><?php echo count($serviceProviders); ?></span> provider<?= count($serviceProviders) === 1 ? '' : 's' ?>
+        </div>
+    </div>
+
+    <!-- Providers Table Grid (Default View) -->
+    <div id="providersTableContainer" class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
+                    <tr>
+                        <th scope="col" class="py-3 px-4">Provider ID & Name</th>
+                        <th scope="col" class="py-3 px-4">Specialization</th>
+                        <th scope="col" class="py-3 px-4">Rating & Jobs</th>
+                        <th scope="col" class="py-3 px-4">Equipment & Certification</th>
+                        <th scope="col" class="py-3 px-4 text-center">Status</th>
+                        <th scope="col" class="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="providersTableBody" class="divide-y divide-slate-100 font-medium text-slate-700">
+                    <?php foreach ($serviceProviders as $provider): 
+                        $statusClass = $provider['status'] === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200';
+                        $initials = strtoupper(substr($provider['name'], 0, 2));
+                    ?>
+                    <tr class="provider-row hover:bg-slate-50/70 transition"
+                        data-name="<?php echo htmlspecialchars(strtolower($provider['name']), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-id="<?php echo htmlspecialchars($provider['provider_id'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-row-id="<?php echo (int)$provider['id']; ?>"
+                        data-status="<?php echo htmlspecialchars($provider['status'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-specialization="<?php echo htmlspecialchars($provider['specialization'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-rating="<?php echo htmlspecialchars($provider['rating'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-contact="<?php echo htmlspecialchars($provider['contact'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-joined-date="<?php echo htmlspecialchars($provider['joined_date'], ENT_QUOTES, 'UTF-8'); ?>"
+                        id="provider-row-<?php echo (int)$provider['id']; ?>">
+                        
+                        <td class="py-3.5 px-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
+                                    <?php echo $initials; ?>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-900 text-sm hover:text-brand-dark cursor-pointer" onclick="viewProvider(<?php echo (int)$provider['id']; ?>)"><?php echo htmlspecialchars($provider['name']); ?></p>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span class="font-mono text-[11px] text-slate-500 font-semibold"><?php echo htmlspecialchars($provider['provider_id']); ?></span>
+                                        <span class="text-slate-300">•</span>
+                                        <span class="text-[11px] text-slate-400"><?php echo htmlspecialchars($provider['contact']); ?></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 capitalize">
+                                <?php echo htmlspecialchars($provider['specialization']); ?>
+                            </span>
+                        </td>
+
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            <div class="flex flex-col">
+                                <span class="font-bold text-amber-500 text-xs flex items-center gap-1">
+                                    <i class="fa-solid fa-star text-[10px]"></i> <?php echo htmlspecialchars((string)$provider['rating']); ?>
+                                </span>
+                                <span class="text-[11px] text-slate-400 mt-0.5"><?php echo number_format($provider['completed_jobs']); ?> completed jobs</span>
+                            </div>
+                        </td>
+
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            <div class="flex flex-col">
+                                <span class="text-slate-800 font-medium"><?php echo (int)$provider['equipment_count']; ?> equipment units</span>
+                                <span class="text-[11px] text-slate-400"><?php echo htmlspecialchars($provider['certification']); ?></span>
+                            </div>
+                        </td>
+
+                        <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border <?php echo $statusClass; ?>">
+                                <span class="w-1.5 h-1.5 rounded-full mr-1.5 <?php echo $provider['status'] === 'active' ? 'bg-emerald-500' : 'bg-slate-400'; ?>"></span>
+                                <?php echo ucfirst($provider['status']); ?>
+                            </span>
+                        </td>
+
+                        <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                            <div class="inline-flex items-center justify-end gap-1">
+                                <button onclick="viewProviderRoutes(<?php echo (int)$provider['id']; ?>)" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Routes">
+                                    <i class="fa-solid fa-route text-xs"></i>
+                                </button>
+                                <button onclick="viewProviderHistory(<?php echo (int)$provider['id']; ?>)" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="History">
+                                    <i class="fa-solid fa-clock-rotate-left text-xs"></i>
+                                </button>
+                                <button onclick="viewProvider(<?php echo (int)$provider['id']; ?>)" class="p-1.5 text-slate-500 hover:text-brand-dark hover:bg-slate-100 rounded-lg transition" title="View Details">
+                                    <i class="fa-solid fa-eye text-xs"></i>
+                                </button>
+                                <button onclick="assignProvider(<?php echo (int)$provider['id']; ?>)" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Assign Job">
+                                    <i class="fa-solid fa-user-check text-xs"></i>
+                                </button>
+                                <button onclick="editProvider(<?php echo (int)$provider['id']; ?>)" class="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-slate-100 rounded-lg transition" title="Edit Provider">
+                                    <i class="fa-solid fa-pen text-xs"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Providers Grid (Box Grid View) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="providersGrid" style="display: none;">
         <?php foreach ($serviceProviders as $provider): ?>
         <div class="provider-card bg-white rounded-xl shadow-xs border border-slate-200 p-4 hover:shadow-md transition-all duration-200 <?php echo $provider['status'] === 'active' ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-slate-400'; ?>"
              data-name="<?php echo htmlspecialchars(strtolower($provider['name']), ENT_QUOTES, 'UTF-8'); ?>"
@@ -1050,25 +1175,139 @@ $title = 'Service Providers';
         `;
     }
 
+    function renderProviderRowMarkup(p) {
+        const statusClass = (p.status || 'active') === 'active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200';
+        const dotColor = (p.status || 'active') === 'active' ? 'bg-emerald-500' : 'bg-slate-400';
+        const initials = sanitizeHTML(String(p.name || 'SP').substring(0, 2).toUpperCase());
+        const name = sanitizeHTML(String(p.name || ''));
+        const providerId = sanitizeHTML(String(p.provider_id || ''));
+        const contact = sanitizeHTML(String(p.contact || ''));
+        const specialization = sanitizeHTML(String(p.specialization || ''));
+        const rating = Number(p.rating || 5.0).toFixed(1);
+        const jobs = Number(p.completed_jobs || 0).toLocaleString();
+        const equipmentCount = Number(p.equipment_count || 0);
+        const certification = sanitizeHTML(String(p.certification || 'Certified Contractor'));
+        const status = sanitizeHTML(String(p.status || 'active'));
+        const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+
+        return `
+            <tr class="provider-row hover:bg-slate-50/70 transition"
+                data-name="${name.toLowerCase()}"
+                data-id="${providerId}"
+                data-row-id="${Number(p.id || 0)}"
+                data-status="${status}"
+                data-specialization="${specialization}"
+                data-rating="${rating}"
+                data-contact="${contact}"
+                data-joined-date="${sanitizeHTML(String(p.joined_date || ''))}"
+                id="provider-row-${Number(p.id || 0)}">
+                
+                <td class="py-3.5 px-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
+                            ${initials}
+                        </div>
+                        <div>
+                            <p class="font-bold text-slate-900 text-sm hover:text-brand-dark cursor-pointer" onclick="viewProvider(${Number(p.id || 0)})">${name}</p>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                <span class="font-mono text-[11px] text-slate-500 font-semibold">${providerId}</span>
+                                <span class="text-slate-300">•</span>
+                                <span class="text-[11px] text-slate-400">${contact}</span>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 capitalize">
+                        ${specialization}
+                    </span>
+                </td>
+
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-amber-500 text-xs flex items-center gap-1">
+                            <i class="fa-solid fa-star text-[10px]"></i> ${rating}
+                        </span>
+                        <span class="text-[11px] text-slate-400 mt-0.5">${jobs} completed jobs</span>
+                    </div>
+                </td>
+
+                <td class="py-3.5 px-4 whitespace-nowrap">
+                    <div class="flex flex-col">
+                        <span class="text-slate-800 font-medium">${equipmentCount} equipment units</span>
+                        <span class="text-[11px] text-slate-400">${certification}</span>
+                    </div>
+                </td>
+
+                <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border ${statusClass}">
+                        <span class="w-1.5 h-1.5 rounded-full mr-1.5 ${dotColor}"></span>
+                        ${statusLabel}
+                    </span>
+                </td>
+
+                <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                    <div class="inline-flex items-center justify-end gap-1">
+                        <button onclick="viewProviderRoutes(${Number(p.id || 0)})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Routes">
+                            <i class="fa-solid fa-route text-xs"></i>
+                        </button>
+                        <button onclick="viewProviderHistory(${Number(p.id || 0)})" class="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition" title="History">
+                            <i class="fa-solid fa-clock-rotate-left text-xs"></i>
+                        </button>
+                        <button onclick="viewProvider(${Number(p.id || 0)})" class="p-1.5 text-slate-500 hover:text-brand-dark hover:bg-slate-100 rounded-lg transition" title="View Details">
+                            <i class="fa-solid fa-eye text-xs"></i>
+                        </button>
+                        <button onclick="assignProvider(${Number(p.id || 0)})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Assign Job">
+                            <i class="fa-solid fa-user-check text-xs"></i>
+                        </button>
+                        <button onclick="editProvider(${Number(p.id || 0)})" class="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-slate-100 rounded-lg transition" title="Edit Provider">
+                            <i class="fa-solid fa-pen text-xs"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+
     function upsertProviderCard(provider) {
         if (!provider || !provider.id) return;
         PROVIDERS[provider.id] = provider;
 
         const grid = document.getElementById('providersGrid');
-        if (!grid) return;
-
-        const markup = renderProviderCardMarkup(provider);
-        const temp = document.createElement('div');
-        temp.innerHTML = markup.trim();
-        const newNode = temp.firstElementChild;
-        if (!newNode) return;
-
-        const existing = document.getElementById('provider-card-' + provider.id);
-        if (existing) {
-            existing.replaceWith(newNode);
-        } else {
-            grid.insertBefore(newNode, grid.firstChild);
+        if (grid) {
+            const markup = renderProviderCardMarkup(provider);
+            const temp = document.createElement('div');
+            temp.innerHTML = markup.trim();
+            const newNode = temp.firstElementChild;
+            if (newNode) {
+                const existing = document.getElementById('provider-card-' + provider.id);
+                if (existing) {
+                    existing.replaceWith(newNode);
+                } else {
+                    grid.insertBefore(newNode, grid.firstChild);
+                }
+            }
         }
+
+        const tableBody = document.getElementById('providersTableBody');
+        if (tableBody) {
+            const rowMarkup = renderProviderRowMarkup(provider);
+            const tempRow = document.createElement('tbody');
+            tempRow.innerHTML = rowMarkup.trim();
+            const newRow = tempRow.firstElementChild;
+            if (newRow) {
+                const existingRow = document.getElementById('provider-row-' + provider.id);
+                if (existingRow) {
+                    existingRow.replaceWith(newRow);
+                } else {
+                    tableBody.insertBefore(newRow, tableBody.firstChild);
+                }
+            }
+        }
+
+        const countSpan = document.getElementById('visibleProvidersCount');
+        if (countSpan) countSpan.textContent = document.querySelectorAll('.provider-card').length;
     }
 
     function editProvider(id) {
@@ -1594,6 +1833,47 @@ $title = 'Service Providers';
     document.getElementById('filterDateFrom').addEventListener('change', filterProviders);
     document.getElementById('filterDateTo').addEventListener('change', filterProviders);
 
+    // ============================================================
+    // VIEW MODE SWITCHER (Table Grid vs Box Grid)
+    // ============================================================
+    function switchProviderViewMode(mode) {
+        const tableContainer = document.getElementById('providersTableContainer');
+        const gridContainer = document.getElementById('providersGrid');
+        const tableBtn = document.getElementById('providerViewModeTableBtn');
+        const boxBtn = document.getElementById('providerViewModeBoxBtn');
+
+        if (!tableContainer || !gridContainer || !tableBtn || !boxBtn) return;
+
+        if (mode === 'box') {
+            tableContainer.style.display = 'none';
+            gridContainer.style.display = 'grid';
+
+            boxBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-slate-800';
+            const boxIcon = boxBtn.querySelector('i');
+            if (boxIcon) boxIcon.className = 'fa-solid fa-grip text-xs text-brand-medium';
+
+            tableBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 transition';
+            const tableIcon = tableBtn.querySelector('i');
+            if (tableIcon) tableIcon.className = 'fa-solid fa-table-list text-xs text-slate-400';
+
+            try { localStorage.setItem('provider_view_mode', 'box'); } catch (e) {}
+        } else {
+            // Default: Table Grid
+            tableContainer.style.display = 'block';
+            gridContainer.style.display = 'none';
+
+            tableBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-slate-800';
+            const tableIcon = tableBtn.querySelector('i');
+            if (tableIcon) tableIcon.className = 'fa-solid fa-table-list text-xs text-brand-medium';
+
+            boxBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 transition';
+            const boxIcon = boxBtn.querySelector('i');
+            if (boxIcon) boxIcon.className = 'fa-solid fa-grip text-xs text-slate-400';
+
+            try { localStorage.setItem('provider_view_mode', 'table'); } catch (e) {}
+        }
+    }
+
     function filterProviders() {
         const search = document.getElementById('searchProvider').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
@@ -1604,15 +1884,15 @@ $title = 'Service Providers';
         let visibleCount = 0;
 
         document.querySelectorAll('.provider-card').forEach(card => {
-            const name = card.dataset.name;
-            const id = card.dataset.id.toLowerCase();
+            const name = card.dataset.name || '';
+            const id = (card.dataset.id || '').toLowerCase();
             const cardStatus = card.dataset.status;
             const cardSpecialization = card.dataset.specialization;
-            const cardRating = parseFloat(card.dataset.rating);
+            const cardRating = parseFloat(card.dataset.rating || 0);
             const contact = card.dataset.contact || '';
             const joinedDate = card.dataset.joinedDate || '';
 
-            const matchesSearch = !search || [name, id, contact, cardSpecialization].some(value => value.includes(search));
+            const matchesSearch = !search || [name, id, contact, cardSpecialization].some(value => (value || '').toLowerCase().includes(search));
             const matchesStatus = !status || cardStatus === status;
             const matchesSpecialization = !specialization || cardSpecialization === specialization;
             let matchesRating = true;
@@ -1628,6 +1908,33 @@ $title = 'Service Providers';
             if (isVisible) visibleCount++;
         });
 
+        document.querySelectorAll('.provider-row').forEach(row => {
+            const name = row.dataset.name || '';
+            const id = (row.dataset.id || '').toLowerCase();
+            const rowStatus = row.dataset.status;
+            const rowSpecialization = row.dataset.specialization;
+            const rowRating = parseFloat(row.dataset.rating || 0);
+            const contact = row.dataset.contact || '';
+            const joinedDate = row.dataset.joinedDate || '';
+
+            const matchesSearch = !search || [name, id, contact, rowSpecialization].some(value => (value || '').toLowerCase().includes(search));
+            const matchesStatus = !status || rowStatus === status;
+            const matchesSpecialization = !specialization || rowSpecialization === specialization;
+            let matchesRating = true;
+            if (rating) {
+                const minRating = parseFloat(rating);
+                matchesRating = rowRating >= minRating;
+            }
+            const matchesDateFrom = !dateFrom || (joinedDate && joinedDate >= dateFrom);
+            const matchesDateTo = !dateTo || (joinedDate && joinedDate <= dateTo);
+            const isVisible = matchesSearch && matchesStatus && matchesSpecialization && matchesRating && matchesDateFrom && matchesDateTo;
+
+            row.style.display = isVisible ? '' : 'none';
+        });
+
+        const countSpan = document.getElementById('visibleProvidersCount');
+        if (countSpan) countSpan.textContent = visibleCount;
+
         document.getElementById('emptyState').style.display = visibleCount === 0 ? 'flex' : 'none';
     }
 
@@ -1639,10 +1946,24 @@ $title = 'Service Providers';
         document.getElementById('filterDateFrom').value = '';
         document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.provider-card').forEach(card => card.style.display = '');
+        document.querySelectorAll('.provider-row').forEach(row => row.style.display = '');
+        
+        const total = document.querySelectorAll('.provider-card').length;
+        const countSpan = document.getElementById('visibleProvidersCount');
+        if (countSpan) countSpan.textContent = total;
+
         document.getElementById('emptyState').style.display = 'none';
     }
 
-    // ESC key and backdrop-click are handled by common.js
+    // Initialize Default View Mode: Table Grid
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            const savedMode = localStorage.getItem('provider_view_mode') || 'table';
+            switchProviderViewMode(savedMode);
+        } catch (e) {
+            switchProviderViewMode('table');
+        }
+    });
 </script>
 
 <?php include_once '../../includes/footer.php'; ?>

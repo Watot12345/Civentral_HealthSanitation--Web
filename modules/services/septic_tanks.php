@@ -171,15 +171,15 @@ $title = 'Septic Tank Registry';
 
     <!-- Search & Filter -->
     <div class="bg-white rounded-xl shadow-xs p-4 border border-slate-200 mb-6">
-        <div class="flex flex-col sm:flex-row gap-3">
-            <div class="flex-1 relative">
+        <div class="flex flex-col lg:flex-row gap-3">
+            <div class="flex-1 min-w-[280px] relative">
                 <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                 <input type="text"
                        id="searchTank"
                        placeholder="Search by tank ID, owner, or address..."
                        class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
             </div>
-            <div class="flex gap-2 flex-wrap">
+            <div class="flex gap-2 flex-wrap items-center">
                 <select id="filterStatus" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
                     <option value="">All Status</option>
                     <option value="good">Good</option>
@@ -226,8 +226,143 @@ $title = 'Septic Tank Registry';
         </div>
     </div>
 
-    <!-- Tanks Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="tanksGrid">
+    <!-- View Mode Toolbar & Count Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-2.5">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Display Mode:</span>
+            <div class="inline-flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <button type="button" id="viewModeTableBtn" onclick="switchViewMode('table')"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-slate-800"
+                        title="Display as structured Table Grid (Recommended for large registries)">
+                    <i class="fa-solid fa-table-list text-xs text-brand-medium"></i>
+                    <span>Table Grid</span>
+                </button>
+                <button type="button" id="viewModeBoxBtn" onclick="switchViewMode('box')"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 transition"
+                        title="Display as responsive Box Cards">
+                    <i class="fa-solid fa-grip text-xs text-slate-400"></i>
+                    <span>Box Grid</span>
+                </button>
+            </div>
+        </div>
+        <div class="text-xs text-slate-500 font-medium">
+            Showing <span id="visibleTanksCount" class="font-bold text-slate-900"><?php echo count($septicTanks); ?></span> registered tank<?= count($septicTanks) === 1 ? '' : 's' ?>
+        </div>
+    </div>
+
+    <!-- Tanks Table Grid (Default View) -->
+    <div id="tanksTableContainer" class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px] font-bold tracking-wider">
+                    <tr>
+                        <th scope="col" class="py-3 px-4">Tank ID & Owner</th>
+                        <th scope="col" class="py-3 px-4">Location / Barangay</th>
+                        <th scope="col" class="py-3 px-4">Type & Capacity</th>
+                        <th scope="col" class="py-3 px-4">Last Maintenance</th>
+                        <th scope="col" class="py-3 px-4 text-center">Status</th>
+                        <th scope="col" class="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tanksTableBody" class="divide-y divide-slate-100 font-medium text-slate-700">
+                    <?php foreach ($septicTanks as $tank): 
+                        $statusClass = $tank['status'] === 'critical' 
+                            ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                            : ($tank['status'] === 'needs_maintenance' 
+                                ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200');
+                        $lat = (!empty($tank['latitude']) && is_numeric($tank['latitude'])) ? (float)$tank['latitude'] : 14.6538;
+                        $lng = (!empty($tank['longitude']) && is_numeric($tank['longitude'])) ? (float)$tank['longitude'] : 120.9820;
+                        $ownerJs = json_encode($tank['owner_name'] ?? 'Septic Tank');
+                    ?>
+                    <tr class="tank-row hover:bg-slate-50/70 transition"
+                        data-owner="<?php echo htmlspecialchars(strtolower($tank['owner_name']), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-id="<?php echo htmlspecialchars($tank['tank_id'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-row-id="<?php echo (int)$tank['id']; ?>"
+                        data-status="<?php echo htmlspecialchars($tank['status'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-type="<?php echo htmlspecialchars($tank['type'], ENT_QUOTES, 'UTF-8'); ?>"
+                        data-barangay="<?php echo htmlspecialchars($tank['barangay'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                        data-maintenance-date="<?php echo htmlspecialchars($tank['last_maintenance'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+                        id="tank-row-<?php echo (int)$tank['id']; ?>">
+                        
+                        <td class="py-3.5 px-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
+                                    <?php echo strtoupper(substr($tank['owner_name'], 0, 2)); ?>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-900 text-sm hover:text-brand-dark cursor-pointer" onclick="viewTank(<?php echo $tank['id']; ?>)"><?php echo htmlspecialchars($tank['owner_name']); ?></p>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span class="font-mono text-[11px] text-slate-500 font-semibold"><?php echo htmlspecialchars($tank['tank_id']); ?></span>
+                                        <span class="text-slate-300">•</span>
+                                        <span class="text-[11px] text-slate-400 truncate max-w-[200px]"><?php echo htmlspecialchars($tank['address']); ?></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            <div class="flex flex-col">
+                                <span class="font-semibold text-slate-800 text-xs"><?php echo htmlspecialchars($tank['barangay']); ?></span>
+                                <div class="flex items-center gap-1.5 mt-0.5">
+                                    <button onclick="viewMap(<?php echo $lat; ?>, <?php echo $lng; ?>, <?php echo htmlspecialchars($ownerJs, ENT_QUOTES, 'UTF-8'); ?>)" 
+                                            class="text-[11px] text-brand-medium hover:text-brand-dark flex items-center gap-1 transition">
+                                        <i class="fa-solid fa-location-dot text-[10px]"></i> View Map
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            <div class="flex flex-col">
+                                <span class="text-slate-800 font-medium"><?php echo htmlspecialchars($tank['type']); ?></span>
+                                <span class="text-[11px] text-slate-500 font-semibold"><?php echo htmlspecialchars($tank['capacity']); ?></span>
+                            </div>
+                        </td>
+
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            <div class="flex flex-col">
+                                <span class="text-slate-800 font-medium">
+                                    <?php echo !empty($tank['last_maintenance']) ? date('M d, Y', strtotime($tank['last_maintenance'])) : '<span class="text-slate-400 italic">None / Unscheduled</span>'; ?>
+                                </span>
+                                <?php if (!empty($tank['maintenance_frequency'])): ?>
+                                    <span class="text-[10px] text-slate-400">Every <?php echo (int)$tank['maintenance_frequency']; ?> mos</span>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+
+                        <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border <?php echo $statusClass; ?>">
+                                <span class="w-1.5 h-1.5 rounded-full mr-1.5 <?php echo $tank['status'] === 'critical' ? 'bg-rose-500' : ($tank['status'] === 'needs_maintenance' ? 'bg-amber-500' : 'bg-emerald-500'); ?>"></span>
+                                <?php echo str_replace('_', ' ', ucfirst($tank['status'])); ?>
+                            </span>
+                        </td>
+
+                        <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                            <div class="inline-flex items-center justify-end gap-1">
+                                <button onclick="viewTank(<?php echo $tank['id']; ?>)" title="View Details"
+                                        class="p-1.5 text-slate-500 hover:text-brand-dark hover:bg-slate-100 rounded-lg transition">
+                                    <i class="fa-solid fa-eye text-xs"></i>
+                                </button>
+                                <button onclick="editTank(<?php echo $tank['id']; ?>)" title="Edit Tank"
+                                        class="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-slate-100 rounded-lg transition">
+                                    <i class="fa-solid fa-pen text-xs"></i>
+                                </button>
+                                <button onclick="viewHistory(<?php echo $tank['id']; ?>)" title="Maintenance History"
+                                        class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition">
+                                    <i class="fa-solid fa-clock-rotate-left text-xs"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tanks Grid (Box Grid View) -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="tanksGrid" style="display: none;">
         <?php foreach ($septicTanks as $tank): ?>
         <div class="tank-card bg-white rounded-xl shadow-xs border border-slate-200 p-4 hover:shadow-md transition-all duration-200 <?php echo $tank['status'] === 'critical' ? 'border-l-4 border-l-rose-500' : ($tank['status'] === 'needs_maintenance' ? 'border-l-4 border-l-amber-500' : 'border-l-4 border-l-emerald-500'); ?>"
              data-owner="<?php echo htmlspecialchars(strtolower($tank['owner_name']), ENT_QUOTES, 'UTF-8'); ?>"
@@ -1000,13 +1135,108 @@ $title = 'Septic Tank Registry';
         `;
     }
 
+    function renderTankRowHtml(tank) {
+        const statusClasses = {
+            good: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            needs_maintenance: 'bg-amber-50 text-amber-700 border-amber-200',
+            critical: 'bg-rose-50 text-rose-700 border-rose-200'
+        };
+        const dotColors = {
+            good: 'bg-emerald-500',
+            needs_maintenance: 'bg-amber-500',
+            critical: 'bg-rose-500'
+        };
+        const statusKey = tank.status || 'good';
+        const badgeClass = statusClasses[statusKey] || statusClasses.good;
+        const dotColor = dotColors[statusKey] || dotColors.good;
+        const statusLabel = sanitizeHTML((statusKey).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+        const ownerName = sanitizeHTML(tank.owner_name || '');
+        const initials = sanitizeHTML((tank.owner_name || 'TK').substring(0, 2).toUpperCase());
+        const tankId = sanitizeHTML(tank.tank_id || '');
+        const address = sanitizeHTML(tank.address || '');
+        const type = sanitizeHTML(tank.type || 'Standard');
+        const capacity = sanitizeHTML(tank.capacity || '');
+        const barangay = sanitizeHTML(tank.barangay || '');
+        const lastMaint = tank.last_maintenance ? new Date(tank.last_maintenance).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : '<span class="text-slate-400 italic">None / Unscheduled</span>';
+        const freqHtml = tank.maintenance_frequency ? `<span class="text-[10px] text-slate-400">Every ${Number(tank.maintenance_frequency)} mos</span>` : '';
+        const lat = (tank.latitude && !isNaN(tank.latitude)) ? Number(tank.latitude) : 14.6538;
+        const lng = (tank.longitude && !isNaN(tank.longitude)) ? Number(tank.longitude) : 120.9820;
+        const ownerEscaped = JSON.stringify(tank.owner_name || 'Septic Tank');
+
+        return `
+            <td class="py-3.5 px-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xs flex-shrink-0">
+                        ${initials}
+                    </div>
+                    <div>
+                        <p class="font-bold text-slate-900 text-sm hover:text-brand-dark cursor-pointer" onclick="viewTank(${tank.id})">${ownerName}</p>
+                        <div class="flex items-center gap-2 mt-0.5">
+                            <span class="font-mono text-[11px] text-slate-500 font-semibold">${tankId}</span>
+                            <span class="text-slate-300">•</span>
+                            <span class="text-[11px] text-slate-400 truncate max-w-[200px]">${address}</span>
+                        </div>
+                    </div>
+                </div>
+            </td>
+            <td class="py-3.5 px-4 whitespace-nowrap">
+                <div class="flex flex-col">
+                    <span class="font-semibold text-slate-800 text-xs">${barangay}</span>
+                    <div class="flex items-center gap-1.5 mt-0.5">
+                        <button onclick="viewMap(${lat}, ${lng}, ${ownerEscaped})" 
+                                class="text-[11px] text-brand-medium hover:text-brand-dark flex items-center gap-1 transition">
+                            <i class="fa-solid fa-location-dot text-[10px]"></i> View Map
+                        </button>
+                    </div>
+                </div>
+            </td>
+            <td class="py-3.5 px-4 whitespace-nowrap">
+                <div class="flex flex-col">
+                    <span class="text-slate-800 font-medium">${type}</span>
+                    <span class="text-[11px] text-slate-500 font-semibold">${capacity}</span>
+                </div>
+            </td>
+            <td class="py-3.5 px-4 whitespace-nowrap">
+                <div class="flex flex-col">
+                    <span class="text-slate-800 font-medium">${lastMaint}</span>
+                    ${freqHtml}
+                </div>
+            </td>
+            <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border ${badgeClass}">
+                    <span class="w-1.5 h-1.5 rounded-full mr-1.5 ${dotColor}"></span>
+                    ${statusLabel}
+                </span>
+            </td>
+            <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                <div class="inline-flex items-center justify-end gap-1">
+                    <button onclick="viewTank(${tank.id})" title="View Details"
+                            class="p-1.5 text-slate-500 hover:text-brand-dark hover:bg-slate-100 rounded-lg transition">
+                        <i class="fa-solid fa-eye text-xs"></i>
+                    </button>
+                    <button onclick="editTank(${tank.id})" title="Edit Tank"
+                            class="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-slate-100 rounded-lg transition">
+                        <i class="fa-solid fa-pen text-xs"></i>
+                    </button>
+                    <button onclick="viewHistory(${tank.id})" title="Maintenance History"
+                            class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition">
+                        <i class="fa-solid fa-clock-rotate-left text-xs"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+    }
+
     function updateOrInsertTankCard(tank) {
         if (!tank || !tank.id) return;
         TANKS[tank.id] = tank;
         const grid = document.getElementById('tanksGrid');
+        const tableBody = document.getElementById('tanksTableBody');
         let card = document.getElementById('tank-card-' + tank.id);
+        let row = document.getElementById('tank-row-' + tank.id);
         const borderClass = tank.status === 'critical' ? 'border-l-4 border-l-rose-500' : (tank.status === 'needs_maintenance' ? 'border-l-4 border-l-amber-500' : 'border-l-4 border-l-emerald-500');
 
+        // Update / Insert Card
         if (card) {
             card.className = `tank-card bg-white rounded-xl shadow-xs border border-slate-200 p-4 hover:shadow-md transition-all duration-200 ${borderClass}`;
             card.setAttribute('data-owner', (tank.owner_name || '').toLowerCase());
@@ -1030,6 +1260,33 @@ $title = 'Septic Tank Registry';
             card.innerHTML = renderTankCardHtml(tank);
             grid.insertBefore(card, grid.firstChild);
         }
+
+        // Update / Insert Table Row
+        if (row) {
+            row.setAttribute('data-owner', (tank.owner_name || '').toLowerCase());
+            row.setAttribute('data-id', tank.tank_id || '');
+            row.setAttribute('data-status', tank.status || '');
+            row.setAttribute('data-type', tank.type || '');
+            row.setAttribute('data-barangay', tank.barangay || '');
+            row.setAttribute('data-maintenance-date', tank.last_maintenance || '');
+            row.innerHTML = renderTankRowHtml(tank);
+        } else if (tableBody) {
+            row = document.createElement('tr');
+            row.id = 'tank-row-' + tank.id;
+            row.className = 'tank-row hover:bg-slate-50/70 transition';
+            row.setAttribute('data-owner', (tank.owner_name || '').toLowerCase());
+            row.setAttribute('data-id', tank.tank_id || '');
+            row.setAttribute('data-row-id', tank.id);
+            row.setAttribute('data-status', tank.status || '');
+            row.setAttribute('data-type', tank.type || '');
+            row.setAttribute('data-barangay', tank.barangay || '');
+            row.setAttribute('data-maintenance-date', tank.last_maintenance || '');
+            row.innerHTML = renderTankRowHtml(tank);
+            tableBody.insertBefore(row, tableBody.firstChild);
+        }
+
+        const countSpan = document.getElementById('visibleTanksCount');
+        if (countSpan) countSpan.textContent = document.querySelectorAll('.tank-card').length;
     }
 
     async function saveTankEdit(event) {
@@ -1161,6 +1418,47 @@ $title = 'Septic Tank Registry';
     document.getElementById('filterDateFrom').addEventListener('change', filterTanks);
     document.getElementById('filterDateTo').addEventListener('change', filterTanks);
 
+    // ============================================================
+    // VIEW MODE SWITCHER (Table Grid vs Box Grid)
+    // ============================================================
+    function switchViewMode(mode) {
+        const tableContainer = document.getElementById('tanksTableContainer');
+        const gridContainer = document.getElementById('tanksGrid');
+        const tableBtn = document.getElementById('viewModeTableBtn');
+        const boxBtn = document.getElementById('viewModeBoxBtn');
+
+        if (!tableContainer || !gridContainer || !tableBtn || !boxBtn) return;
+
+        if (mode === 'box') {
+            tableContainer.style.display = 'none';
+            gridContainer.style.display = 'grid';
+
+            boxBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-slate-800';
+            const boxIcon = boxBtn.querySelector('i');
+            if (boxIcon) boxIcon.className = 'fa-solid fa-grip text-xs text-brand-medium';
+
+            tableBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 transition';
+            const tableIcon = tableBtn.querySelector('i');
+            if (tableIcon) tableIcon.className = 'fa-solid fa-table-list text-xs text-slate-400';
+
+            try { localStorage.setItem('septic_view_mode', 'box'); } catch (e) {}
+        } else {
+            // Default: Table Grid
+            tableContainer.style.display = 'block';
+            gridContainer.style.display = 'none';
+
+            tableBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-xs bg-white text-slate-800';
+            const tableIcon = tableBtn.querySelector('i');
+            if (tableIcon) tableIcon.className = 'fa-solid fa-table-list text-xs text-brand-medium';
+
+            boxBtn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 transition';
+            const boxIcon = boxBtn.querySelector('i');
+            if (boxIcon) boxIcon.className = 'fa-solid fa-grip text-xs text-slate-400';
+
+            try { localStorage.setItem('septic_view_mode', 'table'); } catch (e) {}
+        }
+    }
+
     function filterTanks() {
         const search = document.getElementById('searchTank').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
@@ -1172,8 +1470,8 @@ $title = 'Septic Tank Registry';
         let visibleCount = 0;
 
         document.querySelectorAll('.tank-card').forEach(card => {
-            const owner = card.dataset.owner;
-            const id = card.dataset.id.toLowerCase();
+            const owner = card.dataset.owner || '';
+            const id = (card.dataset.id || '').toLowerCase();
             const cardStatus = card.dataset.status;
             const cardType = card.dataset.type;
             const cardBarangay = card.dataset.barangay;
@@ -1192,7 +1490,44 @@ $title = 'Septic Tank Registry';
             if (isVisible) visibleCount++;
         });
 
-        document.getElementById('emptyState').style.display = visibleCount === 0 ? 'flex' : 'none';
+        document.querySelectorAll('.tank-row').forEach(row => {
+            const owner = row.dataset.owner || '';
+            const id = (row.dataset.id || '').toLowerCase();
+            const rowStatus = row.dataset.status;
+            const rowType = row.dataset.type;
+            const rowBarangay = row.dataset.barangay;
+            const maintenanceDate = row.dataset.maintenanceDate || '';
+
+            const matchesSearch = owner.includes(search) || id.includes(search);
+            const matchesStatus = !status || rowStatus === status;
+            const matchesType = !type || rowType === type;
+            const matchesZone = !zone || getZoneForBarangay(rowBarangay) === zone;
+            const matchesBarangay = !barangay || rowBarangay === barangay || rowBarangay.includes(barangay);
+            const matchesDateFrom = !dateFrom || (maintenanceDate && maintenanceDate >= dateFrom);
+            const matchesDateTo = !dateTo || (maintenanceDate && maintenanceDate <= dateTo);
+            const isVisible = matchesSearch && matchesStatus && matchesType && matchesZone && matchesBarangay && matchesDateFrom && matchesDateTo;
+
+            row.style.display = isVisible ? '' : 'none';
+        });
+
+        const countSpan = document.getElementById('visibleTanksCount');
+        if (countSpan) countSpan.textContent = visibleCount;
+
+        const currentMode = localStorage.getItem('septic_view_mode') || 'table';
+        if (visibleCount === 0) {
+            document.getElementById('tanksTableContainer').style.display = 'none';
+            document.getElementById('tanksGrid').style.display = 'none';
+            document.getElementById('emptyState').style.display = 'flex';
+        } else {
+            document.getElementById('emptyState').style.display = 'none';
+            if (currentMode === 'table') {
+                document.getElementById('tanksTableContainer').style.display = 'block';
+                document.getElementById('tanksGrid').style.display = 'none';
+            } else {
+                document.getElementById('tanksTableContainer').style.display = 'none';
+                document.getElementById('tanksGrid').style.display = 'grid';
+            }
+        }
     }
 
     function resetFilters() {
@@ -1204,12 +1539,26 @@ $title = 'Septic Tank Registry';
         document.getElementById('filterDateFrom').value = '';
         document.getElementById('filterDateTo').value = '';
         document.querySelectorAll('.tank-card').forEach(card => card.style.display = '');
+        document.querySelectorAll('.tank-row').forEach(row => row.style.display = '');
+        
+        const total = document.querySelectorAll('.tank-card').length;
+        const countSpan = document.getElementById('visibleTanksCount');
+        if (countSpan) countSpan.textContent = total;
+
         document.getElementById('emptyState').style.display = 'none';
+        const currentMode = localStorage.getItem('septic_view_mode') || 'table';
+        switchViewMode(currentMode);
     }
 
-    // ESC key and backdrop-click handled by common.js
-
-    // ESC key and backdrop-click handled by common.js
+    // Initialize Default View Mode: Table Grid
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            const savedMode = localStorage.getItem('septic_view_mode') || 'table';
+            switchViewMode(savedMode);
+        } catch (e) {
+            switchViewMode('table');
+        }
+    });
 </script>
 
 <?php include_once '../../includes/footer.php'; ?>
