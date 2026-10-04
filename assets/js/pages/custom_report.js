@@ -1131,7 +1131,7 @@ function getReportExportMarkup() {
         <tr>
             <td class="header-logo"><img src="${logoUrl}" alt="City Logo"></td>
             <td class="header-titles">
-                <div class="city-title">Republic of the Philippines · City of South Caloocan</div>
+                <div class="city-title">Republic of the Philippines · City of Caloocan</div>
                 <div class="dept-title">City Health &amp; Sanitation Department</div>
                 <div class="report-name">${escapeExportHtml(reportType)} — Executive Report</div>
             </td>
@@ -1273,7 +1273,7 @@ function getReportExportMarkup() {
     if (summaryEl && summaryEl.innerText.trim() && !summaryEl.innerText.includes('Synthesizing')) {
         aiNarrative = summaryEl.innerHTML;
     } else {
-        aiNarrative = `<p>South Caloocan City Health &amp; Sanitation department recorded a total of <strong>${total} active events</strong> with an overall compliance index of <strong>${complianceRate}%</strong> during the reporting period. All health centers and sanitation inspection hubs operated within mandated municipal standards. Focus should remain on resolving ${pendingCount} pending inquiries and attending to critical findings promptly.</p>`;
+        aiNarrative = `<p>Caloocan City Health &amp; Sanitation department recorded a total of <strong>${total} active events</strong> with an overall compliance index of <strong>${complianceRate}%</strong> during the reporting period. All health centers and sanitation inspection hubs operated within mandated municipal standards. Focus should remain on resolving ${pendingCount} pending inquiries and attending to critical findings promptly.</p>`;
     }
 
     const recItems = document.querySelectorAll('#aiRecommendationsList li');
@@ -1352,7 +1352,7 @@ function getReportExportMarkup() {
                 <td class="signoff-cell">
                     <div class="signoff-line"></div>
                     <div class="signoff-name">City Health Officer / Department Director</div>
-                    <div class="signoff-title">South Caloocan City Health &amp; Sanitation Department</div>
+                    <div class="signoff-title">Caloocan City Health &amp; Sanitation Department</div>
                 </td>
             </tr>
         </table>

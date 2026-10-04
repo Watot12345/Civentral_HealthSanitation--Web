@@ -25,7 +25,7 @@ class GeminiAiService
             $configured = array_filter(array_map('trim', explode(',', $fallbackConfig)));
             $this->fallbackModels = $configured;
         } else {
-            $this->fallbackModels = ['gemini-2.5-flash-lite', 'gemini-1.5-flash'];
+            $this->fallbackModels = ['gemini-3.6-flash'];
         }
 
         $this->cacheDir = __DIR__ . '/../../storage/cache';
@@ -323,7 +323,7 @@ class GeminiAiService
             $modelsToTry = array_unique(array_filter(array_merge(
                 [$this->model],
                 $this->fallbackModels,
-                ['gemini-2.5-flash', 'gemini-1.5-flash']
+                ['gemini-3.6-flash']
             )));
 
             foreach ($modelsToTry as $candidateModel) {

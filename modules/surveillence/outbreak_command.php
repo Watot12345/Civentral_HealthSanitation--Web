@@ -51,28 +51,24 @@ $trendsJson = json_encode($trendData);
 
 <div class="flex-1 px-6 pt-[26px] pb-20 mb-10 flex flex-col min-h-0 overflow-y-auto space-y-6">
     
-    <!-- PAGE HEADER -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
+    <!-- Page Header & Action Controls -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
-            <div class="flex items-center gap-2.5">
-                <div class="w-10 h-10 rounded-xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark shadow-sm">
-                    <i class="fa-solid fa-shield-virus text-lg"></i>
-                </div>
-                <div>
-                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">Outbreak Surveillance & Early Warning</h1>
-                    <p class="text-xs text-slate-500 font-medium">Caloocan District 1 Epidemiological Anomaly Engine (2-SD Baseline Monitoring)</p>
-                </div>
+            <div class="flex items-center gap-3 mb-1">
+                <h2 class="text-2xl font-black text-slate-900 tracking-tight">Outbreak Surveillance & Early Warning</h2>
+                <span class="px-3 py-1 bg-brand-light text-brand-dark rounded-full text-xs font-bold flex items-center gap-1.5 shadow-xs">
+                    <i class="fa-solid fa-shield-virus"></i> Caloocan City
+                </span>
             </div>
+            <p class="text-sm text-slate-500">Epidemiological anomaly engine and 2-SD moving baseline surveillance monitoring</p>
         </div>
-        <div class="flex items-center gap-3">
-            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Live 15s Heartbeat Active</span>
-            </div>
-            <a href="<?= site_url('modules/surveillence/mapping.php') ?>" class="px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-semibold transition shadow-xs flex items-center gap-1.5">
+
+        <!-- Quick Navigation Actions -->
+        <div class="flex items-center gap-2.5">
+            <a href="<?= site_url('modules/surveillence/mapping.php') ?>" class="px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-semibold transition shadow-2xs flex items-center gap-1.5">
                 <i class="fa-solid fa-map-location-dot text-brand-dark"></i> Geospatial Map
             </a>
-            <a href="<?= site_url('modules/surveillence/case_reports.php') ?>" class="px-3.5 py-2 bg-brand-dark text-white rounded-xl text-xs font-semibold hover:bg-brand-medium transition shadow-xs flex items-center gap-1.5">
+            <a href="<?= site_url('modules/surveillence/case_reports.php') ?>" class="px-3.5 py-2 bg-brand-dark text-white rounded-xl text-xs font-semibold hover:bg-brand-medium transition shadow-2xs flex items-center gap-1.5">
                 <i class="fa-solid fa-file-medical"></i> Case Intake
             </a>
         </div>
