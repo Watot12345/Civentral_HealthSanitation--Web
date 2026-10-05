@@ -23,6 +23,8 @@ require_once '../../app/Models/Referral.php';
 require_once '../../app/Models/Appointment.php';
 require_once '../../app/Models/Employee.php';
 require_once '../../app/Models/MedicalRecord.php';
+require_once '../../app/Models/Immunization.php';
+require_once '../../app/Models/NutritionAssessment.php';
 
 $patientModel = new Patient();
 $triageModel = new Triage();
@@ -32,6 +34,8 @@ $referralModel = new Referral();
 $appointmentModel = new Appointment();
 $employeeModel = new Employee();
 $medicalRecordModel = new MedicalRecord();
+$immunizationModel = new Immunization();
+$nutritionModel = new NutritionAssessment();
 
 $rawPatients = [];
 $rawTriages = [];
@@ -41,6 +45,16 @@ $rawReferrals = [];
 $rawAppointments = [];
 $rawEmployees = [];
 $rawLegacyRecords = [];
+$rawImmunizations = [];
+$rawNutritions = [];
+
+try {
+    $rawImmunizations = $immunizationModel->all([], ['order' => 'date_administered.desc']);
+} catch (Throwable $e) { error_log('EHR Immunization Error: ' . $e->getMessage()); }
+
+try {
+    $rawNutritions = $nutritionModel->all([], ['order' => 'assessment_date.desc']);
+} catch (Throwable $e) { error_log('EHR Nutrition Error: ' . $e->getMessage()); }
 
 try {
     $rawPatients = $patientModel->all(['order' => 'first_name.asc,last_name.asc']);
@@ -59,7 +73,7 @@ try {
 } catch (Throwable $e) { error_log('EHR Prescription Error: ' . $e->getMessage()); }
 
 try {
-    $rawReferrals = $referralModel->all(['order' => 'date.desc,created_at.desc']);
+    $rawReferrals = $referralModel->all(['order' => 'created_at.desc']);
 } catch (Throwable $e) { error_log('EHR Referral Error: ' . $e->getMessage()); }
 
 try {
@@ -142,6 +156,8 @@ foreach ($rawPatients as $p) {
     $pReferrals = array_values(array_filter($rawReferrals, fn($r) => (int)($r['patient_id'] ?? 0) === $pId));
     $pAppointments = array_values(array_filter($rawAppointments, fn($a) => (int)($a['patient_id'] ?? 0) === $pId));
     $pLegacy = array_values(array_filter($rawLegacyRecords, fn($m) => (int)($m['patient_id'] ?? 0) === $pId));
+    $pImmunizations = array_values(array_filter($rawImmunizations, fn($im) => (int)($im['patient_id'] ?? 0) === $pId));
+    $pNutritions = array_values(array_filter($rawNutritions, fn($nt) => (int)($nt['patient_id'] ?? 0) === $pId));
 
     // Formatted timeline entries
     $timeline = [];
@@ -252,6 +268,42 @@ foreach ($rawPatients as $p) {
         ];
     }
 
+    // 6. Immunizations to Timeline
+    foreach ($pImmunizations as $im) {
+        $vaxDate = $im['date_administered'] ?? substr($im['created_at'] ?? '', 0, 10);
+        $timeline[] = [
+            'type' => 'immunization',
+            'timestamp' => strtotime($vaxDate) ?: time(),
+            'date_display' => $vaxDate,
+            'title' => "Vaccination: " . ($im['vaccine'] ?? 'Vaccine') . " (Dose " . ($im['dose'] ?? '1') . ")",
+            'badge' => 'bg-indigo-100 text-indigo-800 border-indigo-200',
+            'badge_label' => 'Immunization',
+            'icon' => 'fa-syringe text-indigo-600',
+            'provider' => $im['administered_by'] ?? ($im['health_center'] ?? 'Immunization Staff'),
+            'summary' => "Antigen: {$im['vaccine']} | Dose: {$im['dose']} | Batch: " . ($im['batch_number'] ?? 'N/A') . " | Next Due: " . ($im['next_due_date'] ?? 'N/A'),
+            'data' => $im
+        ];
+    }
+
+    // 7. Nutrition Assessments to Timeline
+    foreach ($pNutritions as $nt) {
+        $ntDate = $nt['assessment_date'] ?? substr($nt['created_at'] ?? '', 0, 10);
+        $bmiVal = $nt['bmi'] ?? 'N/A';
+        $statusBadge = ucfirst($nt['nutrition_status'] ?? 'Normal');
+        $timeline[] = [
+            'type' => 'nutrition',
+            'timestamp' => strtotime($ntDate) ?: time(),
+            'date_display' => $ntDate,
+            'title' => "Nutrition Assessment: {$statusBadge} (BMI: {$bmiVal})",
+            'badge' => 'bg-teal-100 text-teal-800 border-teal-200',
+            'badge_label' => 'Nutrition',
+            'icon' => 'fa-apple-whole text-teal-600',
+            'provider' => 'Nutritionist / Healthcare Staff',
+            'summary' => "Weight: " . ($nt['weight'] ?? 'N/A') . "kg | Height: " . ($nt['height'] ?? 'N/A') . "cm | BMI: {$bmiVal} | Risk: " . ucfirst($nt['risk_level'] ?? 'Low'),
+            'data' => $nt
+        ];
+    }
+
     // Sort timeline descending by timestamp
     usort($timeline, fn($a, $b) => $b['timestamp'] <=> $a['timestamp']);
 
@@ -269,6 +321,10 @@ foreach ($rawPatients as $p) {
         $d = !empty($ap['appointment_date']) ? substr($ap['appointment_date'], 0, 10) : (!empty($ap['date']) ? substr($ap['date'], 0, 10) : '');
         if ($d) $visitDates[$d] = true;
     }
+    foreach ($pImmunizations as $im) {
+        $d = !empty($im['date_administered']) ? substr($im['date_administered'], 0, 10) : '';
+        if ($d) $visitDates[$d] = true;
+    }
     $totalVisitsCount = max(count($visitDates), max(count($pConsultations), count($pTriages)));
 
     $ehrDataMap[$pId] = [
@@ -278,6 +334,8 @@ foreach ($rawPatients as $p) {
         'prescriptions' => $pPrescriptions,
         'referrals' => $pReferrals,
         'appointments' => $pAppointments,
+        'immunizations' => $pImmunizations,
+        'nutritions' => $pNutritions,
         'legacy' => $pLegacy,
         'timeline' => $timeline,
         'stats' => [
@@ -286,7 +344,9 @@ foreach ($rawPatients as $p) {
             'total_prescriptions' => count($pPrescriptions),
             'total_referrals' => count($pReferrals),
             'total_triages' => count($pTriages),
-            'total_appointments' => count($pAppointments)
+            'total_appointments' => count($pAppointments),
+            'total_immunizations' => count($pImmunizations),
+            'total_nutritions' => count($pNutritions)
         ]
     ];
 
@@ -374,6 +434,12 @@ $title = 'Patient Electronic Health Record (EHR)';
         </button>
         <button onclick="switchTab('appointments')" id="tab_btn_appointments" class="ehr-tab-btn px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
             <i class="fa-solid fa-calendar-check"></i> Appointments & Follow-ups
+        </button>
+        <button onclick="switchTab('vaccinations')" id="tab_btn_vaccinations" class="ehr-tab-btn px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
+            <i class="fa-solid fa-syringe text-indigo-600"></i> Immunizations
+        </button>
+        <button onclick="switchTab('nutrition')" id="tab_btn_nutrition" class="ehr-tab-btn px-4 py-2.5 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
+            <i class="fa-solid fa-apple-whole text-teal-600"></i> Nutrition & BMI
         </button>
     </div>
 
@@ -660,6 +726,14 @@ function renderCurrentPatient() {
                 <span class="text-lg font-bold text-purple-700 block">${st.total_triages}</span>
                 <span class="text-[10px] font-semibold uppercase text-purple-600">Vitals & Triages</span>
             </div>
+            <div class="bg-indigo-50/60 p-2.5 rounded-xl border border-indigo-100">
+                <span class="text-lg font-bold text-indigo-700 block">${st.total_immunizations || 0}</span>
+                <span class="text-[10px] font-semibold uppercase text-indigo-600">Vaccinations</span>
+            </div>
+            <div class="bg-teal-50/60 p-2.5 rounded-xl border border-teal-100">
+                <span class="text-lg font-bold text-teal-700 block">${st.total_nutritions || 0}</span>
+                <span class="text-[10px] font-semibold uppercase text-teal-600">Nutrition</span>
+            </div>
         </div>
     `;
 
@@ -686,7 +760,138 @@ function renderTabContent() {
         renderTriagesView(data.triages, container);
     } else if (currentActiveTab === 'appointments') {
         renderAppointmentsView(data.appointments, container);
+    } else if (currentActiveTab === 'vaccinations') {
+        renderVaccinationsView(data.immunizations, container);
+    } else if (currentActiveTab === 'nutrition') {
+        renderNutritionView(data.nutritions, container);
     }
+}
+
+// 7. VACCINATIONS VIEW (Cross-Module Integration)
+function renderVaccinationsView(vaccinations, container) {
+    if (!vaccinations || vaccinations.length === 0) {
+        container.innerHTML = `
+            <div class="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-400">
+                <i class="fa-solid fa-syringe text-3xl mb-2 text-indigo-400"></i>
+                <p class="text-sm font-semibold">No immunization records on file for this patient.</p>
+                <a href="../immunization/vaccination_tracking.php?patient_id=${currentPatientId}&action=new" class="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-dark text-white rounded-lg text-xs font-semibold hover:bg-brand-medium transition">
+                    <i class="fa-solid fa-plus"></i> Record Immunization Dose
+                </a>
+            </div>`;
+        return;
+    }
+
+    let html = `
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+            <div class="p-4 bg-indigo-50/50 border-b border-indigo-100 flex items-center justify-between">
+                <h4 class="text-xs font-bold text-indigo-950 uppercase tracking-wide flex items-center gap-1.5">
+                    <i class="fa-solid fa-shield-virus text-indigo-600"></i> Lifetime Immunization Record (${vaccinations.length} Doses)
+                </h4>
+                <a href="../immunization/vaccination_tracking.php?patient_id=${currentPatientId}&action=new" class="px-3 py-1 bg-brand-dark text-white hover:bg-brand-medium rounded-lg text-xs font-semibold transition flex items-center gap-1">
+                    <i class="fa-solid fa-plus text-[10px]"></i> Add Vaccine
+                </a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-700">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px]">
+                        <tr>
+                            <th class="p-3">Vaccine Antigen</th>
+                            <th class="p-3">Dose #</th>
+                            <th class="p-3">Date Administered</th>
+                            <th class="p-3">Batch / Lot</th>
+                            <th class="p-3">Administered By</th>
+                            <th class="p-3">Facility</th>
+                            <th class="p-3">Next Due</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 font-medium">`;
+
+    vaccinations.forEach(v => {
+        html += `
+            <tr class="hover:bg-slate-50/80 transition">
+                <td class="p-3 font-bold text-slate-900 flex items-center gap-1.5">
+                    <i class="fa-solid fa-syringe text-indigo-500 text-[11px]"></i> ${escapeHtml(v.vaccine || '')}
+                </td>
+                <td class="p-3"><span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-bold">Dose ${v.dose || 1}</span></td>
+                <td class="p-3 font-mono">${v.date_administered || '—'}</td>
+                <td class="p-3 font-mono text-slate-500">${escapeHtml(v.batch_number || '—')}</td>
+                <td class="p-3 text-slate-600">${escapeHtml(v.administered_by || 'Staff')}</td>
+                <td class="p-3 text-slate-500">${escapeHtml(v.health_center || 'Central Health Center')}</td>
+                <td class="p-3 font-mono text-amber-700">${v.next_due_date || 'None'}</td>
+            </tr>
+        `;
+    });
+
+    html += `</tbody></table></div></div>`;
+    container.innerHTML = html;
+}
+
+// 8. NUTRITION VIEW (Cross-Module Integration)
+function renderNutritionView(nutritions, container) {
+    if (!nutritions || nutritions.length === 0) {
+        container.innerHTML = `
+            <div class="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-400">
+                <i class="fa-solid fa-apple-whole text-3xl mb-2 text-teal-400"></i>
+                <p class="text-sm font-semibold">No nutrition screening records on file for this patient.</p>
+                <a href="../immunization/nutrition_assessment.php?patient_id=${currentPatientId}&action=new" class="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-brand-dark text-white rounded-lg text-xs font-semibold hover:bg-brand-medium transition">
+                    <i class="fa-solid fa-plus"></i> New Nutrition Assessment
+                </a>
+            </div>`;
+        return;
+    }
+
+    let html = `
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+            <div class="p-4 bg-teal-50/50 border-b border-teal-100 flex items-center justify-between">
+                <h4 class="text-xs font-bold text-teal-950 uppercase tracking-wide flex items-center gap-1.5">
+                    <i class="fa-solid fa-weight-scale text-teal-600"></i> Nutritional & Growth History (${nutritions.length} Screenings)
+                </h4>
+                <a href="../immunization/nutrition_assessment.php?patient_id=${currentPatientId}&action=new" class="px-3 py-1 bg-brand-dark text-white hover:bg-brand-medium rounded-lg text-xs font-semibold transition flex items-center gap-1">
+                    <i class="fa-solid fa-plus text-[10px]"></i> New Assessment
+                </a>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-700">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px]">
+                        <tr>
+                            <th class="p-3">Assessment Date</th>
+                            <th class="p-3">Weight (kg)</th>
+                            <th class="p-3">Height (cm)</th>
+                            <th class="p-3">BMI</th>
+                            <th class="p-3">Nutrition Status</th>
+                            <th class="p-3">Risk Level</th>
+                            <th class="p-3">Plan of Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 font-medium">`;
+
+    nutritions.forEach(n => {
+        const statusColors = {
+            'normal': 'bg-emerald-100 text-emerald-800',
+            'moderate': 'bg-amber-100 text-amber-800',
+            'critical': 'bg-rose-100 text-rose-800',
+            'underweight': 'bg-amber-100 text-amber-800',
+            'overweight': 'bg-orange-100 text-orange-800',
+            'obese': 'bg-rose-100 text-rose-800'
+        };
+        const sKey = (n.nutrition_status || 'normal').toLowerCase();
+        const badgeClass = statusColors[sKey] || 'bg-slate-100 text-slate-700';
+
+        html += `
+            <tr class="hover:bg-slate-50/80 transition">
+                <td class="p-3 font-mono font-bold text-slate-900">${n.assessment_date || '—'}</td>
+                <td class="p-3">${n.weight ? n.weight + ' kg' : '—'}</td>
+                <td class="p-3">${n.height ? n.height + ' cm' : '—'}</td>
+                <td class="p-3 font-mono font-bold text-brand-dark">${n.bmi || '—'}</td>
+                <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${badgeClass}">${escapeHtml(n.nutrition_status || 'Normal')}</span></td>
+                <td class="p-3 capitalize font-semibold ${n.risk_level === 'high' || n.risk_level === 'critical' ? 'text-rose-600' : 'text-slate-600'}">${escapeHtml(n.risk_level || 'Low')}</td>
+                <td class="p-3 text-slate-600 max-w-xs truncate">${escapeHtml(n.plan_of_action || n.assessment_notes || 'Routine Monitoring')}</td>
+            </tr>
+        `;
+    });
+
+    html += `</tbody></table></div></div>`;
+    container.innerHTML = html;
 }
 
 // 1. TIMELINE VIEW

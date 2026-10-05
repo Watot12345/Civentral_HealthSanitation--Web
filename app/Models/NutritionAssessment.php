@@ -19,6 +19,15 @@ class NutritionAssessment
      */
     public function all(array $filters = [], array $options = []): array
     {
+        // Support callers passing options directly in first parameter
+        if (isset($filters['order']) && empty($options['order'])) {
+            $options['order'] = $filters['order'];
+            unset($filters['order']);
+        }
+        if (isset($filters['limit']) && empty($options['limit'])) {
+            $options['limit'] = $filters['limit'];
+            unset($filters['limit']);
+        }
         if (empty($options['order'])) {
             $options['order'] = 'assessment_date.desc';
         }
@@ -39,6 +48,14 @@ class NutritionAssessment
     }
 
     /**
+     * Fetch all assessments for a specific adult or senior patient.
+     */
+    public function allForPatient(int $patientId): array
+    {
+        return $this->all(['patient_id' => $patientId]);
+    }
+
+    /**
      * Find a single assessment by primary key.
      */
     public function find(int $id): ?array
@@ -53,7 +70,7 @@ class NutritionAssessment
     }
 
     /**
-     * Insert a new assessment. Returns the inserted record array.
+     * Insert a new assessment. Supports pediatric, adult, and senior patients.
      */
     public function create(array $data): array
     {
@@ -62,6 +79,30 @@ class NutritionAssessment
             $heightM = (float)$data['height'] / 100;
             $data['bmi'] = round((float)$data['weight'] / ($heightM * $heightM), 2);
         }
+
+        // Set default patient_type if not provided
+        if (empty($data['patient_type'])) {
+            $data['patient_type'] = !empty($data['patient_id']) ? 'adult' : 'child';
+        }
+
+        // Automatic adult/senior BMI categorization if nutrition_status omitted
+        if (empty($data['nutrition_status']) && isset($data['bmi'])) {
+            $bmi = (float)$data['bmi'];
+            if ($bmi < 18.5) {
+                $data['nutrition_status'] = 'Underweight';
+                $data['risk_level'] = ($bmi < 16.0) ? 'Critical' : 'Moderate';
+            } elseif ($bmi < 25.0) {
+                $data['nutrition_status'] = 'Normal';
+                $data['risk_level'] = 'Low';
+            } elseif ($bmi < 30.0) {
+                $data['nutrition_status'] = 'Overweight';
+                $data['risk_level'] = 'Moderate';
+            } else {
+                $data['nutrition_status'] = 'Obese';
+                $data['risk_level'] = 'Critical';
+            }
+        }
+
         return $this->db->insert($this->table, $data);
     }
 

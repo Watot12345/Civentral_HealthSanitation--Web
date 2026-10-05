@@ -120,8 +120,8 @@ if (PHP_SAPI !== 'cli' || isset($_SERVER['REQUEST_METHOD'])) {
     $childModel = new Child();
     $controller = new ChildController($childModel);
 
-    $method = $_SERVER['REQUEST_METHOD'];
-    $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
     $parts = explode('/', trim($path, '/'));
 
     // Find the position of this script in the URL path to handle base URLs correctly
@@ -133,7 +133,270 @@ if (PHP_SAPI !== 'cli' || isset($_SERVER['REQUEST_METHOD'])) {
         case 'GET':
             AuthorizationMiddleware::authorize(Permissions::IMMUNIZATION_VIEW, 'Immunization API View');
 
-            if (isset($_GET['stats'])) {
+            if (isset($_GET['action']) && $_GET['action'] === 'referrals') {
+                require_once __DIR__ . '/../app/Models/ImmunizationReferral.php';
+                $referralModel = new ImmunizationReferral($db ?? Database::getInstance());
+                $pending = $referralModel->getPending();
+                Response::success('Pending immunization referrals retrieved', $pending);
+            } elseif (isset($_GET['action']) && $_GET['action'] === 'search_patients') {
+                $db = Database::getInstance();
+                $q = trim((string)($_GET['q'] ?? ''));
+                $results = [];
+
+                // 1. Search Health Center Services patients
+                try {
+                    $patients = $db->select('patients', [], [
+                        'or' => "(first_name.ilike.%{$q}%,last_name.ilike.%{$q}%,patient_id.ilike.%{$q}%)",
+                        'limit' => 10
+                    ]);
+                    foreach ($patients as $p) {
+                        $age = !empty($p['date_of_birth']) ? (int)date_diff(date_create($p['date_of_birth']), date_create('today'))->y : 30;
+                        $ptType = ($age >= 60) ? 'senior' : (($age < 18) ? 'child' : 'adult');
+                        $results[] = [
+                            'id'           => $p['id'],
+                            'patient_id'   => $p['id'],
+                            'child_id'     => null,
+                            'source'       => 'health_center',
+                            'patient_type' => $ptType,
+                            'name'         => trim(($p['first_name'] ?? '') . ' ' . ($p['last_name'] ?? '')),
+                            'code'         => $p['patient_id'] ?? "PAT-{$p['id']}",
+                            'birth_date'   => $p['date_of_birth'] ?? '',
+                            'gender'       => $p['gender'] ?? '',
+                            'barangay'     => $p['barangay'] ?? ($p['address'] ?? '')
+                        ];
+                    }
+                } catch (\Throwable $e) {}
+
+                // 2. Search Children records
+                try {
+                    $children = $db->select('children', [], [
+                        'or' => "(first_name.ilike.%{$q}%,last_name.ilike.%{$q}%,child_id.ilike.%{$q}%)",
+                        'limit' => 10
+                    ]);
+                    foreach ($children as $c) {
+                        $results[] = [
+                            'id'           => $c['id'],
+                            'patient_id'   => null,
+                            'child_id'     => $c['id'],
+                            'source'       => 'pediatric',
+                            'patient_type' => 'child',
+                            'name'         => trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')),
+                            'code'         => $c['child_id'] ?? "CHD-{$c['id']}",
+                            'birth_date'   => $c['birth_date'] ?? ($c['date_of_birth'] ?? ''),
+                            'gender'       => $c['gender'] ?? '',
+                            'barangay'     => $c['barangay'] ?? ''
+                        ];
+                    }
+                } catch (\Throwable $e) {}
+
+                Response::success('Patients retrieved', $results);
+            } elseif (isset($_GET['patient_id']) && is_numeric($_GET['patient_id'])) {
+                $pId = (int)$_GET['patient_id'];
+                $db = Database::getInstance();
+                $patient = $db->select('patients', ['id' => $pId]);
+                if (empty($patient)) {
+                    Response::error('Patient not found', 404);
+                }
+                $pData = $patient[0];
+                try {
+                    $pData['vaccinations'] = $db->select('immunizations', ['patient_id' => $pId], ['order' => 'date_administered.asc']);
+                } catch (\Throwable $e) {
+                    $pData['vaccinations'] = [];
+                }
+                Response::success('Patient retrieved with vaccinations', $pData);
+            } elseif (isset($_GET['action']) && $_GET['action'] === 'export_tcl') {
+                require_once __DIR__ . '/../vendor/autoload.php';
+                require_once __DIR__ . '/../app/services/ExportService.php';
+                require_once __DIR__ . '/../app/Models/ActivityLog.php';
+
+                $db = Database::getInstance();
+                $format = strtolower($_GET['format'] ?? 'excel');
+                $category = strtolower($_GET['category'] ?? 'all');
+                $filterVaccine = trim((string)($_GET['vaccine'] ?? ''));
+
+                $queryFilters = [];
+                if (!empty($filterVaccine)) {
+                    $queryFilters['vaccine'] = $filterVaccine;
+                }
+                $doses = [];
+                try {
+                    $doses = $db->select('immunizations', $queryFilters, ['order' => 'date_administered.desc', 'limit' => 2000]);
+                } catch (\Throwable $e) {
+                    $doses = [];
+                }
+
+                $childrenMap = [];
+                try {
+                    $allChildren = $db->select('children', [], ['limit' => 2000]);
+                    foreach ($allChildren as $c) {
+                        $childrenMap[$c['id']] = $c;
+                    }
+                } catch (\Throwable $e) {}
+
+                $patientsMap = [];
+                try {
+                    $allPatients = $db->select('patients', [], ['limit' => 2000]);
+                    foreach ($allPatients as $p) {
+                        $patientsMap[$p['id']] = $p;
+                    }
+                } catch (\Throwable $e) {}
+
+                $headers = [
+                    'Record ID',
+                    'Patient/Child ID',
+                    'Patient Name',
+                    'Category',
+                    'Vaccine',
+                    'Dose #',
+                    'Date Administered',
+                    'Next Due Date',
+                    'Batch Number',
+                    'Administered By',
+                    'Health Center',
+                    'Status'
+                ];
+
+                $rows = [];
+                foreach ($doses as $d) {
+                    $childId = $d['child_id'] ?? null;
+                    $patientId = $d['patient_id'] ?? null;
+                    $pType = $d['patient_type'] ?? (!empty($childId) ? 'child' : 'adult');
+
+                    if ($category !== 'all' && strtolower($pType) !== $category) {
+                        continue;
+                    }
+
+                    $patientName = 'Unknown';
+                    $patientCode = '—';
+                    if (!empty($childId) && isset($childrenMap[$childId])) {
+                        $c = $childrenMap[$childId];
+                        $patientName = trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? ''));
+                        $patientCode = $c['child_id'] ?? "CH-{$childId}";
+                    } elseif (!empty($patientId) && isset($patientsMap[$patientId])) {
+                        $p = $patientsMap[$patientId];
+                        $patientName = trim(($p['first_name'] ?? '') . ' ' . ($p['last_name'] ?? ''));
+                        $patientCode = $p['patient_id'] ?? "P-{$patientId}";
+                    }
+
+                    $rows[] = [
+                        $d['id'] ?? '',
+                        $patientCode,
+                        $patientName,
+                        ucfirst($pType),
+                        $d['vaccine'] ?? '',
+                        $d['dose'] ?? 1,
+                        !empty($d['date_administered']) ? $d['date_administered'] : '—',
+                        !empty($d['next_due_date']) ? $d['next_due_date'] : '—',
+                        $d['batch_number'] ?? '—',
+                        $d['administered_by'] ?? 'Staff',
+                        $d['health_center'] ?? 'Caloocan Health Center',
+                        ucfirst($d['status'] ?? 'completed')
+                    ];
+                }
+
+                if (empty($rows)) {
+                    $rows[] = ['—', '—', 'No vaccination records found matching criteria', '—', '—', '—', '—', '—', '—', '—', '—', '—'];
+                }
+
+                $stamp = date('Y-m-d');
+                $title = "Immunization Target Client List (TCL) — {$stamp}";
+
+                try {
+                    $log = new ActivityLog();
+                    $log->log("Exported Target Client List", [
+                        'module'  => 'Immunization & Nutrition',
+                        'format'  => $format,
+                        'records' => count($rows)
+                    ]);
+                } catch (\Throwable $logEx) {}
+
+                if ($format === 'csv') {
+                    \App\Services\ExportService::toCsv(['headers' => $headers, 'rows' => $rows], "immunization_tcl_{$stamp}.csv");
+                } elseif ($format === 'pdf') {
+                    \App\Services\ExportService::toPdf(['headers' => $headers, 'rows' => $rows], $title, "immunization_tcl_{$stamp}.pdf");
+                } else {
+                    \App\Services\ExportService::toExcel(['headers' => $headers, 'rows' => $rows], $title, "immunization_tcl_{$stamp}.xlsx");
+                }
+            } elseif (isset($_GET['action']) && $_GET['action'] === 'export_child_masterlist') {
+                require_once __DIR__ . '/../vendor/autoload.php';
+                require_once __DIR__ . '/../app/services/ExportService.php';
+                require_once __DIR__ . '/../app/Models/ActivityLog.php';
+
+                $db = Database::getInstance();
+                $format = strtolower($_GET['format'] ?? 'excel');
+                $filterStatus = trim((string)($_GET['status'] ?? ''));
+                $filterBarangay = trim((string)($_GET['barangay'] ?? ''));
+
+                $queryFilters = [];
+                if (!empty($filterStatus)) {
+                    $queryFilters['status'] = $filterStatus;
+                }
+                if (!empty($filterBarangay)) {
+                    $queryFilters['barangay'] = $filterBarangay;
+                }
+
+                $children = [];
+                try {
+                    $children = $db->select('children', $queryFilters, ['order' => 'last_name.asc,first_name.asc', 'limit' => 2000]);
+                } catch (\Throwable $e) {
+                    $children = [];
+                }
+
+                $headers = [
+                    'Child ID',
+                    'Full Name',
+                    'Gender',
+                    'Birth Date',
+                    'Barangay',
+                    'Mother Name',
+                    'Father Name',
+                    'Nutrition Status',
+                    'Vaccine Compliance',
+                    'Registration Date',
+                    'Status'
+                ];
+
+                $rows = [];
+                foreach ($children as $c) {
+                    $rows[] = [
+                        $c['child_id'] ?? ('CH-' . $c['id']),
+                        trim(($c['first_name'] ?? '') . ' ' . ($c['last_name'] ?? '')),
+                        ucfirst($c['gender'] ?? '—'),
+                        $c['birth_date'] ?? '—',
+                        $c['barangay'] ?? '—',
+                        $c['mother_name'] ?? '—',
+                        $c['father_name'] ?? '—',
+                        $c['nutrition_status'] ?? 'Normal',
+                        isset($c['vaccine_compliance']) ? ($c['vaccine_compliance'] . '%') : '—',
+                        $c['registration_date'] ?? '—',
+                        ucfirst($c['status'] ?? 'Active')
+                    ];
+                }
+
+                if (empty($rows)) {
+                    $rows[] = ['—', 'No child records found', '—', '—', '—', '—', '—', '—', '—', '—', '—'];
+                }
+
+                $stamp = date('Y-m-d');
+                $title = "Child Health & Nutrition Masterlist — {$stamp}";
+
+                try {
+                    $log = new ActivityLog();
+                    $log->log("Exported Child Masterlist", [
+                        'module'  => 'Immunization & Nutrition',
+                        'format'  => $format,
+                        'records' => count($rows)
+                    ]);
+                } catch (\Throwable $logEx) {}
+
+                if ($format === 'csv') {
+                    \App\Services\ExportService::toCsv(['headers' => $headers, 'rows' => $rows], "child_masterlist_{$stamp}.csv");
+                } elseif ($format === 'pdf') {
+                    \App\Services\ExportService::toPdf(['headers' => $headers, 'rows' => $rows], $title, "child_masterlist_{$stamp}.pdf");
+                } else {
+                    \App\Services\ExportService::toExcel(['headers' => $headers, 'rows' => $rows], $title, "child_masterlist_{$stamp}.xlsx");
+                }
+            } elseif (isset($_GET['stats'])) {
                 $controller->stats();
             } elseif ($targetId && isset($_GET['export']) && $_GET['export'] === 'pdf') {
                 require_once __DIR__ . '/../vendor/autoload.php';
@@ -196,6 +459,70 @@ if (PHP_SAPI !== 'cli' || isset($_SERVER['REQUEST_METHOD'])) {
             break;
 
         case 'POST':
+            // 1. Handle Doctor Consultation Referral Creation
+            if (isset($_GET['action']) && in_array($_GET['action'], ['referral', 'create_referral'], true)) {
+                $inputJson = json_decode(file_get_contents('php://input'), true);
+                $data = is_array($inputJson) ? array_merge($_POST, $inputJson) : $_POST;
+
+                $db = Database::getInstance();
+                require_once __DIR__ . '/../app/Models/ImmunizationReferral.php';
+                $referralModel = new ImmunizationReferral($db);
+
+                $patientName = trim($data['patient_name'] ?? '');
+                if (empty($patientName) && !empty($data['patient_id'])) {
+                    try {
+                        $p = $db->select('patients', ['id' => (int)$data['patient_id']]);
+                        if (!empty($p)) {
+                            $patientName = trim(($p[0]['first_name'] ?? '') . ' ' . ($p[0]['last_name'] ?? ''));
+                        }
+                    } catch (\Throwable $e) {}
+                }
+                if (empty($patientName) && !empty($data['child_id'])) {
+                    try {
+                        $c = $db->select('children', ['id' => (int)$data['child_id']]);
+                        if (!empty($c)) {
+                            $patientName = trim(($c[0]['first_name'] ?? '') . ' ' . ($c[0]['last_name'] ?? ''));
+                        }
+                    } catch (\Throwable $e) {}
+                }
+                if (empty($patientName)) {
+                    $patientName = !empty($data['patient_id']) ? ('Patient #' . $data['patient_id']) : (!empty($data['child_id']) ? ('Child #' . $data['child_id']) : '');
+                }
+
+                $vaccineRequested = trim($data['vaccine_requested'] ?? $data['vaccine'] ?? '');
+
+                if (empty($patientName) || empty($vaccineRequested)) {
+                    Response::error('Patient Name and Requested Vaccine are required', 422);
+                }
+
+                $newReferral = $referralModel->create([
+                    'patient_id'        => !empty($data['patient_id']) ? (int)$data['patient_id'] : null,
+                    'child_id'          => !empty($data['child_id']) ? (int)$data['child_id'] : null,
+                    'patient_name'      => $patientName,
+                    'patient_type'      => $data['patient_type'] ?? (!empty($data['child_id']) ? 'child' : 'adult'),
+                    'referred_by'       => $data['referred_by'] ?? ($_SESSION['employee_name'] ?? 'Doctor'),
+                    'consultation_id'   => !empty($data['consultation_id']) ? (int)$data['consultation_id'] : null,
+                    'vaccine_requested' => $vaccineRequested,
+                    'urgency'           => $data['urgency'] ?? 'routine',
+                    'notes'             => $data['notes'] ?? null,
+                    'status'            => 'pending'
+                ]);
+
+                if (file_exists(__DIR__ . '/../app/Models/ActivityLog.php')) {
+                    require_once __DIR__ . '/../app/Models/ActivityLog.php';
+                    try {
+                        $logger = new \ActivityLog();
+                        $logger->log("Created Immunization Referral for {$patientName}", [
+                            'module'  => 'Health Center Services',
+                            'details' => "Vaccine: {$vaccineRequested} | Urgency: " . ($data['urgency'] ?? 'routine'),
+                            'status'  => 'Success'
+                        ]);
+                    } catch (\Throwable $e) {}
+                }
+
+                Response::success('Immunization referral created successfully', $newReferral, 201);
+            }
+
             $isVaccinationRecord = (isset($_GET['action']) && in_array($_GET['action'], ['record', 'vaccination'], true));
             $inputJson = json_decode(file_get_contents('php://input'), true);
             $data = is_array($inputJson) ? array_merge($_POST, $inputJson) : $_POST;
@@ -221,45 +548,56 @@ if (PHP_SAPI !== 'cli' || isset($_SERVER['REQUEST_METHOD'])) {
 
                 $db = Database::getInstance();
                 
-                // Resolve child_id / target child
-                $childId = $data['child_id'] ?? $_GET['id'] ?? $data['id'] ?? null;
+                // Resolve target patient (supports both child_id and patient_id)
+                $childId = $data['child_id'] ?? null;
+                $patientId = $data['patient_id'] ?? null;
+                $patientType = $data['patient_type'] ?? (!empty($patientId) ? 'adult' : 'child');
                 $patientName = trim($data['patient_name'] ?? $data['child_name'] ?? '');
 
-                if (empty($childId) && !empty($patientName)) {
-                    // Try to look up child by ID code or name
+                // Fallback resolution if patient ID was not explicitly given
+                if (empty($childId) && empty($patientId) && !empty($patientName)) {
+                    // 1. Try to find in Health Center Services patients
                     try {
-                        $searchRes = $db->select('children', [], [
-                            'or' => "(child_id.eq.{$patientName},first_name.ilike.%{$patientName}%,last_name.ilike.%{$patientName}%)",
+                        $pSearch = $db->select('patients', [], [
+                            'or' => "(patient_id.eq.{$patientName},first_name.ilike.%{$patientName}%,last_name.ilike.%{$patientName}%)",
                             'limit' => 1
                         ]);
-                        if (!empty($searchRes)) {
-                            $childId = $searchRes[0]['id'];
-                        } else {
-                            // If child record not found, create a new child record for this patient name
-                            $nameParts = explode(' ', $patientName, 2);
-                            $newChild = $childModel->create([
-                                'first_name' => $nameParts[0],
-                                'last_name' => $nameParts[1] ?? '',
-                                'status' => 'active',
-                                'vaccine_compliance' => 0
-                            ]);
-                            $childId = $newChild['id'] ?? ($newChild[0]['id'] ?? null);
-                        }
-                    } catch (\Throwable $e) {
-                        error_log('Error looking up or creating child for vaccination: ' . $e->getMessage());
-                    }
-                } elseif (!empty($childId) && !is_numeric($childId)) {
-                    // Passed a string child_id like 'CH-001'
-                    try {
-                        $c = $childModel->findByChildId((string)$childId);
-                        if ($c && !empty($c['id'])) {
-                            $childId = (int)$c['id'];
+                        if (!empty($pSearch)) {
+                            $patientId = $pSearch[0]['id'];
+                            $patientType = 'adult';
                         }
                     } catch (\Throwable $e) {}
+
+                    // 2. If not found in adult patients, search children
+                    if (empty($patientId)) {
+                        try {
+                            $cSearch = $db->select('children', [], [
+                                'or' => "(child_id.eq.{$patientName},first_name.ilike.%{$patientName}%,last_name.ilike.%{$patientName}%)",
+                                'limit' => 1
+                            ]);
+                            if (!empty($cSearch)) {
+                                $childId = $cSearch[0]['id'];
+                                $patientType = 'child';
+                            } else {
+                                // Create new child record as fallback
+                                $nameParts = explode(' ', $patientName, 2);
+                                $newChild = $childModel->create([
+                                    'first_name' => $nameParts[0],
+                                    'last_name' => $nameParts[1] ?? '',
+                                    'status' => 'active',
+                                    'vaccine_compliance' => 0
+                                ]);
+                                $childId = $newChild['id'] ?? ($newChild[0]['id'] ?? null);
+                                $patientType = 'child';
+                            }
+                        } catch (\Throwable $e) {
+                            error_log('Error looking up or creating child for vaccination: ' . $e->getMessage());
+                        }
+                    }
                 }
 
-                if (empty($childId)) {
-                    Response::error('Child/Patient is required to record vaccination', 422);
+                if (empty($childId) && empty($patientId)) {
+                    Response::error('A valid Child or Adult/Senior Patient is required to record vaccination', 422);
                 }
 
                 // Resolve vaccine name
@@ -290,38 +628,69 @@ if (PHP_SAPI !== 'cli' || isset($_SERVER['REQUEST_METHOD'])) {
                 $notes = !empty($data['notes']) ? trim($data['notes']) : null;
 
                 $record = [
-                    'child_id'          => (int)$childId,
                     'vaccine'           => $vaccine,
                     'dose'              => $dose,
-                    'date_administered'  => $dateAdministered,
-                    'next_due_date'      => $nextDueDate,
-                    'batch_number'       => $batchNumber,
-                    'administered_by'    => $administeredBy,
-                    'health_center'      => $healthCenter,
-                    'notes'              => $notes,
+                    'date_administered' => $dateAdministered,
+                    'next_due_date'     => $nextDueDate,
+                    'batch_number'      => $batchNumber,
+                    'administered_by'   => $administeredBy,
+                    'health_center'     => $healthCenter,
+                    'notes'             => $notes
                 ];
+
+                if (!empty($childId)) {
+                    $record['child_id'] = (int)$childId;
+                }
 
                 try {
                     $res = $db->insert('immunizations', $record);
 
-                    // Recalculate child's vaccine compliance score based on EPI antigen schedule
-                    try {
-                        $compliance = calculateVaccineCompliance($db, (int)$childId);
-                        $db->update('children', [
-                            'vaccine_compliance' => $compliance,
-                            'last_visit'         => $dateAdministered
-                        ], ['id' => (int)$childId]);
-                    } catch (\Throwable $ce) {
-                        error_log('Notice updating child vaccine compliance: ' . $ce->getMessage());
+                    // If linked to child, recalculate EPI compliance score
+                    if (!empty($childId)) {
+                        try {
+                            $compliance = calculateVaccineCompliance($db, (int)$childId);
+                            $db->update('children', [
+                                'vaccine_compliance' => $compliance,
+                                'last_visit'         => $dateAdministered
+                            ], ['id' => (int)$childId]);
+                        } catch (\Throwable $ce) {
+                            error_log('Notice updating child vaccine compliance: ' . $ce->getMessage());
+                        }
                     }
+
+                    // Auto-complete referral if referral_id was provided
+                    if (!empty($data['referral_id'])) {
+                        try {
+                            require_once __DIR__ . '/../app/Models/ImmunizationReferral.php';
+                            $refModel = new ImmunizationReferral($db);
+                            $refModel->complete((int)$data['referral_id']);
+                        } catch (\Throwable $re) {}
+                    }
+
+                    // Deduct stock from vaccine inventory if available
+                    try {
+                        $invMatches = $db->select('vaccine_inventory', [], [
+                            'vaccine_name' => "ilike.%{$vaccine}%",
+                            'limit'        => 1
+                        ]);
+                        if (!empty($invMatches) && isset($invMatches[0]['id'])) {
+                            $invItem = $invMatches[0];
+                            $currQty = (int)($invItem['quantity'] ?? 0);
+                            if ($currQty > 0) {
+                                $newQty = $currQty - 1;
+                                $db->update('vaccine_inventory', ['quantity' => $newQty], ['id' => $invItem['id']]);
+                            }
+                        }
+                    } catch (\Throwable $ive) {}
 
                     if (file_exists(__DIR__ . '/../app/Models/ActivityLog.php')) {
                         require_once __DIR__ . '/../app/Models/ActivityLog.php';
                         try {
                             $logger = new \ActivityLog();
+                            $targetDesc = !empty($patientId) ? "Patient ID: {$patientId} ({$patientType})" : "Child ID: {$childId}";
                             $logger->log("Recorded Vaccination: {$vaccine} (Dose {$dose})", [
                                 'module'  => 'Immunization & Nutrition',
-                                'details' => "Child ID: {$childId} | Administered By: " . ($administeredBy ?? 'Staff') . " | Health Center: {$healthCenter}",
+                                'details' => "{$targetDesc} | Administered By: " . ($administeredBy ?? 'Staff') . " | Health Center: {$healthCenter}",
                                 'status'  => 'Success'
                             ]);
                         } catch (\Throwable $le) {}

@@ -689,16 +689,44 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Treatment Plan & Clinical Notes</label><textarea id="add_treatment_plan" rows="2" placeholder="Medications prescribed, rest, lab tests ordered..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></textarea></div>
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4"><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Follow-up Date</label><input type="date" id="add_follow_up_date" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div><div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Clinical Notes</label><input type="text" id="add_notes" placeholder="Additional doctor observations" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div></div>
 
-<!-- ACTION TRIGGERS FOR PRESCRIPTION & REFERRAL -->
-<div class="pt-3 border-t border-slate-100 flex flex-wrap gap-4 text-xs font-semibold text-slate-700 bg-slate-50/70 p-3 rounded-xl">
-    <label class="flex items-center gap-2 cursor-pointer hover:text-brand-dark transition">
-        <input type="checkbox" id="add_create_prescription" class="w-4 h-4 text-brand-medium rounded border-slate-300 focus:ring-brand-medium">
-        <span><i class="fa-solid fa-pills text-teal-600 mr-1"></i> Issue Prescription after saving</span>
-    </label>
-    <label class="flex items-center gap-2 cursor-pointer hover:text-brand-dark transition">
-        <input type="checkbox" id="add_create_referral" class="w-4 h-4 text-brand-medium rounded border-slate-300 focus:ring-brand-medium">
-        <span><i class="fa-solid fa-arrow-right-from-bracket text-amber-600 mr-1"></i> Create Referral Form after saving</span>
-    </label>
+<!-- ACTION TRIGGERS FOR PRESCRIPTION, REFERRAL & IMMUNIZATION -->
+<div class="pt-3 border-t border-slate-100 flex flex-col gap-2 text-xs font-semibold text-slate-700 bg-slate-50/70 p-3 rounded-xl">
+    <div class="flex flex-wrap gap-4">
+        <label class="flex items-center gap-2 cursor-pointer hover:text-brand-dark transition">
+            <input type="checkbox" id="add_create_prescription" class="w-4 h-4 text-brand-medium rounded border-slate-300 focus:ring-brand-medium">
+            <span><i class="fa-solid fa-pills text-teal-600 mr-1"></i> Issue Prescription</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer hover:text-brand-dark transition">
+            <input type="checkbox" id="add_create_referral" class="w-4 h-4 text-brand-medium rounded border-slate-300 focus:ring-brand-medium">
+            <span><i class="fa-solid fa-arrow-right-from-bracket text-amber-600 mr-1"></i> Hospital / Clinic Referral</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer hover:text-brand-dark transition">
+            <input type="checkbox" id="add_create_immunization_referral" class="w-4 h-4 text-brand-medium rounded border-slate-300 focus:ring-brand-medium" onchange="document.getElementById('immunization_referral_fields').classList.toggle('hidden', !this.checked)">
+            <span><i class="fa-solid fa-syringe text-indigo-600 mr-1"></i> Refer for Immunization</span>
+        </label>
+    </div>
+    <div id="immunization_referral_fields" class="hidden mt-2 pt-2 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div>
+            <label class="block text-[11px] font-medium text-slate-500 mb-1">Recommended Vaccine</label>
+            <select id="add_referral_vaccine" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                <option value="Influenza (Flu Shot)">Influenza (Flu Shot)</option>
+                <option value="Pneumococcal Conjugate (PCV13 / PPSV23)">Pneumococcal Conjugate (PCV13 / PPSV23 - Senior)</option>
+                <option value="Tetanus Toxoid / Tdap">Tetanus Toxoid / Tdap (Adult / Maternal)</option>
+                <option value="Hepatitis B (Adult)">Hepatitis B (Adult)</option>
+                <option value="Human Papillomavirus (HPV)">Human Papillomavirus (HPV)</option>
+                <option value="Rabies Post-Exposure (PEP)">Rabies Post-Exposure (PEP)</option>
+                <option value="EPI Pediatric Schedule (Infant)">EPI Pediatric Schedule (Infant)</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-[11px] font-medium text-slate-500 mb-1">Urgency</label>
+            <select id="add_referral_urgency" class="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                <option value="routine">Routine</option>
+                <option value="priority">Priority</option>
+                <option value="urgent">Urgent</option>
+            </select>
+        </div>
+    </div>
 </div>
 
 <div class="flex justify-end gap-2 pt-3 border-t border-slate-100"><button type="button" onclick="ModalSystem.close('addConsultationModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-sm font-semibold">Cancel</button><button type="submit" id="submitAddBtn" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold flex items-center gap-1.5"><i class="fa-solid fa-check"></i> Save Consultation</button></div>
@@ -1533,6 +1561,9 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
         const triageId = document.getElementById('add_triage_id')?.value || null;
         const createPrescription = document.getElementById('add_create_prescription')?.checked || false;
         const createReferral = document.getElementById('add_create_referral')?.checked || false;
+        const createImmReferral = document.getElementById('add_create_immunization_referral')?.checked || false;
+        const immVaccine = document.getElementById('add_referral_vaccine')?.value || 'Influenza (Flu Shot)';
+        const immUrgency = document.getElementById('add_referral_urgency')?.value || 'routine';
 
         const payload = {
             patient_id: parseInt(document.getElementById('add_patient_id').value),
@@ -1569,6 +1600,36 @@ $todayCount = count(array_filter($consultations, fn($c) => $c['date'] === date('
                 const rec = data.record || data.data;
                 const createdId = rec?.id || rec?.consultation_id || '';
                 const patientId = payload.patient_id;
+
+                if (createImmReferral) {
+                    try {
+                        const pat = PATIENTS_MAP[patientId] || {};
+                        const pName = ((pat.first_name || '') + ' ' + (pat.last_name || '')).trim() || ('Patient #' + patientId);
+                        const birthYear = pat.date_of_birth ? new Date(pat.date_of_birth).getFullYear() : 1990;
+                        const ptType = (new Date().getFullYear() - birthYear >= 60) ? 'senior' : 'adult';
+                        await fetch('<?php echo site_url('api/immunization.php?action=create_referral'); ?>', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-Token': csrfToken,
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: JSON.stringify({
+                                patient_id: patientId,
+                                patient_name: pName,
+                                patient_type: ptType,
+                                consultation_id: parseInt(createdId) || null,
+                                vaccine_requested: immVaccine,
+                                urgency: immUrgency,
+                                notes: payload.notes || payload.treatment_plan || 'Referred from Doctor Consultation',
+                                csrf_token: csrfToken
+                            })
+                        });
+                        ModalSystem.toast.success('Immunization Referral dispatched to Tracker!');
+                    } catch (refErr) {
+                        console.error('Failed to create immunization referral:', refErr);
+                    }
+                }
 
                 if (createPrescription) {
                     setTimeout(() => {

@@ -21,7 +21,7 @@ require_once __DIR__ . '/../../includes/toast.php';
 
 // Constants
 const DEFAULT_PAGE = 1;
-const DEFAULT_LIMIT = 5;
+const DEFAULT_LIMIT = 10;
 
 function normalizeChildDateFilter(mixed $value): ?string
 {
@@ -115,6 +115,10 @@ $title = 'Child Records';
             <p class="text-sm text-slate-500 mt-0.5">Manage child registration, demographics &amp; health records</p>
         </div>
         <div class="flex gap-3">
+            <button onclick="openModal('exportChildMasterlistModal')"
+                    class="px-3.5 py-2 bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
+                <i class="fa-solid fa-file-excel text-xs text-emerald-600"></i> Bulk Export Masterlist
+            </button>
             <button onclick="openModal('registerChildModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-child text-xs"></i> Register Child
@@ -407,14 +411,6 @@ $title = 'Child Records';
                                 <button onclick="viewHealthRecord(<?php echo (int)($child['id'] ?? 0); ?>)"
                                         class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Medical History">
                                     <i class="fa-solid fa-folder-medical text-sm"></i>
-                                </button>
-                                <button onclick="printChild(<?php echo (int)($child['id'] ?? 0); ?>)"
-                                        class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Print">
-                                    <i class="fa-solid fa-print text-sm"></i>
-                                </button>
-                                <button onclick="exportChild(<?php echo (int)($child['id'] ?? 0); ?>)"
-                                        class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Export">
-                                    <i class="fa-solid fa-download text-sm"></i>
                                 </button>
                                 <button onclick="archiveChild(<?php echo (int)($child['id'] ?? 0); ?>)"
                                         class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Archive">
@@ -1073,6 +1069,71 @@ $title = 'Child Records';
 </div>
 
 <!-- ============================================================ -->
+<!-- EXPORT CHILD MASTERLIST MODAL (BULK EXPORT)                  -->
+<!-- ============================================================ -->
+<div id="exportChildMasterlistModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-file-export text-emerald-600"></i> Export Child Masterlist
+            </h3>
+            <button onclick="closeModal('exportChildMasterlistModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Export Scope</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-700 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50">
+                        <input type="radio" name="childExportScope" value="filtered" checked class="text-emerald-600 focus:ring-emerald-500">
+                        <span>Active Filtered View</span>
+                    </label>
+                    <label class="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-700 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50">
+                        <input type="radio" name="childExportScope" value="all" class="text-emerald-600 focus:ring-emerald-500">
+                        <span>Full Masterlist (All)</span>
+                    </label>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-500">Select export format for community health reports and Operation Timbang (OPT) Plus submissions:</p>
+
+            <div class="space-y-2.5">
+                <button type="button" onclick="exportChildMasterlistData('excel')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:bg-emerald-50 hover:border-emerald-300 transition text-left group">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition">
+                        <i class="fa-solid fa-file-excel"></i>
+                    </div>
+                    <div>
+                        <strong class="block text-sm text-slate-800">Microsoft Excel (.xlsx / .xls)</strong>
+                        <small class="text-xs text-slate-500">Formatted spreadsheet for municipal reporting</small>
+                    </div>
+                </button>
+
+                <button type="button" onclick="exportChildMasterlistData('csv')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:bg-blue-50 hover:border-blue-300 transition text-left group">
+                    <div class="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition">
+                        <i class="fa-solid fa-file-csv"></i>
+                    </div>
+                    <div>
+                        <strong class="block text-sm text-slate-800">CSV Spreadsheet (.csv)</strong>
+                        <small class="text-xs text-slate-500">Standard comma-separated dataset</small>
+                    </div>
+                </button>
+
+                <button type="button" onclick="exportChildMasterlistData('pdf')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:bg-rose-50 hover:border-rose-300 transition text-left group">
+                    <div class="w-10 h-10 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition">
+                        <i class="fa-solid fa-file-pdf"></i>
+                    </div>
+                    <div>
+                        <strong class="block text-sm text-slate-800">Printable Report Document</strong>
+                        <small class="text-xs text-slate-500">Formatted masterlist document for printing</small>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
 <!-- JAVASCRIPT                                                   -->
 <!-- ============================================================ -->
 <script>
@@ -1246,7 +1307,7 @@ $title = 'Child Records';
     // ============================================================
     // FETCH CHILDREN FROM API
     // ============================================================
-    async function fetchChildren(page = 1, limit = 5) {
+    async function fetchChildren(page = 1, limit = 10) {
         try {
             const response = await fetch(`${API_BASE}?page=${page}&limit=${limit}`);
             const result = await response.json();
@@ -1447,8 +1508,8 @@ $title = 'Child Records';
             ? vaccinations.map(v => `
                 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <div>
-                        <p class="font-semibold text-slate-800 text-sm">${escHtml(v.name || v.vaccine_name || 'Vaccine')} &bull; Dose ${escHtml(val(v.dose, '1'))}</p>
-                        <p class="text-xs text-slate-400">${v.date_administered ? new Date(v.date_administered).toLocaleDateString() : 'No date'} &bull; ${escHtml(val(v.administered_by))}</p>
+                        <p class="font-semibold text-slate-800 text-sm">${escHtml(v.vaccine || v.vaccine_name || v.name || 'Vaccine')} &bull; Dose ${escHtml(val(v.dose, '1'))}</p>
+                        <p class="text-xs text-slate-400">${v.date_administered ? new Date(v.date_administered).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) : 'No date'} &bull; ${escHtml(val(v.administered_by, 'Health Worker'))}${v.batch_number ? ` &bull; <span class="font-mono text-slate-500">Lot: ${escHtml(v.batch_number)}</span>` : ''}</p>
                         ${v.notes ? `<p class="text-xs text-slate-600 mt-1">${escHtml(v.notes)}</p>` : ''}
                     </div>
                     <div class="text-right">
@@ -1670,33 +1731,6 @@ $title = 'Child Records';
         `;
     }
 
-    // ============================================================
-    // PRINT CHILD RECORD
-    // ============================================================
-    async function printChild(id) {
-        const c = await fetchChild(id);
-        if (!c) return;
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-            <head><title>Child Record - ${escHtml(c.child_id || '')}</title></head>
-            <body style="font-family: sans-serif; padding: 24px;">
-                <h2>${escHtml(c.first_name || '')} ${escHtml(c.last_name || '')}</h2>
-                <p>ID: ${escHtml(c.child_id || '')}</p>
-                <p>Gender: ${escHtml(c.gender || '')}</p>
-                <p>Birth Date: ${escHtml(c.birth_date || '')}</p>
-                <p>Barangay: ${escHtml(c.barangay || '')}</p>
-                <p>Mother: ${escHtml(c.mother_name || '')}</p>
-                <p>Father: ${escHtml(c.father_name || '')}</p>
-                <p>Nutrition Status: ${escHtml(c.nutrition_status || '')}</p>
-                <p>Vaccine Compliance: ${escHtml(String(c.vaccine_compliance ?? ''))}%</p>
-            </body>
-            </html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-    }
 
     // ============================================================
     // SHARED: read a set of form fields into a plain object
@@ -1822,8 +1856,6 @@ $title = 'Child Records';
             ['editChild', 'fa-pen', 'text-slate-500 hover:bg-slate-100 hover:text-slate-700', 'Edit'],
             ['viewVaccination', 'fa-syringe', 'text-emerald-600 hover:bg-emerald-50', 'Vaccination'],
             ['viewHealthRecord', 'fa-folder-medical', 'text-blue-600 hover:bg-blue-50', 'Medical History'],
-            ['printChild', 'fa-print', 'text-slate-500 hover:bg-slate-100 hover:text-slate-700', 'Print'],
-            ['exportChild', 'fa-download', 'text-slate-500 hover:bg-slate-100 hover:text-slate-700', 'Export'],
             ['archiveChild', 'fa-archive', 'text-amber-600 hover:bg-amber-50', 'Archive'],
         ];
         return actions.map(([fn, icon, cls, title]) => `
@@ -1875,7 +1907,7 @@ $title = 'Child Records';
     // ============================================================
     async function refreshChildList() {
         try {
-            const response = await fetch(`${API_BASE}?page=1&limit=5`);
+            const response = await fetch(`${API_BASE}?page=1&limit=10`);
             const result = await response.json();
 
             if (!response.ok || !result.success) {
@@ -2082,6 +2114,119 @@ $title = 'Child Records';
             toast.success('Immunization card PDF downloaded successfully');
         } catch (err) {
             toast.error(err.message || 'Export failed');
+        }
+    }
+
+    // ============================================================
+    // BULK EXPORT CHILD MASTERLIST
+    // ============================================================
+    async function exportChildMasterlistData(format) {
+        const scope = document.querySelector('input[name="childExportScope"]:checked')?.value || 'filtered';
+        closeModal('exportChildMasterlistModal');
+
+        if (scope === 'all') {
+            const status = document.getElementById('filterStatus')?.value || '';
+            const barangay = document.getElementById('filterBarangay')?.value || '';
+            const url = `${API_BASE}?action=export_child_masterlist&format=${format}&status=${encodeURIComponent(status)}&barangay=${encodeURIComponent(barangay)}`;
+            window.location.href = url;
+            toast.info('Downloading full Child Masterlist export...');
+            return;
+        }
+
+        // Filtered view from DOM
+        const rows = Array.from(document.querySelectorAll('#childTableBody tr:not([id="emptyState"])'));
+        const visibleRows = rows.filter(r => r.style.display !== 'none');
+
+        if (!visibleRows || visibleRows.length === 0) {
+            toast.warning('No child records visible to export.');
+            return;
+        }
+
+        const headers = [
+            'Child ID',
+            'Full Name',
+            'Gender / Age',
+            'Barangay',
+            'Parent Details',
+            'Nutrition Status',
+            'Vaccine Compliance',
+            'Status'
+        ];
+
+        const dataRows = visibleRows.map(r => {
+            const cells = r.querySelectorAll('td');
+            if (cells.length < 7) return null;
+            const id = cells[0]?.textContent.trim();
+            const name = cells[1]?.querySelector('p.font-semibold')?.textContent.trim() || cells[1]?.textContent.trim();
+            const genderAge = cells[2]?.textContent.trim();
+            const barangay = cells[3]?.textContent.trim();
+            const parents = cells[4]?.textContent.trim();
+            const nutrition = cells[5]?.textContent.trim();
+            const compliance = cells[6]?.textContent.trim();
+
+            return [id, name, genderAge, barangay, parents, nutrition, compliance, 'Active'];
+        }).filter(Boolean);
+
+        const stamp = new Date().toISOString().slice(0, 10);
+        const filename = `child_masterlist_filtered_${stamp}`;
+
+        if (format === 'csv' || format === 'excel') {
+            const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+            const csv = [headers, ...dataRows].map(row => row.map(escapeCsv).join(',')).join('\n') + '\n';
+            const mimeType = format === 'excel' ? 'application/vnd.ms-excel' : 'text/csv;charset=utf-8;';
+            const ext = format === 'excel' ? 'xls' : 'csv';
+
+            const blob = new Blob(['\uFEFF' + csv], { type: mimeType });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${filename}.${ext}`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            toast.success(`Exported ${dataRows.length} child record(s) to ${ext.toUpperCase()} successfully!`);
+        } else if (format === 'pdf') {
+            const printWindow = window.open('', '_blank', 'width=950,height=750');
+            if (!printWindow) {
+                toast.warning('Please allow pop-ups to open the report document');
+                return;
+            }
+            const esc = str => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+            const tableRowsHtml = dataRows.map(r => `<tr>${r.map(val => `<td style="padding:6px 8px; border:1px solid #cbd5e1; font-size:11px;">${esc(val)}</td>`).join('')}</tr>`).join('');
+            const headerHtml = headers.map(h => `<th style="padding:8px; background:#0B4F4A; color:white; font-size:11px; text-align:left; border:1px solid #0B4F4A;">${esc(h)}</th>`).join('');
+
+            printWindow.document.write(`
+                <!doctype html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Child Health Masterlist - ${stamp}</title>
+                    <style>
+                        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 24px; color: #1e293b; }
+                        h2 { margin: 0 0 4px 0; color: #0B4F4A; }
+                        p { margin: 0 0 16px 0; font-size: 12px; color: #64748b; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+                        @media print { body { margin: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <h2>Caloocan Health Center — Child Health &amp; Nutrition Masterlist</h2>
+                    <p>Generated: ${new Date().toLocaleString()} | Filtered Records: ${dataRows.length}</p>
+                    <table>
+                        <thead><tr>${headerHtml}</tr></thead>
+                        <tbody>${tableRowsHtml}</tbody>
+                    </table>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+            }, 300);
+            toast.info(`Opened printable masterlist with ${dataRows.length} records.`);
         }
     }
 

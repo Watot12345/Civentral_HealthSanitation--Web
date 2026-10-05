@@ -57,49 +57,48 @@ class NutritionController
     {
         $data = json_decode(file_get_contents('php://input'), true) ?? $_POST;
 
-        $errors = $this->validate($data, ['child_id', 'weight', 'height']);
+        $required = ['weight', 'height'];
+        if (empty($data['child_id']) && empty($data['patient_id'])) {
+            $required[] = 'child_id'; // will produce error indicating child or patient is required
+        }
+        $errors = $this->validate($data, $required);
         if (!empty($errors)) {
-            Response::error('Validation failed', 422, $errors);
+            Response::error('Validation failed: A valid child or patient, along with weight and height, is required.', 422, $errors);
         }
 
         $record = $this->prepareData($data);
 
         try {
-            // Resolve child_id if it was passed as patient_id
+            // Resolve patient target (supports both child_id and patient_id)
             $db = Database::getInstance();
-            $childExists = $db->select('children', ['id' => $record['child_id']]);
-            if (empty($childExists)) {
-                $patient = $db->select('patients', ['id' => $record['child_id']]);
-                if (!empty($patient)) {
-                    $p = $patient[0];
-                    $childByMatch = $db->select('children', [
-                        'first_name' => $p['first_name'],
-                        'last_name' => $p['last_name']
-                    ]);
-                    if (!empty($childByMatch)) {
-                        $record['child_id'] = (int)$childByMatch[0]['id'];
-                    } else {
-                        require_once __DIR__ . '/../Models/Child.php';
-                        $childModel = new Child();
-                        $insertedChild = $db->insert('children', [
-                            'child_id' => $childModel->generateChildId(),
-                            'first_name' => $p['first_name'],
-                            'last_name' => $p['last_name'],
-                            'middle_name' => $p['middle_name'] ?? null,
-                            'gender' => $p['gender'] ?? 'Female',
-                            'birth_date' => $p['birth_date'] ?? date('Y-m-d'),
-                            'birth_weight' => $record['weight'] ?? null,
-                            'birth_height' => $record['height'] ?? null,
-                            'blood_type' => $p['blood_type'] ?? 'O+',
-                            'address' => $p['address'] ?? 'Caloocan City',
-                            'barangay' => $p['barangay'] ?? 'Barangay 2',
-                            'mother_name' => $p['emergency_contact'] ?? ($p['last_name'] . ' (Mother)'),
-                            'status' => 'active',
-                            'nutrition_status' => $record['nutrition_status'] ?? 'Normal',
-                            'registration_date' => date('Y-m-d')
-                        ]);
-                        if (!empty($insertedChild['id'])) {
-                            $record['child_id'] = (int)$insertedChild['id'];
+            $patientId = $data['patient_id'] ?? null;
+            $childId = $data['child_id'] ?? null;
+
+            if (!empty($patientId)) {
+                $record['patient_id'] = (int)$patientId;
+                $record['patient_type'] = $data['patient_type'] ?? 'adult';
+                $record['assessment_type'] = ($record['patient_type'] === 'senior') ? 'senior_mna' : 'adult_bmi';
+                $record['child_id'] = null;
+            } elseif (!empty($childId)) {
+                $childExists = $db->select('children', ['id' => (int)$childId]);
+                if (!empty($childExists)) {
+                    $record['child_id'] = (int)$childId;
+                    $record['patient_type'] = 'child';
+                    $record['assessment_type'] = 'pediatric_who';
+                } else {
+                    // Check if passed ID was a patient_id from health center services
+                    $patient = $db->select('patients', ['id' => (int)$childId]);
+                    if (!empty($patient)) {
+                        $p = $patient[0];
+                        $age = !empty($p['date_of_birth']) ? (int)date_diff(date_create($p['date_of_birth']), date_create('today'))->y : 30;
+                        if ($age >= 18) {
+                            $record['patient_id'] = (int)$p['id'];
+                            $record['patient_type'] = ($age >= 60) ? 'senior' : 'adult';
+                            $record['assessment_type'] = ($age >= 60) ? 'senior_mna' : 'adult_bmi';
+                            $record['child_id'] = null;
+                        } else {
+                            $record['child_id'] = (int)$childId;
+                            $record['patient_type'] = 'child';
                         }
                     }
                 }
@@ -110,10 +109,32 @@ class NutritionController
             // Sync children.nutrition_status for KPI accuracy
             $inserted = is_array($result) && !empty($result[0]) ? $result[0] : $result;
             if (!empty($inserted['child_id'])) {
-                $this->model->syncChildNutritionStatus(
-                    (int)$inserted['child_id'],
-                    $record['nutrition_status']
-                );
+                $cId = (int)$inserted['child_id'];
+                $this->model->syncChildNutritionStatus($cId, $record['nutrition_status']);
+
+                // Auto-sync into growth_measurements so WHO Growth Charts update immediately
+                if (!empty($record['weight']) && !empty($record['height'])) {
+                    try {
+                        $measDate = !empty($record['assessment_date']) ? $record['assessment_date'] : date('Y-m-d');
+                        $existingGrowth = $db->select('growth_measurements', [
+                            'child_id' => $cId,
+                            'measurement_date' => $measDate
+                        ], ['limit' => 1]);
+
+                        if (empty($existingGrowth)) {
+                            $db->insert('growth_measurements', [
+                                'child_id'          => $cId,
+                                'measurement_date'  => $measDate,
+                                'weight'            => (float)$record['weight'],
+                                'height'            => (float)$record['height'],
+                                'head_circumference'=> !empty($record['head_circumference']) ? (float)$record['head_circumference'] : null,
+                                'notes'             => 'Auto-recorded from Nutrition Assessment (' . ($record['nutrition_status'] ?? 'Routine') . ')'
+                            ]);
+                        }
+                    } catch (\Throwable $gme) {
+                        error_log('Notice auto-syncing growth_measurements: ' . $gme->getMessage());
+                    }
+                }
             }
 
             Response::success('Nutrition assessment saved successfully', $result, 201);
@@ -232,6 +253,15 @@ class NutritionController
 
         if (!$isUpdate && isset($data['child_id'])) {
             $record['child_id'] = (int)$data['child_id'];
+        }
+        if (isset($data['patient_id'])) {
+            $record['patient_id'] = (int)$data['patient_id'];
+        }
+        if (isset($data['patient_type'])) {
+            $record['patient_type'] = $data['patient_type'];
+        }
+        if (isset($data['assessment_type'])) {
+            $record['assessment_type'] = $data['assessment_type'];
         }
         $rawDate = $data['date'] ?? $data['assessment_date'] ?? (!$isUpdate ? date('Y-m-d') : null);
         if ($rawDate !== null) {

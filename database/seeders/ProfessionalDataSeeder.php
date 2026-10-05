@@ -621,64 +621,54 @@ class ProfessionalDataSeeder
 
         $c1 = $childMap['CHD-2026-010'] ?? ($childMap['CHD-2026-001'] ?? 21);
         $c2 = $childMap['CHD-2026-011'] ?? ($childMap['CHD-2026-002'] ?? 22);
+        $c3 = $childMap['CHD-2026-012'] ?? ($childMap['CHD-2026-003'] ?? 23);
 
-        // EPI Immunizations
+        // EPI Immunizations - Realistic clinical records backing up compliance
         $immunizations = [
-            [
-                'child_id' => $c1,
-                'vaccine' => 'BCG',
-                'dose' => 1,
-                'date_administered' => '2026-01-21',
-                'next_due_date' => '2026-03-04',
-                'batch_number' => 'BCG-2026-001',
-                'administered_by' => 'Sarah Cruz (Midwife)',
-                'health_center' => 'Bagong Barrio Health Center',
-                'notes' => 'Intradermal injection at right deltoid; clean recovery, post-injection wheal noted.'
-            ],
-            [
-                'child_id' => $c1,
-                'vaccine' => 'Hepatitis B',
-                'dose' => 1,
-                'date_administered' => '2026-01-21',
-                'next_due_date' => '2026-03-04',
-                'batch_number' => 'HEPB-2026-003',
-                'administered_by' => 'Sarah Cruz (Midwife)',
-                'health_center' => 'Bagong Barrio Health Center',
-                'notes' => 'Intramuscular injection at anterolateral thigh within 24 hours of birth.'
-            ],
-            [
-                'child_id' => $c1,
-                'vaccine' => 'Pentavalent (DPT-HepB-Hib)',
-                'dose' => 1,
-                'date_administered' => '2026-03-04',
-                'next_due_date' => '2026-04-01',
-                'batch_number' => 'PENTA-2026-012',
-                'administered_by' => 'Grace Mendoza (Imm. Lead)',
-                'health_center' => 'Bagong Barrio Health Center',
-                'notes' => 'Dose 1 administered at 6 weeks of age. Child tolerated well, advice on paracetamol for low fever given.'
-            ],
-            [
-                'child_id' => $c1,
-                'vaccine' => 'Oral Polio Vaccine (OPV)',
-                'dose' => 1,
-                'date_administered' => '2026-03-04',
-                'next_due_date' => '2026-04-01',
-                'batch_number' => 'OPV-2026-008',
-                'administered_by' => 'Grace Mendoza (Imm. Lead)',
-                'health_center' => 'Bagong Barrio Health Center',
-                'notes' => '2 drops oral administered; retained completely without spitting.'
-            ],
-            [
-                'child_id' => $c2,
-                'vaccine' => 'Measles-Rubella (MR)',
-                'dose' => 1,
-                'date_administered' => '2026-08-15',
-                'next_due_date' => '2026-11-15',
-                'batch_number' => 'MR-2026-005',
-                'administered_by' => 'Sarah Cruz (Midwife)',
-                'health_center' => 'Bagong Barrio Health Center',
-                'notes' => 'Subcutaneous injection at 9 months of age. MMR booster scheduled at 12 months.'
-            ]
+            // --- Child 1: Ethan James Morales (Born 2026-01-20) -> 86% Compliance (12 doses) ---
+            ['child_id' => $c1, 'vaccine' => 'BCG', 'dose' => 1, 'date_administered' => '2026-01-21', 'next_due_date' => '2026-03-04', 'batch_number' => 'BCG-2026-001', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Intradermal injection at right deltoid; clean recovery, post-injection wheal noted.'],
+            ['child_id' => $c1, 'vaccine' => 'Hepatitis B', 'dose' => 1, 'date_administered' => '2026-01-21', 'next_due_date' => '2026-03-04', 'batch_number' => 'HEPB-2026-003', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Intramuscular injection at anterolateral thigh within 24 hours of birth.'],
+            ['child_id' => $c1, 'vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 1, 'date_administered' => '2026-03-04', 'next_due_date' => '2026-04-01', 'batch_number' => 'PENTA-2026-012', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Dose 1 administered at 6 weeks of age.'],
+            ['child_id' => $c1, 'vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 1, 'date_administered' => '2026-03-04', 'next_due_date' => '2026-04-01', 'batch_number' => 'OPV-2026-008', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => '2 drops oral administered.'],
+            ['child_id' => $c1, 'vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 1, 'date_administered' => '2026-03-04', 'next_due_date' => '2026-04-01', 'batch_number' => 'PCV-2026-004', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Administered right thigh.'],
+            ['child_id' => $c1, 'vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 2, 'date_administered' => '2026-04-01', 'next_due_date' => '2026-04-29', 'batch_number' => 'PENTA-2026-015', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Dose 2 administered at 10 weeks.'],
+            ['child_id' => $c1, 'vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 2, 'date_administered' => '2026-04-01', 'next_due_date' => '2026-04-29', 'batch_number' => 'OPV-2026-011', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => '2 drops oral.'],
+            ['child_id' => $c1, 'vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 2, 'date_administered' => '2026-04-01', 'next_due_date' => '2026-04-29', 'batch_number' => 'PCV-2026-007', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Administered right thigh.'],
+            ['child_id' => $c1, 'vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 3, 'date_administered' => '2026-04-29', 'next_due_date' => '2026-10-20', 'batch_number' => 'PENTA-2026-019', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Dose 3 administered at 14 weeks.'],
+            ['child_id' => $c1, 'vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 3, 'date_administered' => '2026-04-29', 'next_due_date' => '2026-10-20', 'batch_number' => 'OPV-2026-014', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => '2 drops oral.'],
+            ['child_id' => $c1, 'vaccine' => 'Inactivated Polio Vaccine (IPV)', 'dose' => 1, 'date_administered' => '2026-04-29', 'next_due_date' => '2026-10-20', 'batch_number' => 'IPV-2026-002', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Administered left thigh.'],
+            ['child_id' => $c1, 'vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 3, 'date_administered' => '2026-04-29', 'next_due_date' => '2026-10-20', 'batch_number' => 'PCV-2026-010', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Administered right thigh.'],
+
+            // --- Child 2: Althea Bautista (Born 2025-11-15) -> 100% Fully Immunized Child (FIC, 14 doses) ---
+            ['child_id' => $c2, 'vaccine' => 'BCG', 'dose' => 1, 'date_administered' => '2025-11-16', 'next_due_date' => '2025-12-28', 'batch_number' => 'BCG-2025-089', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Birth dose.'],
+            ['child_id' => $c2, 'vaccine' => 'Hepatitis B', 'dose' => 1, 'date_administered' => '2025-11-16', 'next_due_date' => '2025-12-28', 'batch_number' => 'HEPB-2025-045', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Within 24 hours.'],
+            ['child_id' => $c2, 'vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 1, 'date_administered' => '2025-12-28', 'next_due_date' => '2026-01-25', 'batch_number' => 'PENTA-2025-112', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => '6 weeks dose.'],
+            ['child_id' => $c2, 'vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 1, 'date_administered' => '2025-12-28', 'next_due_date' => '2026-01-25', 'batch_number' => 'OPV-2025-098', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => '2 drops.'],
+            ['child_id' => $c2, 'vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 1, 'date_administered' => '2025-12-28', 'next_due_date' => '2026-01-25', 'batch_number' => 'PCV-2025-044', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Thigh injection.'],
+            ['child_id' => $c2, 'vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 2, 'date_administered' => '2026-01-25', 'next_due_date' => '2026-02-22', 'batch_number' => 'PENTA-2026-002', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => '10 weeks dose.'],
+            ['child_id' => $c2, 'vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 2, 'date_administered' => '2026-01-25', 'next_due_date' => '2026-02-22', 'batch_number' => 'OPV-2026-003', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => '2 drops.'],
+            ['child_id' => $c2, 'vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 2, 'date_administered' => '2026-01-25', 'next_due_date' => '2026-02-22', 'batch_number' => 'PCV-2026-002', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Thigh injection.'],
+            ['child_id' => $c2, 'vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 3, 'date_administered' => '2026-02-22', 'next_due_date' => '2026-08-15', 'batch_number' => 'PENTA-2026-008', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => '14 weeks dose.'],
+            ['child_id' => $c2, 'vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 3, 'date_administered' => '2026-02-22', 'next_due_date' => '2026-08-15', 'batch_number' => 'OPV-2026-006', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => '2 drops.'],
+            ['child_id' => $c2, 'vaccine' => 'Inactivated Polio Vaccine (IPV)', 'dose' => 1, 'date_administered' => '2026-02-22', 'next_due_date' => '2026-08-15', 'batch_number' => 'IPV-2026-001', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Left thigh.'],
+            ['child_id' => $c2, 'vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 3, 'date_administered' => '2026-02-22', 'next_due_date' => '2026-08-15', 'batch_number' => 'PCV-2026-005', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Right thigh.'],
+            ['child_id' => $c2, 'vaccine' => 'Measles-Rubella (MR)', 'dose' => 1, 'date_administered' => '2026-08-15', 'next_due_date' => '2026-11-15', 'batch_number' => 'MR-2026-005', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => '9 months dose.'],
+            ['child_id' => $c2, 'vaccine' => 'Measles-Mumps-Rubella (MMR)', 'dose' => 2, 'date_administered' => '2026-10-01', 'next_due_date' => null, 'batch_number' => 'MMR-2026-009', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Bagong Barrio Health Center', 'notes' => 'Fully Immunized Child (FIC) completed!'],
+
+            // --- Child 3: Ethan Miguel Villanueva (Born 2025-08-04) -> 93% Compliance (13 doses) ---
+            ['child_id' => $c3, 'vaccine' => 'BCG', 'dose' => 1, 'date_administered' => '2025-08-05', 'next_due_date' => '2025-09-16', 'batch_number' => 'BCG-2025-062', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Maypajo Health Center', 'notes' => 'Birth dose.'],
+            ['child_id' => $c3, 'vaccine' => 'Hepatitis B', 'dose' => 1, 'date_administered' => '2025-08-05', 'next_due_date' => '2025-09-16', 'batch_number' => 'HEPB-2025-031', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Maypajo Health Center', 'notes' => 'Within 24 hours.'],
+            ['child_id' => $c3, 'vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 1, 'date_administered' => '2025-09-16', 'next_due_date' => '2025-10-14', 'batch_number' => 'PENTA-2025-088', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Maypajo Health Center', 'notes' => '6 weeks dose.'],
+            ['child_id' => $c3, 'vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 1, 'date_administered' => '2025-09-16', 'next_due_date' => '2025-10-14', 'batch_number' => 'OPV-2025-072', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Maypajo Health Center', 'notes' => '2 drops.'],
+            ['child_id' => $c3, 'vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 1, 'date_administered' => '2025-09-16', 'next_due_date' => '2025-10-14', 'batch_number' => 'PCV-2025-029', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Maypajo Health Center', 'notes' => 'Right thigh.'],
+            ['child_id' => $c3, 'vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 2, 'date_administered' => '2025-10-14', 'next_due_date' => '2025-11-11', 'batch_number' => 'PENTA-2025-094', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Maypajo Health Center', 'notes' => '10 weeks dose.'],
+            ['child_id' => $c3, 'vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 2, 'date_administered' => '2025-10-14', 'next_due_date' => '2025-11-11', 'batch_number' => 'OPV-2025-078', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Maypajo Health Center', 'notes' => '2 drops.'],
+            ['child_id' => $c3, 'vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 2, 'date_administered' => '2025-10-14', 'next_due_date' => '2025-11-11', 'batch_number' => 'PCV-2025-035', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Maypajo Health Center', 'notes' => 'Right thigh.'],
+            ['child_id' => $c3, 'vaccine' => 'Pentavalent (DPT-HepB-Hib)', 'dose' => 3, 'date_administered' => '2025-11-11', 'next_due_date' => '2026-05-04', 'batch_number' => 'PENTA-2025-101', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Maypajo Health Center', 'notes' => '14 weeks dose.'],
+            ['child_id' => $c3, 'vaccine' => 'Oral Polio Vaccine (OPV)', 'dose' => 3, 'date_administered' => '2025-11-11', 'next_due_date' => '2026-05-04', 'batch_number' => 'OPV-2025-084', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Maypajo Health Center', 'notes' => '2 drops.'],
+            ['child_id' => $c3, 'vaccine' => 'Inactivated Polio Vaccine (IPV)', 'dose' => 1, 'date_administered' => '2025-11-11', 'next_due_date' => '2026-05-04', 'batch_number' => 'IPV-2025-015', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Maypajo Health Center', 'notes' => 'Left thigh.'],
+            ['child_id' => $c3, 'vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 3, 'date_administered' => '2025-11-11', 'next_due_date' => '2026-05-04', 'batch_number' => 'PCV-2025-041', 'administered_by' => 'Grace Mendoza (Imm. Lead)', 'health_center' => 'Maypajo Health Center', 'notes' => 'Right thigh.'],
+            ['child_id' => $c3, 'vaccine' => 'Measles-Rubella (MR)', 'dose' => 1, 'date_administered' => '2026-05-04', 'next_due_date' => '2026-08-04', 'batch_number' => 'MR-2026-002', 'administered_by' => 'Sarah Cruz (Midwife)', 'health_center' => 'Maypajo Health Center', 'notes' => '9 months dose. MMR booster scheduled at 12 months.']
         ];
 
         foreach ($immunizations as $imm) {
@@ -699,24 +689,34 @@ class ProfessionalDataSeeder
             }
         }
 
-        // Growth Measurements
+        // Growth Measurements - Longitudinal pediatric trajectories
         $growthData = [
-            [
-                'child_id' => $c1,
-                'measurement_date' => '2026-07-20',
-                'weight' => 7.6,
-                'height' => 67.5,
-                'head_circumference' => 43.0,
-                'notes' => '6-month well-child assessment; growth trajectory corresponds to WHO 50th percentile.'
-            ],
-            [
-                'child_id' => $c2,
-                'measurement_date' => '2026-08-15',
-                'weight' => 8.4,
-                'height' => 71.2,
-                'head_circumference' => 44.5,
-                'notes' => '9-month growth monitoring; transition to complementary feeding proceeding smoothly.'
-            ]
+            // --- Child 1: Mateo Dela Cruz (CHD-2026-010, DOB: 2026-01-20, Male) ---
+            ['child_id' => $c1, 'measurement_date' => '2026-01-20', 'weight' => 3.30, 'height' => 50.0, 'head_circumference' => 34.5, 'notes' => 'Birth delivery baseline assessment. Vital signs stable, healthy newborn.'],
+            ['child_id' => $c1, 'measurement_date' => '2026-03-04', 'weight' => 4.65, 'height' => 55.2, 'head_circumference' => 37.2, 'notes' => '6-week routine immunization visit. Normal weight gain velocity, active feeding.'],
+            ['child_id' => $c1, 'measurement_date' => '2026-04-01', 'weight' => 5.60, 'height' => 59.0, 'head_circumference' => 39.0, 'notes' => '10-week wellness checkup. Social smile present, good head control.'],
+            ['child_id' => $c1, 'measurement_date' => '2026-04-29', 'weight' => 6.50, 'height' => 62.1, 'head_circumference' => 40.5, 'notes' => '14-week checkup. Excellent physical growth tracking on WHO 50th percentile.'],
+            ['child_id' => $c1, 'measurement_date' => '2026-07-20', 'weight' => 7.60, 'height' => 67.5, 'head_circumference' => 43.0, 'notes' => '6-month well-child assessment; growth trajectory corresponds to WHO 50th percentile.'],
+            ['child_id' => $c1, 'measurement_date' => '2026-10-02', 'weight' => 8.60, 'height' => 71.0, 'head_circumference' => 44.5, 'notes' => '8-month follow-up. Transition to solid foods well-tolerated, sitting steadily.'],
+
+            // --- Child 2: Althea Bautista (CHD-2026-011, DOB: 2025-11-15, Female) ---
+            ['child_id' => $c2, 'measurement_date' => '2025-11-15', 'weight' => 3.15, 'height' => 49.0, 'head_circumference' => 33.8, 'notes' => 'Birth intake at Bagong Barrio Health Center. Normal full-term newborn.'],
+            ['child_id' => $c2, 'measurement_date' => '2025-12-28', 'weight' => 4.35, 'height' => 54.5, 'head_circumference' => 36.5, 'notes' => '6-week checkup and first pentavalent dose. Sustained weight velocity.'],
+            ['child_id' => $c2, 'measurement_date' => '2026-01-25', 'weight' => 5.30, 'height' => 58.0, 'head_circumference' => 38.4, 'notes' => '10-week checkup. Good developmental milestones.'],
+            ['child_id' => $c2, 'measurement_date' => '2026-02-22', 'weight' => 6.10, 'height' => 61.2, 'head_circumference' => 39.8, 'notes' => '14-week assessment. Tracking along WHO 50th percentile.'],
+            ['child_id' => $c2, 'measurement_date' => '2026-05-18', 'weight' => 7.20, 'height' => 65.8, 'head_circumference' => 42.2, 'notes' => '6-month well-child assessment. Introduction of semi-solid complementary foods.'],
+            ['child_id' => $c2, 'measurement_date' => '2026-08-15', 'weight' => 8.40, 'height' => 71.2, 'head_circumference' => 44.5, 'notes' => '9-month growth monitoring; transition to complementary feeding proceeding smoothly.'],
+            ['child_id' => $c2, 'measurement_date' => '2026-10-01', 'weight' => 9.05, 'height' => 73.2, 'head_circumference' => 45.2, 'notes' => '10-month evaluation. Active crawling, pulling up to stand. WHO normal.'],
+
+            // --- Child 3: Ethan Miguel Villanueva (CHD-2026-012, DOB: 2025-08-04, Male) ---
+            ['child_id' => $c3, 'measurement_date' => '2025-08-04', 'weight' => 3.40, 'height' => 50.5, 'head_circumference' => 34.8, 'notes' => 'Discharge newborn measurement. Healthy full-term male.'],
+            ['child_id' => $c3, 'measurement_date' => '2025-09-16', 'weight' => 4.80, 'height' => 56.0, 'head_circumference' => 37.5, 'notes' => '6-week routine immunization visit. Steady weight gain.'],
+            ['child_id' => $c3, 'measurement_date' => '2025-10-14', 'weight' => 5.80, 'height' => 59.8, 'head_circumference' => 39.2, 'notes' => '10-week follow-up. Normal growth velocity.'],
+            ['child_id' => $c3, 'measurement_date' => '2025-11-11', 'weight' => 6.70, 'height' => 63.0, 'head_circumference' => 41.0, 'notes' => '14-week visit. Thriving on breast milk, normal motor milestones.'],
+            ['child_id' => $c3, 'measurement_date' => '2026-02-05', 'weight' => 8.00, 'height' => 68.2, 'head_circumference' => 43.4, 'notes' => '6-month well-child check. Teething, started rice porridge and purees.'],
+            ['child_id' => $c3, 'measurement_date' => '2026-05-08', 'weight' => 9.10, 'height' => 73.0, 'head_circumference' => 45.0, 'notes' => '9-month evaluation. Good muscle mass, pincer grasp developing.'],
+            ['child_id' => $c3, 'measurement_date' => '2026-08-10', 'weight' => 9.80, 'height' => 76.5, 'head_circumference' => 46.2, 'notes' => '12-month 1-year milestone checkup. Walking with assistance, excellent growth.'],
+            ['child_id' => $c3, 'measurement_date' => '2026-10-02', 'weight' => 10.30, 'height' => 79.0, 'head_circumference' => 46.8, 'notes' => '14-month routine monitoring. Robust, curious, steady progression on WHO trajectory.']
         ];
 
         foreach ($growthData as $gm) {

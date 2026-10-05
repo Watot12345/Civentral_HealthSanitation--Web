@@ -62,12 +62,16 @@ class TriageQueueController extends BaseController
             ];
         });
     }
-
     public function store(): void
     {
         $this->validateCsrf();
-        $this->requireDepartment('health center services');
-        $this->requireCapability(Permissions::TRIAGE_CREATE);
+        // Allow cross-department triage referrals from Immunization & Nutrition or Health Center Services
+        if (!\canAccessDepartment('health center services') && !\canAccessDepartment('immunization & nutrition')) {
+            $this->requireDepartment('health center services');
+        }
+        if (\canAccessDepartment('health center services')) {
+            $this->requireCapability(Permissions::TRIAGE_CREATE);
+        }
 
         $data = $this->input();
 

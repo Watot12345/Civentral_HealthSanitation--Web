@@ -246,11 +246,6 @@ $userScope = getUserScope();
             <span>Vaccination Tracking</span>
           </a>
           
-          <a href="<?= site_url('modules/immunization/growth_charts.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'growth_charts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-chart-line text-[10px] opacity-50"></i> 
-            <span>Growth Charts</span>
-          </a>
-          
           <a href="<?= site_url('modules/immunization/vaccine_inventory.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'vaccine_inventory.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-boxes text-[10px] opacity-50"></i> 
             <span>Vaccine Inventory</span>
@@ -258,9 +253,9 @@ $userScope = getUserScope();
           <?php endif; ?>
           
           <?php if ($userScope['is_admin'] || in_array('nutrition', $userScope['modules'], true)): ?>
-          <a href="<?= site_url('modules/immunization/nutrition_assessment.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'nutrition_assessment.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+          <a href="<?= site_url('modules/immunization/nutrition_assessment.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'nutrition_assessment.php') !== false || strpos($currentPath, 'growth_charts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
             <i class="fa-solid fa-apple-alt text-[10px] opacity-50"></i> 
-            <span>Nutrition Assessment</span>
+            <span>Nutrition & Growth</span>
           </a>
           <?php endif; ?>
 

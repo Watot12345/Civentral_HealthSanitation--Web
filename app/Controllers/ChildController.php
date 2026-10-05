@@ -14,7 +14,7 @@ class ChildController extends BaseController
 {
     private Child $childModel;
 
-    private const DEFAULT_LIMIT = 5;
+    private const DEFAULT_LIMIT = 10;
     private const MAX_LIMIT = 100;
     private const DEFAULT_PAGE = 1;
     private const VALID_GENDERS = ['Male', 'Female'];

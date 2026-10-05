@@ -63,6 +63,43 @@ foreach ($immunizationVisitsRaw as $v) {
     ];
 }
 
+// Fetch Doctor Consultation Referrals from Health Center Services
+$doctorReferrals = [];
+try {
+    $doctorReferrals = $db->select('immunization_referrals', ['status' => 'pending'], ['order' => 'created_at.desc', 'limit' => 10]);
+} catch (\Throwable $e) {
+    error_log('Error fetching doctor referrals: ' . $e->getMessage());
+}
+
+// Fetch Adult & Senior Patients from Health Center Services
+$adultSeniorPatients = [];
+try {
+    $rawPatients = $db->select('patients', [], ['limit' => 150, 'order' => 'first_name.asc']);
+    foreach ($rawPatients as $rp) {
+        $age = !empty($rp['date_of_birth']) ? (int)date_diff(date_create($rp['date_of_birth']), date_create('today'))->y : 30;
+        $ptType = ($age >= 60) ? 'Senior' : 'Adult';
+        $adultSeniorPatients[] = [
+            'id' => (int)$rp['id'],
+            'name' => trim(($rp['first_name'] ?? '') . ' ' . ($rp['last_name'] ?? '')),
+            'code' => $rp['patient_id'] ?? ('P-' . $rp['id']),
+            'type' => $ptType,
+            'age' => $age . ' yrs'
+        ];
+    }
+} catch (\Throwable $e) {
+    error_log('Error fetching adult/senior patients: ' . $e->getMessage());
+}
+
+// Adult & Senior Vaccines List
+$adultVaccines = [
+    'Influenza (Flu Shot)',
+    'Pneumococcal Conjugate (PCV13 / PPSV23 - Senior)',
+    'Tetanus Toxoid / Tdap',
+    'Hepatitis B (Adult)',
+    'Human Papillomavirus (HPV)',
+    'Rabies Post-Exposure (PEP)'
+];
+
 // ============================================================
 // DOH NATIONAL IMMUNIZATION PROGRAM SCHEDULE
 // due_age_days = number of days after birth this dose is due.
@@ -273,6 +310,10 @@ $title = 'Vaccination Tracking';
                     class="px-3.5 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-book-medical text-xs text-brand-medium"></i> Schedule Guide
             </button>
+            <button onclick="openModal('exportImmunizationModal')"
+                    class="px-3.5 py-2 bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
+                <i class="fa-solid fa-file-excel text-xs text-emerald-600"></i> Bulk Export
+            </button>
             <button onclick="openModal('recordVaccinationModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-syringe text-xs"></i> Record Vaccination
@@ -304,6 +345,52 @@ $title = 'Vaccination Tracking';
                     class="px-3 py-1.5 bg-brand-dark text-white hover:bg-brand-medium text-xs font-semibold rounded-lg transition flex items-center gap-1 shadow-xs">
                 <i class="fa-solid fa-stethoscope text-xs"></i> Start Assessment
             </button>
+        </div>
+    <?php endif; ?>
+
+    <!-- Doctor Consultation Referrals Queue (Cross-Module Integration) -->
+    <?php if (!empty($doctorReferrals)): ?>
+    <div class="bg-indigo-50/90 border border-indigo-200 rounded-xl p-4 mb-6 shadow-xs">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                    <i class="fa-solid fa-stethoscope"></i>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-indigo-950 uppercase tracking-wide">Doctor Referrals from Consultations</h4>
+                    <p class="text-[11px] text-indigo-700"><?php echo count($doctorReferrals); ?> pending immunization order(s) referred by physicians</p>
+                </div>
+            </div>
+            <span class="px-2 py-0.5 bg-indigo-200 text-indigo-800 rounded-full text-[10px] font-bold">Health Center Services Bridge</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <?php foreach ($doctorReferrals as $ref): 
+                $urgencyBadge = ($ref['urgency'] === 'urgent') ? 'bg-rose-100 text-rose-700 border-rose-200' : (($ref['urgency'] === 'priority') ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-slate-100 text-slate-700 border-slate-200');
+                $ptBadge = ($ref['patient_type'] === 'senior') ? 'bg-purple-100 text-purple-700' : (($ref['patient_type'] === 'adult') ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700');
+            ?>
+            <div class="bg-white rounded-lg p-3 border border-indigo-100 shadow-xs flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between gap-1 mb-1.5">
+                        <span class="text-xs font-bold text-slate-800 truncate"><?php echo htmlspecialchars($ref['patient_name']); ?></span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider <?php echo $ptBadge; ?>"><?php echo htmlspecialchars($ref['patient_type']); ?></span>
+                    </div>
+                    <p class="text-xs font-semibold text-brand-dark mb-1 flex items-center gap-1">
+                        <i class="fa-solid fa-syringe text-indigo-500 text-[10px]"></i> <?php echo htmlspecialchars($ref['vaccine_requested']); ?>
+                    </p>
+                    <p class="text-[11px] text-slate-500 mb-2 truncate">
+                        Referred by: <strong><?php echo htmlspecialchars($ref['referred_by']); ?></strong>
+                    </p>
+                </div>
+                <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold border <?php echo $urgencyBadge; ?> capitalize"><?php echo htmlspecialchars($ref['urgency']); ?></span>
+                    <button type="button" 
+                            onclick='administerReferral(<?php echo json_encode($ref); ?>)'
+                            class="px-2.5 py-1 bg-brand-dark hover:bg-brand-medium text-white rounded text-xs font-semibold flex items-center gap-1 transition">
+                        <i class="fa-solid fa-syringe text-[10px]"></i> Administer
+                    </button>
+                </div>
+            </div>
+            <?php endforeach; ?>
         </div>
     </div>
     <?php endif; ?>
@@ -836,25 +923,63 @@ $title = 'Vaccination Tracking';
             </button>
         </div>
         <form id="recordVaccinationForm" class="p-6 space-y-4" onsubmit="saveVaccinationRecord(event)">
+            <input type="hidden" id="vacc_referral_id" value="">
+            <input type="hidden" id="vacc_patient_type" value="child">
+
+            <!-- Patient Category Switcher (Child vs Adult/Senior) -->
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Child</label>
-                <select id="vacc_child" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">Select Child</option>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Target Patient Category</label>
+                <div class="flex p-1 bg-slate-100 rounded-lg gap-1">
+                    <button type="button" id="tab_child_btn" onclick="switchPatientCategory('child')" class="flex-1 py-1.5 text-xs font-bold rounded-md bg-white text-brand-dark shadow-xs transition">
+                        👶 Pediatric (0–5 yrs)
+                    </button>
+                    <button type="button" id="tab_adult_btn" onclick="switchPatientCategory('adult')" class="flex-1 py-1.5 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition">
+                        👨‍👩‍👧 Adult & Senior Patient
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pediatric Child Selector -->
+            <div id="wrapper_vacc_child">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Select Child</label>
+                <select id="vacc_child" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="">-- Choose Child --</option>
                     <?php foreach ($children as $c): ?>
-                        <option value="<?php echo $c['id']; ?>"><?php echo $c['name']; ?> (<?php echo $c['child_id']; ?>)</option>
+                        <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?> (<?php echo htmlspecialchars($c['child_id']); ?>)</option>
                     <?php endforeach; ?>
                 </select>
             </div>
+
+            <!-- Adult & Senior Patient Selector (from Health Center Services) -->
+            <div id="wrapper_vacc_patient" class="hidden">
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Select Patient (Health Center Registry)</label>
+                <select id="vacc_patient" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" onchange="const opt = this.options[this.selectedIndex]; if(opt) document.getElementById('vacc_patient_type').value = opt.getAttribute('data-type') || 'adult';">
+                    <option value="">-- Choose Adult or Senior Patient --</option>
+                    <?php foreach ($adultSeniorPatients as $ap): ?>
+                        <option value="<?php echo $ap['id']; ?>" data-type="<?php echo strtolower($ap['type']); ?>">
+                            [<?php echo htmlspecialchars($ap['type']); ?>] <?php echo htmlspecialchars($ap['name']); ?> (<?php echo htmlspecialchars($ap['code']); ?> - <?php echo htmlspecialchars($ap['age']); ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Vaccine</label>
                 <select id="vacc_vaccine" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">Select Vaccine</option>
+                    <option value="">-- Select Vaccine --</option>
+                    <optgroup label="👶 DOH EPI Pediatric Vaccines">
                     <?php 
                         $vaccines = array_unique(array_column($vaccineSchedule, 'vaccine'));
                         foreach ($vaccines as $v): 
                     ?>
-                        <option value="<?php echo $v; ?>"><?php echo $v; ?></option>
+                        <option value="<?php echo htmlspecialchars($v); ?>"><?php echo htmlspecialchars($v); ?></option>
                     <?php endforeach; ?>
+                    </optgroup>
+                    <optgroup label="👨‍👩‍👧 Adult & Senior Vaccines">
+                    <?php foreach ($adultVaccines as $av): ?>
+                        <option value="<?php echo htmlspecialchars($av); ?>"><?php echo htmlspecialchars($av); ?></option>
+                    <?php endforeach; ?>
+                    </optgroup>
                 </select>
             </div>
             <div>
@@ -922,6 +1047,69 @@ $title = 'Vaccination Tracking';
         <div id="immunizationDetailsContent" class="p-6">
             <div class="flex items-center justify-center py-10 text-slate-400 text-sm">
                 <i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...
+            </div>
+        </div>
+    </div>
+<!-- ============================================================ -->
+<!-- EXPORT IMMUNIZATION RECORDS MODAL (BULK EXPORT)              -->
+<!-- ============================================================ -->
+<div id="exportImmunizationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-file-export text-emerald-600"></i> Export Target Client List
+            </h3>
+            <button onclick="closeModal('exportImmunizationModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Export Scope</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <label class="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-700 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50">
+                        <input type="radio" name="exportScope" value="filtered" checked class="text-emerald-600 focus:ring-emerald-500">
+                        <span>Active Filtered View</span>
+                    </label>
+                    <label class="flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-700 has-[:checked]:border-emerald-500 has-[:checked]:bg-emerald-50/50">
+                        <input type="radio" name="exportScope" value="all" class="text-emerald-600 focus:ring-emerald-500">
+                        <span>All TCL Records</span>
+                    </label>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-500">Choose your preferred download format for DOH reporting and records management:</p>
+
+            <div class="space-y-2.5">
+                <button type="button" onclick="exportImmunizationData('excel')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:bg-emerald-50 hover:border-emerald-300 transition text-left group">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition">
+                        <i class="fa-solid fa-file-excel"></i>
+                    </div>
+                    <div>
+                        <strong class="block text-sm text-slate-800">Microsoft Excel (.xlsx / .xls)</strong>
+                        <small class="text-xs text-slate-500">Formatted spreadsheet ready for DOH TCL compilation</small>
+                    </div>
+                </button>
+
+                <button type="button" onclick="exportImmunizationData('csv')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:bg-blue-50 hover:border-blue-300 transition text-left group">
+                    <div class="w-10 h-10 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition">
+                        <i class="fa-solid fa-file-csv"></i>
+                    </div>
+                    <div>
+                        <strong class="block text-sm text-slate-800">CSV Spreadsheet (.csv)</strong>
+                        <small class="text-xs text-slate-500">Universal comma-separated data with UTF-8 support</small>
+                    </div>
+                </button>
+
+                <button type="button" onclick="exportImmunizationData('pdf')" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:bg-rose-50 hover:border-rose-300 transition text-left group">
+                    <div class="w-10 h-10 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center text-lg shrink-0 group-hover:scale-105 transition">
+                        <i class="fa-solid fa-file-pdf"></i>
+                    </div>
+                    <div>
+                        <strong class="block text-sm text-slate-800">Printable Report Document</strong>
+                        <small class="text-xs text-slate-500">Official formatted document with clinic branding</small>
+                    </div>
+                </button>
             </div>
         </div>
     </div>
@@ -1130,13 +1318,70 @@ $title = 'Vaccination Tracking';
         openModal('recordVaccinationModal');
     }
 
+    function switchPatientCategory(type) {
+        const isChild = (type === 'child');
+        document.getElementById('vacc_patient_type').value = isChild ? 'child' : 'adult';
+        document.getElementById('wrapper_vacc_child').classList.toggle('hidden', !isChild);
+        document.getElementById('wrapper_vacc_patient').classList.toggle('hidden', isChild);
+
+        const tabChildBtn = document.getElementById('tab_child_btn');
+        const tabAdultBtn = document.getElementById('tab_adult_btn');
+
+        if (isChild) {
+            tabChildBtn.className = 'flex-1 py-1.5 text-xs font-bold rounded-md bg-white text-brand-dark shadow-xs transition';
+            tabAdultBtn.className = 'flex-1 py-1.5 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition';
+        } else {
+            tabAdultBtn.className = 'flex-1 py-1.5 text-xs font-bold rounded-md bg-white text-brand-dark shadow-xs transition';
+            tabChildBtn.className = 'flex-1 py-1.5 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition';
+        }
+    }
+
+    function administerReferral(ref) {
+        if (!ref) return;
+        document.getElementById('vacc_referral_id').value = ref.id || '';
+        
+        const ptType = ref.patient_type || 'child';
+        switchPatientCategory(ptType === 'child' ? 'child' : 'adult');
+
+        if (ptType === 'child') {
+            if (ref.child_id) document.getElementById('vacc_child').value = ref.child_id;
+        } else {
+            if (ref.patient_id) document.getElementById('vacc_patient').value = ref.patient_id;
+            document.getElementById('vacc_patient_type').value = ptType;
+        }
+
+        // Match or select requested vaccine
+        const vaccineSelect = document.getElementById('vacc_vaccine');
+        let matched = false;
+        for (let i = 0; i < vaccineSelect.options.length; i++) {
+            if (vaccineSelect.options[i].value.toLowerCase().includes(ref.vaccine_requested.toLowerCase()) || 
+                ref.vaccine_requested.toLowerCase().includes(vaccineSelect.options[i].value.toLowerCase())) {
+                vaccineSelect.selectedIndex = i;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched && ref.vaccine_requested) {
+            const newOpt = new Option(ref.vaccine_requested, ref.vaccine_requested, true, true);
+            vaccineSelect.add(newOpt);
+        }
+
+        document.getElementById('vacc_dose').value = '1';
+        document.getElementById('vacc_date').value = new Date().toISOString().split('T')[0];
+
+        openModal('recordVaccinationModal');
+    }
+
     function limitDoseInput(input) {
         input.value = String(input.value || '').replace(/\D/g, '').slice(0, 4);
     }
 
     async function saveVaccinationRecord(event) {
         event.preventDefault();
+        const patientType = document.getElementById('vacc_patient_type')?.value || 'child';
+        const referralId = document.getElementById('vacc_referral_id')?.value || '';
         const childId = document.getElementById('vacc_child')?.value || '';
+        const patientId = document.getElementById('vacc_patient')?.value || '';
         const vaccine = document.getElementById('vacc_vaccine')?.value || '';
         const dose = document.getElementById('vacc_dose')?.value || '1';
         const dateAdmin = document.getElementById('vacc_date')?.value || '';
@@ -1145,8 +1390,12 @@ $title = 'Vaccination Tracking';
         const center = document.getElementById('vacc_center')?.value || 'Caloocan Main Health Center';
         const batch = document.getElementById('vacc_batch')?.value || '';
 
-        if (!childId) {
+        if (patientType === 'child' && !childId) {
             showToast('Please select a child.', 'warning');
+            return;
+        }
+        if (patientType !== 'child' && !patientId) {
+            showToast('Please select an adult or senior patient.', 'warning');
             return;
         }
         if (!vaccine) {
@@ -1160,7 +1409,7 @@ $title = 'Vaccination Tracking';
         }
 
         const payload = {
-            child_id: Number(childId),
+            patient_type: patientType,
             vaccine: vaccine,
             dose: Number(dose),
             date_administered: dateAdmin || new Date().toISOString().split('T')[0],
@@ -1169,6 +1418,16 @@ $title = 'Vaccination Tracking';
             health_center: center,
             batch_number: batch
         };
+
+        if (patientType === 'child') {
+            payload.child_id = Number(childId);
+        } else {
+            payload.patient_id = Number(patientId);
+        }
+
+        if (referralId) {
+            payload.referral_id = Number(referralId);
+        }
 
         try {
             const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '<?php echo $_SESSION['csrf_token'] ?? ''; ?>';
@@ -1190,6 +1449,7 @@ $title = 'Vaccination Tracking';
                     upsertVaccinationRow(saved);
                 }
                 showToast('Vaccination recorded successfully!', 'success');
+                setTimeout(() => location.reload(), 1200);
             } else {
                 showToast(data.message || 'Failed to record vaccination.', 'danger');
             }
@@ -1405,6 +1665,119 @@ $title = 'Vaccination Tracking';
             });
         }
     });
+
+    // ============================================================
+    // BULK EXPORT TARGET CLIENT LIST (TCL)
+    // ============================================================
+    function exportImmunizationData(format) {
+        const scope = document.querySelector('input[name="exportScope"]:checked')?.value || 'filtered';
+        closeModal('exportImmunizationModal');
+
+        if (scope === 'all') {
+            const category = (typeof currentPatientCategory !== 'undefined') ? currentPatientCategory : 'all';
+            const url = `../../api/immunization.php?action=export_tcl&format=${format}&category=${encodeURIComponent(category)}`;
+            window.location.href = url;
+            showToast('Generating full Target Client List export...', 'info');
+            return;
+        }
+
+        const visibleRows = Array.from(document.querySelectorAll('#vaccinationTableBody tr.vaccination-row'))
+            .filter(r => r.style.display !== 'none');
+
+        if (!visibleRows || visibleRows.length === 0) {
+            showToast('No records visible to export.', 'warning');
+            return;
+        }
+
+        const headers = [
+            'Child / Patient Name',
+            'Patient / Child ID',
+            'Vaccine',
+            'Dose',
+            'Date Administered',
+            'Next Due Date',
+            'Batch Number',
+            'Status'
+        ];
+
+        const rows = visibleRows.map(r => {
+            const cells = r.querySelectorAll('td');
+            const nameEl = cells[0]?.querySelector('p.font-semibold');
+            const codeEl = cells[0]?.querySelector('p.text-xs');
+            const name = nameEl ? nameEl.textContent.trim() : (r.dataset.child || '');
+            const code = codeEl ? codeEl.textContent.trim() : (r.dataset.childCode || '');
+            const vaccine = cells[1]?.textContent.trim() || (r.dataset.vaccine || '');
+            const dose = cells[2]?.textContent.trim() || ('Dose ' + (r.dataset.dose || '1'));
+            const date = cells[3]?.textContent.trim() || (r.dataset.date || '');
+            const nextDue = cells[4]?.textContent.trim().split('\n')[0].trim() || (r.dataset.nextDue || '');
+            const batch = cells[5]?.textContent.trim() || (r.dataset.batch || '');
+            const status = cells[6]?.textContent.trim() || (r.dataset.status || '');
+
+            return [name, code, vaccine, dose, date, nextDue, batch, status];
+        });
+
+        const stamp = new Date().toISOString().slice(0, 10);
+        const filename = `immunization_tcl_filtered_${stamp}`;
+
+        if (format === 'csv' || format === 'excel') {
+            const escapeCsv = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+            const csv = [headers, ...rows].map(row => row.map(escapeCsv).join(',')).join('\n') + '\n';
+            const mimeType = format === 'excel' ? 'application/vnd.ms-excel' : 'text/csv;charset=utf-8;';
+            const ext = format === 'excel' ? 'xls' : 'csv';
+
+            const blob = new Blob(['\uFEFF' + csv], { type: mimeType });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${filename}.${ext}`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast(`Exported ${rows.length} immunization record(s) to ${ext.toUpperCase()} successfully!`, 'success');
+        } else if (format === 'pdf') {
+            const printWindow = window.open('', '_blank', 'width=950,height=750');
+            if (!printWindow) {
+                showToast('Please allow pop-ups to open the report document', 'warning');
+                return;
+            }
+            const esc = str => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+            const tableRowsHtml = rows.map(r => `<tr>${r.map(val => `<td style="padding:6px 8px; border:1px solid #cbd5e1; font-size:11px;">${esc(val)}</td>`).join('')}</tr>`).join('');
+            const headerHtml = headers.map(h => `<th style="padding:8px; background:#14807A; color:white; font-size:11px; text-align:left; border:1px solid #14807A;">${esc(h)}</th>`).join('');
+
+            printWindow.document.write(`
+                <!doctype html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Immunization Target Client List - ${stamp}</title>
+                    <style>
+                        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 24px; color: #1e293b; }
+                        h2 { margin: 0 0 4px 0; color: #0B4F4A; }
+                        p { margin: 0 0 16px 0; font-size: 12px; color: #64748b; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+                        @media print { body { margin: 0; } }
+                    </style>
+                </head>
+                <body>
+                    <h2>Caloocan Health Center — Immunization Target Client List</h2>
+                    <p>Generated: ${new Date().toLocaleString()} | Filtered Records: ${rows.length}</p>
+                    <table>
+                        <thead><tr>${headerHtml}</tr></thead>
+                        <tbody>${tableRowsHtml}</tbody>
+                    </table>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+            }, 300);
+            showToast(`Opened printable document with ${rows.length} records.`, 'info');
+        }
+    }
 
     // ============================================================
     // SET DEFAULT DATE

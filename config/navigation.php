@@ -155,20 +155,14 @@ return [
                             'permission' => Permissions::IMMUNIZATION_VIEW,
                         ],
                         [
-                            'label'      => 'Growth Charts',
-                            'icon'       => 'fa-solid fa-chart-line',
-                            'route'      => 'modules/immunization/growth_charts.php',
-                            'permission' => Permissions::IMMUNIZATION_VIEW,
-                        ],
-                        [
                             'label'      => 'Vaccine Inventory',
                             'icon'       => 'fa-solid fa-boxes',
                             'route'      => 'modules/immunization/vaccine_inventory.php',
                             'permission' => Permissions::IMMUNIZATION_VIEW,
                         ],
                         [
-                            'label'      => 'Nutrition Assessment',
-                            'icon'       => 'fa-solid fa-apple-alt',
+                            'label'      => 'Nutrition & Growth',
+                            'icon'       => 'fa-solid fa-apple-whole',
                             'route'      => 'modules/immunization/nutrition_assessment.php',
                             'permission' => Permissions::IMMUNIZATION_VIEW,
                         ],
