@@ -145,6 +145,39 @@ $activeUsers = count(array_filter($users, fn($u) => ($u['status'] ?? 'Active') =
 $inactiveUsers = count(array_filter($users, fn($u) => ($u['status'] ?? '') === 'Inactive'));
 $suspendedUsers = count(array_filter($users, fn($u) => ($u['status'] ?? '') === 'Suspended'));
 
+// --- Filter Department Options --------------------------------------------
+$canonicalDepartments = [
+    'Health Center Services',
+    'Sanitation Permits',
+    'Immunization & Nutrition',
+    'Wastewater Services',
+    'Health Surveillance',
+    'Administration'
+];
+
+$filterDepartmentOptions = [];
+if (!$isSystemAdmin && !empty($userDept)) {
+    $filterDepartmentOptions = [$userDept];
+} else {
+    $filterDepartmentOptions = $canonicalDepartments;
+    foreach ($users as $u) {
+        $d = trim($u['department'] ?? '');
+        if ($d !== '') {
+            $norm = getDepartmentResolver()->normalizeDepartmentName($d);
+            $found = false;
+            foreach ($canonicalDepartments as $cDept) {
+                if (getDepartmentResolver()->normalizeDepartmentName($cDept) === $norm) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found && !in_array($d, $filterDepartmentOptions, true)) {
+                $filterDepartmentOptions[] = $d;
+            }
+        }
+    }
+}
+
 $title = 'User Management';
 ?>
 
@@ -283,17 +316,17 @@ $title = 'User Management';
             <h3 class="font-semibold text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-user-plus text-brand-medium"></i>
                 User Registration
-                <span class="text-xs font-normal text-slate-400">(<?php echo $totalUsers; ?> registered)</span>
+                <span class="text-xs font-normal text-slate-400">(<span id="registeredCount"><?php echo $totalUsers; ?></span> registered)</span>
             </h3>
             <div class="flex items-center gap-3">
                 <div class="relative min-w-[210px]">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
                     <input type="text" id="userSearchInput" onkeyup="filterUsers()" placeholder="Search ID, name, email..." class="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none w-full shadow-2xs transition">
                 </div>
-                <select id="roleFilter" onchange="filterUsers()" class="px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="all">All Roles</option>
-                    <?php foreach ($filterRoleOptions as $roleOpt): ?>
-                    <option value="<?php echo htmlspecialchars($roleOpt, ENT_QUOTES); ?>"><?php echo htmlspecialchars($roleOpt, ENT_QUOTES); ?></option>
+                <select id="departmentFilter" onchange="filterUsers()" class="px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="all">All Departments</option>
+                    <?php foreach ($filterDepartmentOptions as $deptOpt): ?>
+                    <option value="<?php echo htmlspecialchars($deptOpt, ENT_QUOTES); ?>"><?php echo htmlspecialchars($deptOpt, ENT_QUOTES); ?></option>
                     <?php endforeach; ?>
                 </select>
                 <select id="statusFilter" onchange="filterUsers()" class="px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
@@ -808,11 +841,22 @@ $title = 'User Management';
     }
 
     // ============================================================
-    // FILTER USERS (Search + Role + Status)
+    // FILTER USERS (Search + Department + Status)
     // ============================================================
+    function normalizeDepartment(d) {
+        d = (d || '').toLowerCase().trim();
+        if (d === 'health center' || d === 'health center services' || d === 'health_center') return 'health center services';
+        if (d === 'sanitation' || d === 'sanitation permits') return 'sanitation permits';
+        if (d === 'immunization' || d === 'nutrition' || d === 'immunization & nutrition') return 'immunization & nutrition';
+        if (d === 'wastewater' || d === 'wastewater services') return 'wastewater services';
+        if (d === 'surveillance' || d === 'health surveillance') return 'health surveillance';
+        if (d === 'admin' || d === 'administration') return 'administration';
+        return d;
+    }
+
     function filterUsers() {
         const searchQuery = (document.getElementById('userSearchInput')?.value || '').toLowerCase().trim();
-        const roleFilter = (document.getElementById('roleFilter')?.value || '').toLowerCase().trim();
+        const deptFilter = (document.getElementById('departmentFilter')?.value || document.getElementById('roleFilter')?.value || '').toLowerCase().trim();
         const statusFilter = (document.getElementById('statusFilter')?.value || '').trim();
         
         const rows = document.querySelectorAll('.user-row');
@@ -830,24 +874,32 @@ $title = 'User Management';
             
             let show = true;
 
-            // 1. Live Search Filter (matches Employee ID, Name, Username, Email, Department)
+            // 1. Live Search Filter (matches Employee ID, Name, Username, Email, Department, Role, Position)
             if (searchQuery !== '') {
                 const matchEmpId = employeeId.includes(searchQuery);
                 const matchName  = fullName.includes(searchQuery);
                 const matchUser  = username.includes(searchQuery);
                 const matchEmail = email.includes(searchQuery);
                 const matchDept  = department.includes(searchQuery);
+                const matchRole  = role.includes(searchQuery);
+                const matchDesc  = roleDesc.includes(searchQuery);
 
-                if (!matchEmpId && !matchName && !matchUser && !matchEmail && !matchDept) {
+                if (!matchEmpId && !matchName && !matchUser && !matchEmail && !matchDept && !matchRole && !matchDesc) {
                     show = false;
                 }
             }
 
-            // 2. Role Filter
-            if (roleFilter !== 'all') {
-                const matchRole = role === roleFilter || role.includes(roleFilter);
-                const matchDesc = roleDesc === roleFilter || roleDesc.includes(roleFilter);
-                if (!matchRole && !matchDesc) {
+            // 2. Department Filter
+            if (deptFilter !== 'all' && deptFilter !== '') {
+                const normDept = normalizeDepartment(department);
+                const normFilter = normalizeDepartment(deptFilter);
+                const matchDept = department === deptFilter ||
+                                  department.includes(deptFilter) ||
+                                  deptFilter.includes(department) ||
+                                  normDept === normFilter ||
+                                  normDept.includes(normFilter) ||
+                                  normFilter.includes(normDept);
+                if (!matchDept) {
                     show = false;
                 }
             }
