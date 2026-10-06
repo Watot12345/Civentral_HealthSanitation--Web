@@ -392,7 +392,7 @@ foreach ($children as $c) {
 $childrenWithAlerts = count(array_unique(array_column($growthAlerts, 'child')));
 $totalGrowthMeasurements = count($growthData);
 
-$title = 'Nutrition & Growth Monitoring';
+$title = 'Nutrition & Growth Tracking';
 ?>
 
 <!-- ============================================================ -->
@@ -406,7 +406,7 @@ $title = 'Nutrition & Growth Monitoring';
         <div>
             <h2 class="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
                 <i class="fa-solid fa-heart-pulse text-brand-medium text-xl"></i>
-                Nutrition & Growth Monitoring
+                Nutrition & Growth Tracking
             </h2>
             <p class="text-sm text-slate-500 mt-0.5">Clinical nutritional screening, WHO growth percentiles & dietary intervention plans</p>
         </div>
@@ -1119,7 +1119,7 @@ $title = 'Nutrition & Growth Monitoring';
                 </div>
                 <div>
                     <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
-                        Pediatric Growth Trajectory & Monitoring
+                        Pediatric Growth Trajectory & Tracking
                     </h3>
                     <p class="text-xs text-slate-500">WHO Child Growth Standards percentiles and longitudinal visit records</p>
                 </div>
