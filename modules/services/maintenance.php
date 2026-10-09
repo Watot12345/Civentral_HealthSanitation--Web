@@ -324,8 +324,13 @@ $title = 'Maintenance & Desludging';
                         </td>
                         <td class="px-4 py-3 text-slate-600 text-xs"><?php echo $record['technician']; ?></td>
                         <td class="px-4 py-3 text-slate-500 text-xs">
-                            <?php echo date('M d, Y', strtotime($record['scheduled_date'])); ?>
-                            <br><span class="text-[10px] text-slate-400"><?php echo $record['scheduled_time']; ?></span>
+                            <?php 
+                                $schedTs = !empty($record['scheduled_date']) ? strtotime($record['scheduled_date']) : false;
+                                echo $schedTs ? date('M d, Y', $schedTs) : '<span class="text-slate-400">—</span>';
+                            ?>
+                            <?php if (!empty($record['scheduled_time'])): ?>
+                                <br><span class="text-[10px] text-slate-400"><?php echo htmlspecialchars($record['scheduled_time'], ENT_QUOTES, 'UTF-8'); ?></span>
+                            <?php endif; ?>
                         </td>
                         <td class="px-4 py-3">
                             <?php

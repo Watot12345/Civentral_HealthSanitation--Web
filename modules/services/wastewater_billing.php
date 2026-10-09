@@ -547,7 +547,10 @@ $title = 'Wastewater Billing';
                             <span class="text-sm font-bold text-slate-800">₱<?php echo number_format($invoice['total_amount'], 2); ?></span>
                         </td>
                         <td class="px-4 py-3 text-slate-500 text-xs">
-                            <?php echo date('M d, Y', strtotime($invoice['due_date'])); ?>
+                            <?php 
+                                $dueTs = !empty($invoice['due_date']) ? strtotime($invoice['due_date']) : false;
+                                echo $dueTs ? date('M d, Y', $dueTs) : '<span class="text-slate-400">—</span>';
+                            ?>
                             <?php if ($invoice['status'] === 'overdue'): ?>
                                 <span class="block text-[10px] text-rose-500">Overdue</span>
                             <?php endif; ?>
@@ -1205,8 +1208,8 @@ $title = 'Wastewater Billing';
 
                     <div class="grid grid-cols-2 gap-4">
                         <div><p class="text-xs text-slate-400 font-semibold">Service Type</p><p class="text-sm text-slate-800">${iService}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Invoice Date</p><p class="text-sm text-slate-800">${new Date(i.invoice_date).toLocaleDateString()}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Due Date</p><p class="text-sm text-slate-800">${new Date(i.due_date).toLocaleDateString()}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Invoice Date</p><p class="text-sm text-slate-800">${i.invoice_date ? new Date(i.invoice_date).toLocaleDateString() : '—'}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Due Date</p><p class="text-sm text-slate-800">${i.due_date ? new Date(i.due_date).toLocaleDateString() : '—'}</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Status</p><p class="text-sm font-semibold capitalize ${isPaid ? 'text-emerald-700' : 'text-amber-700'}">${iStatus}</p></div>
                     </div>
 

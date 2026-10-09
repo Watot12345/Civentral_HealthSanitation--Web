@@ -130,6 +130,9 @@ foreach ($completedReqs as $r) {
 
 // Inject live ratings & completed job counts into each provider
 foreach ($serviceProviders as &$p) {
+    if (class_exists('EncryptionHelper')) {
+        $p = EncryptionHelper::decryptModel('service_providers', $p);
+    }
     $pid = (string)($p['id'] ?? '');
     $prvCode = (string)($p['provider_id'] ?? '');
     $pJobs = $completedByProvider[$pid] ?? ($completedByProvider[$prvCode] ?? 0);

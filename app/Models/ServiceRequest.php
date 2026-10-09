@@ -2,6 +2,7 @@
 // app/Models/ServiceRequest.php
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../helpers/EncryptionHelper.php';
 
 class ServiceRequest
 {
@@ -19,7 +20,8 @@ class ServiceRequest
             $options['order'] = 'created_at.desc';
         }
         try {
-            return $this->db->select($this->table, [], $options);
+            $rows = $this->db->select($this->table, [], $options);
+            return EncryptionHelper::decryptRows($this->table, $rows);
         } catch (Throwable $e) {
             error_log('ServiceRequest Model Error (all): ' . $e->getMessage());
             return [];
@@ -29,8 +31,8 @@ class ServiceRequest
     public function find(string|int $id): ?array
     {
         try {
-            $result = $this->db->select($this->table, ['id' => $id]);
-            return !empty($result) ? $result[0] : null;
+            $result = $this->db->select($this->table, ['id' => 'eq.' . $id]);
+            return !empty($result) ? EncryptionHelper::decryptModel($this->table, $result[0]) : null;
         } catch (Throwable $e) {
             error_log('ServiceRequest Model Error (find): ' . $e->getMessage());
             return null;
@@ -40,8 +42,9 @@ class ServiceRequest
     public function findActiveByTankId(string $tankId, ?string $date = null): ?array
     {
         try {
-            $records = $this->db->select($this->table, ['tank_id' => $tankId]);
-            foreach ($records as $r) {
+            $records = $this->db->select($this->table, ['tank_id' => 'eq.' . $tankId]);
+            $decryptedRecords = EncryptionHelper::decryptRows($this->table, $records);
+            foreach ($decryptedRecords as $r) {
                 $st = strtolower($r['status'] ?? '');
                 if ($st === 'pending' || $st === 'approved' || $st === 'in_progress' || $st === 'scheduled') {
                     if ($date) {
@@ -72,19 +75,21 @@ class ServiceRequest
         if (empty($data['priority'])) {
             $data['priority'] = 'medium';
         }
-        return $this->db->insert($this->table, $data);
+        $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+        return $this->db->insert($this->table, $encryptedData);
     }
 
     public function updateById(string|int $id, array $data): array
     {
         $data['updated_at'] = date('c');
-        return $this->db->update($this->table, $data, ['id' => $id]);
+        $encryptedData = EncryptionHelper::encryptModel($this->table, $data);
+        return $this->db->update($this->table, $encryptedData, ['id' => 'eq.' . $id]);
     }
 
     public function deleteById(string|int $id): bool
     {
         try {
-            $this->db->delete($this->table, ['id' => $id]);
+            $this->db->delete($this->table, ['id' => 'eq.' . $id]);
             return true;
         } catch (Throwable $e) {
             error_log('ServiceRequest Model Error (delete): ' . $e->getMessage());
