@@ -265,12 +265,6 @@ $limit = 5;
 
                 <div class="h-6 w-[1px] bg-slate-200 hidden sm:block"></div>
 
-                <!-- Process Payment Fitted in Toolbar -->
-                <button onclick="openProcessPaymentModal()"
-                    class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm whitespace-nowrap">
-                    <i class="fa-solid fa-credit-card text-xs"></i> Process Payment
-                </button>
-
                 <!-- Export Fitted in Toolbar -->
                 <button onclick="exportPaymentsCSV()"
                     class="px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2 whitespace-nowrap"
