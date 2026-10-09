@@ -1119,6 +1119,7 @@ $title = 'Wastewater Billing';
 <!-- ============================================================ -->
 <script>
     let INVOICES = <?php echo json_encode(array_column($invoices, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+    const FEE_STRUCTURE = <?php echo json_encode($feeStructure, JSON_PRETTY_PRINT); ?>;
 
     // Modal functions, toast, sanitizeHTML provided by common.js
 
@@ -2318,10 +2319,23 @@ $title = 'Wastewater Billing';
 
             if (client && tankId) {
                 showToast(`Auto-generating invoice for ${client}...`, 'info');
-                
-                // Approximate standard fee, can be overridden later
-                const autoFee = 1500; 
-                const tax = autoFee * 0.06;
+
+                // Dynamically resolve fee from Municipal Fee Structure based on service type
+                const st = (serviceType || 'maintenance').toLowerCase();
+                let autoFee = 1200;
+                let matchedCategory = 'Desludging (Residential)';
+
+                if (Array.isArray(FEE_STRUCTURE)) {
+                    for (const fee of FEE_STRUCTURE) {
+                        const cat = (fee.category || '').toLowerCase();
+                        if (cat === st || cat.includes(st) || st.includes(cat)) {
+                            autoFee = parseFloat(fee.base_fee) || autoFee;
+                            matchedCategory = fee.category;
+                            break;
+                        }
+                    }
+                }
+                const tax = Math.round(autoFee * 0.06 * 100) / 100;
 
                 const csrfToken = window.CrudAjax ? window.CrudAjax.getCsrfToken() : '<?php echo csrf_token(); ?>';
                 fetch('../../api/wastewater_billing.php', {
@@ -2334,7 +2348,7 @@ $title = 'Wastewater Billing';
                     body: JSON.stringify({
                         client_name: client,
                         tank_id: tankId,
-                        service_type: serviceType || 'Maintenance',
+                        service_type: matchedCategory || serviceType || 'Maintenance',
                         amount: autoFee,
                         tax: tax,
                         notes: 'Auto-generated invoice from service completion.',

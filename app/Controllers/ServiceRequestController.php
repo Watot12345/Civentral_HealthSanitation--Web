@@ -203,6 +203,14 @@ class ServiceRequestController extends BaseController
                 require_once __DIR__ . '/../Models/MaintenanceRecord.php';
                 require_once __DIR__ . '/../Models/WastewaterInvoice.php';
 
+                // Resolve municipal rate dynamically from Municipal Fee Structure
+                $rawServiceType = $req['service_type'] ?? ($d['service_type'] ?? 'desludging');
+                $feeInfo = WastewaterInvoice::getFeeForServiceType($rawServiceType);
+                $baseFee = (float)$feeInfo['base_fee'];
+                $taxFee = (float)$feeInfo['tax'];
+                $totalFee = (float)$feeInfo['total'];
+                $resolvedServiceTitle = $feeInfo['category'];
+
                 $mModel = new MaintenanceRecord();
                 $mModel->create([
                     'service_id'     => 'SRV-' . date('ymd') . '-' . rand(100, 999),
@@ -215,7 +223,7 @@ class ServiceRequestController extends BaseController
                     'technician'     => $req['assigned_to'] ?? ($d['assigned_to'] ?? 'Unassigned'),
                     'provider_id'    => $req['provider_id'] ?? ($d['provider_id'] ?? null),
                     'status'         => 'scheduled',
-                    'cost'           => 1500.00,
+                    'cost'           => $baseFee,
                     'notes'          => 'Auto-created from Service Request ' . ($req['request_id'] ?? '')
                 ]);
 
@@ -227,10 +235,10 @@ class ServiceRequestController extends BaseController
                         'invoice_id'         => 'INV-' . date('ymd') . '-' . rand(100, 999),
                         'tank_id'            => $req['tank_id'] ?? ($d['tank_id'] ?? null),
                         'client_name'        => $req['owner_name'] ?? $d['owner_name'],
-                        'service_type'       => ucfirst($req['service_type'] ?? ($d['service_type'] ?? 'desludging')) . ' Service',
-                        'amount'             => 1500.00,
-                        'tax'                => 180.00,
-                        'total_amount'       => 1680.00,
+                        'service_type'       => $resolvedServiceTitle,
+                        'amount'             => $baseFee,
+                        'tax'                => $taxFee,
+                        'total_amount'       => $totalFee,
                         'due_date'           => date('Y-m-d', strtotime('+14 days')),
                         'status'             => 'pending',
                         'provider_id'        => $req['provider_id'] ?? ($d['provider_id'] ?? null),

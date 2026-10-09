@@ -119,10 +119,6 @@ $title = 'Immunization Records';
                     class="px-3.5 py-2 bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
                 <i class="fa-solid fa-file-excel text-xs text-emerald-600"></i> Bulk Export Masterlist
             </button>
-            <button onclick="openModal('registerChildModal')"
-                    class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
-                <i class="fa-solid fa-user-plus text-xs"></i> Register Patient
-            </button>
         </div>
     </div>
 
@@ -473,197 +469,9 @@ $title = 'Immunization Records';
         <i class="fa-solid fa-child text-brand-dark text-3xl"></i>
     </div>
     <h3 class="text-xl font-bold text-slate-900 mb-2">No Immunization Records Found</h3>
-    <p class="text-sm text-slate-500 mb-6 max-w-md">There are currently no registered patient immunization records. Click 'Register Patient' to add the first record.</p>
-    <button onclick="openModal('registerChildModal')" class="px-6 py-2.5 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold shadow-sm">
-        <i class="fa-solid fa-user-plus mr-1.5"></i> Register Patient
-    </button>
+    <p class="text-sm text-slate-500 mb-6 max-w-md">There are currently no patient immunization records. Patients registered through Patient Management will automatically appear here.</p>
 </div>
 
-<!-- ============================================================ -->
-<!-- REGISTER PATIENT IMMUNIZATION MODAL                           -->
-<!-- ============================================================ -->
-<div id="registerChildModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200/80">
-        <!-- Modal Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-md rounded-t-2xl z-10">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark flex-shrink-0">
-                    <i class="fa-solid fa-id-card text-lg"></i>
-                </div>
-                <div>
-                    <h3 class="font-bold text-slate-900 text-base leading-tight">Register Immunization Patient Record</h3>
-                    <p class="text-xs text-slate-500">Enter demographic, residency, and guardian/emergency contact details</p>
-                </div>
-            </div>
-            <button type="button" onclick="closeModal('registerChildModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
-                <i class="fa-solid fa-xmark text-sm"></i>
-            </button>
-        </div>
-
-        <form id="registerChildForm" class="p-6 space-y-4" onsubmit="saveChildRegistration(event)">
-            <!-- 1. Patient Demographics Information -->
-            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
-                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
-                    <span class="w-5 h-5 rounded-md bg-brand-light text-brand-dark inline-flex items-center justify-center text-xs font-bold">
-                        <i class="fa-solid fa-user text-[11px]"></i>
-                    </span>
-                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Patient Demographics Information</h4>
-                </div>
-                
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">First Name <span class="text-rose-500">*</span></label>
-                        <input type="text" id="child_first_name" required placeholder="e.g. Juan" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Last Name <span class="text-rose-500">*</span></label>
-                        <input type="text" id="child_last_name" required placeholder="e.g. Dela Cruz" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Gender <span class="text-rose-500">*</span></label>
-                        <select id="child_gender" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Birth Date <span class="text-rose-500">*</span></label>
-                        <input type="date" id="child_birth_date" required onchange="updateAgeDisplay('child_birth_date', 'child_age_display')" oninput="updateAgeDisplay('child_birth_date', 'child_age_display')" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Age</label>
-                        <input type="text" id="child_age_display" readonly placeholder="Auto-calculated from birth date" class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none font-medium">
-                    </div>
-                    
-                    <!-- Measurements & Blood Type: Balanced 3-column subgrid across full width -->
-                    <div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1">Birth Weight (kg)</label>
-                            <input type="number" id="child_birth_weight" min="0.1" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" placeholder="e.g. 3.2" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1">Birth Height (cm)</label>
-                            <input type="number" id="child_birth_height" min="20" max="999" step="0.1" inputmode="decimal" oninput="limitMeasurementInput(this)" placeholder="e.g. 50.0" title="Maximum 3 whole-number digits" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-slate-600 mb-1">Blood Type</label>
-                            <select id="child_blood_type" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                                <option value="">Select (Optional)</option>
-                                <option value="A+">A+</option>
-                                <option value="A-">A-</option>
-                                <option value="B+">B+</option>
-                                <option value="B-">B-</option>
-                                <option value="AB+">AB+</option>
-                                <option value="AB-">AB-</option>
-                                <option value="O+">O+</option>
-                                <option value="O-">O-</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- Zone and Barangay side-by-side -->
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Zone</label>
-                        <select id="child_zone" onchange="onZoneChange('child_zone', 'child_barangay')" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                            <option value="">All Zones (Select Zone)</option>
-                            <option value="Zone 1">Zone 1 (Brgy 1 to 4)</option>
-                            <option value="Zone 2">Zone 2 (Brgy 5 to 24)</option>
-                            <option value="Zone 3">Zone 3 (Brgy 25 to 35)</option>
-                            <option value="Zone 4">Zone 4 (Brgy 36 to 48)</option>
-                            <option value="Zone 5">Zone 5 (Brgy 49 to 58)</option>
-                            <option value="Zone 6">Zone 6 (Brgy 59 to 76)</option>
-                            <option value="Zone 7">Zone 7 (Brgy 77 to 81)</option>
-                            <option value="Zone 8">Zone 8 (Brgy 82 to 85)</option>
-                            <option value="Zone 9">Zone 9 (Brgy 86 to 98)</option>
-                            <option value="Zone 10">Zone 10 (Brgy 99 to 116)</option>
-                            <option value="Zone 11">Zone 11 (Brgy 117 to 131)</option>
-                            <option value="Zone 12">Zone 12 (Brgy 132 to 140)</option>
-                            <option value="Zone 13">Zone 13 (Brgy 141 to 150)</option>
-                            <option value="Zone 14">Zone 14 (Brgy 151 to 160)</option>
-                            <option value="Zone 15">Zone 15 (Brgy 161 to 164)</option>
-                            <option value="Zone 16">Zone 16 (Brgy 165 to 188)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Barangay <span class="text-rose-500">*</span></label>
-                        <select id="child_barangay" onchange="onBarangayChange('child_barangay', 'child_zone')" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                            <option value="">Select Barangay</option>
-                            <?php for ($b = 1; $b <= 188; $b++): ?>
-                            <option value="Barangay <?= $b ?>">Barangay <?= $b ?></option>
-                            <?php endfor; ?>
-                        </select>
-                    </div>
-
-                    <!-- Address full width -->
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Address <span class="text-rose-500">*</span></label>
-                        <input type="text" id="child_address" required placeholder="House No., Street name, Subdivision / Village" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 2. Guardian & Emergency Contact Information -->
-            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
-                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
-                    <span class="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 inline-flex items-center justify-center text-xs font-bold">
-                        <i class="fa-solid fa-user-shield text-[11px]"></i>
-                    </span>
-                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Guardian / Emergency Contact Information</h4>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Primary Guardian / Emergency Contact Name <span class="text-rose-500">*</span></label>
-                        <input type="text" id="child_mother_name" required placeholder="e.g. Maria Dela Cruz" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Contact Number</label>
-                        <input type="text" id="child_mother_contact" placeholder="e.g. 09171234567" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Relationship to Patient</label>
-                        <input type="text" id="child_mother_occupation" placeholder="e.g. Mother, Father, Grandmother, Aunt, Legal Guardian" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3. Health & Medical Notes & History -->
-            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
-                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
-                    <span class="w-5 h-5 rounded-md bg-rose-100 text-rose-700 inline-flex items-center justify-center text-xs font-bold">
-                        <i class="fa-solid fa-notes-medical text-[11px]"></i>
-                    </span>
-                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Medical Notes & History</h4>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Allergies</label>
-                        <input type="text" id="child_allergies" placeholder="Known allergies (e.g. penicillin, dust) or None" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Family Medical History</label>
-                        <input type="text" id="child_family_history" placeholder="e.g. Asthma, Hypertension, Diabetes, or None" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Latest Vaccine History (Optional)</label>
-                        <input type="text" id="child_latest_vaccine_history" placeholder="e.g. BCG (Birth), Pentavalent Dose 1, OPV Dose 1" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Footer Actions -->
-            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
-                <button type="button" onclick="closeModal('registerChildModal')"
-                        class="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-50 transition text-sm font-semibold shadow-sm">
-                    Cancel
-                </button>
-                <button type="submit"
-                        class="px-5 py-2.5 bg-brand-dark hover:bg-brand-medium text-white rounded-lg transition text-sm font-semibold shadow-sm flex items-center gap-2">
-                    <i class="fa-solid fa-child"></i> Register Child
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
 
 <!-- ============================================================ -->
 <!-- VIEW CHILD MODAL                                             -->
@@ -1184,12 +992,6 @@ $title = 'Immunization Records';
     // MODAL FUNCTIONS - Using ModalSystem
     // ============================================================
     function openModal(id) {
-        if (id === 'registerChildModal') {
-            const zoneSelect = document.getElementById('child_zone');
-            if (zoneSelect && !zoneSelect.value) {
-                populateBarangayDropdown('child_barangay', '', '');
-            }
-        }
         ModalSystem.open(id);
     }
 
@@ -1711,9 +1513,7 @@ $title = 'Immunization Records';
 
 
     // ============================================================
-    // SHARED: read a set of form fields into a plain object
-    // (replaces two near-identical 15-line field-collection blocks
-    // in saveChildEdit / saveChildRegistration)
+    // SHARED: read a set of form fields into a plain object (used in saveChildEdit)
     // ============================================================
     function readFormFields(prefix, keys) {
         const data = {};
@@ -1802,27 +1602,6 @@ $title = 'Immunization Records';
         });
     }
 
-    // ============================================================
-    // SAVE CHILD REGISTRATION
-    // ============================================================
-    async function saveChildRegistration(event) {
-        const formData = readFormFields('child_', CHILD_FORM_KEYS);
-        formData.health_center = 'Health Center 1';
-
-        await submitChildForm(event, {
-            url: API_BASE,
-            method: 'POST',
-            formData,
-            successMessage: 'Child registered successfully.',
-            onSuccess: () => {
-                closeModal('registerChildModal');
-                event.target.reset();
-                const zoneSelect = document.getElementById('child_zone');
-                if (zoneSelect) zoneSelect.value = '';
-                populateBarangayDropdown('child_barangay', '', '');
-            }
-        });
-    }
 
     // ============================================================
     // BUILD A CHILD ROW (shared by refreshChildList; single source

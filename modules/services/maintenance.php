@@ -518,11 +518,11 @@ $title = 'Maintenance & Desludging';
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Type <span class="text-rose-500">*</span></label>
-                    <select id="schedule_type" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <option value="desludging">Desludging</option>
-                        <option value="maintenance">Maintenance</option>
-                        <option value="inspection">Inspection</option>
-                        <option value="installation">Installation</option>
+                    <select id="schedule_type" required onchange="onScheduleServiceTypeChange(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <option value="desludging">Desludging (₱1,200.00)</option>
+                        <option value="maintenance">Maintenance (₱1,500.00)</option>
+                        <option value="inspection">Inspection (₱800.00)</option>
+                        <option value="installation">Installation (₱5,000.00)</option>
                     </select>
                 </div>
                 <div>
@@ -550,8 +550,8 @@ $title = 'Maintenance & Desludging';
                     <input type="time" id="schedule_time" value="09:00" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Estimated Cost (PHP)</label>
-                    <input type="number" id="schedule_cost" min="0" max="99999999999" step="0.01" inputmode="decimal" oninput="limitCostInput(this)" title="Maximum 11 whole-number digits" value="1500" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Fee / Cost (PHP)</label>
+                    <input type="number" id="schedule_cost" min="0" max="99999999999" step="0.01" inputmode="decimal" oninput="limitCostInput(this)" title="Maximum 11 whole-number digits" value="1200" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                 </div>
             </div>
 
@@ -609,7 +609,7 @@ $title = 'Maintenance & Desludging';
                         <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xs"></i>
                     </div>
                 </div>
-                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Type</label><select id="edit_service_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="desludging">Desludging</option><option value="maintenance">Maintenance</option><option value="inspection">Inspection</option><option value="installation">Installation</option></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Type</label><select id="edit_service_type" onchange="onEditServiceTypeChange(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="desludging">Desludging (₱1,200.00)</option><option value="maintenance">Maintenance (₱1,500.00)</option><option value="inspection">Inspection (₱800.00)</option><option value="installation">Installation (₱5,000.00)</option></select></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Provider</label><select id="edit_service_provider" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="">Select Provider</option><?php foreach ($serviceProviders as $sp): ?><option value="<?php echo htmlspecialchars($sp['provider_id'], ENT_QUOTES, 'UTF-8'); ?>" data-name="<?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Scheduled Date</label><input type="date" id="edit_service_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Scheduled Time</label><input type="time" id="edit_service_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
@@ -728,6 +728,29 @@ $title = 'Maintenance & Desludging';
 <script>
     const SERVICES = <?php echo json_encode(array_column($maintenanceRecords, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
     const TANKS_GEO = <?php echo json_encode($tankLookup, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+
+    // Municipal fee schedule mapped to standard service types
+    const MUNICIPAL_FEES = {
+        desludging: 1200.00,
+        maintenance: 1500.00,
+        inspection: 800.00,
+        installation: 5000.00,
+        emergency: 2500.00
+    };
+
+    function onScheduleServiceTypeChange(val) {
+        const costInput = document.getElementById('schedule_cost');
+        if (costInput && MUNICIPAL_FEES[val] !== undefined) {
+            costInput.value = MUNICIPAL_FEES[val].toFixed(2);
+        }
+    }
+
+    function onEditServiceTypeChange(val) {
+        const costInput = document.getElementById('edit_service_cost');
+        if (costInput && MUNICIPAL_FEES[val] !== undefined) {
+            costInput.value = MUNICIPAL_FEES[val].toFixed(2);
+        }
+    }
 
     // Modal functions, toast, sanitizeHTML, and export provided by common.js
 
@@ -1363,7 +1386,8 @@ $title = 'Maintenance & Desludging';
                 return;
             }
 
-            const costVal = document.getElementById('schedule_cost')?.value || '1500';
+            const sType = document.getElementById('schedule_type')?.value || 'desludging';
+            const costVal = document.getElementById('schedule_cost')?.value || (MUNICIPAL_FEES[sType] || 1200).toString();
             if (!isValidCost(costVal)) {
                 showToast('Estimated cost must be a valid positive number (max 11 digits).', 'warning');
                 return;

@@ -814,7 +814,8 @@ class AppointmentController extends BaseController
             'unavailability_reason_label' => $unavailabilityReasonLabel ?: 'In Emergency / Priority Consult',
             'reminder_sent' => (bool)($a['reminder_sent'] ?? false),
             'created_at' => $a['created_at'] ?? '',
-            'updated_at' => $a['updated_at'] ?? ''
+            'updated_at' => $a['updated_at'] ?? '',
+            'source' => $a['source'] ?? 'patient_management'
         ];
     }
 }

@@ -790,7 +790,7 @@ function openPatientProfile(patientId) {
                         </div>
                     </div>
                     <a href="patients.php?patient=${encodeURIComponent(p.id)}&autoView=true" class="px-3.5 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-xs">
-                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> View in Patients.php
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> View in Patients
                     </a>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">

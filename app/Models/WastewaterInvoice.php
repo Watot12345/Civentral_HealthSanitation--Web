@@ -145,4 +145,104 @@ class WastewaterInvoice
     {
         return 'INV-' . date('ymd') . '-' . strtoupper(substr(uniqid(), -4));
     }
+
+    /**
+     * Retrieve the active municipal fee structure (from config/fee_structure.json if present, or defaults).
+     */
+    public static function getFeeStructure(): array
+    {
+        $feeConfigFile = __DIR__ . '/../../config/fee_structure.json';
+        $defaultFees = [
+            ['category' => 'Desludging (Residential)', 'base_fee' => 1200.00, 'per_unit' => null, 'description' => 'Standard residential desludging service'],
+            ['category' => 'Desludging (Commercial)',  'base_fee' => 2000.00, 'per_unit' => null, 'description' => 'Commercial establishment desludging'],
+            ['category' => 'Septic Tank Inspection',   'base_fee' => 800.00,  'per_unit' => null, 'description' => 'Complete septic tank inspection'],
+            ['category' => 'Septic Tank Maintenance',  'base_fee' => 1500.00, 'per_unit' => null, 'description' => 'Regular maintenance service'],
+            ['category' => 'Installation (New Tank)',  'base_fee' => 5000.00, 'per_unit' => null, 'description' => 'New septic tank installation'],
+            ['category' => 'Emergency Service',        'base_fee' => 2500.00, 'per_unit' => null, 'description' => 'Emergency call-out service'],
+            ['category' => 'Pipe Inspection',          'base_fee' => 600.00,  'per_unit' => null, 'description' => 'CCTV pipe inspection'],
+            ['category' => 'Wastewater Treatment',     'base_fee' => 3000.00, 'per_unit' => null, 'description' => 'Wastewater treatment service'],
+        ];
+
+        if (file_exists($feeConfigFile)) {
+            $loaded = json_decode(file_get_contents($feeConfigFile), true);
+            if (is_array($loaded) && !empty($loaded)) {
+                return $loaded;
+            }
+        }
+        return $defaultFees;
+    }
+
+    /**
+     * Resolve the municipal fee, 6% tax, and total amount for a given service type.
+     */
+    public static function getFeeForServiceType(string $serviceType, ?string $tankCategory = null): array
+    {
+        $fees = self::getFeeStructure();
+        $st = strtolower(trim($serviceType));
+        $tc = strtolower(trim($tankCategory ?? ''));
+
+        // Commercial desludging check
+        if (str_contains($st, 'desludging') && (str_contains($st, 'commercial') || str_contains($tc, 'commercial'))) {
+            foreach ($fees as $fee) {
+                if (strcasecmp($fee['category'] ?? '', 'Desludging (Commercial)') === 0) {
+                    $base = (float)$fee['base_fee'];
+                    return [
+                        'base_fee' => $base,
+                        'tax'      => round($base * 0.06, 2),
+                        'total'    => round($base * 1.06, 2),
+                        'category' => $fee['category']
+                    ];
+                }
+            }
+            return ['base_fee' => 2000.00, 'tax' => 120.00, 'total' => 2120.00, 'category' => 'Desludging (Commercial)'];
+        }
+
+        // Exact category match
+        foreach ($fees as $fee) {
+            if (strcasecmp($fee['category'] ?? '', $st) === 0) {
+                $base = (float)$fee['base_fee'];
+                return [
+                    'base_fee' => $base,
+                    'tax'      => round($base * 0.06, 2),
+                    'total'    => round($base * 1.06, 2),
+                    'category' => $fee['category']
+                ];
+            }
+        }
+
+        // Keyword partial match
+        $keywordCategories = [
+            'desludging'   => 'Desludging (Residential)',
+            'inspection'   => 'Septic Tank Inspection',
+            'maintenance'  => 'Septic Tank Maintenance',
+            'installation' => 'Installation (New Tank)',
+            'emergency'    => 'Emergency Service',
+            'pipe'         => 'Pipe Inspection',
+            'treatment'    => 'Wastewater Treatment',
+        ];
+
+        foreach ($keywordCategories as $key => $targetCat) {
+            if (str_contains($st, $key)) {
+                foreach ($fees as $fee) {
+                    if (strcasecmp($fee['category'] ?? '', $targetCat) === 0) {
+                        $base = (float)$fee['base_fee'];
+                        return [
+                            'base_fee' => $base,
+                            'tax'      => round($base * 0.06, 2),
+                            'total'    => round($base * 1.06, 2),
+                            'category' => $fee['category']
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Fallback default
+        return [
+            'base_fee' => 1200.00,
+            'tax'      => 72.00,
+            'total'    => 1272.00,
+            'category' => 'Desludging (Residential)'
+        ];
+    }
 }

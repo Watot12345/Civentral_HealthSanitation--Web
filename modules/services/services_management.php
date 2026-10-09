@@ -683,12 +683,12 @@ $title = 'Service Requests & Maintenance';
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Type <span class="text-rose-500">*</span></label>
-                    <select id="sched_service_type" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                    <select id="sched_service_type" required onchange="onSchedTypeChange(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none">
                         <option value="">Select Type</option>
-                        <option value="desludging">Desludging</option>
-                        <option value="maintenance">Maintenance</option>
-                        <option value="inspection">Inspection</option>
-                        <option value="installation">Installation</option>
+                        <option value="desludging">Desludging (₱1,200.00)</option>
+                        <option value="maintenance">Maintenance (₱1,500.00)</option>
+                        <option value="inspection">Inspection (₱800.00)</option>
+                        <option value="installation">Installation (₱5,000.00)</option>
                     </select>
                 </div>
                 <div>
@@ -932,6 +932,20 @@ async function completeService(id) {
 }
 function editService(id) { showToast('Edit functionality — coming soon', 'success'); }
 
+const MUNICIPAL_FEES = {
+    desludging: 1200.00,
+    maintenance: 1500.00,
+    inspection: 800.00,
+    installation: 5000.00
+};
+
+function onSchedTypeChange(val) {
+    const costEl = document.getElementById('sched_cost');
+    if (costEl && MUNICIPAL_FEES[val] !== undefined) {
+        costEl.value = MUNICIPAL_FEES[val].toFixed(2);
+    }
+}
+
 async function saveScheduleService(event) {
     event.preventDefault();
     const tankEl = document.getElementById('sched_tank_id');
@@ -945,16 +959,17 @@ async function saveScheduleService(event) {
 
     const providerId = provEl?.value || '';
     const providerName = provEl?.selectedOptions[0]?.dataset?.name || provEl?.selectedOptions[0]?.text || '';
+    const serviceType = typeEl?.value || 'desludging';
 
     const payload = {
         tank_id: tankEl?.value || '',
         owner_name: ownerEl?.value || '',
-        service_type: typeEl?.value || 'desludging',
+        service_type: serviceType,
         provider_id: providerId || null,
         technician: providerName || 'Unassigned',
         scheduled_date: dateEl?.value || '',
         scheduled_time: timeEl?.value || '09:00',
-        cost: Number(costEl?.value || 1500),
+        cost: Number(costEl?.value || MUNICIPAL_FEES[serviceType] || 1200),
         notes: notesEl?.value || ''
     };
 

@@ -206,7 +206,8 @@ try {
             'priority' => strtolower($a['priority'] ?? 'medium'),
             'notes' => $a['notes'] ?? '',
             'reminder_sent' => (bool)($a['reminder_sent'] ?? false),
-            'created_at' => $a['created_at'] ?? ''
+            'created_at' => $a['created_at'] ?? '',
+            'source' => $a['source'] ?? 'patient_management'
         ];
     }
 } catch (Throwable $e) {
@@ -231,9 +232,37 @@ foreach ($dbEmployees as $e) {
     if (isset($e['id'])) $employeesMapLocal[$e['id']] = $e;
 }
 
+$assessedPatientsMap = [];
+
 try {
     $triageModel = new Triage();
     $rawTriage = $triageModel->all(['order' => 'created_at.desc']);
+
+    if (!empty($rawTriage) && is_array($rawTriage)) {
+        foreach ($rawTriage as $trg) {
+            $trgPatId = (int)($trg['patient_id'] ?? 0);
+            if ($trgPatId > 0) {
+                $assessedPatientsMap[$trgPatId] = true;
+            }
+        }
+    }
+
+    try {
+        require_once __DIR__ . '/../../app/Models/TriageQueue.php';
+        $triageQueueModel = new TriageQueue();
+        $rawTriageQueue = $triageQueueModel->all();
+        if (!empty($rawTriageQueue) && is_array($rawTriageQueue)) {
+            foreach ($rawTriageQueue as $tq) {
+                $qPatId = (int)($tq['patient_id'] ?? 0);
+                $qStatus = strtolower($tq['status'] ?? 'waiting');
+                if ($qPatId > 0 && !in_array($qStatus, ['cancelled', 'no_show', 'rejected'])) {
+                    $assessedPatientsMap[$qPatId] = true;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('Error checking triage queue for assessed patients: ' . $e->getMessage());
+    }
 
     // Get existing appointment IDs to avoid duplication
     $existingAppointmentIds = array_column($appointments, 'id');
@@ -689,13 +718,28 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
 
                             $isReassignmentPending = $a['status'] === 'reassignment_pending' || (str_contains($a['notes'] ?? '', '[REASSIGNMENT_PENDING'));
                             $isSentToOtherDoctor = $a['status'] === 'sent_to_other_doctor' || (str_contains($a['notes'] ?? '', '[SENT_TO_OTHER_DOCTOR]'));
+
+                            $rawStatus = strtolower($a['status'] ?? 'pending');
+                            $isAssessmentRow = ($a['source'] ?? '') === 'triage' 
+                                || str_starts_with((string)$a['id'], 'TRG-') 
+                                || str_starts_with((string)($a['appointment_id'] ?? ''), 'TRG-') 
+                                || strtolower($a['service_type'] ?? '') === 'patient assessment'
+                                || strtolower($a['type'] ?? '') === 'patient assessment';
+
+                            $patId = (int)($a['patient_id'] ?? 0);
+                            $alreadyFromAssessment = $isAssessmentRow || ($patId > 0 && !empty($assessedPatientsMap[$patId]));
+
+                            $displayStatus = ucfirst($rawStatus);
+                            if (in_array($rawStatus, ['approved', 'scheduled']) && !$isAssessmentRow) {
+                                $displayStatus = 'Scheduled';
+                            }
                         ?>
                         <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors appointment-row"
                             data-id="<?php echo $a['id']; ?>"
                             data-patient="<?php echo htmlspecialchars(strtolower($a['patient_name'])); ?>"
                             data-doctor="<?php echo htmlspecialchars(strtolower($a['doctor_name'])); ?>"
                             data-service="<?php echo htmlspecialchars(strtolower($a['service_type'])); ?>"
-                            data-status="<?php echo htmlspecialchars(strtolower($a['status'])); ?>"
+                            data-status="<?php echo (in_array($rawStatus, ['approved', 'scheduled']) && !$isAssessmentRow) ? 'scheduled' : htmlspecialchars($rawStatus); ?>"
                             data-priority="<?php echo htmlspecialchars(strtolower($a['priority'])); ?>"
                             data-date="<?php echo htmlspecialchars($a['date']); ?>">
                             
@@ -763,12 +807,12 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                                     </span>
                                 <?php else: ?>
                                     <span class="px-2 py-1 rounded-full text-xs font-semibold <?php 
-                                        echo in_array($a['status'], ['approved', 'confirmed', 'scheduled']) ? 'bg-emerald-100 text-emerald-700' : 
-                                            ($a['status'] === 'pending' ? 'bg-amber-100 text-amber-700' : 
-                                            ($a['status'] === 'completed' ? 'bg-blue-100 text-blue-700' : 
+                                        echo in_array($rawStatus, ['approved', 'confirmed', 'scheduled']) ? 'bg-emerald-100 text-emerald-700' : 
+                                            ($rawStatus === 'pending' ? 'bg-amber-100 text-amber-700' : 
+                                            ($rawStatus === 'completed' ? 'bg-blue-100 text-blue-700' : 
                                             'bg-rose-100 text-rose-700')); 
                                     ?>">
-                                        <?php echo htmlspecialchars(ucfirst($a['status'])); ?>
+                                        <?php echo htmlspecialchars($displayStatus); ?>
                                     </span>
                                 <?php endif; ?>
                             </td>
@@ -792,12 +836,12 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                                         <!-- Action button for creating/starting consultation is gone when completed -->
                                     <?php else: ?>
                                         <?php 
-                                            $hasRegisteredPatient = !empty($a['patient_id']) && (int)$a['patient_id'] > 0;
-                                            $isFromTriage = ($a['source'] ?? '') === 'triage';
+                                            $hasRegisteredPatient = $patId > 0;
+                                            $isScheduledStatus = in_array($rawStatus, ['approved', 'confirmed', 'pending', 'scheduled']);
                                         ?>
-                                        <?php if (in_array(strtolower($a['status']), ['approved', 'confirmed', 'pending', 'scheduled']) && $hasRegisteredPatient && !$isFromTriage): ?>
+                                        <?php if ($isScheduledStatus && $hasRegisteredPatient && !$alreadyFromAssessment): ?>
                                             <button onclick="checkInScheduledPatient('<?php echo htmlspecialchars((string)$a['patient_id']); ?>')"
-                                                    class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient for Today's Visit (Scheduled via Patient Management)">
+                                                    class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient to Queue (Scheduled via Patient Management)">
                                                 <i class="fa-solid fa-user-check text-sm"></i>
                                             </button>
                                         <?php endif; ?>
@@ -1149,6 +1193,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
 <script>
     window.IS_STAFF_OR_NURSE = <?php echo json_encode($isStaffOrNurse); ?>;
     window.IS_DOCTOR_ONLY = <?php echo json_encode($isDoctorOnly); ?>;
+    window.ASSESSED_PATIENT_IDS = <?php echo json_encode(array_values(array_unique(array_keys($assessedPatientsMap)))); ?>;
     const APPOINTMENTS_DATA = <?php echo json_encode(array_column($appointments, null, 'id'), JSON_UNESCAPED_UNICODE); ?>;
     const CONSULTATION_MAP = <?php echo json_encode($consultationMap); ?>;
     const MEDICAL_ROLES = ['Health Center Director', 'Medical Practitioner', 'Health Center Staff', 'Immunization Lead', 'Nutrition Staff', 'Doctor', 'Nurse', 'Dentist', 'midwives', 'Nutritionist', 'Immunization Coordinator', 'Lab tech'];
@@ -1156,11 +1201,15 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
     async function checkInScheduledPatient(patientId) {
         const qNum = 'Q-' + String(Math.floor(1000 + Math.random() * 9000));
         try {
+            const pIdNum = parseInt(patientId);
+            if (pIdNum > 0 && Array.isArray(window.ASSESSED_PATIENT_IDS) && !window.ASSESSED_PATIENT_IDS.includes(pIdNum)) {
+                window.ASSESSED_PATIENT_IDS.push(pIdNum);
+            }
             await fetch('<?php echo site_url('api/triage-queue.php'); ?>', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    patient_id: parseInt(patientId),
+                    patient_id: pIdNum,
                     queue_number: qNum
                 })
             });
@@ -1407,6 +1456,13 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                 container.innerHTML = '<div class="py-8 text-center text-slate-500 text-sm">Could not load assessment records.</div>';
                 return;
             }
+
+            data.data.forEach(t => {
+                const pid = parseInt(t.patient_id || 0);
+                if (pid > 0 && Array.isArray(window.ASSESSED_PATIENT_IDS) && !window.ASSESSED_PATIENT_IDS.includes(pid)) {
+                    window.ASSESSED_PATIENT_IDS.push(pid);
+                }
+            });
 
             const pIdNum = parseInt(patientId);
             const record = data.data.find(t => parseInt(t.patient_id || t.id) === pIdNum);
@@ -1690,6 +1746,15 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
             (safeStatus === 'pending' ? 'bg-amber-100 text-amber-700 font-semibold' :
             (safeStatus === 'completed' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold inline-flex items-center gap-1' : 'bg-rose-100 text-rose-700 font-semibold'))));
 
+        const isAssessmentRow = (a.source === 'triage') 
+            || String(a.id || '').startsWith('TRG-') 
+            || String(a.appointment_id || '').startsWith('TRG-') 
+            || (a.service_type || '').toLowerCase() === 'patient assessment'
+            || (a.type || '').toLowerCase() === 'patient assessment';
+
+        const patIdInt = parseInt(a.patient_id || 0);
+        const alreadyFromAssessment = isAssessmentRow || (patIdInt > 0 && Array.isArray(window.ASSESSED_PATIENT_IDS) && window.ASSESSED_PATIENT_IDS.includes(patIdInt));
+
         let statusText = safeStatus.charAt(0).toUpperCase() + safeStatus.slice(1);
         if (isReassignmentPending) {
             statusText = '<i class="fa-solid fa-user-clock text-amber-600"></i> On Hold';
@@ -1697,6 +1762,8 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
             statusText = '<i class="fa-solid fa-user-doctor text-purple-600"></i> Reassigned to Other Doctor';
         } else if (safeStatus === 'completed') {
             statusText = '<i class="fa-solid fa-circle-check text-emerald-600"></i> Completed';
+        } else if (['approved', 'scheduled'].includes(safeStatus) && !isAssessmentRow) {
+            statusText = 'Scheduled';
         }
 
         const nameParts = (a.patient_name || '').split(' ');
@@ -1716,11 +1783,11 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
         } else if (safeStatus === 'completed') {
             actionButtonsHtml = '';
         } else {
-            const hasRegisteredPatient = Boolean(a.patient_id && parseInt(a.patient_id) > 0);
-            const isFromTriage = (a.source === 'triage');
-            const checkInBtn = (['approved', 'confirmed', 'pending', 'scheduled'].includes(safeStatus) && hasRegisteredPatient && !isFromTriage) ? `
+            const hasRegisteredPatient = Boolean(patIdInt > 0);
+            const isScheduledStatus = ['approved', 'confirmed', 'pending', 'scheduled'].includes(safeStatus);
+            const checkInBtn = (isScheduledStatus && hasRegisteredPatient && !alreadyFromAssessment) ? `
                 <button onclick="checkInScheduledPatient('${a.patient_id}')"
-                        class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient for Today's Visit (Scheduled via Patient Management)">
+                        class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Check-in Scheduled Patient to Queue (Scheduled via Patient Management)">
                     <i class="fa-solid fa-user-check text-sm"></i>
                 </button>` : '';
 
@@ -1746,6 +1813,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
             </button>`;
 
         const rowBgClass = isReassignmentPending ? 'bg-amber-50/70 hover:bg-amber-100/60' : 'hover:bg-brand-light/40';
+        const rowStatusAttr = (['approved', 'scheduled'].includes(safeStatus) && !isAssessmentRow) ? 'scheduled' : safeStatus;
 
         return `
         <tr class="border-b border-slate-100 ${rowBgClass} transition-colors appointment-row"
@@ -1753,7 +1821,7 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
             data-patient="${safePatientName.toLowerCase()}"
             data-doctor="${safeDoctorName.toLowerCase()}"
             data-service="${safeServiceType.toLowerCase()}"
-            data-status="${safeStatus}"
+            data-status="${rowStatusAttr}"
             data-priority="${safePriority}"
             data-date="${rawDate}">
             
@@ -2166,8 +2234,17 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
             else if (dateFilter === 'tomorrow') matchesDate = rowDate.getTime() === tomorrow.getTime();
             else if (dateFilter === 'week') matchesDate = rowDate >= today && rowDate <= weekEnd;
 
+            let matchesStatus = true;
+            if (status) {
+                if (status === 'scheduled' || status === 'approved') {
+                    matchesStatus = ['scheduled', 'approved', 'confirmed'].includes(row.dataset.status);
+                } else {
+                    matchesStatus = (row.dataset.status === status);
+                }
+            }
+
             const visible = searchText.includes(search) && 
-                           (!status || row.dataset.status === status) &&
+                           matchesStatus &&
                            (!priority || row.dataset.priority === priority) &&
                            matchesDate;
             

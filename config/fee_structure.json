@@ -1,0 +1,50 @@
+[
+    {
+        "category": "Desludging (Residential)",
+        "base_fee": 1200.00,
+        "per_unit": null,
+        "description": "Standard residential desludging service"
+    },
+    {
+        "category": "Desludging (Commercial)",
+        "base_fee": 2000.00,
+        "per_unit": null,
+        "description": "Commercial establishment desludging"
+    },
+    {
+        "category": "Septic Tank Inspection",
+        "base_fee": 800.00,
+        "per_unit": null,
+        "description": "Complete septic tank inspection"
+    },
+    {
+        "category": "Septic Tank Maintenance",
+        "base_fee": 1500.00,
+        "per_unit": null,
+        "description": "Regular maintenance service"
+    },
+    {
+        "category": "Installation (New Tank)",
+        "base_fee": 5000.00,
+        "per_unit": null,
+        "description": "New septic tank installation"
+    },
+    {
+        "category": "Emergency Service",
+        "base_fee": 2500.00,
+        "per_unit": null,
+        "description": "Emergency call-out service"
+    },
+    {
+        "category": "Pipe Inspection",
+        "base_fee": 600.00,
+        "per_unit": null,
+        "description": "CCTV pipe inspection"
+    },
+    {
+        "category": "Wastewater Treatment",
+        "base_fee": 3000.00,
+        "per_unit": null,
+        "description": "Wastewater treatment service"
+    }
+]

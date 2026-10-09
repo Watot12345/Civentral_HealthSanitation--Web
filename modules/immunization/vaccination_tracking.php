@@ -203,7 +203,7 @@ $vaccineSchedule = [
     ['vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 1, 'due_age_days' => 42, 'due_age' => '6 weeks', 'description' => 'Protects against pneumococcal disease'],
     ['vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 2, 'due_age_days' => 70, 'due_age' => '10 weeks', 'description' => 'Second dose of PCV'],
     ['vaccine' => 'Pneumococcal Conjugate Vaccine (PCV)', 'dose' => 3, 'due_age_days' => 98, 'due_age' => '14 weeks', 'description' => 'Third dose of PCV'],
-    ['vaccine' => 'Measles-Mumps-Rubella (MMR)', 'dose' => 1, 'due_age_days' => 270, 'due_age' => '9 months', 'description' => 'Protects against measles, mumps, and rubella'],
+    ['vaccine' => 'Measles-Rubella (MR)', 'dose' => 1, 'due_age_days' => 270, 'due_age' => '9 months', 'description' => 'First dose protecting against measles and rubella'],
     ['vaccine' => 'Measles-Mumps-Rubella (MMR)', 'dose' => 2, 'due_age_days' => 365, 'due_age' => '12 months', 'description' => 'Second dose for full immunity'],
 ];
 
@@ -294,17 +294,56 @@ try {
 // Adjust the table/column names below if your `immunizations`
 // table uses different naming.
 // ============================================================
-$administeredLookup = []; // "childId|vaccine|dose" => record
+if (!function_exists('normalizeVaccineTrackingKey')) {
+    function normalizeVaccineTrackingKey(string $vaccine): string {
+        $v = strtolower(trim($vaccine));
+        if (str_contains($v, 'penta') || str_contains($v, 'dpt') || str_contains($v, 'dtp')) {
+            return 'pentavalent';
+        }
+        if (str_contains($v, 'bcg')) {
+            return 'bcg';
+        }
+        if (str_contains($v, 'hepb') || str_contains($v, 'hepatitis b') || str_contains($v, 'hepatitis-b')) {
+            return 'hepb';
+        }
+        if (str_contains($v, 'ipv') || str_contains($v, 'inactivated polio')) {
+            return 'ipv';
+        }
+        if (str_contains($v, 'opv') || str_contains($v, 'oral polio') || (str_contains($v, 'polio') && !str_contains($v, 'inactivated'))) {
+            return 'opv';
+        }
+        if (str_contains($v, 'pcv') || str_contains($v, 'pneumococcal')) {
+            return 'pcv';
+        }
+        if (str_contains($v, 'mmr') || str_contains($v, 'rubella') || str_contains($v, 'measles') || str_contains($v, 'mr')) {
+            return 'measles';
+        }
+        return preg_replace('/[^a-z0-9]/', '', $v);
+    }
+}
+
+$administeredLookup = []; // "childId|vaccine|dose" => record (multi-indexed)
 
 try {
     $dbImmunizations = $db->query('immunizations', 'GET');
     if (!empty($dbImmunizations) && is_array($dbImmunizations)) {
         foreach ($dbImmunizations as $rec) {
-            $childId = (int)($rec['child_id'] ?? 0);
+            $rawChildId = $rec['child_id'] ?? '';
+            $childIdInt = (int)$rawChildId;
             $vaccine = $rec['vaccine'] ?? '';
             $dose = (int)($rec['dose'] ?? 1);
-            $key = $childId . '|' . strtolower($vaccine) . '|' . $dose;
-            $administeredLookup[$key] = $rec;
+            $normVaccine = normalizeVaccineTrackingKey($vaccine);
+            $rawLowerVaccine = strtolower(trim($vaccine));
+
+            if ($childIdInt > 0) {
+                $administeredLookup[$childIdInt . '|' . $normVaccine . '|' . $dose] = $rec;
+                $administeredLookup[$childIdInt . '|' . $rawLowerVaccine . '|' . $dose] = $rec;
+            }
+            if (!empty($rawChildId)) {
+                $rawCodeKey = strtolower(trim((string)$rawChildId));
+                $administeredLookup[$rawCodeKey . '|' . $normVaccine . '|' . $dose] = $rec;
+                $administeredLookup[$rawCodeKey . '|' . $rawLowerVaccine . '|' . $dose] = $rec;
+            }
         }
     }
 } catch (\Throwable $e) {
@@ -317,7 +356,9 @@ try {
 //   missed     -> due date has passed, nothing administered
 //   pending    -> due within the next 30 days, nothing administered yet
 //   (not yet due doses are skipped from the table entirely)
-// Also rolls up a per-child "on track" / "not on track" badge.
+// Also rolls up a per-child "on track" / "not on track" badge:
+//   "on_track"     -> has NO missed (overdue) vaccinations
+//   "not_on_track" -> has 1 or more overdue unadministered vaccinations
 // ============================================================
 $immunizations = [];
 $missedVaccines = [];
@@ -327,44 +368,49 @@ $childTrackStatus = []; // childId => 'on_track' | 'not_on_track'
 $today = new DateTime();
 
 foreach ($childrenRaw as $childId => $info) {
+    $childCode = strtolower(trim((string)($info['child_code'] ?? '')));
     $childHasMissed = false;
 
     foreach ($vaccineSchedule as $schedule) {
         $vaccine = $schedule['vaccine'];
-        $dose = $schedule['dose'];
-        $key = $childId . '|' . strtolower($vaccine) . '|' . $dose;
+        $dose = (int)$schedule['dose'];
+        $normVaccine = normalizeVaccineTrackingKey($vaccine);
+        $rawLowerVaccine = strtolower(trim($vaccine));
+
+        $matchedRec = $administeredLookup[$childId . '|' . $normVaccine . '|' . $dose]
+            ?? $administeredLookup[$childId . '|' . $rawLowerVaccine . '|' . $dose]
+            ?? ($childCode ? ($administeredLookup[$childCode . '|' . $normVaccine . '|' . $dose] ?? $administeredLookup[$childCode . '|' . $rawLowerVaccine . '|' . $dose] ?? null) : null);
 
         $dueDate = clone $info['birth'];
         $dueDate->modify('+' . $schedule['due_age_days'] . ' days');
         $daysLeft = ($dueDate->getTimestamp() - $today->getTimestamp()) / 86400;
 
-        if (isset($administeredLookup[$key])) {
-            $rec = $administeredLookup[$key];
-            $entryId = 'rec_' . ($rec['id'] ?? ($childId . '_' . $dose));
+        if ($matchedRec) {
+            $entryId = 'rec_' . ($matchedRec['id'] ?? ($childId . '_' . $dose));
 
             $immunizations[] = [
                 'id' => (string)$entryId,
                 'child_id' => $info['child_code'],
                 'child_db_id' => $childId,
                 'child_name' => $info['name'],
-                'vaccine' => $vaccine,
+                'vaccine' => !empty($matchedRec['vaccine']) ? $matchedRec['vaccine'] : $vaccine,
                 'dose' => $dose,
-                'date' => $rec['date_administered'] ?? null,
-                'next_due' => $rec['next_due_date'] ?? null,
-                'batch_number' => $rec['batch_number'] ?? null,
-                'administered_by' => $rec['administered_by'] ?? null,
-                'health_center' => $rec['health_center'] ?? '—',
+                'date' => $matchedRec['date_administered'] ?? null,
+                'next_due' => $matchedRec['next_due_date'] ?? null,
+                'batch_number' => $matchedRec['batch_number'] ?? null,
+                'administered_by' => $matchedRec['administered_by'] ?? null,
+                'health_center' => $matchedRec['health_center'] ?? '—',
                 'status' => 'completed',
             ];
             continue;
         }
 
-        // Not administered yet — push pending or missed status to immunizations list
-        if ($daysLeft < 0 || $daysLeft <= 30) {
+        // Not administered yet:
+        if ($daysLeft < 0) {
+            // Truly overdue past scheduled due date -> Child missed this dose
             $childHasMissed = true;
-            $status = $daysLeft < 0 ? 'missed' : 'pending';
-            $immunizations[] = [
-                'id' => 'sched_' . $childId . '_' . $schedule['dose'],
+            $entry = [
+                'id' => 'sched_' . $childId . '_' . $dose,
                 'child_id' => $info['child_code'],
                 'child_db_id' => $childId,
                 'child_name' => $info['name'],
@@ -375,8 +421,28 @@ foreach ($childrenRaw as $childId => $info) {
                 'batch_number' => null,
                 'administered_by' => null,
                 'health_center' => '—',
-                'status' => $status,
+                'status' => 'missed',
             ];
+            $immunizations[] = $entry;
+            $missedVaccines[] = $entry;
+        } elseif ($daysLeft <= 30) {
+            // Due in upcoming 30 days -> Upcoming/Pending dose, patient is STILL on track!
+            $entry = [
+                'id' => 'sched_' . $childId . '_' . $dose,
+                'child_id' => $info['child_code'],
+                'child_db_id' => $childId,
+                'child_name' => $info['name'],
+                'vaccine' => $vaccine,
+                'dose' => $dose,
+                'date' => null,
+                'next_due' => $dueDate->format('Y-m-d'),
+                'batch_number' => null,
+                'administered_by' => null,
+                'health_center' => '—',
+                'status' => 'pending',
+            ];
+            $immunizations[] = $entry;
+            $dueAlerts[] = $entry;
         }
     }
 
@@ -594,7 +660,7 @@ $title = 'Vaccination Tracking';
                 <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                 <input type="text"
                        id="searchVaccination"
-                       placeholder="Search by child name, ID (e.g. CH-001), vaccine, dose, or batch..."
+                       placeholder="Search by patient name, ID, vaccine, dose, or batch..."
                        class="w-full pl-9 pr-9 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
                 <button type="button" id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs w-6 h-6 rounded-full hover:bg-slate-100 items-center justify-center transition">
                     <i class="fa-solid fa-xmark"></i>
@@ -627,7 +693,7 @@ $title = 'Vaccination Tracking';
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 border-b border-slate-200">
                     <tr>
-                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Child</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Patient</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vaccine</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dose</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date Administered</th>
@@ -692,13 +758,13 @@ $title = 'Vaccination Tracking';
                                     $daysLeft = (strtotime($nextDue) - time()) / 86400;
                                     $daysLeft = round($daysLeft);
                             ?>
-                                <span class="<?php echo $daysLeft <= 30 && $daysLeft > 0 ? 'text-rose-600 font-bold' : 'text-slate-500'; ?>">
+                                <span class="<?php echo ($daysLeft <= 30 && $daysLeft >= 0) ? 'text-amber-600 font-semibold' : ($daysLeft < 0 ? 'text-rose-600 font-bold' : 'text-slate-500'); ?>">
                                     <?php echo date('M d, Y', strtotime($nextDue)); ?>
                                 </span>
-                                <?php if ($daysLeft > 0 && $daysLeft <= 30): ?>
-                                    <span class="block text-[10px] text-rose-500"><?php echo $daysLeft; ?> days left</span>
+                                <?php if ($daysLeft >= 0 && $daysLeft <= 30): ?>
+                                    <span class="block text-[10px] text-amber-600 font-medium"><?php echo $daysLeft; ?> days left</span>
                                 <?php elseif ($daysLeft < 0): ?>
-                                    <span class="block text-[10px] text-rose-500"><?php echo abs($daysLeft); ?> days overdue</span>
+                                    <span class="block text-[10px] text-rose-500 font-semibold"><?php echo abs($daysLeft); ?> days overdue</span>
                                 <?php endif; ?>
                             <?php else: ?>
                                 <span class="text-slate-400">—</span>
@@ -2088,8 +2154,8 @@ $title = 'Vaccination Tracking';
         }
 
         const headers = [
-            'Child / Patient Name',
-            'Patient / Child ID',
+            'Patient Name',
+            'Patient ID',
             'Vaccine',
             'Dose',
             'Date Administered',
