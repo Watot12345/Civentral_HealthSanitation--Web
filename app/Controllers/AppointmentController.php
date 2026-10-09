@@ -25,17 +25,25 @@ class AppointmentController extends BaseController
     public function index(): void
     {
         $this->requireDepartment('health center services');
-        $this->requireCapability(Permissions::PATIENTS_VIEW);
+        if (!hasPermission(Permissions::PATIENTS_VIEW) && !hasPermission(Permissions::TRIAGE_VIEW) && !hasPermission(Permissions::CONSULTATIONS_VIEW)) {
+            $this->requireCapability(Permissions::PATIENTS_VIEW);
+        }
 
-        $rawAppointments = $this->appointmentModel->all(['order' => 'appointment_date.desc,appointment_time.asc,created_at.desc']);
-        $patientsMap = $this->getPatientsMap();
-        $employeesMap = $this->getEmployeesMap();
+        $this->handle(function() {
+            $rawAppointments = $this->appointmentModel->all(['order' => 'appointment_date.desc,appointment_time.asc,created_at.desc']);
+            if (!is_array($rawAppointments) || !array_is_list($rawAppointments)) {
+                $rawAppointments = (is_array($rawAppointments) && !empty($rawAppointments) && isset($rawAppointments['id'])) ? [$rawAppointments] : [];
+            }
+            $patientsMap = $this->getPatientsMap();
+            $employeesMap = $this->getEmployeesMap();
 
-        $appointments = array_map(function ($a) use ($patientsMap, $employeesMap) {
-            return $this->enrichAppointment($a, $patientsMap, $employeesMap);
-        }, $rawAppointments);
+            $appointments = [];
+            foreach ($rawAppointments as $a) {
+                if (is_array($a)) {
+                    $appointments[] = $this->enrichAppointment($a, $patientsMap, $employeesMap);
+                }
+            }
 
-        $this->handle(function() use ($appointments) {
             return [
                 'success' => true,
                 'data' => $appointments,
@@ -47,11 +55,12 @@ class AppointmentController extends BaseController
     public function show(string $id): void
     {
         $this->requireDepartment('health center services');
-        $this->requireCapability(Permissions::PATIENTS_VIEW);
+        if (!hasPermission(Permissions::PATIENTS_VIEW) && !hasPermission(Permissions::TRIAGE_VIEW) && !hasPermission(Permissions::CONSULTATIONS_VIEW)) {
+            $this->requireCapability(Permissions::PATIENTS_VIEW);
+        }
 
-        $appointment = $this->appointmentModel->find($id);
-
-        $this->handle(function() use ($appointment) {
+        $this->handle(function() use ($id) {
+            $appointment = $this->appointmentModel->find($id);
             if (!$appointment) {
                 return [
                     'success' => false,
@@ -569,7 +578,9 @@ class AppointmentController extends BaseController
     public function search(): void
     {
         $this->requireDepartment('health center services');
-        $this->requireCapability(Permissions::PATIENTS_VIEW);
+        if (!hasPermission(Permissions::PATIENTS_VIEW) && !hasPermission(Permissions::TRIAGE_VIEW) && !hasPermission(Permissions::CONSULTATIONS_VIEW)) {
+            $this->requireCapability(Permissions::PATIENTS_VIEW);
+        }
 
         $query = strtolower($_GET['q'] ?? '');
 
@@ -583,10 +594,18 @@ class AppointmentController extends BaseController
             }
 
             $rawAppointments = $this->appointmentModel->all();
+            if (!is_array($rawAppointments) || !array_is_list($rawAppointments)) {
+                $rawAppointments = (is_array($rawAppointments) && !empty($rawAppointments) && isset($rawAppointments['id'])) ? [$rawAppointments] : [];
+            }
             $patientsMap = $this->getPatientsMap();
             $employeesMap = $this->getEmployeesMap();
 
-            $enriched = array_map(fn($a) => $this->enrichAppointment($a, $patientsMap, $employeesMap), $rawAppointments);
+            $enriched = [];
+            foreach ($rawAppointments as $a) {
+                if (is_array($a)) {
+                    $enriched[] = $this->enrichAppointment($a, $patientsMap, $employeesMap);
+                }
+            }
 
             $results = array_values(array_filter($enriched, function($a) use ($query) {
                 return str_contains(strtolower($a['patient_name'] ?? ''), $query) ||

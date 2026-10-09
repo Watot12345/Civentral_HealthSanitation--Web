@@ -123,7 +123,9 @@ class Database
             $queryParams[] = 'select=' . rawurlencode($options['select']);
         }
         if (!empty($options['order'])) {
-            $queryParams[] = 'order=' . rawurlencode($options['order']);
+            $orderParts = explode(',', (string)$options['order']);
+            $encodedParts = array_map(static fn($p) => rawurlencode(trim($p)), $orderParts);
+            $queryParams[] = 'order=' . implode(',', $encodedParts);
         }
         
         // ONLY add limit and offset if they are explicitly set
@@ -354,7 +356,9 @@ class Database
                 $queryParams[] = 'select=' . rawurlencode($select);
 
                 if (!empty($config['order'])) {
-                    $queryParams[] = 'order=' . rawurlencode($config['order']);
+                    $orderParts = explode(',', (string)$config['order']);
+                    $encodedParts = array_map(static fn($p) => rawurlencode(trim($p)), $orderParts);
+                    $queryParams[] = 'order=' . implode(',', $encodedParts);
                 }
                 if (isset($config['limit'])) {
                     $queryParams[] = 'limit=' . (int)$config['limit'];

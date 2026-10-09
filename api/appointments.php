@@ -7,26 +7,12 @@ require_once __DIR__ . '/../Core/Response.php';
 require_once __DIR__ . '/../app/Controllers/AppointmentController.php';
 require_once __DIR__ . '/../app/services/RateLimiterService.php';
 
-// Rate Limiting Protection (60 req / min per IP)
-$limiter = new RateLimiterService(60, 60);
-$rateCheck = $limiter->check();
-if (!$rateCheck['allowed']) {
-    http_response_code(429);
-    header('Retry-After: ' . $rateCheck['reset']);
-    echo json_encode([
-        'success' => false,
-        'message' => 'Too many requests. Please retry in ' . $rateCheck['reset'] . ' seconds.',
-        'retry_after' => $rateCheck['reset']
-    ]);
-    exit;
-}
-
 // Handle CORS
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token, X-Requested-With');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
@@ -34,11 +20,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 header('Content-Type: application/json');
 
 try {
+    // Rate Limiting Protection (60 req / min per IP)
+    $limiter = new RateLimiterService(60, 60);
+    $rateCheck = $limiter->check();
+    if (!$rateCheck['allowed']) {
+        http_response_code(429);
+        header('Retry-After: ' . $rateCheck['reset']);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Too many requests. Please retry in ' . $rateCheck['reset'] . ' seconds.',
+            'retry_after' => $rateCheck['reset']
+        ]);
+        exit;
+    }
+
     $controller = new AppointmentController();
-    $method = $_SERVER['REQUEST_METHOD'];
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     
-    $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    $parts = explode('/', trim($path, '/'));
+    $path = parse_url($_SERVER['REQUEST_URI'] ?? '/api/appointments.php', PHP_URL_PATH);
+    $parts = explode('/', trim((string)$path, '/'));
 
     // Get appointment ID from URL path, query parameter, or payload body if exists
     $appointmentId = null;
@@ -120,5 +120,10 @@ try {
     }
 } catch (Throwable $e) {
     error_log('API Error in appointments.php: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    @file_put_contents(
+        __DIR__ . '/../storage/logs/api_appointments_error.log',
+        '[' . date('Y-m-d H:i:s') . '] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() . "\n" . $e->getTraceAsString() . "\n\n",
+        FILE_APPEND
+    );
     Response::error('Internal server error: ' . $e->getMessage(), 500);
 }

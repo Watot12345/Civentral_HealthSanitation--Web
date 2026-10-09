@@ -19,6 +19,7 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../app/Models/TriageQueue.php';
 require_once __DIR__ . '/../../app/Models/Patient.php';
 require_once __DIR__ . '/../../app/Models/Child.php';
+require_once __DIR__ . '/../../app/Models/Triage.php';
 
 $db = Database::getInstance();
 $triageQueueModel = new TriageQueue();

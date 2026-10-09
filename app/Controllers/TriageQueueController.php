@@ -198,8 +198,16 @@ class TriageQueueController extends BaseController
         $this->handle(function() {
             $todayQueue = $this->queueModel->getTodayQueue();
             
-            // Filter waiting patients
-            $waiting = array_values(array_filter($todayQueue, fn($q) => $q['status'] === 'waiting'));
+            // Filter waiting patients (exclude Immunization and Nutrition visits as they have their own dedicated module queues)
+            $waiting = array_values(array_filter($todayQueue, function($q) {
+                if (($q['status'] ?? '') !== 'waiting') return false;
+                $reason = strtolower(trim($q['reason_for_visit'] ?? ''));
+                if (str_contains($reason, 'immuniz') || str_contains($reason, 'vaccin') || str_contains($reason, 'vax') ||
+                    str_contains($reason, 'nutrit') || str_contains($reason, 'diet')) {
+                    return false;
+                }
+                return true;
+            }));
             
             if (empty($waiting)) {
                 return [

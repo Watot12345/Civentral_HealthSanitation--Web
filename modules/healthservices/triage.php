@@ -78,6 +78,18 @@ if (!function_exists('parseLocalDate')) {
     }
 }
 
+if (!function_exists('isSeparateQueuedVisit')) {
+    function isSeparateQueuedVisit(?string $reason): bool {
+        if (!$reason) return false;
+        $r = strtolower(trim($reason));
+        return str_contains($r, 'immuniz') 
+            || str_contains($r, 'vaccin') 
+            || str_contains($r, 'vax')
+            || str_contains($r, 'nutrit') 
+            || str_contains($r, 'diet');
+    }
+}
+
 $triagedTodayIds = [];
 foreach ($rawTriage as $t) {
     if (isset($t['created_at']) && parseLocalDate($t['created_at']) === $today) {
@@ -87,6 +99,7 @@ foreach ($rawTriage as $t) {
 
 // Build patients array for Triage dropdown (all active waiting check-ins checked in TODAY)
 $checkedInTodayIds = [];
+$allCheckedInTodayIds = [];
 foreach ($waitingCheckins as $c) {
     $checkinStatus = strtolower($c['status'] ?? 'waiting');
     if ($checkinStatus === 'completed') {
@@ -94,10 +107,15 @@ foreach ($waitingCheckins as $c) {
     }
     $cDate = parseLocalDate($c['check_in_time'] ?? ($c['created_at'] ?? ''));
     if ($cDate === $today) {
-        $checkedInTodayIds[] = (int)($c['patient_id'] ?? 0);
+        $allCheckedInTodayIds[] = (int)($c['patient_id'] ?? 0);
+        // Immunization and Nutrition visits are managed in their own dedicated queues
+        if (!isSeparateQueuedVisit($c['reason_for_visit'] ?? '')) {
+            $checkedInTodayIds[] = (int)($c['patient_id'] ?? 0);
+        }
     }
 }
 $checkedInTodayIds = array_values(array_unique(array_filter($checkedInTodayIds)));
+$allCheckedInTodayIds = array_values(array_unique(array_filter($allCheckedInTodayIds)));
 
 $patients = [];
 foreach ($rawPatients as $p) {
@@ -126,7 +144,7 @@ foreach ($rawPatients as $p) {
 $allPatientsForCheckin = [];
 foreach ($rawPatients as $p) {
     $pIdInt = (int)$p['id'];
-    $isCheckedIn = in_array($pIdInt, $checkedInTodayIds, true);
+    $isCheckedIn = in_array($pIdInt, $allCheckedInTodayIds, true);
     
     $firstName = $p['first_name'] ?? '';
     $lastName = $p['last_name'] ?? '';
@@ -345,13 +363,20 @@ foreach ($waitingCheckins as $c) {
         continue; // Strictly filter out past days' historical check-ins
     }
 
+    // Exclude visits for Immunization and Nutrition since they have their own dedicated module queues
+    if (isSeparateQueuedVisit($c['reason_for_visit'] ?? '')) {
+        continue;
+    }
+
     $pId = $c['patient_id'] ?? null;
     $patient = $patientsMap[$pId] ?? null;
     if ($patient) {
         $pName = trim(($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? ''));
         if (empty($pName)) $pName = $patient['name'] ?? ('Patient #' . $pId);
+        $pCode = $patient['patient_id'] ?? ('P-' . str_pad((string)$pId, 4, '0', STR_PAD_LEFT));
     } else {
         $pName = 'Patient #' . ($pId ?? 'N/A');
+        $pCode = 'P-' . str_pad((string)($pId ?? 0), 4, '0', STR_PAD_LEFT);
     }
 
     $parts = explode(' ', $pName);
@@ -363,6 +388,7 @@ foreach ($waitingCheckins as $c) {
     $checkinDisplayQueue[] = [
         'id' => $c['id'],
         'patient_id' => $pId,
+        'patient_code' => $pCode,
         'patient_name' => $pName,
         'patient_avatar' => substr($initials, 0, 2) ?: 'P',
         'queue_number' => $c['queue_number'] ?? ('Q-' . $c['id']),
@@ -610,28 +636,28 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 <tbody>
                     <?php foreach ($checkinDisplayQueue as $checkin): ?>
                     <tr class="border-b border-slate-100 hover:bg-amber-50/30 transition-colors">
-                        <td class="px-4 py-3 font-mono text-xs font-bold text-amber-700">P-<?php echo str_pad((string)$checkin['patient_id'], 4, '0', STR_PAD_LEFT); ?></td>
+                        <td class="px-4 py-3 font-mono text-xs font-bold text-amber-700">P-<?php echo str_pad((string)($checkin['patient_id'] ?? 0), 4, '0', STR_PAD_LEFT); ?></td>
                         <td class="px-4 py-3">
                             <div class="flex items-center gap-2">
-                                <div class="w-7 h-7 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-[10px]"><span class="maskable" data-real="<?php echo htmlspecialchars($checkin['patient_avatar']); ?>" data-masked="??"><?php echo htmlspecialchars($checkin['patient_avatar']); ?></span></div>
-                                <span class="font-semibold text-slate-800 text-sm"><span class="maskable" data-real="<?php echo htmlspecialchars($checkin['patient_name']); ?>" data-masked="<?php echo htmlspecialchars(maskName($checkin['patient_name'])); ?>"><?php echo htmlspecialchars($checkin['patient_name']); ?></span></span>
+                                <div class="w-7 h-7 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-[10px]"><span class="maskable" data-real="<?php echo htmlspecialchars((string)($checkin['patient_avatar'] ?? '')); ?>" data-masked="??"><?php echo htmlspecialchars((string)($checkin['patient_avatar'] ?? '')); ?></span></div>
+                                <span class="font-semibold text-slate-800 text-sm"><span class="maskable" data-real="<?php echo htmlspecialchars((string)($checkin['patient_name'] ?? '')); ?>" data-masked="<?php echo htmlspecialchars(maskName((string)($checkin['patient_name'] ?? ''))); ?>"><?php echo htmlspecialchars((string)($checkin['patient_name'] ?? '')); ?></span></span>
                             </div>
                         </td>
                         <td class="px-4 py-3">
                             <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
                                 <i class="fa-solid fa-stethoscope text-[10px] text-amber-600"></i>
-                                <?php echo htmlspecialchars($checkin['reason_for_visit']); ?>
+                                <?php echo htmlspecialchars((string)($checkin['reason_for_visit'] ?? '')); ?>
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs"><?php echo $checkin['arrival_time']; ?></td>
+                        <td class="px-4 py-3 text-slate-600 text-xs"><?php echo htmlspecialchars((string)($checkin['arrival_time'] ?? '')); ?></td>
                         <td class="px-4 py-3">
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo $checkin['status'] === 'in_triage' ? 'bg-brand-light text-brand-dark border border-brand-border' : 'bg-amber-100 text-amber-700'; ?>">
-                                <?php echo $checkin['status'] === 'in_triage' ? 'In Assessment' : 'Checked In'; ?>
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold <?php echo ($checkin['status'] ?? '') === 'in_triage' ? 'bg-brand-light text-brand-dark border border-brand-border' : 'bg-amber-100 text-amber-700'; ?>">
+                                <?php echo ($checkin['status'] ?? '') === 'in_triage' ? 'In Assessment' : 'Checked In'; ?>
                             </span>
                         </td>
                         <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center gap-1.5">
-                                <button onclick="startTriageForPatient(<?php echo (int)$checkin['patient_id']; ?>, '<?php echo htmlspecialchars($checkin['patient_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($checkin['patient_code'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($checkin['reason_for_visit'], ENT_QUOTES); ?>')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition">
+                                <button onclick="startTriageForPatient(<?php echo (int)($checkin['patient_id'] ?? 0); ?>, '<?php echo htmlspecialchars((string)($checkin['patient_name'] ?? ''), ENT_QUOTES); ?>', '<?php echo htmlspecialchars((string)($checkin['patient_code'] ?? ''), ENT_QUOTES); ?>', '<?php echo htmlspecialchars((string)($checkin['reason_for_visit'] ?? ''), ENT_QUOTES); ?>')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition">
                                     <i class="fa-solid fa-heart-pulse mr-1"></i> Start Assessment
                                 </button>
                             </div>
@@ -1640,6 +1666,16 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         }
     }
 
+    function escHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     async function refreshCheckinQueue() {
         try {
             const res = await fetch('../../api/triage-queue.php');
@@ -1649,6 +1685,14 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             const queue = (data.data || []).filter(item => {
                 const status = (item.status || '').toLowerCase();
                 if (status === 'completed' || status === 'triaged' || status === 'sent_to_doctor' || status === 'in_doctor_queue') return false;
+
+                // Exclude Immunization and Nutrition visits as they have their own dedicated queues
+                const reason = (item.reason_for_visit || '').toLowerCase();
+                if (reason.includes('immuniz') || reason.includes('vaccin') || reason.includes('vax') ||
+                    reason.includes('nutrit') || reason.includes('diet')) {
+                    return false;
+                }
+
                 const raw = item.check_in_time || item.created_at || '';
                 if (!raw) return false;
                 const d = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T') + '+00:00');
