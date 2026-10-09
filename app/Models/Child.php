@@ -218,7 +218,7 @@ class Child
     public function generateChildId(): string
     {
         $count = $this->db->count($this->table) + 1;
-        return 'CHD-' . date('Y') . '-' . str_pad($count, 3, '0', STR_PAD_LEFT);
+        return 'IMM-' . date('Y') . '-' . str_pad($count, 3, '0', STR_PAD_LEFT);
     }
 
     /**

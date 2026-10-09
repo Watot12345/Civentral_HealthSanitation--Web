@@ -611,13 +611,9 @@ $title = 'Patient Management';
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reason for Visit *</label>
                 <select id="checkin_reason_for_visit" required class="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 outline-none font-semibold text-slate-800">
-                    <option value="Medical Consultation">🩺 Medical Consultation (Doctor)</option>
-                    <option value="Nutrition Assessment">🥗 Nutrition Assessment (Dietetics & Growth)</option>
-                    <option value="Immunization">💉 Immunization / Vaccination</option>
-                    <option value="Dental Consultation">🦷 Dental Consultation</option>
-                    <option value="Prenatal Consultation">🤰 Prenatal / Maternal Care</option>
-                    <option value="General Checkup">📋 General Checkup / Vitals</option>
-                    <option value="Follow-up">🔄 Follow-up Visit</option>
+                    <option value="Medical Consultation">Medical Consultation (Doctor)</option>
+                    <option value="Immunization Services">Immunization Services (Midwife / Nurse)</option>
+                    <option value="Nutrition Assessment">Nutrition Assessment (Nutritionist / Dietitian)</option>
                 </select>
                 <p class="text-[11px] text-slate-400 mt-1">Directs the patient to the corresponding clinic service queue</p>
             </div>

@@ -268,7 +268,7 @@ class ChildController extends BaseController
             'child_id', 'first_name', 'last_name', 'middle_name', 'gender', 'blood_type',
             'address', 'barangay', 'mother_name', 'mother_contact', 'mother_occupation',
             'father_name', 'father_contact', 'father_occupation', 'family_history',
-            'allergies', 'health_center', 'status', 'nutrition_status'
+            'allergies', 'health_center', 'status', 'nutrition_status', 'latest_vaccine_history'
         ];
 
         foreach ($stringFields as $field) {

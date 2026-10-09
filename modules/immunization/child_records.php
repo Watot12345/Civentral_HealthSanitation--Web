@@ -36,7 +36,7 @@ function normalizeChildDateFilter(mixed $value): ?string
 // Shared nutrition badge color map.
 // Defined ONCE here (previously redeclared on every loop iteration) and
 // also echoed as JSON below so the JS side reuses the exact same map
-// instead of keeping a second, hand-duplicated copy in <script>.
+// instead of keeping a second, hand-duplicated copy in script tags.
 $nutritionColors = [
     'Normal'      => 'bg-emerald-100 text-emerald-700',
     'Moderate'    => 'bg-amber-100 text-amber-700',
@@ -99,7 +99,7 @@ $criticalNutrition = $stats['critical_nutrition'];
 $normalNutrition = $stats['normal_nutrition'];
 $vaccineCompliant = $stats['vaccine_compliant'];
 
-$title = 'Child Records';
+$title = 'Immunization Records';
 ?>
 
 <!-- ============================================================ -->
@@ -111,8 +111,8 @@ $title = 'Child Records';
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-            <h2 class="text-2xl font-black text-slate-900 tracking-tight">Child Records</h2>
-            <p class="text-sm text-slate-500 mt-0.5">Manage child registration, demographics &amp; health records</p>
+            <h2 class="text-2xl font-black text-slate-900 tracking-tight">Immunization Records</h2>
+            <p class="text-sm text-slate-500 mt-0.5">Manage patient registration, demographics, guardian details &amp; vaccination tracking for all ages</p>
         </div>
         <div class="flex gap-3">
             <button onclick="openModal('exportChildMasterlistModal')"
@@ -121,7 +121,7 @@ $title = 'Child Records';
             </button>
             <button onclick="openModal('registerChildModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
-                <i class="fa-solid fa-child text-xs"></i> Register Child
+                <i class="fa-solid fa-user-plus text-xs"></i> Register Patient
             </button>
         </div>
     </div>
@@ -140,11 +140,11 @@ $title = 'Child Records';
                     </div>
                     <div>
                         <p class="text-2xl font-black text-slate-900"><?php echo $totalChildrenCount; ?></p>
-                        <p class="text-xs font-medium text-slate-500">Total Children</p>
+                        <p class="text-xs font-medium text-slate-500">Total Patients</p>
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">👶 All children</span>
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">All Patients</span>
                     <span class="text-[10px] text-slate-400"><?php echo $activeChildren; ?> active</span>
                 </div>
             </div>
@@ -164,7 +164,7 @@ $title = 'Child Records';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅ Enrolled</span>
+                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-check mr-1"></i> Enrolled</span>
                     <span class="text-[10px] text-slate-400">Regular checkups</span>
                 </div>
             </div>
@@ -184,7 +184,7 @@ $title = 'Child Records';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold">🚨 Urgent</span>
+                    <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Urgent</span>
                     <span class="text-[10px] text-slate-400">Immediate intervention</span>
                 </div>
             </div>
@@ -204,7 +204,7 @@ $title = 'Child Records';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅ Healthy</span>
+                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-heart-pulse mr-1"></i> Healthy</span>
                     <span class="text-[10px] text-slate-400">On track</span>
                 </div>
             </div>
@@ -224,7 +224,7 @@ $title = 'Child Records';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-brand-light text-brand-dark rounded-full text-[10px] font-bold">💉 Protected</span>
+                    <span class="px-2 py-0.5 bg-brand-light text-brand-dark rounded-full text-[10px] font-bold"><i class="fa-solid fa-shield-halved mr-1"></i> Protected</span>
                     <span class="text-[10px] text-slate-400">≥80% compliance</span>
                 </div>
             </div>
@@ -237,7 +237,7 @@ $title = 'Child Records';
         <div class="flex items-center gap-3">
             <i class="fa-solid fa-triangle-exclamation text-rose-500 text-lg"></i>
             <span class="text-sm text-rose-700">
-                <span class="font-bold"><?php echo $criticalNutrition; ?></span> child(ren) with critical nutrition status require immediate attention
+                <span class="font-bold"><?php echo $criticalNutrition; ?></span> patient(s) with critical nutrition status require immediate attention
             </span>
         </div>
         <button onclick="document.getElementById('filterNutrition').value='Critical'; filterChildren();" 
@@ -254,7 +254,7 @@ $title = 'Child Records';
                 <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                 <input type="text"
                        id="searchChild"
-                       placeholder="Search by name, ID, or mother's name..."
+                       placeholder="Search by patient name, Record ID (e.g. IMM-2026-001), or guardian name..."
                        class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
             </div>
             <div class="flex gap-2 flex-wrap">
@@ -343,9 +343,9 @@ $title = 'Child Records';
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 border-b border-slate-200">
                     <tr>
-                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Child ID</th>
-                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Child Information</th>
-                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Mother</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Record ID</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Patient Information</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Parent / Guardian</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nutrition</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Vaccine</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
@@ -429,7 +429,7 @@ $title = 'Child Records';
             <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4">
                 <i class="fa-solid fa-magnifying-glass text-slate-400 text-2xl"></i>
             </div>
-            <p class="text-base font-bold text-slate-700 mb-1">No matching child records found.</p>
+            <p class="text-base font-bold text-slate-700 mb-1">No matching immunization records found.</p>
             <p class="text-sm text-slate-500 mb-4">Try adjusting your search or filters.</p>
             <button onclick="resetFilters()" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold">
                 <i class="fa-solid fa-rotate-right mr-1.5"></i> Clear Filters
@@ -442,7 +442,7 @@ $title = 'Child Records';
             <p class="text-xs text-slate-500">
                 Showing <span class="font-semibold text-slate-700"><?php echo $offset + 1; ?></span> to
                 <span class="font-semibold text-slate-700"><?php echo min($offset + $limit, $totalChildren); ?></span> of
-                <span class="font-semibold text-slate-700"><?php echo $totalChildren; ?></span> children
+                <span class="font-semibold text-slate-700"><?php echo $totalChildren; ?></span> patients
             </p>
             <div class="flex gap-1">
                 <button onclick="changePage(<?php echo $page - 1; ?>)"
@@ -472,15 +472,15 @@ $title = 'Child Records';
     <div class="w-20 h-20 rounded-full bg-brand-light border-2 border-brand-border flex items-center justify-center mb-5">
         <i class="fa-solid fa-child text-brand-dark text-3xl"></i>
     </div>
-    <h3 class="text-xl font-bold text-slate-900 mb-2">No Child Records Found</h3>
-    <p class="text-sm text-slate-500 mb-6 max-w-md">There are currently no registered children. Click 'Register Child' to add the first child record.</p>
+    <h3 class="text-xl font-bold text-slate-900 mb-2">No Immunization Records Found</h3>
+    <p class="text-sm text-slate-500 mb-6 max-w-md">There are currently no registered patient immunization records. Click 'Register Patient' to add the first record.</p>
     <button onclick="openModal('registerChildModal')" class="px-6 py-2.5 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold shadow-sm">
-        <i class="fa-solid fa-child mr-1.5"></i> Register Child
+        <i class="fa-solid fa-user-plus mr-1.5"></i> Register Patient
     </button>
 </div>
 
 <!-- ============================================================ -->
-<!-- REGISTER CHILD MODAL                                         -->
+<!-- REGISTER PATIENT IMMUNIZATION MODAL                           -->
 <!-- ============================================================ -->
 <div id="registerChildModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-slate-200/80">
@@ -488,11 +488,11 @@ $title = 'Child Records';
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white/95 backdrop-blur-md rounded-t-2xl z-10">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark flex-shrink-0">
-                    <i class="fa-solid fa-child-reaching text-lg"></i>
+                    <i class="fa-solid fa-id-card text-lg"></i>
                 </div>
                 <div>
-                    <h3 class="font-bold text-slate-900 text-base leading-tight">Register Child Record</h3>
-                    <p class="text-xs text-slate-500">Enter demographic, residency, and guardian details</p>
+                    <h3 class="font-bold text-slate-900 text-base leading-tight">Register Immunization Patient Record</h3>
+                    <p class="text-xs text-slate-500">Enter demographic, residency, and guardian/emergency contact details</p>
                 </div>
             </div>
             <button type="button" onclick="closeModal('registerChildModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
@@ -501,13 +501,13 @@ $title = 'Child Records';
         </div>
 
         <form id="registerChildForm" class="p-6 space-y-4" onsubmit="saveChildRegistration(event)">
-            <!-- 1. Child Information -->
+            <!-- 1. Patient Demographics Information -->
             <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
                 <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
                     <span class="w-5 h-5 rounded-md bg-brand-light text-brand-dark inline-flex items-center justify-center text-xs font-bold">
-                        <i class="fa-solid fa-child text-[11px]"></i>
+                        <i class="fa-solid fa-user text-[11px]"></i>
                     </span>
-                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Child Information</h4>
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Patient Demographics Information</h4>
                 </div>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -528,7 +528,11 @@ $title = 'Child Records';
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Birth Date <span class="text-rose-500">*</span></label>
-                        <input type="date" id="child_birth_date" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                        <input type="date" id="child_birth_date" required onchange="updateAgeDisplay('child_birth_date', 'child_age_display')" oninput="updateAgeDisplay('child_birth_date', 'child_age_display')" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Age</label>
+                        <input type="text" id="child_age_display" readonly placeholder="Auto-calculated from birth date" class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none font-medium">
                     </div>
                     
                     <!-- Measurements & Blood Type: Balanced 3-column subgrid across full width -->
@@ -598,55 +602,31 @@ $title = 'Child Records';
                 </div>
             </div>
 
-            <!-- 2. Mother Information -->
+            <!-- 2. Guardian & Emergency Contact Information -->
             <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
                 <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
-                    <span class="w-5 h-5 rounded-md bg-pink-100 text-pink-700 inline-flex items-center justify-center text-xs font-bold">
-                        <i class="fa-solid fa-person-dress text-[11px]"></i>
+                    <span class="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 inline-flex items-center justify-center text-xs font-bold">
+                        <i class="fa-solid fa-user-shield text-[11px]"></i>
                     </span>
-                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Mother Information</h4>
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Guardian / Emergency Contact Information</h4>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Mother's Full Name <span class="text-rose-500">*</span></label>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Primary Guardian / Emergency Contact Name <span class="text-rose-500">*</span></label>
                         <input type="text" id="child_mother_name" required placeholder="e.g. Maria Dela Cruz" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Contact Number</label>
                         <input type="text" id="child_mother_contact" placeholder="e.g. 09171234567" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Occupation</label>
-                        <input type="text" id="child_mother_occupation" placeholder="e.g. Teacher, Self-employed" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3. Father Information -->
-            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
-                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
-                    <span class="w-5 h-5 rounded-md bg-blue-100 text-blue-700 inline-flex items-center justify-center text-xs font-bold">
-                        <i class="fa-solid fa-person text-[11px]"></i>
-                    </span>
-                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Father Information</h4>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Father's Full Name</label>
-                        <input type="text" id="child_father_name" placeholder="e.g. Juan Dela Cruz Sr." class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Contact Number</label>
-                        <input type="text" id="child_father_contact" placeholder="e.g. 09181234567" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Occupation</label>
-                        <input type="text" id="child_father_occupation" placeholder="e.g. Engineer, Driver" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Relationship to Patient</label>
+                        <input type="text" id="child_mother_occupation" placeholder="e.g. Mother, Father, Grandmother, Aunt, Legal Guardian" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                 </div>
             </div>
 
-            <!-- 4. Health & Medical Notes -->
+            <!-- 3. Health & Medical Notes & History -->
             <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
                 <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
                     <span class="w-5 h-5 rounded-md bg-rose-100 text-rose-700 inline-flex items-center justify-center text-xs font-bold">
@@ -662,6 +642,10 @@ $title = 'Child Records';
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Family Medical History</label>
                         <input type="text" id="child_family_history" placeholder="e.g. Asthma, Hypertension, Diabetes, or None" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Latest Vaccine History (Optional)</label>
+                        <input type="text" id="child_latest_vaccine_history" placeholder="e.g. BCG (Birth), Pentavalent Dose 1, OPV Dose 1" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                 </div>
             </div>
@@ -755,7 +739,11 @@ $title = 'Child Records';
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Birth Date <span class="text-rose-500">*</span></label>
-                        <input type="date" id="edit_birth_date" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                        <input type="date" id="edit_birth_date" required onchange="updateAgeDisplay('edit_birth_date', 'edit_age_display')" oninput="updateAgeDisplay('edit_birth_date', 'edit_age_display')" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Age</label>
+                        <input type="text" id="edit_age_display" readonly placeholder="Auto-calculated from birth date" class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-700 outline-none font-medium">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Blood Type</label>
@@ -817,55 +805,31 @@ $title = 'Child Records';
                 </div>
             </div>
 
-            <!-- 2. Mother Information -->
+            <!-- 2. Guardian & Emergency Contact Information -->
             <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
                 <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
-                    <span class="w-5 h-5 rounded-md bg-pink-100 text-pink-700 inline-flex items-center justify-center text-xs font-bold">
-                        <i class="fa-solid fa-person-dress text-[11px]"></i>
+                    <span class="w-5 h-5 rounded-md bg-emerald-100 text-emerald-700 inline-flex items-center justify-center text-xs font-bold">
+                        <i class="fa-solid fa-user-shield text-[11px]"></i>
                     </span>
-                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Mother Information</h4>
+                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Guardian / Emergency Contact Information</h4>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Mother's Full Name <span class="text-rose-500">*</span></label>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Primary Guardian / Emergency Contact Name <span class="text-rose-500">*</span></label>
                         <input type="text" id="edit_mother_name" required class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Contact Number</label>
                         <input type="text" id="edit_mother_contact" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Occupation</label>
-                        <input type="text" id="edit_mother_occupation" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3. Father Information -->
-            <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
-                <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
-                    <span class="w-5 h-5 rounded-md bg-blue-100 text-blue-700 inline-flex items-center justify-center text-xs font-bold">
-                        <i class="fa-solid fa-person text-[11px]"></i>
-                    </span>
-                    <h4 class="text-xs font-bold text-slate-800 uppercase tracking-wider">Father Information</h4>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Father's Full Name</label>
-                        <input type="text" id="edit_father_name" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Contact Number</label>
-                        <input type="text" id="edit_father_contact" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Occupation</label>
-                        <input type="text" id="edit_father_occupation" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Relationship to Patient</label>
+                        <input type="text" id="edit_mother_occupation" placeholder="e.g. Mother, Father, Grandmother, Aunt, Legal Guardian" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                 </div>
             </div>
 
-            <!-- 4. Health & Medical Notes -->
+            <!-- 3. Health & Medical Notes & History -->
             <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
                 <div class="flex items-center gap-2 pb-1 border-b border-slate-200/60">
                     <span class="w-5 h-5 rounded-md bg-rose-100 text-rose-700 inline-flex items-center justify-center text-xs font-bold">
@@ -881,6 +845,10 @@ $title = 'Child Records';
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Family Medical History</label>
                         <input type="text" id="edit_family_history" placeholder="Family medical history or None" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Latest Vaccine History (Optional)</label>
+                        <input type="text" id="edit_latest_vaccine_history" placeholder="e.g. BCG (Birth), Pentavalent Dose 1, OPV Dose 1" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none transition">
                     </div>
                 </div>
             </div>
@@ -1412,30 +1380,31 @@ $title = 'Child Records';
                     <p class="text-sm text-slate-700">${escHtml(val(c.address))}, ${escHtml(val(c.barangay))}</p>
                 </div>
 
-                <!-- Mother / Father -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">👩 Mother</p>
-                        <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.mother_name))}</p>
-                        <p class="text-xs text-slate-500">${escHtml(val(c.mother_contact))}</p>
-                        <p class="text-xs text-slate-500">${escHtml(val(c.mother_occupation))}</p>
-                    </div>
-                    <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">👨 Father</p>
-                        <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.father_name))}</p>
-                        <p class="text-xs text-slate-500">${escHtml(val(c.father_contact))}</p>
-                        <p class="text-xs text-slate-500">${escHtml(val(c.father_occupation))}</p>
-                    </div>
+                <!-- Guardian Information -->
+                <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1"><i class="fa-solid fa-user-shield mr-1 text-emerald-600"></i> Primary Guardian / Emergency Contact</p>
+                    <p class="text-sm font-semibold text-slate-800">${escHtml(val(c.mother_name))}</p>
+                    <p class="text-xs text-slate-500">${c.mother_contact ? escHtml(c.mother_contact) : 'No contact number provided'}</p>
+                    <p class="text-xs font-medium text-brand-dark mt-0.5">${c.mother_occupation ? 'Relationship: ' + escHtml(c.mother_occupation) : 'Relationship: Parent / Guardian'}</p>
                 </div>
 
-                <!-- Family History / Allergies -->
-                <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Family History</p>
-                    <p class="text-sm text-slate-700">${escHtml(val(c.family_history, 'None reported'))}</p>
-                </div>
-                <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Allergies</p>
-                    <p class="text-sm text-slate-700">${escHtml(val(c.allergies, 'None'))}</p>
+                <!-- Medical Notes & History -->
+                <div class="bg-slate-50 rounded-lg p-3.5 border border-slate-200 space-y-2">
+                    <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide"><i class="fa-solid fa-notes-medical mr-1 text-rose-500"></i> Medical Notes & History</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <span class="font-semibold text-slate-600">Allergies:</span>
+                            <p class="text-slate-800">${escHtml(val(c.allergies, 'None reported'))}</p>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-slate-600">Family Medical History:</span>
+                            <p class="text-slate-800">${escHtml(val(c.family_history, 'None reported'))}</p>
+                        </div>
+                        <div class="sm:col-span-2 pt-1 border-t border-slate-200/60">
+                            <span class="font-semibold text-slate-600">Latest Vaccine History:</span>
+                            <p class="text-slate-800 font-medium">${c.vaccinations && c.vaccinations.length > 0 ? escHtml(c.vaccinations[c.vaccinations.length - 1].vaccine + ' (Dose ' + c.vaccinations[c.vaccinations.length - 1].dose + ') - ' + c.vaccinations[c.vaccinations.length - 1].date_administered) : escHtml(val(c.latest_vaccine_history, 'No vaccine doses logged yet'))}</p>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
@@ -1446,6 +1415,14 @@ $title = 'Child Records';
                 </div>
             </div>
         `;
+    }
+
+    function updateAgeDisplay(bDateInputId, ageDisplayId) {
+        const bDateEl = document.getElementById(bDateInputId);
+        const ageEl = document.getElementById(ageDisplayId);
+        if (bDateEl && ageEl) {
+            ageEl.value = bDateEl.value ? calculateAge(bDateEl.value) : '';
+        }
     }
 
     // ============================================================
@@ -1461,14 +1438,15 @@ $title = 'Child Records';
             gender: 'edit_gender', birth_date: 'edit_birth_date', birth_weight: 'edit_birth_weight',
             birth_height: 'edit_birth_height', blood_type: 'edit_blood_type',
             address: 'edit_address', mother_name: 'edit_mother_name', mother_contact: 'edit_mother_contact',
-            mother_occupation: 'edit_mother_occupation', father_name: 'edit_father_name',
-            father_contact: 'edit_father_contact', father_occupation: 'edit_father_occupation',
-            family_history: 'edit_family_history', allergies: 'edit_allergies'
+            mother_occupation: 'edit_mother_occupation',
+            family_history: 'edit_family_history', allergies: 'edit_allergies',
+            latest_vaccine_history: 'edit_latest_vaccine_history'
         };
         Object.entries(fieldMap).forEach(([key, elId]) => {
             const el = document.getElementById(elId);
             if (el) el.value = c[key] ?? '';
         });
+        updateAgeDisplay('edit_birth_date', 'edit_age_display');
 
         // Resolve and pre-select Zone and Barangay
         const brgy = c.barangay ?? '';
@@ -1657,7 +1635,7 @@ $title = 'Child Records';
                         <div><span class="text-slate-400">BMI:</span> <strong class="text-slate-700">${Number(a.bmi || 0).toFixed(1)}</strong></div>
                     </div>
                     ${a.assessment_notes ? `<p class="text-xs text-slate-600 italic">“${escHtml(a.assessment_notes)}”</p>` : ''}
-                    ${a.plan_of_action ? `<p class="text-xs text-brand-dark font-medium">📋 Plan: ${escHtml(a.plan_of_action)}</p>` : ''}
+                    ${a.plan_of_action ? `<p class="text-xs text-brand-dark font-medium"><i class="fa-solid fa-clipboard-check mr-1"></i> Plan: ${escHtml(a.plan_of_action)}</p>` : ''}
                 </div>
             `).join('')
             : `<div class="text-center py-5 text-slate-400 text-xs bg-slate-50 rounded-xl border border-dashed border-slate-200">
@@ -1749,7 +1727,7 @@ $title = 'Child Records';
     const CHILD_FORM_KEYS = [
         'first_name', 'last_name', 'gender', 'birth_date', 'birth_weight', 'birth_height',
         'blood_type', 'barangay', 'address', 'mother_name', 'mother_contact', 'mother_occupation',
-        'father_name', 'father_contact', 'father_occupation', 'family_history', 'allergies'
+        'family_history', 'allergies', 'latest_vaccine_history'
     ];
 
     // Shared submit handler for both the register and edit forms — they

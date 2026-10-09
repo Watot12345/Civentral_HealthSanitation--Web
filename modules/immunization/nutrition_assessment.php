@@ -24,21 +24,53 @@ $db = Database::getInstance();
 $triageQueueModel = new TriageQueue();
 $patientModel = new Patient();
 $childModel = new Child();
+$triageModel = new Triage();
 
 // Fetch Active Patients Waiting for Nutrition Assessment Visits
 $nutritionVisitsRaw = [];
 try {
-    $nutritionVisitsRaw = $triageQueueModel->getVisitsByReason('Nutrition Assessment', date('Y-m-d'));
+    $nutritionVisitsRaw = $triageQueueModel->getVisitsByReason('Nutrition Assessment', false);
 } catch (\Throwable $e) {
     error_log('Error fetching nutrition visits: ' . $e->getMessage());
 }
 
+// Fetch Patients who completed triage intake and are assigned to Nutritionist / Dietitian
+$nutritionAssessedRaw = [];
+try {
+    $allAssessments = $triageModel->all(['order' => 'created_at.desc']);
+    foreach ($allAssessments as $ass) {
+        $st = strtolower($ass['status'] ?? 'pending');
+        if (!in_array($st, ['sent_to_doctor', 'triaged', 'in_triage', 'waiting', 'pending'], true)) {
+            continue;
+        }
+
+        $docAssigned = strtolower($ass['doctor_assigned'] ?? '');
+        $sym = strtolower($ass['symptoms'] ?? '');
+        $notes = strtolower($ass['notes'] ?? '');
+
+        $isNutrAssigned = str_contains($docAssigned, 'nutrit') || str_contains($docAssigned, 'diet');
+        $isNutrReason   = str_contains($sym, 'nutrit') || str_contains($sym, 'diet') || str_contains($notes, 'nutrit');
+
+        if ($isNutrAssigned || $isNutrReason) {
+            $nutritionAssessedRaw[] = $ass;
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Error fetching triaged nutrition assessments: ' . $e->getMessage());
+}
+
 $nutritionVisits = [];
-foreach ($nutritionVisitsRaw as $v) {
-    $pId = (int)($v['patient_id'] ?? 0);
+$seenPatientIds = [];
+
+// Priority 1: Add patients who completed triage intake and were referred/sent to Nutritionist
+foreach ($nutritionAssessedRaw as $ass) {
+    $pId = (int)($ass['patient_id'] ?? 0);
+    if ($pId <= 0 || isset($seenPatientIds[$pId])) continue;
+    $seenPatientIds[$pId] = true;
+
     $p = null;
-    try { if ($pId > 0) $p = $patientModel->find($pId); } catch (\Throwable $e) {}
-    
+    try { $p = $patientModel->find($pId); } catch (\Throwable $e) {}
+
     $name = 'Patient #' . $pId;
     $pCode = 'P-' . $pId;
     if ($p) {
@@ -47,14 +79,59 @@ foreach ($nutritionVisitsRaw as $v) {
         $name = trim($firstName . ' ' . $lastName) ?: ($p['name'] ?? $name);
         $pCode = $p['patient_id'] ?? $pCode;
     }
-    
+
     $parts = explode(' ', $name);
     $initials = '';
     foreach ($parts as $part) {
         if (!empty($part)) $initials .= strtoupper($part[0]);
     }
 
-    // Pull triage intake vitals (weight, height, BMI)
+    $weight = $ass['weight'] ?? null;
+    $height = $ass['height'] ?? null;
+    $bmi    = $ass['bmi'] ?? null;
+
+    $checkInTime = isset($ass['created_at']) ? date('h:i A', strtotime($ass['created_at'])) : date('h:i A');
+
+    $nutritionVisits[] = [
+        'id'            => 'ass_' . ($ass['id'] ?? $pId),
+        'patient_id'    => $pId,
+        'patient_name'  => $name,
+        'patient_code'  => $pCode,
+        'avatar'        => substr($initials, 0, 2) ?: 'P',
+        'weight'        => $weight ? (float)$weight : null,
+        'height'        => $height ? (float)$height : null,
+        'bmi'           => $bmi ? (float)$bmi : null,
+        'check_in_time' => $checkInTime,
+        'status'        => $ass['status'] ?? 'sent_to_doctor',
+        'stage'         => 'Assessed & Ready'
+    ];
+}
+
+// Priority 2: Add patients in the check-in queue waiting for initial nutrition intake
+foreach ($nutritionVisitsRaw as $v) {
+    $pId = (int)($v['patient_id'] ?? 0);
+    if ($pId <= 0 || isset($seenPatientIds[$pId])) continue;
+    $seenPatientIds[$pId] = true;
+
+    $p = null;
+    try { $p = $patientModel->find($pId); } catch (\Throwable $e) {}
+
+    $name = 'Patient #' . $pId;
+    $pCode = 'P-' . $pId;
+    if ($p) {
+        $firstName = $p['first_name'] ?? '';
+        $lastName = $p['last_name'] ?? '';
+        $name = trim($firstName . ' ' . $lastName) ?: ($p['name'] ?? $name);
+        $pCode = $p['patient_id'] ?? $pCode;
+    }
+
+    $parts = explode(' ', $name);
+    $initials = '';
+    foreach ($parts as $part) {
+        if (!empty($part)) $initials .= strtoupper($part[0]);
+    }
+
+    // Pull triage intake vitals if exists
     $triageVitals = null;
     try {
         $assRows = $db->select('assessment', ['patient_id' => $pId], ['order' => 'id.desc', 'limit' => 1]);
@@ -66,18 +143,19 @@ foreach ($nutritionVisitsRaw as $v) {
     $weight = $triageVitals['weight'] ?? null;
     $height = $triageVitals['height'] ?? null;
     $bmi = $triageVitals['bmi'] ?? null;
-    
+
     $nutritionVisits[] = [
-        'id' => $v['id'],
-        'patient_id' => $pId,
-        'patient_name' => $name,
-        'patient_code' => $pCode,
-        'avatar' => substr($initials, 0, 2) ?: 'P',
-        'weight' => $weight ? (float)$weight : null,
-        'height' => $height ? (float)$height : null,
-        'bmi' => $bmi ? (float)$bmi : null,
+        'id'            => $v['id'],
+        'patient_id'    => $pId,
+        'patient_name'  => $name,
+        'patient_code'  => $pCode,
+        'avatar'        => substr($initials, 0, 2) ?: 'P',
+        'weight'        => $weight ? (float)$weight : null,
+        'height'        => $height ? (float)$height : null,
+        'bmi'           => $bmi ? (float)$bmi : null,
         'check_in_time' => isset($v['check_in_time']) ? date('h:i A', strtotime($v['check_in_time'])) : (isset($v['created_at']) ? date('h:i A', strtotime($v['created_at'])) : date('h:i A')),
-        'status' => $v['status'] ?? 'waiting'
+        'status'        => $v['status'] ?? 'waiting',
+        'stage'         => 'Check-in Queue'
     ];
 }
 
@@ -445,7 +523,7 @@ $title = 'Nutrition & Growth Tracking';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">📋 All assessments</span>
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-clipboard-list mr-1"></i> All assessments</span>
                     <span class="text-[10px] text-slate-400"><?php echo $activePlans; ?> active plans</span>
                 </div>
             </div>
@@ -465,7 +543,7 @@ $title = 'Nutrition & Growth Tracking';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅ Healthy</span>
+                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-check mr-1"></i> Healthy</span>
                     <span class="text-[10px] text-slate-400">On track</span>
                 </div>
             </div>
@@ -485,7 +563,7 @@ $title = 'Nutrition & Growth Tracking';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">⚠️ Monitor</span>
+                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-eye mr-1"></i> Monitor</span>
                     <span class="text-[10px] text-slate-400">Needs attention</span>
                 </div>
             </div>
@@ -505,7 +583,7 @@ $title = 'Nutrition & Growth Tracking';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold">🚨 Urgent</span>
+                    <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Urgent</span>
                     <span class="text-[10px] text-slate-400">Immediate intervention</span>
                 </div>
             </div>
@@ -525,7 +603,7 @@ $title = 'Nutrition & Growth Tracking';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-brand-light text-brand-dark rounded-full text-[10px] font-bold">📋 In progress</span>
+                    <span class="px-2 py-0.5 bg-brand-light text-brand-dark rounded-full text-[10px] font-bold"><i class="fa-solid fa-spinner mr-1"></i> In progress</span>
                     <span class="text-[10px] text-slate-400">Currently monitored</span>
                 </div>
             </div>
@@ -538,7 +616,7 @@ $title = 'Nutrition & Growth Tracking';
         <div class="flex items-center gap-3">
             <i class="fa-solid fa-triangle-exclamation text-rose-500 text-lg"></i>
             <span class="text-sm text-rose-700">
-                <span class="font-bold"><?php echo $criticalStatus; ?></span> child(ren) require immediate nutrition intervention
+                <span class="font-bold"><?php echo $criticalStatus; ?></span> patient(s) require immediate nutrition intervention
             </span>
         </div>
         <button onclick="document.getElementById('filterStatus').value='critical'; filterAssessments();" 
@@ -701,20 +779,14 @@ $title = 'Nutrition & Growth Tracking';
         </div>
 
         <!-- Pagination -->
-        <div class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
-            <p class="text-xs text-slate-500">
-                Showing <span class="font-semibold text-slate-700">1</span> to
-                <span class="font-semibold text-slate-700"><?php echo $totalAssessments; ?></span> of
-                <span class="font-semibold text-slate-700"><?php echo $totalAssessments; ?></span> assessments
+        <div id="nutritionPaginationWrapper" class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
+            <p class="text-xs text-slate-500" id="nutritionPaginationInfo">
+                Showing <span class="font-semibold text-slate-700" id="nutrPageStart">1</span> to
+                <span class="font-semibold text-slate-700" id="nutrPageEnd"><?php echo min(10, $totalAssessments); ?></span> of
+                <span class="font-semibold text-slate-700" id="nutrPageTotal"><?php echo $totalAssessments; ?></span> assessments
             </p>
-            <div class="flex gap-1">
-                <button class="px-3 py-1.5 rounded-lg text-sm bg-slate-100 text-slate-300 cursor-not-allowed" disabled>
-                    <i class="fa-solid fa-chevron-left text-xs"></i>
-                </button>
-                <button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-brand-dark text-white">1</button>
-                <button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">
-                    <i class="fa-solid fa-chevron-right text-xs"></i>
-                </button>
+            <div class="flex items-center gap-1" id="nutritionPaginationButtons">
+                <!-- Dynamically rendered by JavaScript -->
             </div>
         </div>
     </div>
@@ -741,10 +813,10 @@ $title = 'Nutrition & Growth Tracking';
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Target Patient Category</label>
                 <div class="flex p-1 bg-slate-100 rounded-lg gap-1">
                     <button type="button" id="tab_screen_child_btn" onclick="switchNutritionCategory('child')" class="flex-1 py-1.5 text-xs font-bold rounded-md bg-white text-brand-dark shadow-xs transition">
-                        👶 Pediatric (0–5 yrs)
+                        <i class="fa-solid fa-child text-xs mr-1.5"></i> Pediatric (0–5 yrs)
                     </button>
                     <button type="button" id="tab_screen_adult_btn" onclick="switchNutritionCategory('adult')" class="flex-1 py-1.5 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition">
-                        👨‍👩‍👧 Adult & Senior Patient
+                        <i class="fa-solid fa-users text-xs mr-1.5"></i> Adult & Senior Patient
                     </button>
                 </div>
             </div>
@@ -986,7 +1058,7 @@ $title = 'Nutrition & Growth Tracking';
                 <?php endforeach; ?>
             </div>
             <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 class="text-sm font-bold text-slate-700 mb-2">📋 Supplement Distribution Summary</h4>
+                <h4 class="text-sm font-bold text-slate-700 mb-2"><i class="fa-solid fa-pills text-brand-medium mr-1.5"></i> Supplement Distribution Summary</h4>
                 <div class="space-y-2">
                     <?php 
                         $distributed = [];
@@ -1533,15 +1605,15 @@ $title = 'Nutrition & Growth Tracking';
                         <div><p class="text-xs text-slate-400 font-semibold">Percentiles</p><p class="text-sm font-bold text-slate-800">W: ${a.weight_percentile}% / H: ${a.height_percentile}%</p></div>
                     </div>
                     <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <h5 class="text-sm font-bold text-slate-700 mb-2">📝 Assessment Notes</h5>
+                        <h5 class="text-sm font-bold text-slate-700 mb-2"><i class="fa-solid fa-notes-medical text-brand-medium mr-1.5"></i> Assessment Notes</h5>
                         <p class="text-sm text-slate-800">${a.assessment_notes}</p>
                     </div>
                     <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border">
-                        <h5 class="text-sm font-bold text-slate-700 mb-2">📋 Nutrition Plan</h5>
+                        <h5 class="text-sm font-bold text-slate-700 mb-2"><i class="fa-solid fa-clipboard-check text-brand-dark mr-1.5"></i> Nutrition Plan</h5>
                         <p class="text-sm text-slate-800">${a.plan_of_action}</p>
                     </div>
                     <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <h5 class="text-sm font-bold text-slate-700 mb-2">💊 Supplements</h5>
+                        <h5 class="text-sm font-bold text-slate-700 mb-2"><i class="fa-solid fa-tablets text-brand-medium mr-1.5"></i> Supplements</h5>
                         <div class="flex flex-wrap gap-2">${supplementsHtml}</div>
                         <p class="text-xs text-slate-400 mt-2">Next Assessment: ${a.next_assessment ? new Date(a.next_assessment).toLocaleDateString() : '—'}</p>
                     </div>
@@ -2084,18 +2156,24 @@ $title = 'Nutrition & Growth Tracking';
     document.getElementById('filterStatus').addEventListener('change', filterAssessments);
     document.getElementById('filterRisk').addEventListener('change', filterAssessments);
 
+    let currentNutrPage = 1;
+    const nutrPageSize = 10;
+    let filteredNutrRows = [];
+
     function filterAssessments() {
         const search = document.getElementById('searchNutrition').value.trim().toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const risk = document.getElementById('filterRisk').value;
         const dateFrom = document.getElementById('assessmentDateFrom').value;
         const dateTo = document.getElementById('assessmentDateTo').value;
-        let visibleCount = 0;
 
-        document.querySelectorAll('.nutrition-row').forEach(row => {
-            const child = row.dataset.child;
-            const rowStatus = row.dataset.status;
-            const rowRisk = row.dataset.risk;
+        const allRows = Array.from(document.querySelectorAll('.nutrition-row'));
+        filteredNutrRows = [];
+
+        allRows.forEach(row => {
+            const child = row.dataset.child || '';
+            const rowStatus = row.dataset.status || '';
+            const rowRisk = row.dataset.risk || '';
             const rowDate = row.dataset.date || '';
             const rowId = (row.dataset.id || '').toLowerCase();
 
@@ -2106,11 +2184,100 @@ $title = 'Nutrition & Growth Tracking';
             const matchesDateTo = !dateTo || (rowDate && rowDate <= dateTo);
             const isVisible = matchesSearch && matchesStatus && matchesRisk && matchesDateFrom && matchesDateTo;
 
-            row.style.display = isVisible ? '' : 'none';
-            if (isVisible) visibleCount++;
+            if (isVisible) filteredNutrRows.push(row);
         });
 
-        document.getElementById('emptyState').style.display = visibleCount === 0 ? 'flex' : 'none';
+        document.getElementById('emptyState').style.display = filteredNutrRows.length === 0 ? 'flex' : 'none';
+        const wrapper = document.getElementById('nutritionPaginationWrapper');
+        if (wrapper) wrapper.style.display = filteredNutrRows.length === 0 ? 'none' : 'flex';
+
+        currentNutrPage = 1;
+        renderPaginatedNutritionView();
+    }
+
+    function renderPaginatedNutritionView() {
+        const total = filteredNutrRows.length;
+        const totalPages = Math.max(1, Math.ceil(total / nutrPageSize));
+
+        if (currentNutrPage > totalPages) currentNutrPage = totalPages;
+        if (currentNutrPage < 1) currentNutrPage = 1;
+
+        const startIndex = (currentNutrPage - 1) * nutrPageSize;
+        const endIndex = Math.min(startIndex + nutrPageSize, total);
+
+        document.querySelectorAll('.nutrition-row').forEach(row => {
+            row.style.display = 'none';
+        });
+
+        for (let i = startIndex; i < endIndex; i++) {
+            if (filteredNutrRows[i]) {
+                filteredNutrRows[i].style.display = '';
+            }
+        }
+
+        const startEl = document.getElementById('nutrPageStart');
+        const endEl = document.getElementById('nutrPageEnd');
+        const totalEl = document.getElementById('nutrPageTotal');
+        if (startEl) startEl.textContent = total === 0 ? 0 : (startIndex + 1);
+        if (endEl) endEl.textContent = endIndex;
+        if (totalEl) totalEl.textContent = total;
+
+        renderNutritionPaginationButtons(totalPages);
+    }
+
+    function renderNutritionPaginationButtons(totalPages) {
+        const container = document.getElementById('nutritionPaginationButtons');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.className = `px-3 py-1.5 rounded-lg text-sm transition ${currentNutrPage <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer'}`;
+        prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left text-xs"></i>';
+        prevBtn.disabled = currentNutrPage <= 1;
+        prevBtn.onclick = () => goToNutrPage(currentNutrPage - 1);
+        container.appendChild(prevBtn);
+
+        let pages = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            if (currentNutrPage <= 4) pages = [1, 2, 3, 4, 5, '...', totalPages];
+            else if (currentNutrPage >= totalPages - 3) pages = [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+            else pages = [1, '...', currentNutrPage - 1, currentNutrPage, currentNutrPage + 1, '...', totalPages];
+        }
+
+        pages.forEach(p => {
+            if (p === '...') {
+                const dots = document.createElement('span');
+                dots.className = 'px-2 py-1.5 text-xs text-slate-400 font-semibold select-none';
+                dots.textContent = '...';
+                container.appendChild(dots);
+            } else {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const isCurrent = p === currentNutrPage;
+                btn.className = `px-3 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer ${isCurrent ? 'bg-brand-dark text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}`;
+                btn.textContent = p;
+                btn.onclick = () => goToNutrPage(p);
+                container.appendChild(btn);
+            }
+        });
+
+        const nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
+        nextBtn.className = `px-3 py-1.5 rounded-lg text-sm transition ${currentNutrPage >= totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer'}`;
+        nextBtn.innerHTML = '<i class="fa-solid fa-chevron-right text-xs"></i>';
+        nextBtn.disabled = currentNutrPage >= totalPages;
+        nextBtn.onclick = () => goToNutrPage(currentNutrPage + 1);
+        container.appendChild(nextBtn);
+    }
+
+    function goToNutrPage(page) {
+        currentNutrPage = page;
+        renderPaginatedNutritionView();
     }
 
     function resetFilters() {
@@ -2119,8 +2286,7 @@ $title = 'Nutrition & Growth Tracking';
         document.getElementById('filterRisk').value = '';
         document.getElementById('assessmentDateFrom').value = '';
         document.getElementById('assessmentDateTo').value = '';
-        document.querySelectorAll('.nutrition-row').forEach(row => row.style.display = '');
-        document.getElementById('emptyState').style.display = 'none';
+        filterAssessments();
     }
 
     function applyAssessmentDateFilter() {
@@ -2546,6 +2712,9 @@ $title = 'Nutrition & Growth Tracking';
         if (growthDateInput) {
             growthDateInput.value = new Date().toISOString().split('T')[0];
         }
+
+        // Initialize dynamic client-side pagination
+        filterAssessments();
 
         // Support URL parameter navigation: ?open_growth=1&child_id=X or ?tab=growth
         const urlParams = new URLSearchParams(window.location.search);
