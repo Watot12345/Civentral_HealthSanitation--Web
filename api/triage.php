@@ -60,7 +60,45 @@ try {
             break;
 
         case 'POST':
-            $controller->store();
+            if ($action === 'immunization_assessment' || (isset($_GET['action']) && $_GET['action'] === 'immunization_assessment')) {
+                require_once __DIR__ . '/../app/Models/ImmunizationAssessment.php';
+                $inputJson = json_decode(file_get_contents('php://input'), true);
+                $data = is_array($inputJson) ? array_merge($_POST, $inputJson) : $_POST;
+
+                $patientId = (int)($data['patient_id'] ?? 0);
+                if ($patientId <= 0 && !empty($data['child_id'])) {
+                    $patientId = (int)$data['child_id'];
+                }
+
+                if ($patientId <= 0) {
+                    Response::error('Patient ID is required for immunization assessment', 422);
+                }
+
+                $model = new ImmunizationAssessment();
+                $assData = [
+                    'patient_id'        => $patientId,
+                    'weight'            => !empty($data['weight']) ? (float)$data['weight'] : null,
+                    'temperature'       => !empty($data['temperature']) ? (float)$data['temperature'] : null,
+                    'health_status'     => $data['health_status'] ?? 'Healthy',
+                    'contraindications' => $data['contraindications'] ?? 'None',
+                    'vaccine_due'       => $data['vaccine_due'] ?? null,
+                    'notes'             => $data['notes'] ?? null,
+                    'ai_guidance'       => $data['ai_guidance'] ?? null,
+                    'assessment_result' => $data['assessment_result'] ?? 'Eligible',
+                    'assessed_by'       => $_SESSION['employee_name'] ?? ($data['assessed_by'] ?? 'Immunization Staff'),
+                    'created_at'        => date('Y-m-d H:i:s')
+                ];
+
+                try {
+                    $saved = $model->create($assData);
+                    Response::success('Immunization assessment recorded successfully', !empty($saved) ? $saved : $assData, 201);
+                } catch (Throwable $e) {
+                    error_log('Error saving immunization assessment: ' . $e->getMessage());
+                    Response::error('Failed to save assessment: ' . $e->getMessage(), 500);
+                }
+            } else {
+                $controller->store();
+            }
             break;
 
         case 'PUT':

@@ -1,6 +1,7 @@
 <?php
 // app/Controllers/TriageQueueController.php
 
+require_once __DIR__ . '/../../config/paths.php';
 require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Constants/Permissions.php';
 require_once __DIR__ . '/../Models/TriageQueue.php';

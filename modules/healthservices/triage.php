@@ -165,7 +165,7 @@ foreach ($rawEmployees as $emp) {
         ];
     }
 
-    // Attending Healthcare Practitioners (Doctors, Dentists, Health Center Directors, Nutritionists, Dietitians)
+    // Attending Healthcare Practitioners (Doctors, Dentists, Health Center Directors, Nutritionists, Dietitians, Midwives, Immunization Coordinators)
     // EXCLUDE: System Administrators, IT, Clerks, Sanitation
     $isConsultingPractitioner = (
         str_contains($combinedRole, 'doctor') || 
@@ -173,11 +173,17 @@ foreach ($rawEmployees as $emp) {
         str_contains($combinedRole, 'dentist') || 
         str_contains($combinedRole, 'health center director') || 
         str_contains($combinedRole, 'nutrition') || 
-        str_contains($combinedRole, 'dietitian')
-    ) && !str_contains($combinedRole, 'system administrator') && !str_contains($combinedRole, 'sanitation') && !str_contains($combinedRole, 'nurse');
+        str_contains($combinedRole, 'dietitian') ||
+        str_contains($combinedRole, 'midwife') ||
+        str_contains($combinedRole, 'immunization')
+    ) && !str_contains($combinedRole, 'system administrator') && !str_contains($combinedRole, 'sanitation');
 
     if ($isConsultingPractitioner) {
-        if (str_contains($combinedRole, 'nutrition') || str_contains($combinedRole, 'dietitian')) {
+        if (str_contains($combinedRole, 'immunization')) {
+            $displayName = 'Immunization Coordinator ' . $cleanName;
+        } elseif (str_contains($combinedRole, 'midwife')) {
+            $displayName = 'Midwife ' . $cleanName;
+        } elseif (str_contains($combinedRole, 'nutrition') || str_contains($combinedRole, 'dietitian')) {
             $displayName = 'Nutritionist ' . $cleanName;
         } elseif (str_starts_with($cleanName, 'Dr.')) {
             $displayName = $cleanName;
@@ -188,7 +194,7 @@ foreach ($rawEmployees as $emp) {
         $doctors[] = [
             'id' => $emp['id'],
             'name' => $displayName,
-            'role_description' => $emp['role_description'] ?? 'General Medicine'
+            'role_description' => $emp['role_description'] ?? 'Healthcare Practitioner'
         ];
     }
 }
@@ -625,7 +631,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                         </td>
                         <td class="px-4 py-3 text-center">
                             <div class="flex items-center justify-center gap-1.5">
-                                <button onclick="startTriageForPatient(<?php echo (int)$checkin['patient_id']; ?>)" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition">
+                                <button onclick="startTriageForPatient(<?php echo (int)$checkin['patient_id']; ?>, '<?php echo htmlspecialchars($checkin['patient_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($checkin['patient_code'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($checkin['reason_for_visit'], ENT_QUOTES); ?>')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition">
                                     <i class="fa-solid fa-heart-pulse mr-1"></i> Start Assessment
                                 </button>
                             </div>
@@ -903,23 +909,23 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                                     <?php if ($isStaffOrNurse): ?>
                                         <button onclick="openReassignDoctorModal('<?php echo htmlspecialchars((string)$triage['id']); ?>', '<?php echo htmlspecialchars($triage['patient_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($docAssigned, ENT_QUOTES); ?>')"
                                                 class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1 transition"
-                                                title="Staff & Nurse Desk — Re-assign Patient to Available Doctor">
-                                            <i class="fa-solid fa-user-nurse"></i> Reassign Doctor
+                                                title="Reassign Patient to Available Practitioner">
+                                            <i class="fa-solid fa-user-gear"></i> Reassign Practitioner
                                         </button>
                                     <?php else: ?>
-                                        <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Doctor Unavailable — Awaiting Staff/Nurse Re-assignment">
-                                            <i class="fa-solid fa-user-slash text-sm"></i>
+                                        <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Awaiting Staff/Nurse Re-assignment">
+                                            <i class="fa-solid fa-user-gear text-sm"></i>
                                         </button>
                                     <?php endif; ?>
                                 <?php elseif ($triage['status'] === 'in_triage' || $triage['status'] === 'waiting'): ?>
                                     <button onclick="completeTriage(<?php echo $triage['id']; ?>)"
-                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete Assessment & Assign Doctor">
+                                            class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete Assessment & Assign Practitioner">
                                         <i class="fa-solid fa-check text-sm"></i>
                                     </button>
                                 <?php elseif (in_array(strtolower($triage['status']), ['sent_to_doctor', 'triaged', 'completed', 'in_consultation'])): ?>
-                                    <button onclick="requestDoctorNotAvailable('<?php echo htmlspecialchars((string)$triage['id']); ?>')"
-                                            class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Doctor Not Available (Mark doctor unavailable & request nurse re-assignment)">
-                                        <i class="fa-solid fa-user-slash text-sm"></i>
+                                    <button onclick="openReassignDoctorModal('<?php echo htmlspecialchars((string)$triage['id']); ?>', '<?php echo htmlspecialchars($triage['patient_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($docAssigned, ENT_QUOTES); ?>')"
+                                            class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Reassign Practitioner / Station">
+                                        <i class="fa-solid fa-user-gear text-sm"></i>
                                     </button>
                                 <?php endif; ?>
                             </div>
@@ -997,11 +1003,9 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Reason for Visit <span class="text-rose-500">*</span></label>
                 <select id="checkin_reason" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="">Select Reason for Visit</option>
-                    <option value="Medical Consultation">Medical Consultation</option>
-                    <option value="Dental Care">Dental Care</option>
-                    <option value="Immunization">Immunization</option>
-                    <option value="Nutrition Assessment">Nutrition Assessment</option>
-                    <option value="Maternal & Child Health">Maternal & Child Health</option>
+                    <option value="Medical Consultation">Medical Consultation (Doctor)</option>
+                    <option value="Immunization">Immunization / Vaccination</option>
+                    <option value="Nutrition Assessment">Nutrition Assessment (Nutritionist / Dietitian)</option>
                 </select>
             </div>
 
@@ -1025,9 +1029,9 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
             <div>
                 <h3 class="font-bold text-slate-900 flex items-center gap-2">
-                    <i class="fa-solid fa-user-nurse text-amber-600"></i> Staff / Nurse Patient Re-assignment
+                    <i class="fa-solid fa-user-gear text-amber-600"></i> Reassign Healthcare Practitioner / Station
                 </h3>
-                <p class="text-[11px] text-slate-500 font-medium mt-0.5">Intake & Triage Desk — Select replacement doctor for patient on hold</p>
+                <p class="text-[11px] text-slate-500 font-medium mt-0.5">Intake & Triage Desk — Select replacement practitioner or service station for this visit</p>
             </div>
             <button onclick="ModalSystem.close('reassignDoctorModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
                 <i class="fa-solid fa-xmark"></i>
@@ -1036,13 +1040,13 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         <form id="reassignDoctorForm" class="p-6 space-y-4" onsubmit="submitDoctorReassignment(event)">
             <input type="hidden" id="reassign_appointment_id">
             <div class="bg-amber-50 rounded-xl p-3.5 border border-amber-200 text-xs text-amber-900 space-y-1">
-                <p><i class="fa-solid fa-triangle-exclamation mr-1 text-amber-600"></i> <strong>Doctor Not Available:</strong> <span id="reassign_old_doctor_text" class="font-semibold"></span></p>
+                <p><i class="fa-solid fa-user-gear mr-1 text-amber-600"></i> <strong>Currently Assigned:</strong> <span id="reassign_old_doctor_text" class="font-semibold"></span></p>
                 <p>Patient: <strong id="reassign_patient_name_text"></strong></p>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Select New Doctor / Service <span class="text-rose-500">*</span></label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Select Replacement Practitioner / Station <span class="text-rose-500">*</span></label>
                 <select id="reassign_new_doctor_id" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">-- Select Available Doctor --</option>
+                    <option value="">-- Select Available Practitioner / Station --</option>
                     <?php foreach ($doctors as $d): ?>
                         <option value="<?php echo $d['id']; ?>" data-name="<?php echo htmlspecialchars($d['name']); ?>">
                             <?php echo htmlspecialchars($d['name']); ?>
@@ -1055,7 +1059,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     Cancel
                 </button>
                 <button type="submit" class="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-xs font-semibold flex items-center gap-1.5">
-                    <i class="fa-solid fa-check"></i> Re-assign Doctor
+                    <i class="fa-solid fa-user-gear"></i> Confirm Re-assignment
                 </button>
             </div>
         </form>
@@ -1114,8 +1118,11 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
 <!-- ============================================================ -->
 <div id="addTriageModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
-            <h3 class="font-bold text-slate-900">Record Patient Assessment</h3>
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl z-10">
+            <div>
+                <h3 class="font-bold text-slate-900 text-base leading-tight">Record Patient Assessment</h3>
+                <p id="assessment_modal_subtitle" class="text-xs text-brand-medium font-semibold">Medical Consultation Intake — Comprehensive Clinical Vitals & Symptom Screening</p>
+            </div>
             <button onclick="ModalSystem.close('addTriageModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
                 <i class="fa-solid fa-xmark"></i>
             </button>
@@ -1137,37 +1144,37 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             </div>
             
             <!-- Vital Signs -->
-            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+            <div id="wrapper_vitals_section" class="bg-slate-50 rounded-xl p-4 border border-slate-200">
                 <div class="flex items-center justify-between mb-3">
-                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Core Vital Signs</h4>
-                    <button type="button" onclick="document.getElementById('advancedVitalsAdd').classList.toggle('hidden')" class="text-xs font-semibold text-brand-medium hover:text-brand-dark flex items-center gap-1">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wide">Physical & Vital Measurements</h4>
+                    <button type="button" id="wrapper_advanced_vitals_btn" onclick="document.getElementById('advancedVitalsAdd').classList.toggle('hidden')" class="text-xs font-semibold text-brand-medium hover:text-brand-dark flex items-center gap-1">
                         <i class="fa-solid fa-sliders text-[11px]"></i>
                         <span>Advanced Vitals (O2, Blood Sugar, GCS)</span>
                     </button>
                 </div>
                 <!-- Primary Core Vitals -->
                 <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <div>
+                    <div id="wrapper_bp_field">
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">BP (Systolic/Diastolic)</label>
                         <input type="text" id="triage_bp" maxlength="7" inputmode="numeric" placeholder="120/80" class="triage-bp w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
-                    <div>
+                    <div id="wrapper_hr_field">
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Heart Rate (bpm)</label>
                         <input type="text" id="triage_hr" maxlength="3" inputmode="numeric" placeholder="72" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
-                    <div>
-                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Temperature (°C)</label>
+                    <div id="wrapper_temp_field">
+                        <label class="block text-[10px] font-semibold text-slate-500 mb-1">Temperature (°C) <span class="text-rose-500">*</span></label>
                         <input type="text" id="triage_temp" maxlength="5" inputmode="decimal" placeholder="36.5" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
-                    <div>
+                    <div id="wrapper_rr_field">
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Respiratory Rate</label>
                         <input type="text" id="triage_rr" maxlength="2" inputmode="numeric" placeholder="18" class="triage-integer w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
-                    <div>
+                    <div id="wrapper_weight_field">
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Weight (kg)</label>
                         <input type="text" id="triage_weight" maxlength="5" inputmode="decimal" placeholder="65.0" class="triage-decimal w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
-                    <div>
+                    <div id="wrapper_height_field">
                         <label class="block text-[10px] font-semibold text-slate-500 mb-1">Height (cm)</label>
                         <input type="text" id="triage_height" maxlength="5" inputmode="decimal" placeholder="165" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-white">
                     </div>
@@ -1211,7 +1218,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             </div>
 
             <!-- Symptoms -->
-            <div>
+            <div id="wrapper_symptoms_section">
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Symptoms</label>
                 <div class="flex flex-wrap gap-2" id="symptomCheckboxes">
                     <?php 
@@ -1241,12 +1248,12 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Assigned Doctor / Service</label>
+                    <label id="triage_doctor_label" class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Assigned Healthcare Practitioner / Service</label>
                     <select id="triage_doctor" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                         <?php foreach ($doctors as $d): 
                             $assignedToday = $doctorTodayCounts[$d['id']] ?? 0;
                         ?>
-                            <option value="<?php echo $d['id']; ?>" data-name="<?php echo htmlspecialchars($d['name']); ?>"><?php echo htmlspecialchars($d['name']); ?> (<?php echo htmlspecialchars($d['role_description'] ?? 'General Medicine'); ?>) — <?php echo $assignedToday; ?> assigned/scheduled today</option>
+                            <option value="<?php echo $d['id']; ?>" data-name="<?php echo htmlspecialchars($d['name']); ?>" data-role="<?php echo htmlspecialchars($d['role_description'] ?? ''); ?>"><?php echo htmlspecialchars($d['name']); ?> (<?php echo htmlspecialchars($d['role_description'] ?? 'General Medicine'); ?>) — <?php echo $assignedToday; ?> assigned/scheduled today</option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -1678,7 +1685,7 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     <td class="px-4 py-3"><span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 inline-flex items-center gap-1"><i class="fa-solid fa-stethoscope text-[10px] text-amber-600"></i>${reason}</span></td>
                     <td class="px-4 py-3 text-slate-600 text-xs">${time}</td>
                     <td class="px-4 py-3">${statusHtml}</td>
-                    <td class="px-4 py-3 text-center"><button onclick="startTriageForPatient(${item.patient_id})" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition"><i class="fa-solid fa-heart-pulse mr-1"></i> Start Assessment</button></td>
+                    <td class="px-4 py-3 text-center"><button onclick="startTriageForPatient(${item.patient_id}, '${escHtml(name)}', 'P-${pid}', '${escHtml(reason)}')" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition"><i class="fa-solid fa-heart-pulse mr-1"></i> Start Assessment</button></td>
                 </tr>`;
             }).join('');
 
@@ -2315,7 +2322,94 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
         }
     });
 
-    function startTriageForPatient(patientId, patientName = '', patientCode = '') {
+    function autoSelectPractitionerByReason(reasonForVisit = '') {
+        const doctorEl = document.getElementById('triage_doctor');
+        const doctorLabel = document.getElementById('triage_doctor_label');
+        if (!doctorEl) return;
+
+        const reason = (reasonForVisit || '').toLowerCase();
+        let targetKeyword = '';
+        let labelText = 'Assigned Healthcare Practitioner / Service';
+
+        if (reason.includes('prenatal') || reason.includes('maternal')) {
+            targetKeyword = 'midwife';
+            labelText = 'Assigned Midwife / Maternal Care Lead';
+        } else if (reason.includes('nutrition') || reason.includes('diet')) {
+            targetKeyword = 'nutritionist';
+            labelText = 'Assigned City Nutritionist / Dietitian';
+        } else if (reason.includes('immunization') || reason.includes('vaccin')) {
+            targetKeyword = 'immunization';
+            labelText = 'Assigned Immunization Coordinator / Lead';
+        } else if (reason.includes('dental')) {
+            targetKeyword = 'dentist';
+            labelText = 'Assigned Dentist';
+        } else {
+            targetKeyword = 'dr.';
+            labelText = 'Assigned Attending Physician (Doctor)';
+        }
+
+        if (doctorLabel) doctorLabel.textContent = labelText;
+
+        let matchedIndex = -1;
+        for (let i = 0; i < doctorEl.options.length; i++) {
+            const opt = doctorEl.options[i];
+            const optName = (opt.dataset.name || opt.text || '').toLowerCase();
+            const optRole = (opt.dataset.role || '').toLowerCase();
+
+            if (optName.includes(targetKeyword) || optRole.includes(targetKeyword)) {
+                matchedIndex = i;
+                break;
+            }
+        }
+
+        if (matchedIndex >= 0) {
+            doctorEl.selectedIndex = matchedIndex;
+        }
+    }
+
+    function adaptAssessmentFormByReason(reasonForVisit = '') {
+        const reason = (reasonForVisit || '').toLowerCase();
+        
+        const bpWrap = document.getElementById('wrapper_bp_field');
+        const hrWrap = document.getElementById('wrapper_hr_field');
+        const tempWrap = document.getElementById('wrapper_temp_field');
+        const rrWrap = document.getElementById('wrapper_rr_field');
+        const weightWrap = document.getElementById('wrapper_weight_field');
+        const heightWrap = document.getElementById('wrapper_height_field');
+        const advBtn = document.getElementById('wrapper_advanced_vitals_btn');
+        const symWrap = document.getElementById('wrapper_symptoms_section');
+        const modalSubtitle = document.getElementById('assessment_modal_subtitle');
+
+        if (bpWrap) bpWrap.style.display = '';
+        if (hrWrap) hrWrap.style.display = '';
+        if (tempWrap) tempWrap.style.display = '';
+        if (rrWrap) rrWrap.style.display = '';
+        if (weightWrap) weightWrap.style.display = '';
+        if (heightWrap) heightWrap.style.display = '';
+        if (advBtn) advBtn.style.display = '';
+        if (symWrap) symWrap.style.display = '';
+
+        if (reason.includes('immunization') || reason.includes('vaccin')) {
+            if (modalSubtitle) modalSubtitle.textContent = 'Immunization Intake — Pre-Vaccination Screening (Temperature & Weight Intake)';
+            if (bpWrap) bpWrap.style.display = 'none';
+            if (hrWrap) hrWrap.style.display = 'none';
+            if (rrWrap) rrWrap.style.display = 'none';
+            if (advBtn) advBtn.style.display = 'none';
+            if (symWrap) symWrap.style.display = 'none';
+        } else if (reason.includes('nutrition') || reason.includes('diet')) {
+            if (modalSubtitle) modalSubtitle.textContent = 'Nutrition Intake — Anthropometric Screening (Weight & Height for BMI & WHO Percentiles)';
+            if (bpWrap) bpWrap.style.display = 'none';
+            if (hrWrap) hrWrap.style.display = 'none';
+            if (tempWrap) tempWrap.style.display = 'none';
+            if (rrWrap) rrWrap.style.display = 'none';
+            if (advBtn) advBtn.style.display = 'none';
+            if (symWrap) symWrap.style.display = 'none';
+        } else {
+            if (modalSubtitle) modalSubtitle.textContent = 'Medical Consultation Intake — Comprehensive Clinical Vitals & Symptom Screening';
+        }
+    }
+
+    function startTriageForPatient(patientId, patientName = '', patientCode = '', reasonForVisit = '') {
         const select = document.getElementById('triage_patient');
         if (select) {
             let opt = select.querySelector(`option[value="${patientId}"]`);
@@ -2327,6 +2421,8 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
             }
             select.value = String(patientId);
         }
+        autoSelectPractitionerByReason(reasonForVisit);
+        adaptAssessmentFormByReason(reasonForVisit);
         ModalSystem.open('addTriageModal');
     }
 
@@ -2880,14 +2976,14 @@ $nextQueueNumber = 'Q-' . date('Ymd') . '-' . str_pad(count($todayCheckins) + 1,
                     <button onclick="viewTriage(${t.id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View"><i class="fa-solid fa-eye text-sm"></i></button>
                     <button onclick="editTriage(${t.id})" class="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition" title="Edit"><i class="fa-solid fa-pen text-sm"></i></button>
                     ${isReassignmentPending ? (window.IS_STAFF_OR_NURSE ? `
-                        <button onclick="openReassignDoctorModal('${t.id}', '${safePatientName}', '${safeDocAssigned}')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1 transition" title="Staff & Nurse Desk — Re-assign Patient to Available Doctor">
-                            <i class="fa-solid fa-user-nurse"></i> Reassign Doctor
+                        <button onclick="openReassignDoctorModal('${t.id}', '${safePatientName}', '${safeDocAssigned}')" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1 transition" title="Reassign Patient to Available Practitioner">
+                            <i class="fa-solid fa-user-gear"></i> Reassign Practitioner
                         </button>
                     ` : `
-                        <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Doctor Unavailable — Awaiting Staff/Nurse Re-assignment">
-                            <i class="fa-solid fa-user-slash text-sm"></i>
+                        <button disabled class="p-1.5 text-amber-500 bg-amber-50 border border-amber-200 rounded-lg cursor-not-allowed opacity-75" title="Awaiting Staff/Nurse Re-assignment">
+                            <i class="fa-solid fa-user-gear text-sm"></i>
                         </button>
-                    `) : ((t.status === 'in_triage' || t.status === 'waiting') ? `<button onclick="completeTriage(${t.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete & Send to Doctor"><i class="fa-solid fa-check text-sm"></i></button>` : (['sent_to_doctor', 'triaged', 'in_consultation', 'completed'].includes(t.status) ? `<button onclick="requestDoctorNotAvailable('${t.id}')" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Doctor Not Available (Mark doctor unavailable & request nurse re-assignment)"><i class="fa-solid fa-user-slash text-sm"></i></button>` : ''))}
+                    `) : ((t.status === 'in_triage' || t.status === 'waiting') ? `<button onclick="completeTriage(${t.id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Complete & Assign Practitioner"><i class="fa-solid fa-check text-sm"></i></button>` : (['sent_to_doctor', 'triaged', 'in_consultation', 'completed'].includes(t.status) ? `<button onclick="openReassignDoctorModal('${t.id}', '${safePatientName}', '${safeDocAssigned}')" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Reassign Practitioner / Station"><i class="fa-solid fa-user-gear text-sm"></i></button>` : ''))}
                 </div>
             </td>
         </tr>`;

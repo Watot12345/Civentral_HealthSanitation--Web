@@ -2,6 +2,7 @@
 // api/triage-queue.php
 
 date_default_timezone_set('Asia/Manila');
+require_once __DIR__ . '/../config/paths.php';
 require_once __DIR__ . '/../Core/Env.php';
 require_once __DIR__ . '/../Core/Response.php';
 require_once __DIR__ . '/../app/Controllers/TriageQueueController.php';
@@ -63,7 +64,7 @@ try {
             Response::error('Method not allowed', 405);
     }
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
     error_log('Triage Queue API Error: ' . $e->getMessage());
-    Response::error('Internal server error', 500);
+    Response::error('Internal server error: ' . $e->getMessage(), 500);
 }

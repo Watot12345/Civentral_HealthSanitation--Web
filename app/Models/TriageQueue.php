@@ -94,7 +94,7 @@ class TriageQueue
             $targetDate = is_string($dateOrTodayOnly) ? $dateOrTodayOnly : ($dateOrTodayOnly ? date('Y-m-d') : null);
             return array_values(array_filter($all, function($item) use ($reason, $targetDate) {
                 $status = strtolower($item['status'] ?? 'waiting');
-                if ($status === 'cancelled') return false;
+                if (in_array($status, ['cancelled', 'completed', 'done', 'served'], true)) return false;
                 
                 if ($targetDate !== null) {
                     $itemDate = !empty($item['check_in_time']) 
@@ -103,8 +103,22 @@ class TriageQueue
                     if ($itemDate !== $targetDate) return false;
                 }
                 
-                $itemReason = $item['reason_for_visit'] ?? '';
-                return strcasecmp(trim($itemReason), trim($reason)) === 0;
+                $itemReason = strtolower(trim($item['reason_for_visit'] ?? ''));
+                $searchReason = strtolower(trim($reason));
+
+                if ($searchReason === 'immunization' || $searchReason === 'vaccination') {
+                    if (str_contains($itemReason, 'immuniz') || str_contains($itemReason, 'vaccin') || str_contains($itemReason, 'vax')) {
+                        return true;
+                    }
+                }
+
+                if ($searchReason === 'nutrition assessment' || $searchReason === 'nutrition') {
+                    if (str_contains($itemReason, 'nutrit') || str_contains($itemReason, 'diet')) {
+                        return true;
+                    }
+                }
+                
+                return strcasecmp(trim($item['reason_for_visit'] ?? ''), trim($reason)) === 0;
             }));
         } catch (Throwable $e) {
             error_log('TriageQueue Model Error (getVisitsByReason): ' . $e->getMessage());
