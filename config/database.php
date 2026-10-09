@@ -202,7 +202,7 @@ class Database
                     'user_sessions', 'triage_queue',
                     'assessment', 'consultations', 'prescriptions', 'appointments', 'medical_records',
                     'patients', 'referrals', 'children', 'growth_measurements', 'nutrition_assessments',
-                    'vaccine_inventory', 'vaccine_transactions', 'immunizations', 'immunization_records', 'surveillance_cases',
+                    'vaccine_inventory', 'vaccine_transactions', 'immunizations', 'immunization_records', 'immunization_assessments', 'immunization_referrals', 'surveillance_cases',
                     'permits', 'permit_documents', 'payments', 'inspections', 'renewals'
                 ]);
 

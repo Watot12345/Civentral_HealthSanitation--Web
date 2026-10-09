@@ -117,7 +117,7 @@ $title = 'Vaccine Inventory';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">💉 All types</span>
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-syringe mr-1"></i> All types</span>
                     <span class="text-[10px] text-slate-400"><?php echo $totalStock; ?> units total</span>
                 </div>
             </div>
@@ -137,7 +137,7 @@ $title = 'Vaccine Inventory';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">📦 Inventory</span>
+                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-box mr-1"></i> Inventory</span>
                     <span class="text-[10px] text-slate-400">All vaccines combined</span>
                 </div>
             </div>
@@ -160,7 +160,7 @@ $title = 'Vaccine Inventory';
                 </div>
                 <div class="mt-3 flex items-center gap-2">
                     <span class="px-2 py-0.5 <?php echo $totalLowStock > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'; ?> rounded-full text-[10px] font-bold">
-                        <?php echo $totalLowStock > 0 ? '⚠️ Needs attention' : '✅ Stock adequate'; ?>
+                        <?php echo $totalLowStock > 0 ? '<i class="fa-solid fa-triangle-exclamation mr-1"></i> Needs attention' : '<i class="fa-solid fa-check mr-1"></i> Stock adequate'; ?>
                     </span>
                     <span class="text-[10px] text-slate-400">Below minimum</span>
                 </div>
@@ -184,7 +184,7 @@ $title = 'Vaccine Inventory';
                 </div>
                 <div class="mt-3 flex items-center gap-2">
                     <span class="px-2 py-0.5 <?php echo $totalCritical > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'; ?> rounded-full text-[10px] font-bold">
-                        <?php echo $totalCritical > 0 ? '🚨 Immediate action' : '✅ All good'; ?>
+                        <?php echo $totalCritical > 0 ? '<i class="fa-solid fa-triangle-exclamation mr-1"></i> Immediate action' : '<i class="fa-solid fa-check mr-1"></i> All good'; ?>
                     </span>
                     <span class="text-[10px] text-slate-400">Severely low</span>
                 </div>
@@ -208,7 +208,7 @@ $title = 'Vaccine Inventory';
                 </div>
                 <div class="mt-3 flex items-center gap-2">
                     <span class="px-2 py-0.5 <?php echo $totalOutOfStock > 0 ? 'bg-slate-200 text-slate-700' : 'bg-emerald-100 text-emerald-700'; ?> rounded-full text-[10px] font-bold">
-                        <?php echo $totalOutOfStock > 0 ? '⚠️ Stock depleted' : '✅ In stock'; ?>
+                        <?php echo $totalOutOfStock > 0 ? '<i class="fa-solid fa-triangle-exclamation mr-1"></i> Stock depleted' : '<i class="fa-solid fa-check mr-1"></i> In stock'; ?>
                     </span>
                     <span class="text-[10px] text-slate-400">Unavailable</span>
                 </div>
@@ -225,7 +225,7 @@ $title = 'Vaccine Inventory';
                     <i class="fa-solid fa-clock text-amber-500"></i>
                 </div>
                 <div>
-                    <p class="text-sm font-semibold text-amber-700">⏰ <span class="font-bold"><?php echo count($expiringSoon); ?></span> Vaccine(s) Expiring Within 30 Days</p>
+                    <p class="text-sm font-semibold text-amber-700"><span class="font-bold"><?php echo count($expiringSoon); ?></span> Vaccine(s) Expiring Within 30 Days</p>
                     <div class="flex flex-wrap gap-2 mt-1">
                         <?php foreach (array_slice($expiringSoon, 0, 3) as $item): ?>
                             <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
@@ -694,9 +694,9 @@ $title = 'Vaccine Inventory';
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Adjustment Action *</label>
                 <select id="adjust_type" required onchange="updateAdjustPreview()" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="add">➕ Add Stock (Received new units)</option>
-                    <option value="remove">➖ Remove Stock (Doses administered / damaged / expired)</option>
-                    <option value="set">🔄 Set Direct Quantity (Inventory reconciliation)</option>
+                    <option value="add">Add Stock (Received new units)</option>
+                    <option value="remove">Remove Stock (Doses administered / damaged / expired)</option>
+                    <option value="set">Set Direct Quantity (Inventory reconciliation)</option>
                 </select>
             </div>
             <div>
@@ -1133,7 +1133,7 @@ $title = 'Vaccine Inventory';
                     INVENTORY[saved.id] = saved;
                     upsertInventoryRow(saved);
                 }
-                showToast('✅ Vaccine stock added successfully!', 'success');
+                showToast('Vaccine stock added successfully!', 'success');
             } else {
                 showToast(data.message || 'Failed to add stock.', 'danger');
                 if (submitBtn) {
@@ -1203,7 +1203,7 @@ $title = 'Vaccine Inventory';
                     INVENTORY[saved.id] = saved;
                     upsertInventoryRow(saved);
                 }
-                showToast('✅ Stock adjusted successfully!', 'success');
+                showToast('Stock adjusted successfully!', 'success');
             } else {
                 showToast(data.message || 'Failed to adjust stock.', 'danger');
                 if (submitBtn) {

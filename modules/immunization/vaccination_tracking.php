@@ -18,25 +18,61 @@ requireDepartmentAccess('immunization & nutrition');
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../app/Models/TriageQueue.php';
 require_once __DIR__ . '/../../app/Models/Patient.php';
+require_once __DIR__ . '/../../app/Models/Triage.php';
 
 $db = Database::getInstance();
 
 // Fetch Active Patients Waiting for Immunization Visits
 $triageQueueModel = new TriageQueue();
 $patientModel = new Patient();
+$triageModel = new Triage();
+
 $immunizationVisitsRaw = [];
 try {
-    $immunizationVisitsRaw = $triageQueueModel->getVisitsByReason('Immunization');
+    // 1. Triage Check-in queue (matches 'immuniz', 'vaccin', 'vax')
+    $immunizationVisitsRaw = $triageQueueModel->getVisitsByReason('Immunization', false);
 } catch (\Throwable $e) {
-    error_log('Error fetching immunization visits: ' . $e->getMessage());
+    error_log('Error fetching immunization visits from queue: ' . $e->getMessage());
+}
+
+// 2. Clinical Assessment Intake (patients who completed triage assessment and are sent to Immunization Lead or reason is vaccine/immunization)
+$triageAssessedRaw = [];
+try {
+    $allAssessments = $triageModel->all(['order' => 'created_at.desc']);
+    foreach ($allAssessments as $ass) {
+        $st = strtolower($ass['status'] ?? 'pending');
+        if (!in_array($st, ['sent_to_doctor', 'triaged', 'in_triage', 'waiting', 'pending'], true)) {
+            continue;
+        }
+
+        $docAssigned = strtolower($ass['doctor_assigned'] ?? '');
+        $sym = strtolower($ass['symptoms'] ?? '');
+        $notes = strtolower($ass['notes'] ?? '');
+
+        $isImmAssigned = str_contains($docAssigned, 'immuniz') || str_contains($docAssigned, 'grace mendoza');
+        $isImmReason = str_contains($sym, 'vaccin') || str_contains($sym, 'immuniz') || str_contains($sym, 'vax')
+                    || str_contains($notes, 'vaccin') || str_contains($notes, 'immuniz');
+
+        if ($isImmAssigned || $isImmReason) {
+            $triageAssessedRaw[] = $ass;
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Error fetching triaged immunization assessments: ' . $e->getMessage());
 }
 
 $immunizationVisits = [];
-foreach ($immunizationVisitsRaw as $v) {
-    $pId = (int)($v['patient_id'] ?? 0);
+$seenPatientIds = [];
+
+// Priority 1: Add patients who completed clinical intake and are sent to the Immunization Station / Coordinator
+foreach ($triageAssessedRaw as $ass) {
+    $pId = (int)($ass['patient_id'] ?? 0);
+    if ($pId <= 0 || isset($seenPatientIds[$pId])) continue;
+    $seenPatientIds[$pId] = true;
+
     $p = null;
-    try { if ($pId > 0) $p = $patientModel->find($pId); } catch (\Throwable $e) {}
-    
+    try { $p = $patientModel->find($pId); } catch (\Throwable $e) {}
+
     $name = 'Patient #' . $pId;
     $pCode = 'P-' . $pId;
     if ($p) {
@@ -45,21 +81,68 @@ foreach ($immunizationVisitsRaw as $v) {
         $name = trim($firstName . ' ' . $lastName) ?: ($p['name'] ?? $name);
         $pCode = $p['patient_id'] ?? $pCode;
     }
-    
+
     $parts = explode(' ', $name);
     $initials = '';
     foreach ($parts as $part) {
         if (!empty($part)) $initials .= strtoupper($part[0]);
     }
-    
+
+    $checkInTime = isset($ass['created_at']) ? date('h:i A', strtotime($ass['created_at'])) : date('h:i A');
+
     $immunizationVisits[] = [
-        'id' => $v['id'],
-        'patient_id' => $pId,
-        'patient_name' => $name,
-        'patient_code' => $pCode,
-        'avatar' => substr($initials, 0, 2) ?: 'P',
+        'id'            => 'ass_' . ($ass['id'] ?? $pId),
+        'patient_id'    => $pId,
+        'patient_name'  => $name,
+        'patient_code'  => $pCode,
+        'avatar'        => substr($initials, 0, 2) ?: 'P',
+        'check_in_time' => $checkInTime,
+        'reason'        => !empty($ass['symptoms']) ? $ass['symptoms'] : 'Vaccination Intake',
+        'status'        => $ass['status'] ?? 'sent_to_doctor',
+        'stage'         => 'Assessed & Ready',
+        'weight'        => $ass['weight'] ?? null,
+        'temperature'   => $ass['temperature'] ?? null,
+        'notes'         => $ass['notes'] ?? ''
+    ];
+}
+
+// Priority 2: Add patients waiting in the check-in queue who have not yet had triage assessment
+foreach ($immunizationVisitsRaw as $v) {
+    $pId = (int)($v['patient_id'] ?? 0);
+    if ($pId <= 0 || isset($seenPatientIds[$pId])) continue;
+    $seenPatientIds[$pId] = true;
+
+    $p = null;
+    try { $p = $patientModel->find($pId); } catch (\Throwable $e) {}
+
+    $name = 'Patient #' . $pId;
+    $pCode = 'P-' . $pId;
+    if ($p) {
+        $firstName = $p['first_name'] ?? '';
+        $lastName = $p['last_name'] ?? '';
+        $name = trim($firstName . ' ' . $lastName) ?: ($p['name'] ?? $name);
+        $pCode = $p['patient_id'] ?? $pCode;
+    }
+
+    $parts = explode(' ', $name);
+    $initials = '';
+    foreach ($parts as $part) {
+        if (!empty($part)) $initials .= strtoupper($part[0]);
+    }
+
+    $immunizationVisits[] = [
+        'id'            => $v['id'],
+        'patient_id'    => $pId,
+        'patient_name'  => $name,
+        'patient_code'  => $pCode,
+        'avatar'        => substr($initials, 0, 2) ?: 'P',
         'check_in_time' => isset($v['check_in_time']) ? date('h:i A', strtotime($v['check_in_time'])) : (isset($v['created_at']) ? date('h:i A', strtotime($v['created_at'])) : date('h:i A')),
-        'status' => $v['status'] ?? 'waiting'
+        'reason'        => $v['reason_for_visit'] ?? 'Immunization',
+        'status'        => $v['status'] ?? 'waiting',
+        'stage'         => 'Check-in Queue',
+        'weight'        => null,
+        'temperature'   => null,
+        'notes'         => ''
     ];
 }
 
@@ -145,6 +228,29 @@ try {
     }
 } catch (\Throwable $e) {
     error_log('Error fetching immunization staff: ' . $e->getMessage());
+}
+
+// Fetch Active Vaccine Inventory Batches
+$inventoryBatches = [];
+try {
+    $dbInventory = $db->select('vaccine_inventory', [], ['order' => 'vaccine_name.asc']);
+    if (!empty($dbInventory) && is_array($dbInventory)) {
+        foreach ($dbInventory as $inv) {
+            $qty = (int)($inv['quantity'] ?? 0);
+            $batch = trim($inv['batch_number'] ?? '');
+            if (!empty($batch)) {
+                $inventoryBatches[] = [
+                    'id'           => (int)$inv['id'],
+                    'vaccine_name' => $inv['vaccine_name'] ?? '',
+                    'batch_number' => $batch,
+                    'quantity'     => $qty,
+                    'expiry_date'  => $inv['expiry_date'] ?? ''
+                ];
+            }
+        }
+    }
+} catch (\Throwable $e) {
+    error_log('Error fetching vaccine inventory batches: ' . $e->getMessage());
 }
 
 // Base Children Data
@@ -341,11 +447,12 @@ $title = 'Vaccination Tracking';
             <button onclick="openModal('waitingQueueModal')" class="px-3 py-1.5 bg-white border border-blue-200 text-blue-700 hover:bg-blue-50 text-xs font-semibold rounded-lg transition">
                 View Queue
             </button>
-            <button onclick="startImmunizationAssessment(<?php echo (int)$immunizationVisits[0]['patient_id']; ?>, '<?php echo htmlspecialchars(addslashes($immunizationVisits[0]['patient_name']), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($immunizationVisits[0]['patient_code']), ENT_QUOTES); ?>');" 
+            <button onclick="startImmunizationAssessment(<?php echo (int)$immunizationVisits[0]['patient_id']; ?>, '<?php echo htmlspecialchars(addslashes($immunizationVisits[0]['patient_name']), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($immunizationVisits[0]['patient_code']), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes((string)($immunizationVisits[0]['weight'] ?? '')), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes((string)($immunizationVisits[0]['temperature'] ?? '')), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes((string)($immunizationVisits[0]['notes'] ?? '')), ENT_QUOTES); ?>');" 
                     class="px-3 py-1.5 bg-brand-dark text-white hover:bg-brand-medium text-xs font-semibold rounded-lg transition flex items-center gap-1 shadow-xs">
                 <i class="fa-solid fa-stethoscope text-xs"></i> Start Assessment
             </button>
         </div>
+    </div>
     <?php endif; ?>
 
     <!-- Doctor Consultation Referrals Queue (Cross-Module Integration) -->
@@ -413,7 +520,7 @@ $title = 'Vaccination Tracking';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">💉 All vaccinations</span>
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-syringe mr-1"></i> All vaccinations</span>
                     <span class="text-[10px] text-slate-400"><?php echo $completedImmunizations; ?> completed</span>
                 </div>
             </div>
@@ -433,7 +540,7 @@ $title = 'Vaccination Tracking';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold">✅ Done</span>
+                    <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-check mr-1"></i> Done</span>
                     <span class="text-[10px] text-slate-400">Successfully administered</span>
                 </div>
             </div>
@@ -453,7 +560,7 @@ $title = 'Vaccination Tracking';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold">⚠️ Overdue</span>
+                    <span class="px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Overdue</span>
                     <span class="text-[10px] text-slate-400">Requires attention</span>
                 </div>
             </div>
@@ -473,7 +580,7 @@ $title = 'Vaccination Tracking';
                     </div>
                 </div>
                 <div class="mt-3 flex items-center gap-2">
-                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold">⏰ Upcoming</span>
+                    <span class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold"><i class="fa-solid fa-clock mr-1"></i> Upcoming</span>
                     <span class="text-[10px] text-slate-400">Within 30 days</span>
                 </div>
             </div>
@@ -644,11 +751,11 @@ $title = 'Vaccination Tracking';
         </div>
 
         <!-- Pagination -->
-        <div class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
-            <p class="text-xs text-slate-500">
-                Showing <span class="font-semibold text-slate-700">1</span> to
-                <span class="font-semibold text-slate-700"><?php echo min(10, $totalImmunizations); ?></span> of
-                <span class="font-semibold text-slate-700"><?php echo $totalImmunizations; ?></span> records
+        <div id="paginationWrapper" class="px-4 py-3 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-50">
+            <p class="text-xs text-slate-500" id="paginationInfo">
+                Showing <span class="font-semibold text-slate-700" id="pageStart">1</span> to
+                <span class="font-semibold text-slate-700" id="pageEnd"><?php echo min(10, $totalImmunizations); ?></span> of
+                <span class="font-semibold text-slate-700" id="pageTotal"><?php echo $totalImmunizations; ?></span> records
             </p>
             <div class="flex items-center gap-3">
                 <button onclick="openModal('vaccineScheduleModal')" 
@@ -656,15 +763,8 @@ $title = 'Vaccination Tracking';
                     <i class="fa-solid fa-book-medical"></i>
                     <span>DOH Schedule Reference</span>
                 </button>
-                <div class="flex gap-1">
-                    <button class="px-3 py-1.5 rounded-lg text-sm bg-slate-100 text-slate-300 cursor-not-allowed" disabled>
-                        <i class="fa-solid fa-chevron-left text-xs"></i>
-                    </button>
-                    <button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-brand-dark text-white">1</button>
-                    <button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">2</button>
-                    <button class="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-100">
-                        <i class="fa-solid fa-chevron-right text-xs"></i>
-                    </button>
+                <div class="flex items-center gap-1" id="paginationButtons">
+                    <!-- Dynamically rendered by JavaScript pagination engine -->
                 </div>
             </div>
         </div>
@@ -674,7 +774,7 @@ $title = 'Vaccination Tracking';
 <!-- ============================================================ -->
 <!-- MODAL: PATIENTS WAITING FOR IMMUNIZATION (QUEUE)             -->
 <!-- ============================================================ -->
-<div id="waitingQueueModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+<div id="waitingQueueModal" class="<?php echo (($_GET['modal'] ?? '') === 'waitingQueueModal') ? 'flex' : 'hidden'; ?> fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b border-blue-200 bg-blue-50/50 sticky top-0 rounded-t-2xl">
             <div class="flex items-center gap-2">
@@ -715,13 +815,16 @@ $title = 'Vaccination Tracking';
                                 </div>
                             </td>
                             <td class="px-4 py-3">
-                                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200 inline-flex items-center gap-1">
-                                    <i class="fa-solid fa-syringe text-[10px] text-blue-600"></i> Immunization
+                                <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200 inline-flex items-center gap-1 capitalize">
+                                    <i class="fa-solid fa-syringe text-[10px] text-blue-600"></i> <?php echo htmlspecialchars($visit['reason'] ?? 'Immunization'); ?>
                                 </span>
+                                <?php if (!empty($visit['stage'])): ?>
+                                    <span class="block text-[10px] text-slate-500 font-medium mt-0.5"><?php echo htmlspecialchars($visit['stage']); ?></span>
+                                <?php endif; ?>
                             </td>
                             <td class="px-4 py-3 text-slate-600 text-xs"><?php echo htmlspecialchars($visit['check_in_time']); ?></td>
                             <td class="px-4 py-3 text-center">
-                                <button onclick="closeModal('waitingQueueModal'); startImmunizationAssessment(<?php echo (int)$visit['patient_id']; ?>, '<?php echo htmlspecialchars(addslashes($visit['patient_name']), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($visit['patient_code']), ENT_QUOTES); ?>');" 
+                                <button onclick="closeModal('waitingQueueModal'); startImmunizationAssessment(<?php echo (int)$visit['patient_id']; ?>, '<?php echo htmlspecialchars(addslashes($visit['patient_name']), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($visit['patient_code']), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes((string)($visit['weight'] ?? '')), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes((string)($visit['temperature'] ?? '')), ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes((string)($visit['notes'] ?? '')), ENT_QUOTES); ?>');" 
                                         class="px-3.5 py-1.5 text-xs font-semibold text-white bg-brand-dark rounded-lg hover:bg-brand-medium transition inline-flex items-center gap-1 shadow-xs">
                                     <i class="fa-solid fa-stethoscope text-xs"></i> Start Assessment
                                 </button>
@@ -745,7 +848,7 @@ $title = 'Vaccination Tracking';
 <!-- ============================================================ -->
 <!-- MODAL: RECOMMENDED VACCINE SCHEDULE GUIDE (DOH)              -->
 <!-- ============================================================ -->
-<div id="vaccineScheduleModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+<div id="vaccineScheduleModal" class="<?php echo (($_GET['modal'] ?? '') === 'vaccineScheduleModal') ? 'flex' : 'hidden'; ?> fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
             <h3 class="font-bold text-slate-900 flex items-center gap-2">
@@ -790,7 +893,7 @@ $title = 'Vaccination Tracking';
 <!-- ============================================================ -->
 <!-- STEP 1: PRE-VACCINATION IMMUNIZATION ASSESSMENT MODAL        -->
 <!-- ============================================================ -->
-<div id="immunizationAssessmentModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+<div id="immunizationAssessmentModal" class="<?php echo (($_GET['modal'] ?? '') === 'immunizationAssessmentModal') ? 'flex' : 'hidden'; ?> fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
             <h3 class="font-bold text-slate-900 flex items-center gap-2">
@@ -911,7 +1014,7 @@ $title = 'Vaccination Tracking';
 <!-- ============================================================ -->
 <!-- RECORD VACCINATION MODAL                                     -->
 <!-- ============================================================ -->
-<div id="recordVaccinationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+<div id="recordVaccinationModal" class="<?php echo (($_GET['modal'] ?? '') === 'recordVaccinationModal') ? 'flex' : 'hidden'; ?> fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl">
             <h3 class="font-bold text-slate-900 flex items-center gap-2">
@@ -931,19 +1034,19 @@ $title = 'Vaccination Tracking';
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Target Patient Category</label>
                 <div class="flex p-1 bg-slate-100 rounded-lg gap-1">
                     <button type="button" id="tab_child_btn" onclick="switchPatientCategory('child')" class="flex-1 py-1.5 text-xs font-bold rounded-md bg-white text-brand-dark shadow-xs transition">
-                        👶 Pediatric (0–5 yrs)
+                        Pediatric & Adolescent (0–17 yrs)
                     </button>
                     <button type="button" id="tab_adult_btn" onclick="switchPatientCategory('adult')" class="flex-1 py-1.5 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900 transition">
-                        👨‍👩‍👧 Adult & Senior Patient
+                        Adult & Senior Patient (18+ yrs)
                     </button>
                 </div>
             </div>
 
             <!-- Pediatric Child Selector -->
             <div id="wrapper_vacc_child">
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Select Child</label>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Select Patient / Child</label>
                 <select id="vacc_child" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                    <option value="">-- Choose Child --</option>
+                    <option value="">-- Choose Patient / Child --</option>
                     <?php foreach ($children as $c): ?>
                         <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?> (<?php echo htmlspecialchars($c['child_id']); ?>)</option>
                     <?php endforeach; ?>
@@ -965,9 +1068,9 @@ $title = 'Vaccination Tracking';
 
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Vaccine</label>
-                <select id="vacc_vaccine" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                <select id="vacc_vaccine" required onchange="syncInventoryBatches(this.value)" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="">-- Select Vaccine --</option>
-                    <optgroup label="👶 DOH EPI Pediatric Vaccines">
+                    <optgroup label="DOH EPI Pediatric & Adolescent Vaccines">
                     <?php 
                         $vaccines = array_unique(array_column($vaccineSchedule, 'vaccine'));
                         foreach ($vaccines as $v): 
@@ -975,7 +1078,7 @@ $title = 'Vaccination Tracking';
                         <option value="<?php echo htmlspecialchars($v); ?>"><?php echo htmlspecialchars($v); ?></option>
                     <?php endforeach; ?>
                     </optgroup>
-                    <optgroup label="👨‍👩‍👧 Adult & Senior Vaccines">
+                    <optgroup label="Adult & Senior Lifelong Vaccines">
                     <?php foreach ($adultVaccines as $av): ?>
                         <option value="<?php echo htmlspecialchars($av); ?>"><?php echo htmlspecialchars($av); ?></option>
                     <?php endforeach; ?>
@@ -1015,8 +1118,21 @@ $title = 'Vaccination Tracking';
                 </select>
             </div>
             <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Batch Number</label>
-                <input type="text" id="vacc_batch" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none" placeholder="e.g. BCG-2026-01">
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide">Vaccine Batch / Lot (from Inventory)</label>
+                    <span id="batch_stock_indicator" class="text-[11px] font-semibold text-emerald-600 hidden">
+                        <i class="fa-solid fa-boxes-stacked mr-1"></i><span id="batch_stock_count">0</span> doses in stock
+                    </span>
+                </div>
+                <select id="vacc_batch" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="">-- Select Active Batch from Inventory --</option>
+                </select>
+                <div id="batch_empty_warning" class="hidden mt-1.5 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-500 mt-0.5"></i>
+                    <div>
+                        <span class="font-bold">Zero stock in inventory:</span> No active batches found for this vaccine in <a href="vaccine_inventory.php" target="_blank" class="underline font-semibold hover:text-rose-900">Vaccine Inventory</a>. Please receive stock first.
+                    </div>
+                </div>
             </div>
 
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -1053,7 +1169,7 @@ $title = 'Vaccination Tracking';
 <!-- ============================================================ -->
 <!-- EXPORT IMMUNIZATION RECORDS MODAL (BULK EXPORT)              -->
 <!-- ============================================================ -->
-<div id="exportImmunizationModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+<div id="exportImmunizationModal" class="<?php echo (($_GET['modal'] ?? '') === 'exportImmunizationModal') ? 'flex' : 'hidden'; ?> fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
         <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200">
             <h3 class="font-bold text-slate-900 flex items-center gap-2">
@@ -1153,22 +1269,29 @@ $title = 'Vaccination Tracking';
         });
     });
 
+    <?php if (!empty($_GET['modal'])): ?>
+    openModal(<?= json_encode((string)$_GET['modal']) ?>);
+    <?php endif; ?>
+
     // ============================================================
     // PRE-VACCINATION IMMUNIZATION ASSESSMENT (STEP 1)
     // ============================================================
     let currentAssessmentData = {};
 
-    function startImmunizationAssessment(patientId, patientName, patientCode) {
+    function startImmunizationAssessment(patientId, patientName, patientCode, intakeWeight, intakeTemp, intakeNotes) {
         document.getElementById('assess_patient_id').value = patientId;
         document.getElementById('assess_patient_display').textContent = `${patientName} (${patientCode || 'P-' + patientId})`;
         
-        // Auto-select child in record vaccination modal as well
-        const selectVaccChild = document.getElementById('vacc_child');
-        if (selectVaccChild) {
+        // Auto-select patient in record vaccination modal (support child or adult/senior)
+        const isChild = !String(patientCode || '').toUpperCase().startsWith('P-');
+        switchPatientCategory(isChild ? 'child' : 'adult');
+
+        const targetSelect = isChild ? document.getElementById('vacc_child') : document.getElementById('vacc_patient');
+        if (targetSelect) {
             let found = false;
-            for (let i = 0; i < selectVaccChild.options.length; i++) {
-                if (parseInt(selectVaccChild.options[i].value) === parseInt(patientId)) {
-                    selectVaccChild.selectedIndex = i;
+            for (let i = 0; i < targetSelect.options.length; i++) {
+                if (parseInt(targetSelect.options[i].value) === parseInt(patientId)) {
+                    targetSelect.selectedIndex = i;
                     found = true;
                     break;
                 }
@@ -1178,16 +1301,18 @@ $title = 'Vaccination Tracking';
                 newOpt.value = String(patientId);
                 newOpt.textContent = `${patientName} (${patientCode || 'P-' + patientId})`;
                 newOpt.selected = true;
-                selectVaccChild.appendChild(newOpt);
+                targetSelect.appendChild(newOpt);
             }
         }
 
-        // Set default values
-        document.getElementById('assess_weight').value = '8.5';
-        document.getElementById('assess_temp').value = '36.5';
+        // Set vitals: prioritize intake data from clinical triage assessment if available
+        const parsedWeight = parseFloat(intakeWeight);
+        const parsedTemp = parseFloat(intakeTemp);
+        document.getElementById('assess_weight').value = (!isNaN(parsedWeight) && parsedWeight > 0) ? parsedWeight : (isChild ? '8.5' : '60.0');
+        document.getElementById('assess_temp').value = (!isNaN(parsedTemp) && parsedTemp > 0) ? parsedTemp : '36.5';
         document.getElementById('assess_health_status').value = 'Healthy';
         document.getElementById('assess_contraindications').value = 'None';
-        document.getElementById('assess_notes').value = '';
+        document.getElementById('assess_notes').value = intakeNotes || '';
 
         runAiEligibilityCheck();
         openModal('immunizationAssessmentModal');
@@ -1204,13 +1329,13 @@ $title = 'Vaccination Tracking';
 
         if (temp >= 38.0 || contra !== 'None' || status === 'Fever') {
             badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200';
-            badge.innerHTML = '⚠️ Vaccination Deferred';
+            badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i> Vaccination Deferred';
             
             advisoryBox.className = 'bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-4 transition-all';
             advisoryText.innerHTML = `Caution: Patient presents elevated temperature (${temp}°C) or reported contraindications (${contra}). Clinical recommendation: Defer vaccination and consult attending physician.`;
         } else {
             badge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200';
-            badge.innerHTML = '✓ Eligible for Vaccination';
+            badge.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Eligible for Vaccination';
             
             advisoryBox.className = 'bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 rounded-xl p-4 transition-all';
             advisoryText.innerHTML = 'Based on recorded assessment: Patient appears healthy with normal temperature and no reported contraindications. Recommended to proceed with scheduled vaccine administration.';
@@ -1243,11 +1368,16 @@ $title = 'Vaccination Tracking';
         };
 
         // Save pre-vaccination assessment audit record
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '<?php echo $_SESSION['csrf_token'] ?? ''; ?>';
         try {
-            await fetch('../../api/triage.php?action=immunization_assessment', {
+            await fetch('<?php echo site_url('api/triage.php?action=immunization_assessment'); ?>', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(currentAssessmentData)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ ...currentAssessmentData, csrf_token: csrfToken })
             });
         } catch (e) {
             console.warn('Notice saving assessment audit record:', e);
@@ -1259,6 +1389,28 @@ $title = 'Vaccination Tracking';
         // Auto-open Step 2 Record Vaccination Modal pre-filled
         setTimeout(() => {
             document.getElementById('vacc_date').value = new Date().toISOString().split('T')[0];
+            if (vaccineDue) {
+                const vaccSelect = document.getElementById('vacc_vaccine');
+                if (vaccSelect) {
+                    let matched = false;
+                    for (let i = 0; i < vaccSelect.options.length; i++) {
+                        if (vaccSelect.options[i].value.toLowerCase().includes(vaccineDue.toLowerCase()) || 
+                            vaccineDue.toLowerCase().includes(vaccSelect.options[i].value.toLowerCase())) {
+                            vaccSelect.selectedIndex = i;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (!matched) {
+                        const newOpt = new Option(vaccineDue, vaccineDue, true, true);
+                        vaccSelect.add(newOpt);
+                    }
+                    syncInventoryBatches(vaccineDue);
+                }
+            }
+            if (!document.getElementById('vacc_dose').value) {
+                document.getElementById('vacc_dose').value = '1';
+            }
             openModal('recordVaccinationModal');
         }, 450);
     }
@@ -1302,6 +1454,137 @@ $title = 'Vaccination Tracking';
     }
 
     // ============================================================
+    // VACCINE INVENTORY BATCHES SYNC
+    // ============================================================
+    const INVENTORY_BATCHES = <?= json_encode($inventoryBatches) ?>;
+
+    function syncInventoryBatches(selectedVaccine, preferredBatch = null) {
+        const batchSelect = document.getElementById('vacc_batch');
+        const stockIndicator = document.getElementById('batch_stock_indicator');
+        const stockCount = document.getElementById('batch_stock_count');
+        const emptyWarning = document.getElementById('batch_empty_warning');
+
+        if (!batchSelect) return;
+
+        batchSelect.innerHTML = '<option value="">-- Select Active Batch from Inventory --</option>';
+
+        if (!selectedVaccine) {
+            if (stockIndicator) stockIndicator.classList.add('hidden');
+            if (emptyWarning) emptyWarning.classList.add('hidden');
+            return;
+        }
+
+        const normalize = (str) => String(str || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        function matchVaccine(invName, selName) {
+            if (!invName || !selName) return false;
+            const a = normalize(invName);
+            const b = normalize(selName);
+            if (a.includes(b) || b.includes(a)) return true;
+            const tokensA = (invName.toLowerCase().match(/[a-z0-9]+/g) || []);
+            const tokensB = (selName.toLowerCase().match(/[a-z0-9]+/g) || []);
+            const sigA = tokensA.filter(t => t.length > 2 && !['vaccine','conjugate','virus','shot','dose'].includes(t));
+            const sigB = tokensB.filter(t => t.length > 2 && !['vaccine','conjugate','virus','shot','dose'].includes(t));
+            return sigA.some(t => sigB.includes(t));
+        }
+
+        const matches = INVENTORY_BATCHES.filter(b => matchVaccine(b.vaccine_name, selectedVaccine));
+        const otherBatches = INVENTORY_BATCHES.filter(b => !matches.some(m => m.id === b.id));
+
+        if (matches.length > 0) {
+            let totalQty = 0;
+            const optGroup = document.createElement('optgroup');
+            optGroup.label = `Active Inventory Batches (${selectedVaccine})`;
+
+            matches.forEach(m => {
+                totalQty += (m.quantity || 0);
+                const opt = document.createElement('option');
+                opt.value = m.batch_number;
+                opt.dataset.qty = m.quantity;
+                const expText = m.expiry_date ? ` • Exp: ${m.expiry_date}` : '';
+                opt.textContent = `${m.batch_number} (${m.quantity} doses available${expText})`;
+                if (m.quantity <= 0) {
+                    opt.textContent += ' [Out of Stock]';
+                    opt.disabled = true;
+                }
+                optGroup.appendChild(opt);
+            });
+            batchSelect.appendChild(optGroup);
+
+            if (otherBatches.length > 0) {
+                const otherGroup = document.createElement('optgroup');
+                otherGroup.label = 'Other Inventory Lots';
+                otherBatches.forEach(ob => {
+                    const opt = document.createElement('option');
+                    opt.value = ob.batch_number;
+                    opt.dataset.qty = ob.quantity;
+                    const expText = ob.expiry_date ? ` • Exp: ${ob.expiry_date}` : '';
+                    opt.textContent = `${ob.batch_number} [${ob.vaccine_name}] (${ob.quantity} doses${expText})`;
+                    otherGroup.appendChild(opt);
+                });
+                batchSelect.appendChild(otherGroup);
+            }
+
+            // Auto-select preferred batch if specified, otherwise the first in-stock match
+            if (preferredBatch && matches.some(m => m.batch_number === preferredBatch)) {
+                batchSelect.value = preferredBatch;
+            } else {
+                const firstAvailable = matches.find(m => m.quantity > 0) || matches[0];
+                batchSelect.value = firstAvailable.batch_number;
+            }
+
+            if (stockIndicator && stockCount) {
+                const selectedOpt = batchSelect.options[batchSelect.selectedIndex];
+                stockCount.textContent = (selectedOpt && selectedOpt.dataset && selectedOpt.dataset.qty !== undefined) ? selectedOpt.dataset.qty : totalQty;
+                stockIndicator.classList.remove('hidden');
+            }
+            if (emptyWarning) emptyWarning.classList.add('hidden');
+        } else {
+            // No direct name match in vaccine inventory
+            if (stockIndicator) stockIndicator.classList.add('hidden');
+            if (emptyWarning) emptyWarning.classList.remove('hidden');
+
+            if (INVENTORY_BATCHES.length > 0) {
+                const allGroup = document.createElement('optgroup');
+                allGroup.label = 'Available Batches in Inventory';
+                INVENTORY_BATCHES.forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b.batch_number;
+                    opt.dataset.qty = b.quantity;
+                    const expText = b.expiry_date ? ` • Exp: ${b.expiry_date}` : '';
+                    opt.textContent = `${b.batch_number} [${b.vaccine_name}] (${b.quantity} doses${expText})`;
+                    allGroup.appendChild(opt);
+                });
+                batchSelect.appendChild(allGroup);
+                if (preferredBatch) {
+                    batchSelect.value = preferredBatch;
+                }
+            } else {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.disabled = true;
+                opt.textContent = 'No inventory batches available. Please add stock in Vaccine Inventory.';
+                batchSelect.appendChild(opt);
+            }
+        }
+    }
+
+    // Update stock badge dynamically if user changes batch lot
+    document.addEventListener('DOMContentLoaded', function() {
+        const batchSelect = document.getElementById('vacc_batch');
+        if (batchSelect) {
+            batchSelect.addEventListener('change', function() {
+                const selOpt = this.options[this.selectedIndex];
+                const stockCount = document.getElementById('batch_stock_count');
+                const stockIndicator = document.getElementById('batch_stock_indicator');
+                if (selOpt && selOpt.dataset && selOpt.dataset.qty !== undefined && stockCount && stockIndicator) {
+                    stockCount.textContent = selOpt.dataset.qty;
+                    stockIndicator.classList.remove('hidden');
+                }
+            });
+        }
+    });
+
+    // ============================================================
     // RECORD VACCINATION
     // ============================================================
     function recordVaccination(id) {
@@ -1314,6 +1597,8 @@ $title = 'Vaccination Tracking';
         document.getElementById('vacc_dose').value = i.dose;
         document.getElementById('vacc_date').value = new Date().toISOString().split('T')[0];
         document.getElementById('vacc_next_due').value = i.next_due || '';
+        
+        syncInventoryBatches(i.vaccine, i.batch_number || null);
         
         openModal('recordVaccinationModal');
     }
@@ -1365,6 +1650,8 @@ $title = 'Vaccination Tracking';
             const newOpt = new Option(ref.vaccine_requested, ref.vaccine_requested, true, true);
             vaccineSelect.add(newOpt);
         }
+
+        syncInventoryBatches(ref.vaccine_requested);
 
         document.getElementById('vacc_dose').value = '1';
         document.getElementById('vacc_date').value = new Date().toISOString().split('T')[0];
@@ -1586,13 +1873,22 @@ $title = 'Vaccination Tracking';
         filterVaccinations();
     }
 
+    // ============================================================
+    // DYNAMIC PAGINATION & FILTERING ENGINE
+    // ============================================================
+    let currentPage = 1;
+    const pageSize = 10;
+    let filteredRows = [];
+
     function filterVaccinations() {
         const search = (document.getElementById('searchVaccination')?.value || '').trim().toLowerCase();
         const status = document.getElementById('filterStatus')?.value || '';
         const vaccine = (document.getElementById('filterVaccine')?.value || '').toLowerCase();
-        let visibleCount = 0;
 
-        document.querySelectorAll('.vaccination-row').forEach(row => {
+        const allRows = Array.from(document.querySelectorAll('.vaccination-row'));
+        filteredRows = [];
+
+        allRows.forEach(row => {
             const child = row.dataset.child || '';
             const childCode = row.dataset.childCode || '';
             const rowVaccine = row.dataset.vaccine || '';
@@ -1601,7 +1897,7 @@ $title = 'Vaccination Tracking';
             const rowDose = String(row.dataset.dose || '');
             const doseFormatted = 'dose ' + rowDose;
 
-            // Search matches child name, ID (e.g. CH-001), vaccine name, batch #, dose number or "dose 1"
+            // Search matches child name, ID (e.g. CH-001, P-001), vaccine name, batch #, dose number or "dose 1"
             const matchesSearch = !search || 
                 child.includes(search) || 
                 childCode.includes(search) || 
@@ -1614,14 +1910,123 @@ $title = 'Vaccination Tracking';
                 (status === 'due_soon' ? isDueSoon(row) : rowStatus === status);
             const matchesVaccine = !vaccine || rowVaccine === vaccine;
 
-            const isVisible = matchesSearch && matchesStatus && matchesVaccine;
-
-            row.style.display = isVisible ? '' : 'none';
-            if (isVisible) visibleCount++;
+            if (matchesSearch && matchesStatus && matchesVaccine) {
+                filteredRows.push(row);
+            }
         });
 
         const emptyState = document.getElementById('emptyState');
-        if (emptyState) emptyState.style.display = visibleCount === 0 ? 'flex' : 'none';
+        if (emptyState) emptyState.style.display = filteredRows.length === 0 ? 'flex' : 'none';
+
+        const paginationWrapper = document.getElementById('paginationWrapper');
+        if (paginationWrapper) {
+            paginationWrapper.style.display = filteredRows.length === 0 ? 'none' : 'flex';
+        }
+
+        currentPage = 1;
+        renderPaginatedView();
+    }
+
+    function renderPaginatedView() {
+        const total = filteredRows.length;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, total);
+
+        // Hide all rows initially
+        document.querySelectorAll('.vaccination-row').forEach(row => {
+            row.style.display = 'none';
+        });
+
+        // Show only the slice of rows for the current active page
+        for (let i = startIndex; i < endIndex; i++) {
+            if (filteredRows[i]) {
+                filteredRows[i].style.display = '';
+            }
+        }
+
+        // Update pagination counter text
+        const pageStartEl = document.getElementById('pageStart');
+        const pageEndEl = document.getElementById('pageEnd');
+        const pageTotalEl = document.getElementById('pageTotal');
+
+        if (pageStartEl) pageStartEl.textContent = total === 0 ? 0 : (startIndex + 1);
+        if (pageEndEl) pageEndEl.textContent = endIndex;
+        if (pageTotalEl) pageTotalEl.textContent = total;
+
+        // Render page numbers
+        renderPaginationButtons(totalPages);
+    }
+
+    function renderPaginationButtons(totalPages) {
+        const container = document.getElementById('paginationButtons');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        // Previous button
+        const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.className = `px-3 py-1.5 rounded-lg text-sm transition ${currentPage <= 1 ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer'}`;
+        prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left text-xs"></i>';
+        prevBtn.disabled = currentPage <= 1;
+        prevBtn.onclick = () => goToPage(currentPage - 1);
+        container.appendChild(prevBtn);
+
+        // Calculate pages to show
+        let pagesToShow = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pagesToShow.push(i);
+        } else {
+            if (currentPage <= 4) {
+                pagesToShow = [1, 2, 3, 4, 5, '...', totalPages];
+            } else if (currentPage >= totalPages - 3) {
+                pagesToShow = [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+            } else {
+                pagesToShow = [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+            }
+        }
+
+        pagesToShow.forEach(p => {
+            if (p === '...') {
+                const dots = document.createElement('span');
+                dots.className = 'px-2 py-1.5 text-xs text-slate-400 font-semibold select-none';
+                dots.textContent = '...';
+                container.appendChild(dots);
+            } else {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const isCurrent = p === currentPage;
+                btn.className = `px-3 py-1.5 rounded-lg text-sm font-semibold transition cursor-pointer ${isCurrent ? 'bg-brand-dark text-white shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}`;
+                btn.textContent = p;
+                btn.onclick = () => goToPage(p);
+                container.appendChild(btn);
+            }
+        });
+
+        // Next button
+        const nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
+        nextBtn.className = `px-3 py-1.5 rounded-lg text-sm transition ${currentPage >= totalPages ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer'}`;
+        nextBtn.innerHTML = '<i class="fa-solid fa-chevron-right text-xs"></i>';
+        nextBtn.disabled = currentPage >= totalPages;
+        nextBtn.onclick = () => goToPage(currentPage + 1);
+        container.appendChild(nextBtn);
+    }
+
+    function goToPage(page) {
+        currentPage = page;
+        renderPaginatedView();
+        // Smoothly bring table into view if scrolled down
+        const table = document.getElementById('vaccinationTable');
+        if (table && window.scrollY > table.offsetTop) {
+            table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     }
 
     function isDueSoon(row) {
@@ -1645,14 +2050,7 @@ $title = 'Vaccination Tracking';
             clearBtn.classList.remove('flex');
         }
 
-        document.querySelectorAll('.vaccination-row').forEach(row => row.style.display = '');
-        const emptyState = document.getElementById('emptyState');
-        if (emptyState) emptyState.style.display = 'none';
-    }
-
-    function changePage(page) {
-        if (page < 1 || page > <?php echo max(1, ceil($totalImmunizations / 10)); ?>) return;
-        window.location.href = '?page=' + page;
+        filterVaccinations();
     }
 
     // ESC to close modals
@@ -1793,6 +2191,15 @@ $title = 'Vaccination Tracking';
             const date = new Date();
             date.setMonth(date.getMonth() + 1);
             nextDue.value = date.toISOString().split('T')[0];
+        }
+        // Initialize dynamic client-side pagination on page load
+        filterVaccinations();
+
+        // Deep linking for modal preview/testing
+        const urlParams = new URLSearchParams(window.location.search);
+        const modalToOpen = urlParams.get('modal');
+        if (modalToOpen && typeof openModal === 'function') {
+            setTimeout(() => openModal(modalToOpen), 50);
         }
     });
 </script>
