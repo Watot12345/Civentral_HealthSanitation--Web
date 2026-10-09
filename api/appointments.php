@@ -17,7 +17,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit;
 }
 
-header('Content-Type: application/json');
+http_response_code(200);
+header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
 
 try {
     // Rate Limiting Protection (60 req / min per IP)

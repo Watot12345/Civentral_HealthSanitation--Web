@@ -975,9 +975,8 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label>
                     <select id="add_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <option value="scheduled">Scheduled</option>
+                        <option value="approved">Approved (Scheduled)</option>
                         <option value="pending">Pending Approval</option>
-                        <option value="approved">Approved</option>
                     </select>
                 </div>
             </div>
@@ -1069,9 +1068,8 @@ $doctorTodayTotal = count(array_filter($appointments, function($a) use ($todayDa
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label>
                     <select id="edit_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <option value="scheduled">Scheduled</option>
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
+                        <option value="approved">Approved (Scheduled)</option>
+                        <option value="pending">Pending Approval</option>
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
                         <option value="no_show">No Show</option>

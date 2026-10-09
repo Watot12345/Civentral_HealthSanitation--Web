@@ -5,10 +5,14 @@ class Response
 {
     public static function json(bool $success, string $message = '', mixed $data = null, int $httpCode = 200, array $extra = []): never
     {
-        http_response_code($httpCode);
-        
+        while (ob_get_level() > 0) {
+            @ob_end_clean();
+        }
+
         if (!headers_sent()) {
-            header('Content-Type: application/json');
+            http_response_code($httpCode);
+            header('Content-Type: application/json; charset=utf-8');
+            header('X-Content-Type-Options: nosniff');
         }
 
         echo json_encode(array_merge([
@@ -17,7 +21,11 @@ class Response
             'data'    => $data,
         ], $extra));
 
-        exit;
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();
+        }
+
+        exit(0);
     }
 
     public static function success(string $message = 'Operation completed successfully.', mixed $data = null, int $httpCode = 200, array $extra = []): never
@@ -25,9 +33,16 @@ class Response
         self::json(true, $message, $data, $httpCode, $extra);
     }
 
-    public static function error(string $message = 'An error occurred.', int $httpCode = 400, mixed $data = null): never
+    public static function error(string $message = 'An error occurred.', mixed $httpCode = 400, mixed $data = null): never
     {
-        self::json(false, $message, $data, $httpCode);
+        if (is_array($httpCode) && is_int($data)) {
+            $tmp = $httpCode;
+            $httpCode = $data;
+            $data = $tmp;
+        } elseif (!is_int($httpCode)) {
+            $httpCode = 400;
+        }
+        self::json(false, $message, $data, (int)$httpCode);
     }
 
     public static function crudSuccess(string $action, mixed $record = null, string $message = '', int $httpCode = 200, array $extra = []): never

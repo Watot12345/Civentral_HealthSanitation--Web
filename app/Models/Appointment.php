@@ -42,10 +42,28 @@ class Appointment
         return !empty($result) ? $result[0] : null;
     }
 
+    public function normalizeStatus(?string $status): string
+    {
+        $status = strtolower(trim((string)$status));
+        if ($status === 'scheduled' || $status === 'confirmed') {
+            return 'approved';
+        }
+        if (in_array($status, ['reassignment_pending', 'sent_to_other_doctor', 'not_available_pending', 'not_available_reassigned'], true)) {
+            return 'pending';
+        }
+        $validDbStatuses = ['pending', 'approved', 'completed', 'cancelled', 'no_show'];
+        return in_array($status, $validDbStatuses, true) ? $status : 'pending';
+    }
+
     public function create(array $data): array
     {
         if (empty($data['appointment_id'])) {
             $data['appointment_id'] = $this->generateAppointmentId();
+        }
+        if (isset($data['status'])) {
+            $data['status'] = $this->normalizeStatus($data['status']);
+        } else {
+            $data['status'] = 'pending';
         }
         $res = $this->db->insert($this->table, $data, true);
         if (is_array($res) && isset($res[0]) && is_array($res[0])) {
@@ -71,6 +89,9 @@ class Appointment
 
     public function update(array $data, array $where = []): array
     {
+        if (isset($data['status'])) {
+            $data['status'] = $this->normalizeStatus($data['status']);
+        }
         if (isset($where['id'])) {
             $id = str_replace('eq.', '', (string)$where['id']);
             return $this->updateById($id, $data);
@@ -81,6 +102,9 @@ class Appointment
 
     public function updateById(string|int $id, array $data): array
     {
+        if (isset($data['status'])) {
+            $data['status'] = $this->normalizeStatus($data['status']);
+        }
         $updated = $this->db->update($this->table, $data, ['id' => 'eq.' . $id], true);
         if (is_array($updated) && isset($updated[0]) && is_array($updated[0])) {
             $updated = $updated[0];
@@ -120,7 +144,8 @@ class Appointment
                 $numericId = $found['id'];
             }
         }
-        $updated = $this->db->update($this->table, ['status' => $status], ['id' => 'eq.' . $numericId], true);
+        $dbStatus = $this->normalizeStatus($status);
+        $updated = $this->db->update($this->table, ['status' => $dbStatus], ['id' => 'eq.' . $numericId], true);
         if (is_array($updated) && isset($updated[0]) && is_array($updated[0])) {
             $updated = $updated[0];
         }
@@ -128,9 +153,9 @@ class Appointment
             require_once __DIR__ . '/ActivityLog.php';
             try {
                 $logger = new ActivityLog();
-                $logger->log("Updated Appointment Status to {$status}", [
+                $logger->log("Updated Appointment Status to {$dbStatus}", [
                     'module'  => 'Health Center Services',
-                    'details' => "Appointment #{$id} status changed to {$status}",
+                    'details' => "Appointment #{$id} status changed to {$dbStatus}",
                     'status'  => 'Success'
                 ]);
             } catch (Throwable $e) {

@@ -665,8 +665,13 @@ class AppointmentController extends BaseController
 
         if (isset($data['status'])) {
             $status = strtolower(trim($data['status']));
-            $validStatuses = ['pending', 'approved', 'scheduled', 'completed', 'cancelled', 'no_show'];
-            $dbData['status'] = in_array($status, $validStatuses) ? $status : 'pending';
+            if ($status === 'scheduled' || $status === 'confirmed') {
+                $status = 'approved';
+            } elseif (in_array($status, ['reassignment_pending', 'sent_to_other_doctor', 'not_available_pending', 'not_available_reassigned'], true)) {
+                $status = 'pending';
+            }
+            $validStatuses = ['pending', 'approved', 'completed', 'cancelled', 'no_show'];
+            $dbData['status'] = in_array($status, $validStatuses, true) ? $status : 'pending';
         } elseif (!$isUpdate) {
             $dbData['status'] = 'pending';
         }
