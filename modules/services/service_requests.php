@@ -35,8 +35,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 require_once __DIR__ . '/../../app/Models/ServiceRequest.php';
 require_once __DIR__ . '/../../app/Models/SepticTank.php';
+require_once __DIR__ . '/../../app/Models/ServiceProvider.php';
 $requestModel = new ServiceRequest();
 $septicTankModel = new SepticTank();
+$serviceProviderModel = new ServiceProvider();
+$serviceProviders = $serviceProviderModel->all();
+
+$providerLookup = [];
+foreach ($serviceProviders as $sp) {
+    if (!empty($sp['provider_id'])) {
+        $providerLookup[$sp['provider_id']] = $sp['name'];
+    }
+}
 
 // Fetch live Service Requests from Supabase
 $serviceRequests = $requestModel->all();
@@ -220,7 +230,7 @@ $title = 'Service Requests';
                 <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                 <input type="text"
                        id="searchRequest"
-                       placeholder="Search by request ID, owner, or technician..."
+                       placeholder="Search by request ID, owner, or provider..."
                        class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm transition">
             </div>
             <div class="flex gap-2 flex-wrap">
@@ -265,7 +275,7 @@ $title = 'Service Requests';
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Request ID</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tank / Owner</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Technician</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Assigned Provider</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Priority</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Date</th>
@@ -273,12 +283,17 @@ $title = 'Service Requests';
                     </tr>
                 </thead>
                 <tbody id="requestTableBody">
-                    <?php foreach ($serviceRequests as $request): ?>
+                    <?php foreach ($serviceRequests as $request): 
+                        $assignedProvider = !empty($request['provider_id']) && isset($providerLookup[$request['provider_id']]) 
+                            ? $providerLookup[$request['provider_id']] 
+                            : (!empty($request['assigned_to']) ? $request['assigned_to'] : 'Unassigned');
+                    ?>
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors request-row <?php echo $request['status'] === 'pending' ? 'bg-amber-50/30' : ''; ?>"
                         data-request-id="<?php echo htmlspecialchars(strtolower($request['request_id']), ENT_QUOTES, 'UTF-8'); ?>"
                         data-owner="<?php echo htmlspecialchars(strtolower($request['owner_name']), ENT_QUOTES, 'UTF-8'); ?>"
                         data-tank="<?php echo htmlspecialchars($request['tank_id'], ENT_QUOTES, 'UTF-8'); ?>"
-                        data-technician="<?php echo htmlspecialchars(strtolower($request['assigned_to'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-technician="<?php echo htmlspecialchars(strtolower($assignedProvider), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-provider-id="<?php echo htmlspecialchars($request['provider_id'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                         data-status="<?php echo htmlspecialchars($request['status'], ENT_QUOTES, 'UTF-8'); ?>"
                         data-type="<?php echo htmlspecialchars($request['service_type'], ENT_QUOTES, 'UTF-8'); ?>"
                         data-priority="<?php echo htmlspecialchars($request['priority'], ENT_QUOTES, 'UTF-8'); ?>"
@@ -298,7 +313,12 @@ $title = 'Service Requests';
                                 <?php echo ucfirst($request['service_type']); ?>
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs"><?php echo $request['assigned_to'] ?? 'Unassigned'; ?></td>
+                        <td class="px-4 py-3 text-slate-600 text-xs">
+                            <div class="flex items-center gap-1.5">
+                                <i class="fa-solid fa-truck-droplet text-brand-medium text-xs"></i>
+                                <span class="font-medium text-slate-800"><?php echo htmlspecialchars($assignedProvider, ENT_QUOTES, 'UTF-8'); ?></span>
+                            </div>
+                        </td>
                         <td class="px-4 py-3">
                             <?php
                                 $statusColors = [
@@ -497,6 +517,19 @@ $title = 'Service Requests';
                 </div>
             </div>
             <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Assign Service Provider</label>
+                <select id="req_provider" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="">Select Accredited Provider (Optional)</option>
+                    <?php foreach ($serviceProviders as $sp): ?>
+                        <option value="<?php echo htmlspecialchars($sp['provider_id'], ENT_QUOTES, 'UTF-8'); ?>"
+                                data-name="<?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?>
+                            (<?php echo ucfirst($sp['specialization']); ?> &bull; ★<?php echo number_format((float)($sp['rating'] ?? 5.0), 1); ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Priority</label>
                 <select id="req_priority" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
                     <option value="low">Low</option>
@@ -569,6 +602,17 @@ $title = 'Service Requests';
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Type</label><select id="edit_request_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="desludging">Desludging</option><option value="maintenance">Maintenance</option><option value="inspection">Inspection</option><option value="installation">Installation</option></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Provider</label>
+                    <select id="edit_request_provider" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 outline-none">
+                        <option value="">Unassigned</option>
+                        <?php foreach ($serviceProviders as $sp): ?>
+                            <option value="<?php echo htmlspecialchars($sp['provider_id'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-name="<?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Preferred Date</label><input type="date" id="edit_request_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Preferred Time</label><input type="time" id="edit_request_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Priority</label><select id="edit_request_priority" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></div>
@@ -687,6 +731,7 @@ $title = 'Service Requests';
 <script>
     let REQUESTS = <?php echo json_encode(array_column($serviceRequests, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
     const TANKS_GEO = <?php echo json_encode($tankLookup, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+    const PROVIDER_LOOKUP = <?php echo json_encode($providerLookup, JSON_PRETTY_PRINT); ?>;
 
     // Modal functions, toast, sanitizeHTML provided by common.js
 
@@ -717,7 +762,11 @@ $title = 'Service Requests';
             const rTankId = sanitizeHTML(r.tank_id);
             const rType = sanitizeHTML(r.service_type);
             const rAddress = sanitizeHTML(r.address);
-            const rAssigned = sanitizeHTML(r.assigned_to || 'Unassigned');
+            const rAssigned = sanitizeHTML(
+                (r.provider_id && PROVIDER_LOOKUP[r.provider_id]) 
+                    ? PROVIDER_LOOKUP[r.provider_id] 
+                    : (r.assigned_to || 'Unassigned')
+            );
             const rNotes = sanitizeHTML(r.notes);
             const rFeedback = sanitizeHTML(r.feedback);
             const rStatus = sanitizeHTML(r.status);
@@ -745,7 +794,7 @@ $title = 'Service Requests';
                         <div><p class="text-xs text-slate-400 font-semibold">Service Type</p><p class="text-sm text-slate-800 capitalize">${rType}</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Address</p><p class="text-sm text-slate-800">${rAddress}</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Preferred Date</p><p class="text-sm text-slate-800">${new Date(r.preferred_date).toLocaleDateString()} at ${rTimeStr}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Assigned To</p><p class="text-sm text-slate-800">${rAssigned}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Assigned Provider</p><p class="text-sm font-medium text-slate-800">${rAssigned}</p></div>
                         ${r.completed_at ? `<div><p class="text-xs text-slate-400 font-semibold">Completed</p><p class="text-sm text-slate-800">${new Date(r.completed_at).toLocaleDateString()}</p></div>` : ''}
                         ${r.rating ? `<div><p class="text-xs text-slate-400 font-semibold">Rating</p><p class="text-sm text-amber-500">${'⭐'.repeat(r.rating)}</p></div>` : ''}
                     </div>
@@ -853,11 +902,26 @@ $title = 'Service Requests';
         }
 
         // Update dataset for filters
-        row.dataset.status   = r.status;
-        row.dataset.priority = r.priority || row.dataset.priority;
+        const assignedProvider = (r.provider_id && PROVIDER_LOOKUP[r.provider_id]) 
+            ? PROVIDER_LOOKUP[r.provider_id] 
+            : (r.assigned_to || 'Unassigned');
 
-        // Rebuild action buttons based on new status
+        row.dataset.status      = r.status;
+        row.dataset.priority    = r.priority || row.dataset.priority;
+        row.dataset.technician  = assignedProvider.toLowerCase();
+        row.dataset.providerId  = r.provider_id || '';
+
+        // Update provider cell and action buttons based on new status
         const tds = row.querySelectorAll('td');
+        if (tds.length >= 4) {
+            tds[3].innerHTML = `
+                <div class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-truck-droplet text-brand-medium text-xs"></i>
+                    <span class="font-medium text-slate-800">${sanitizeHTML(assignedProvider)}</span>
+                </div>
+            `;
+        }
+
         const actionsTd = tds[tds.length - 1];
         if (actionsTd) {
             const isPending    = r.status === 'pending';
@@ -922,7 +986,7 @@ $title = 'Service Requests';
         const safeLng = (geo.lng && !isNaN(geo.lng)) ? Number(geo.lng) : 120.9820;
         const owner = r.owner_name || 'Client';
         const tankId = r.tank_id || 'Tank';
-        const assigned = r.assigned_to || 'Unassigned';
+        const assigned = (r.provider_id && PROVIDER_LOOKUP[r.provider_id]) ? PROVIDER_LOOKUP[r.provider_id] : (r.assigned_to || 'Unassigned');
         const status = r.status || 'pending';
 
         document.getElementById('reqRouteMapTitle').textContent = `${sanitizeHTML(owner)} — ${sanitizeHTML(tankId)}`;
@@ -938,7 +1002,7 @@ $title = 'Service Requests';
         document.getElementById('reqRouteServiceInfo').innerHTML = `
             <div>
                 <p class="font-bold text-slate-800">${sanitizeHTML(tankId)} &bull; ${sanitizeHTML(owner)}</p>
-                <p class="text-slate-500 mt-0.5"><i class="fa-solid fa-user-gear mr-1 text-brand-medium"></i> Assigned: <strong class="text-slate-700">${sanitizeHTML(assigned)}</strong></p>
+                <p class="text-slate-500 mt-0.5"><i class="fa-solid fa-truck-droplet mr-1 text-brand-medium"></i> Assigned Provider: <strong class="text-slate-700">${sanitizeHTML(assigned)}</strong></p>
             </div>
             <div class="text-right">
                 ${statusBadges[status] || ''}
@@ -1172,6 +1236,21 @@ $title = 'Service Requests';
         document.getElementById('edit_request_priority').value = request.priority;
         document.getElementById('edit_request_status').value = request.status;
         document.getElementById('edit_request_notes').value = request.notes || '';
+
+        const provSelect = document.getElementById('edit_request_provider');
+        if (provSelect) {
+            provSelect.value = request.provider_id || '';
+            // Fallback match if provider_id was not set but assigned_to matches provider name
+            if (!provSelect.value && request.assigned_to) {
+                for (let opt of provSelect.options) {
+                    if (opt.dataset.name === request.assigned_to || (opt.text && opt.text.trim().startsWith(request.assigned_to))) {
+                        provSelect.value = opt.value;
+                        break;
+                    }
+                }
+            }
+        }
+
         openModal('editRequestModal');
     }
 
@@ -1189,6 +1268,9 @@ $title = 'Service Requests';
         };
         const stClass = r.service_type === 'desludging' ? 'bg-violet-100 text-violet-700' : (r.service_type === 'maintenance' ? 'bg-blue-100 text-blue-700' : (r.service_type === 'inspection' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'));
         const createdDate = new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+        const assignedProvider = (r.provider_id && PROVIDER_LOOKUP[r.provider_id]) 
+            ? PROVIDER_LOOKUP[r.provider_id] 
+            : (r.assigned_to || 'Unassigned');
 
         return `
             <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${sanitizeHTML(r.request_id || '')}</td>
@@ -1203,7 +1285,12 @@ $title = 'Service Requests';
                     ${sanitizeHTML(r.service_type ? r.service_type.charAt(0).toUpperCase() + r.service_type.slice(1) : '')}
                 </span>
             </td>
-            <td class="px-4 py-3 text-slate-600 text-xs">${sanitizeHTML(r.assigned_to || 'Unassigned')}</td>
+            <td class="px-4 py-3 text-slate-600 text-xs">
+                <div class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-truck-droplet text-brand-medium text-xs"></i>
+                    <span class="font-medium text-slate-800">${sanitizeHTML(assignedProvider)}</span>
+                </div>
+            </td>
             <td class="px-4 py-3">
                 <span class="px-2 py-1 rounded-full text-xs font-semibold ${statusColors[r.status] || statusColors.pending}">
                     ${sanitizeHTML((r.status || 'pending').replace('_', ' ').toUpperCase())}
@@ -1247,13 +1334,18 @@ $title = 'Service Requests';
         REQUESTS[r.id] = r;
         const tbody = document.getElementById('requestTableBody');
         if (!tbody) return;
+        const assignedProvider = (r.provider_id && PROVIDER_LOOKUP[r.provider_id]) 
+            ? PROVIDER_LOOKUP[r.provider_id] 
+            : (r.assigned_to || 'Unassigned');
+
         const tr = document.createElement('tr');
         tr.id = 'request-row-' + r.id;
         tr.className = 'border-b border-slate-100 hover:bg-brand-light/40 transition-colors request-row bg-amber-50/30';
         tr.setAttribute('data-request-id', (r.request_id || '').toLowerCase());
         tr.setAttribute('data-owner', (r.owner_name || '').toLowerCase());
         tr.setAttribute('data-tank', r.tank_id || '');
-        tr.setAttribute('data-technician', (r.assigned_to || '').toLowerCase());
+        tr.setAttribute('data-technician', assignedProvider.toLowerCase());
+        tr.setAttribute('data-provider-id', r.provider_id || '');
         tr.setAttribute('data-status', r.status || 'pending');
         tr.setAttribute('data-type', r.service_type || '');
         tr.setAttribute('data-priority', r.priority || 'medium');
@@ -1269,9 +1361,15 @@ $title = 'Service Requests';
         try {
             const id = document.getElementById('edit_request_id').value;
             const timeRaw = document.getElementById('edit_request_time').value;
+            const provSelect = document.getElementById('edit_request_provider');
+            const provId = provSelect ? provSelect.value : '';
+            const provName = provSelect && provSelect.selectedIndex > 0 ? (provSelect.options[provSelect.selectedIndex].dataset.name || provSelect.options[provSelect.selectedIndex].text.split('(')[0].trim()) : '';
+
             const payload = {
                 owner_name: document.getElementById('edit_request_owner').value.trim(),
                 service_type: document.getElementById('edit_request_type').value,
+                provider_id: provId || null,
+                assigned_to: provName || 'Unassigned',
                 preferred_date: document.getElementById('edit_request_date').value,
                 preferred_time: formatTime24to12(timeRaw),
                 priority: document.getElementById('edit_request_priority').value,
@@ -1329,12 +1427,18 @@ $title = 'Service Requests';
                 return;
             }
 
+            const provSelect = document.getElementById('req_provider');
+            const provId = provSelect ? provSelect.value : '';
+            const provName = provSelect && provSelect.selectedIndex > 0 ? (provSelect.options[provSelect.selectedIndex].dataset.name || provSelect.options[provSelect.selectedIndex].text.split('(')[0].trim()) : '';
+
             const payload = {
                 tank_id: tankId,
                 owner_name: ownerName,
                 address: document.getElementById('req_address')?.value?.trim() || '',
                 barangay: document.getElementById('req_barangay')?.value || 'Barangay San Jose',
                 service_type: document.getElementById('req_type')?.value || 'desludging',
+                provider_id: provId || null,
+                assigned_to: provName || 'Unassigned',
                 preferred_date: document.getElementById('req_date')?.value || new Date().toISOString().split('T')[0],
                 preferred_time: formatTime24to12(document.getElementById('req_time')?.value || '09:00'),
                 priority: document.getElementById('req_priority')?.value || 'medium',

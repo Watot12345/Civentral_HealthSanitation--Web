@@ -35,10 +35,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     exit;
 }
 
-// Load technicians from Supabase (replaces hardcoded array)
+// Load technicians & service providers from Supabase
 require_once __DIR__ . '/../../app/Models/Technician.php';
+require_once __DIR__ . '/../../app/Models/ServiceProvider.php';
 $technicianModel = new Technician();
 $technicians = $technicianModel->all();
+$serviceProviderModel = new ServiceProvider();
+$serviceProviders = $serviceProviderModel->all();
+
+$providerLookup = [];
+foreach ($serviceProviders as $sp) {
+    if (!empty($sp['provider_id'])) {
+        $providerLookup[$sp['provider_id']] = $sp['name'];
+    }
+}
 
 require_once __DIR__ . '/../../app/Models/MaintenanceRecord.php';
 require_once __DIR__ . '/../../app/Models/SepticTank.php';
@@ -214,26 +224,26 @@ $title = 'Maintenance & Desludging';
         </div>
     </div>
 
-    <!-- Technician Status -->
+    <!-- Service Provider Status -->
     <div class="bg-white rounded-xl shadow-xs border border-slate-200 p-3 mb-4">
-        <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">👷 Technician Status</h4>
+        <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-truck-droplet text-brand-medium"></i> Accredited Service Providers
+        </h4>
         <div class="flex flex-wrap gap-4">
-            <?php foreach ($technicians as $tech): ?>
+            <?php foreach ($serviceProviders as $sp): ?>
                 <?php
-                    $statusColors = [
-                        'available' => 'bg-emerald-100 text-emerald-700',
-                        'on_site' => 'bg-blue-100 text-blue-700',
-                        'en_route' => 'bg-amber-100 text-amber-700',
+                    $spStatusColors = [
+                        'active' => 'bg-emerald-100 text-emerald-700',
+                        'inactive' => 'bg-slate-100 text-slate-600',
+                        'suspended' => 'bg-rose-100 text-rose-700',
                     ];
+                    $isActive = ($sp['status'] ?? 'active') === 'active';
                 ?>
                 <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full <?php echo $tech['status'] === 'available' ? 'bg-emerald-500' : ($tech['status'] === 'on_site' ? 'bg-blue-500' : 'bg-amber-500'); ?>"></span>
-                    <span class="text-xs font-medium text-slate-700"><?php echo $tech['name']; ?></span>
-                    <span class="text-[10px] px-2 py-0.5 rounded-full <?php echo $statusColors[$tech['status']] ?? 'bg-slate-100 text-slate-500'; ?>">
-                        <?php echo str_replace('_', ' ', ucfirst($tech['status'])); ?>
-                        <?php if ($tech['assignment']): ?>
-                            (<?php echo $tech['assignment']; ?>)
-                        <?php endif; ?>
+                    <span class="w-2 h-2 rounded-full <?php echo $isActive ? 'bg-emerald-500' : 'bg-slate-400'; ?>"></span>
+                    <span class="text-xs font-medium text-slate-700"><?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="text-[10px] px-2 py-0.5 rounded-full <?php echo $spStatusColors[$sp['status'] ?? 'active'] ?? 'bg-slate-100 text-slate-500'; ?>">
+                        <?php echo ucfirst($sp['specialization'] ?? 'General'); ?> &bull; ★<?php echo number_format((float)($sp['rating'] ?? 5.0), 1); ?>
                     </span>
                 </div>
             <?php endforeach; ?>
@@ -265,9 +275,9 @@ $title = 'Maintenance & Desludging';
                     <option value="installation">Installation</option>
                 </select>
                 <select id="filterTechnician" class="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none text-sm bg-white">
-                    <option value="">All Technicians</option>
-                    <?php foreach ($technicians as $tech): ?>
-                        <option value="<?php echo $tech['name']; ?>"><?php echo $tech['name']; ?></option>
+                    <option value="">All Service Providers</option>
+                    <?php foreach ($serviceProviders as $sp): ?>
+                        <option value="<?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?></option>
                     <?php endforeach; ?>
                 </select>
                       <input type="date" id="filterDateFrom" aria-label="Scheduled date from"
@@ -291,7 +301,7 @@ $title = 'Maintenance & Desludging';
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Service ID</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tank / Owner</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Technician</th>
+                        <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Service Provider</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Scheduled</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
                         <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Cost</th>
@@ -299,13 +309,18 @@ $title = 'Maintenance & Desludging';
                     </tr>
                 </thead>
                 <tbody id="maintenanceTableBody">
-                    <?php foreach ($maintenanceRecords as $record): ?>
+                    <?php foreach ($maintenanceRecords as $record): 
+                        $assignedProviderName = !empty($record['provider_id']) && isset($providerLookup[$record['provider_id']]) 
+                            ? $providerLookup[$record['provider_id']] 
+                            : (!empty($record['technician']) ? $record['technician'] : 'Unassigned');
+                    ?>
                     <tr class="border-b border-slate-100 hover:bg-brand-light/40 transition-colors maintenance-row <?php echo $record['status'] === 'in_progress' ? 'bg-amber-50/30' : ''; ?>"
                         data-owner="<?php echo htmlspecialchars(strtolower($record['owner_name']), ENT_QUOTES, 'UTF-8'); ?>"
                         data-tank="<?php echo htmlspecialchars($record['tank_id'], ENT_QUOTES, 'UTF-8'); ?>"
                         data-status="<?php echo htmlspecialchars($record['status'], ENT_QUOTES, 'UTF-8'); ?>"
                         data-type="<?php echo htmlspecialchars($record['service_type'], ENT_QUOTES, 'UTF-8'); ?>"
-                        data-technician="<?php echo htmlspecialchars(strtolower($record['technician']), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-technician="<?php echo htmlspecialchars(strtolower($assignedProviderName), ENT_QUOTES, 'UTF-8'); ?>"
+                        data-provider-id="<?php echo htmlspecialchars($record['provider_id'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                         data-scheduled-date="<?php echo htmlspecialchars($record['scheduled_date'], ENT_QUOTES, 'UTF-8'); ?>"
                         data-row-id="<?php echo (int)$record['id']; ?>"
                         data-id="<?php echo (int)$record['id']; ?>"
@@ -322,7 +337,12 @@ $title = 'Maintenance & Desludging';
                                 <?php echo ucfirst($record['service_type']); ?>
                             </span>
                         </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs"><?php echo $record['technician']; ?></td>
+                        <td class="px-4 py-3 text-slate-600 text-xs">
+                            <div class="flex items-center gap-1.5">
+                                <i class="fa-solid fa-truck-droplet text-brand-medium text-xs"></i>
+                                <span class="font-medium text-slate-800"><?php echo htmlspecialchars($assignedProviderName, ENT_QUOTES, 'UTF-8'); ?></span>
+                            </div>
+                        </td>
                         <td class="px-4 py-3 text-slate-500 text-xs">
                             <?php 
                                 $schedTs = !empty($record['scheduled_date']) ? strtotime($record['scheduled_date']) : false;
@@ -506,12 +526,14 @@ $title = 'Maintenance & Desludging';
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Assign Technician <span class="text-rose-500">*</span></label>
-                    <select id="schedule_technician" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <option value="">Select Technician</option>
-                        <?php foreach ($technicians as $tech): ?>
-                            <option value="<?php echo htmlspecialchars($tech['name'], ENT_QUOTES, 'UTF-8'); ?>">
-                                <?php echo htmlspecialchars($tech['name'] . ' (' . $tech['role'] . ')', ENT_QUOTES, 'UTF-8'); ?>
+                    <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Assign Service Provider <span class="text-rose-500">*</span></label>
+                    <select id="schedule_provider" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                        <option value="">Select Accredited Provider</option>
+                        <?php foreach ($serviceProviders as $sp): ?>
+                            <option value="<?php echo htmlspecialchars($sp['provider_id'], ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-name="<?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?>
+                                (<?php echo ucfirst($sp['specialization']); ?> &bull; ★<?php echo number_format((float)($sp['rating'] ?? 5.0), 1); ?>)
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -588,7 +610,7 @@ $title = 'Maintenance & Desludging';
                     </div>
                 </div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Type</label><select id="edit_service_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="desludging">Desludging</option><option value="maintenance">Maintenance</option><option value="inspection">Inspection</option><option value="installation">Installation</option></select></div>
-                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Technician</label><select id="edit_service_technician" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><?php foreach ($technicians as $tech): ?><option value="<?php echo $tech['name']; ?>"><?php echo $tech['name']; ?></option><?php endforeach; ?></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Service Provider</label><select id="edit_service_provider" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="">Select Provider</option><?php foreach ($serviceProviders as $sp): ?><option value="<?php echo htmlspecialchars($sp['provider_id'], ENT_QUOTES, 'UTF-8'); ?>" data-name="<?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($sp['name'], ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Scheduled Date</label><input type="date" id="edit_service_date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Scheduled Time</label><input type="time" id="edit_service_time" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none"></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_service_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="scheduled">Scheduled</option><option value="in_progress">In Progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
@@ -752,7 +774,7 @@ $title = 'Maintenance & Desludging';
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div><p class="text-xs text-slate-400 font-semibold">Service Type</p><p class="text-sm text-slate-800 capitalize">${sType}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold">Technician</p><p class="text-sm text-slate-800">${sTech}</p></div>
+                        <div><p class="text-xs text-slate-400 font-semibold">Service Provider</p><p class="text-sm font-medium text-slate-800">${sTech || 'Unassigned'}</p></div>
                         <div><p class="text-xs text-slate-400 font-semibold">Scheduled Date</p><p class="text-sm text-slate-800">${new Date(s.scheduled_date).toLocaleDateString()} at ${sTimeStr}</p></div>
                         ${s.completed_date ? `<div><p class="text-xs text-slate-400 font-semibold">Completed</p><p class="text-sm text-slate-800">${new Date(s.completed_date).toLocaleDateString()} at ${sanitizeHTML(s.completed_time)}</p></div>` : ''}
                         <div><p class="text-xs text-slate-400 font-semibold">Cost</p><p class="text-sm font-bold text-slate-800">&curren;${Number(s.cost).toFixed(2)}</p></div>
@@ -883,6 +905,18 @@ $title = 'Maintenance & Desludging';
         // Update dataset for filters
         row.dataset.status    = s.status;
         row.dataset.technician = (s.technician || '').toLowerCase();
+        if (s.provider_id) row.dataset.providerId = s.provider_id;
+
+        // Update provider cell if exists
+        const cells = row.querySelectorAll('td');
+        if (cells[3] && s.technician) {
+            cells[3].innerHTML = `
+                <div class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-truck-droplet text-brand-medium text-xs"></i>
+                    <span class="font-medium text-slate-800">${sanitizeHTML(s.technician)}</span>
+                </div>
+            `;
+        }
 
         // Update cost cell
         const costCell = row.querySelector('.text-sm.font-bold.text-slate-700');
@@ -982,7 +1016,24 @@ $title = 'Maintenance & Desludging';
         document.getElementById('edit_service_tank').value = service.tank_id;
         document.getElementById('edit_service_owner').value = service.owner_name;
         document.getElementById('edit_service_type').value = service.service_type;
-        document.getElementById('edit_service_technician').value = service.technician;
+        
+        const pSel = document.getElementById('edit_service_provider');
+        if (pSel) {
+            if (service.provider_id) {
+                pSel.value = service.provider_id;
+            } else {
+                let matched = false;
+                for (let opt of pSel.options) {
+                    if (opt.dataset.name === service.technician || opt.value === service.technician) {
+                        pSel.value = opt.value;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) pSel.value = '';
+            }
+        }
+        
         document.getElementById('edit_service_date').value = service.scheduled_date;
         document.getElementById('edit_service_time').value = parseTimeTo24(service.scheduled_time);
         document.getElementById('edit_service_status').value = service.status;
@@ -1001,13 +1052,18 @@ $title = 'Maintenance & Desludging';
             }
             const id = document.getElementById('edit_service_id').value;
             const timeRaw = document.getElementById('edit_service_time').value;
+            const pSel = document.getElementById('edit_service_provider');
+            const providerId = pSel?.value || '';
+            const providerName = pSel?.selectedOptions[0]?.dataset?.name || pSel?.selectedOptions[0]?.text || '';
+
             const payload = {
                 tank_id: document.getElementById('edit_service_tank').value.trim(),
                 owner_name: document.getElementById('edit_service_owner').value.trim(),
                 service_type: document.getElementById('edit_service_type').value,
                 scheduled_date: document.getElementById('edit_service_date').value,
                 scheduled_time: formatTime24to12(timeRaw),
-                technician: document.getElementById('edit_service_technician').value,
+                provider_id: providerId || null,
+                technician: providerName || 'Unassigned',
                 status: document.getElementById('edit_service_status').value,
                 cost: Number(costVal),
                 notes: document.getElementById('edit_service_notes').value.trim()
@@ -1099,7 +1155,7 @@ $title = 'Maintenance & Desludging';
         document.getElementById('routeServiceInfo').innerHTML = `
             <div>
                 <p class="font-bold text-slate-800">${sanitizeHTML(tankId)} &bull; ${sanitizeHTML(owner)}</p>
-                <p class="text-slate-500 mt-0.5"><i class="fa-solid fa-user-gear mr-1 text-brand-medium"></i> Technician: <strong class="text-slate-700">${sanitizeHTML(tech)}</strong></p>
+                <p class="text-slate-500 mt-0.5"><i class="fa-solid fa-truck-droplet mr-1 text-brand-medium"></i> Service Provider: <strong class="text-slate-700">${sanitizeHTML(tech)}</strong></p>
             </div>
             <div class="text-right">
                 ${statusBadges[status] || ''}
@@ -1313,6 +1369,10 @@ $title = 'Maintenance & Desludging';
                 return;
             }
 
+            const pSel = document.getElementById('schedule_provider');
+            const providerId = pSel?.value || '';
+            const providerName = pSel?.selectedOptions[0]?.dataset?.name || pSel?.selectedOptions[0]?.text || '';
+
             const payload = {
                 tank_id: tankId,
                 owner_name: ownerName,
@@ -1320,7 +1380,8 @@ $title = 'Maintenance & Desludging';
                 service_type: document.getElementById('schedule_type')?.value || 'desludging',
                 scheduled_date: scheduledDate,
                 scheduled_time: formatTime24to12(document.getElementById('schedule_time')?.value || '09:00'),
-                technician: document.getElementById('schedule_technician')?.value || '',
+                provider_id: providerId || null,
+                technician: providerName || 'Unassigned',
                 cost: Number(costVal),
                 notes: document.getElementById('schedule_notes')?.value?.trim() || ''
             };
@@ -1348,7 +1409,8 @@ $title = 'Maintenance & Desludging';
                     row.setAttribute('data-tank', created.tank_id || '');
                     row.setAttribute('data-status', created.status || 'scheduled');
                     row.setAttribute('data-type', created.service_type || '');
-                    row.setAttribute('data-technician', String(created.technician || '').toLowerCase());
+                    row.setAttribute('data-technician', String(created.technician || providerName || '').toLowerCase());
+                    row.setAttribute('data-provider-id', String(created.provider_id || providerId || ''));
                     row.setAttribute('data-scheduled-date', created.scheduled_date || '');
                     row.innerHTML = `
                         <td class="px-4 py-3 font-mono text-xs text-brand-dark font-semibold">${sanitizeHTML(created.service_id || '')}</td>
@@ -1359,7 +1421,12 @@ $title = 'Maintenance & Desludging';
                             </div>
                         </td>
                         <td class="px-4 py-3 text-slate-600 text-xs capitalize">${sanitizeHTML(created.service_type || '')}</td>
-                        <td class="px-4 py-3 text-slate-600 text-xs">${sanitizeHTML(created.technician || '')}</td>
+                        <td class="px-4 py-3 text-slate-600 text-xs">
+                            <div class="flex items-center gap-1.5">
+                                <i class="fa-solid fa-truck-droplet text-brand-medium text-xs"></i>
+                                <span class="font-medium text-slate-800">${sanitizeHTML(created.technician || providerName || 'Unassigned')}</span>
+                            </div>
+                        </td>
                         <td class="px-4 py-3 text-slate-500 text-xs">${created.scheduled_date ? new Date(created.scheduled_date).toLocaleDateString() : ''}<span class="block mt-1">${sanitizeHTML(created.scheduled_time || '')}</span></td>
                         <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">${sanitizeHTML(String((created.status || 'scheduled')).replace('_', ' ').toUpperCase())}</span></td>
                         <td class="px-4 py-3"><span class="text-sm font-bold text-slate-700">₱${Number(created.cost || 0).toFixed(2)}</span></td>
