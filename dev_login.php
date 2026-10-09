@@ -106,5 +106,10 @@ if (empty($_SESSION['csrf_token'])) {
 \App\Services\PermissionService::getInstance()->invalidateCache();
 
 $redirect = $_GET['redirect'] ?? 'pages/dashboard.php';
+$extraParams = $_GET;
+unset($extraParams['role'], $extraParams['redirect']);
+if (!empty($extraParams)) {
+    $redirect .= (str_contains($redirect, '?') ? '&' : '?') . http_build_query($extraParams);
+}
 header('Location: ' . site_url($redirect));
 exit;

@@ -656,21 +656,24 @@ class PermissionService
                 'dashboard.view', 'dashboard.immunization',
                 'analytics.view', 'analytics.immunization', 'reports.view', 'reports.immunization',
                 'immunization.view', 'immunization.create', 'immunization.edit', 'patients.view',
+                'triage.view', 'consultations.view',
                 'users.view', 'users.create', 'users.edit'
             ],
             'Midwife' => [
                 'dashboard.view', 'dashboard.immunization', 'reports.view', 'reports.immunization',
                 'immunization.view', 'immunization.create',
-                'patients.view', 'patients.create', 'triage.create'
+                'patients.view', 'patients.create', 'triage.view', 'triage.create', 'consultations.view'
             ],
             'Nutritionist' => [
                 'dashboard.view', 'dashboard.immunization',
                 'analytics.view', 'analytics.immunization', 'reports.view', 'reports.immunization',
-                'immunization.view', 'immunization.create', 'immunization.edit', 'patients.view'
+                'immunization.view', 'immunization.create', 'immunization.edit', 'patients.view',
+                'triage.view', 'consultations.view'
             ],
             'Nutrition Educator' => [
                 'dashboard.view', 'dashboard.immunization',
-                'reports.view', 'reports.immunization', 'immunization.view', 'immunization.create'
+                'reports.view', 'reports.immunization', 'immunization.view', 'immunization.create',
+                'triage.view', 'consultations.view'
             ],
             'Wastewater Officer' => [
                 'dashboard.view', 'dashboard.wastewater',

@@ -164,7 +164,86 @@ $userScope = getUserScope();
       </div>
       <?php endif; ?>
 
-      <!-- MODULE 2: SANITATION PERMITS -->
+      <!-- MODULE 2: IMMUNIZATION & NUTRITION -->
+      <?php if (($userScope['is_admin'] || in_array($userScope['department'], ['immunization', 'Immunization'], true) || ($userScope['department_slug'] ?? '') === 'immunization') && (hasPermission('immunization.view') || hasPermission('patients.view') || hasPermission('dashboard.view'))): ?>
+      <div class="space-y-1">
+        <button onclick="toggleDropdown('immunizationDropdown', 'immunizationChevron')" 
+                class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
+                <?php echo ($activeModule === 'immunization') ? 'bg-white/60 text-brand-dark' : 'text-slate-600 hover:bg-white/60 hover:text-brand-dark'; ?> cursor-pointer">
+          <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-syringe text-sm <?php echo ($activeModule === 'immunization') ? 'text-brand-medium' : 'text-slate-400 group-hover:text-brand-medium'; ?> transition"></i>
+            <span class="sidebar-text truncate">Immunization & Nutrition</span>
+          </div>
+          <div class="dropdown-right">
+            <i id="immunizationChevron" class="fa-solid fa-chevron-down text-[10px] opacity-60 dropdown-chevron transition-transform duration-200"></i>
+          </div>
+        </button>
+        <div id="immunizationDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
+          
+          <?php if ($userScope['is_admin'] || in_array('immunization', $userScope['modules'], true)): ?>
+          <a href="<?= site_url('modules/immunization/child_records.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'child_records.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+            <i class="fa-solid fa-id-card text-[10px] opacity-50"></i> 
+            <span>Immunization Records</span>
+          </a>
+          
+          <a href="<?= site_url('modules/immunization/vaccination_tracking.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'vaccination_tracking.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+            <i class="fa-solid fa-vial text-[10px] opacity-50"></i> 
+            <span>Vaccination Tracking</span>
+          </a>
+          
+          <a href="<?= site_url('modules/immunization/vaccine_inventory.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'vaccine_inventory.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+            <i class="fa-solid fa-boxes text-[10px] opacity-50"></i> 
+            <span>Vaccine Inventory</span>
+          </a>
+          <?php endif; ?>
+          
+          <?php if ($userScope['is_admin'] || in_array('nutrition', $userScope['modules'], true)): ?>
+          <a href="<?= site_url('modules/immunization/nutrition_assessment.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'nutrition_assessment.php') !== false || strpos($currentPath, 'growth_charts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+            <i class="fa-solid fa-apple-alt text-[10px] opacity-50"></i> 
+            <span>Nutrition & Growth</span>
+          </a>
+          <?php endif; ?>
+
+        </div>
+      </div>
+      <?php endif; ?>
+
+      <!-- MODULE 3: HEALTH SURVEILLANCE -->
+      <?php if (($userScope['is_admin'] || in_array($userScope['department'], ['surveillance', 'Health Surveillance'], true) || ($userScope['department_slug'] ?? '') === 'surveillance') && (hasPermission('dashboard.view') || hasPermission('reports.view'))): ?>
+      <div class="space-y-1">
+        <button onclick="toggleDropdown('surveillanceDropdown', 'surveillanceChevron')" 
+                class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
+                <?php echo ($activeModule === 'surveillance') ? 'bg-white/60 text-brand-dark' : 'text-slate-600 hover:bg-white/60 hover:text-brand-dark'; ?> cursor-pointer">
+          <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-binoculars text-sm <?php echo ($activeModule === 'surveillance') ? 'text-brand-medium' : 'text-slate-400 group-hover:text-brand-medium'; ?> transition"></i>
+            <span class="sidebar-text truncate">Health Surveillance</span>
+          </div>
+          <div class="dropdown-right">
+            <i id="surveillanceChevron" class="fa-solid fa-chevron-down text-[10px] opacity-60 dropdown-chevron transition-transform duration-200"></i>
+          </div>
+        </button>
+        <div id="surveillanceDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
+          
+          <a href="<?= site_url('modules/surveillence/case_reports.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'case_reports.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+            <i class="fa-solid fa-file-medical text-[10px] opacity-50"></i> 
+            <span>Case Reports</span>
+          </a>
+          
+          <a href="<?= site_url('modules/surveillence/mapping.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'mapping.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+            <i class="fa-solid fa-map text-[10px] opacity-50"></i> 
+            <span>Mapping & Clustering</span>
+          </a>
+          
+          <a href="<?= site_url('modules/surveillence/outbreak_command.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'outbreak_command.php') !== false || strpos($currentPath, 'outbreak_detection.php') !== false || strpos($currentPath, 'alerts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
+            <i class="fa-solid fa-shield-virus text-[10px] opacity-50"></i> 
+            <span>Outbreak Surveillance</span>
+          </a>
+
+        </div>
+      </div>
+      <?php endif; ?>
+
+      <!-- MODULE 4: SANITATION PERMITS -->
       <?php if (($userScope['is_admin'] || in_array($userScope['department'], ['sanitation', 'Sanitation'], true) || ($userScope['department_slug'] ?? '') === 'sanitation') && (hasPermission('permits.view') || hasPermission('inspections.view') || hasPermission('inspections.conduct'))): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('sanitationDropdown', 'sanitationChevron')" 
@@ -219,51 +298,7 @@ $userScope = getUserScope();
       </div>
       <?php endif; ?>
 
-      <!-- MODULE 3: IMMUNIZATION & NUTRITION -->
-      <?php if (($userScope['is_admin'] || in_array($userScope['department'], ['immunization', 'Immunization'], true) || ($userScope['department_slug'] ?? '') === 'immunization') && (hasPermission('immunization.view') || hasPermission('patients.view') || hasPermission('dashboard.view'))): ?>
-      <div class="space-y-1">
-        <button onclick="toggleDropdown('immunizationDropdown', 'immunizationChevron')" 
-                class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
-                <?php echo ($activeModule === 'immunization') ? 'bg-white/60 text-brand-dark' : 'text-slate-600 hover:bg-white/60 hover:text-brand-dark'; ?> cursor-pointer">
-          <div class="flex items-center space-x-3">
-            <i class="fa-solid fa-syringe text-sm <?php echo ($activeModule === 'immunization') ? 'text-brand-medium' : 'text-slate-400 group-hover:text-brand-medium'; ?> transition"></i>
-            <span class="sidebar-text truncate">Immunization & Nutrition</span>
-          </div>
-          <div class="dropdown-right">
-            <i id="immunizationChevron" class="fa-solid fa-chevron-down text-[10px] opacity-60 dropdown-chevron transition-transform duration-200"></i>
-          </div>
-        </button>
-        <div id="immunizationDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
-          
-          <?php if ($userScope['is_admin'] || in_array('immunization', $userScope['modules'], true)): ?>
-          <a href="<?= site_url('modules/immunization/child_records.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'child_records.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-child text-[10px] opacity-50"></i> 
-            <span>Child Records</span>
-          </a>
-          
-          <a href="<?= site_url('modules/immunization/vaccination_tracking.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'vaccination_tracking.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-vial text-[10px] opacity-50"></i> 
-            <span>Vaccination Tracking</span>
-          </a>
-          
-          <a href="<?= site_url('modules/immunization/vaccine_inventory.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'vaccine_inventory.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-boxes text-[10px] opacity-50"></i> 
-            <span>Vaccine Inventory</span>
-          </a>
-          <?php endif; ?>
-          
-          <?php if ($userScope['is_admin'] || in_array('nutrition', $userScope['modules'], true)): ?>
-          <a href="<?= site_url('modules/immunization/nutrition_assessment.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'nutrition_assessment.php') !== false || strpos($currentPath, 'growth_charts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-apple-alt text-[10px] opacity-50"></i> 
-            <span>Nutrition & Growth</span>
-          </a>
-          <?php endif; ?>
-
-        </div>
-      </div>
-      <?php endif; ?>
-
-      <!-- MODULE 4: WASTEWATER SERVICES -->
+      <!-- MODULE 5: WASTEWATER SERVICES -->
       <?php if (($userScope['is_admin'] || in_array($userScope['department'], ['wastewater', 'Wastewater'], true) || ($userScope['department_slug'] ?? '') === 'wastewater') && (hasPermission('permits.view') || hasPermission('inspections.view'))): ?>
       <div class="space-y-1">
         <button onclick="toggleDropdown('wastewaterDropdown', 'wastewaterChevron')" 
@@ -305,41 +340,6 @@ $userScope = getUserScope();
           if ($isHeadOrAdmin || hasPermission('wastewater.manage')): 
           ?>
           <?php endif; ?>
-
-        </div>
-      </div>
-      <?php endif; ?>
-
-      <!-- MODULE 5: HEALTH SURVEILLANCE -->
-      <?php if (($userScope['is_admin'] || in_array($userScope['department'], ['surveillance', 'Health Surveillance'], true) || ($userScope['department_slug'] ?? '') === 'surveillance') && (hasPermission('dashboard.view') || hasPermission('reports.view'))): ?>
-      <div class="space-y-1">
-        <button onclick="toggleDropdown('surveillanceDropdown', 'surveillanceChevron')" 
-                class="dropdown-btn w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition group 
-                <?php echo ($activeModule === 'surveillance') ? 'bg-white/60 text-brand-dark' : 'text-slate-600 hover:bg-white/60 hover:text-brand-dark'; ?> cursor-pointer">
-          <div class="flex items-center space-x-3">
-            <i class="fa-solid fa-binoculars text-sm <?php echo ($activeModule === 'surveillance') ? 'text-brand-medium' : 'text-slate-400 group-hover:text-brand-medium'; ?> transition"></i>
-            <span class="sidebar-text truncate">Health Surveillance</span>
-          </div>
-          <div class="dropdown-right">
-            <i id="surveillanceChevron" class="fa-solid fa-chevron-down text-[10px] opacity-60 dropdown-chevron transition-transform duration-200"></i>
-          </div>
-        </button>
-        <div id="surveillanceDropdown" class="hidden pl-8 pr-2 space-y-0.5 font-medium sidebar-text">
-          
-          <a href="<?= site_url('modules/surveillence/case_reports.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'case_reports.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-file-medical text-[10px] opacity-50"></i> 
-            <span>Case Reports</span>
-          </a>
-          
-          <a href="<?= site_url('modules/surveillence/mapping.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'mapping.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-map text-[10px] opacity-50"></i> 
-            <span>Mapping & Clustering</span>
-          </a>
-          
-          <a href="<?= site_url('modules/surveillence/outbreak_command.php') ?>" class="flex items-center space-x-2 px-3 py-2 text-[11px] rounded-md transition <?php echo (strpos($currentPath, 'outbreak_command.php') !== false || strpos($currentPath, 'outbreak_detection.php') !== false || strpos($currentPath, 'alerts.php') !== false) ? 'bg-brand-light text-brand-dark' : 'text-slate-500 hover:bg-brand-light hover:text-brand-dark'; ?>">
-            <i class="fa-solid fa-shield-virus text-[10px] opacity-50"></i> 
-            <span>Outbreak Surveillance</span>
-          </a>
 
         </div>
       </div>
