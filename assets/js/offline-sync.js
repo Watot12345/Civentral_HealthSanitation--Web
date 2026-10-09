@@ -597,40 +597,22 @@ const CiventralOfflineSync = (function() {
         initPWAInstallPrompt();
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                // BUG-006: use PHP-emitted base URL so SW resolves correctly under subdirectory
-                const appBase = (window.SITE_URL || window.APP_BASE_URL || '').replace(/\/+$/, '');
-                const swUrl = (appBase || '') + '/sw.js';
-                const registerOptions = appBase ? { scope: appBase + '/' } : undefined;
+                // ServiceWorker temporarily disabled while offline mode is under development
+                navigator.serviceWorker.getRegistrations().then(registrations => {
+                    for (let registration of registrations) {
+                        registration.unregister().then(() => {
+                            console.info('[offline-sync] Unregistered existing ServiceWorker');
+                        });
+                    }
+                }).catch(() => {});
 
-                // Service workers are only permitted in a secure context. On a plain-HTTP
-                // origin (e.g. http://192.168.1.10) registration is guaranteed to fail, so
-                // skip it entirely and avoid a pointless console error.
-                // NOTE: http://localhost IS a secure context, so local dev over HTTP is fine.
-                if (!window.isSecureContext) {
-                    console.info('[offline-sync] ServiceWorker skipped: this origin is not a secure context. Use https:// with a trusted certificate, or http://localhost.');
-                    return;
-                }
-
-                // Preflight the worker script before calling register(). If the browser cannot
-                // fetch it — most commonly an expired/self-signed HTTPS certificate, which Chrome
-                // reports as "An SSL certificate error occurred when fetching the script." —
-                // register() is never attempted, so the failure is contained.
-                fetch(swUrl, { method: 'GET' })
-                    .then(res => {
-                        if (!res.ok) throw new Error('sw.js preflight returned HTTP ' + res.status);
-                        return navigator.serviceWorker.register(swUrl, registerOptions);
-                    })
-                    .then(registration => {
-                        console.log('[offline-sync] ServiceWorker registered, scope:', registration.scope);
-                    })
-                    .catch(err => {
-                        const msg = (err && err.message) ? err.message : String(err);
-                        if (/(ssl|certificate)/i.test(msg)) {
-                            console.info('[offline-sync] ServiceWorker skipped: the HTTPS certificate for this origin is not trusted. Generate a trusted certificate or use http://localhost.');
-                        } else {
-                            console.warn('[offline-sync] ServiceWorker registration failed:', err);
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        for (let name of names) {
+                            caches.delete(name);
                         }
-                    });
+                    }).catch(() => {});
+                }
             });
         }
 

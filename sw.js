@@ -1,3 +1,43 @@
+/**
+ * ============================================================================
+ * SERVICE WORKER (TEMPORARILY DISABLED)
+ * ============================================================================
+ * Disabled to prevent slow initial page loads and network interception while
+ * offline mode is still under development.
+ *
+ * When loaded by browsers that still have a cached service worker, this script
+ * immediately purges caches, unregisters itself, and lets all requests bypass
+ * directly to the network.
+ */
+
+self.addEventListener('install', () => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys()
+            .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+            .then(() => self.registration.unregister())
+            .then(() => self.clients.matchAll())
+            .then(clients => {
+                clients.forEach(client => {
+                    // Claim and release clients so network requests flow normally
+                    if (client && client.url) {
+                        console.info('[sw.js] ServiceWorker deactivated and unregistered.');
+                    }
+                });
+            })
+    );
+});
+
+// NOTE: Fetch listener is intentionally omitted so NO network requests are intercepted.
+
+/*
+// ============================================================================
+// ORIGINAL SERVICE WORKER CODE (Uncomment when offline mode is ready)
+// ============================================================================
+
 const CACHE_NAME = 'civentral-cache-v6';
 const STATIC_ASSETS = [
     './manifest.json',
@@ -19,7 +59,6 @@ const STATIC_ASSETS = [
     './assets/css/leaflet.css'
 ];
 
-// Install Event: Cache only static assets
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
@@ -30,7 +69,6 @@ self.addEventListener('install', event => {
     self.skipWaiting();
 });
 
-// Activate Event: Cleanup old caches
 self.addEventListener('activate', event => {
     event.waitUntil(
         caches.keys().then(cacheNames => {
@@ -46,21 +84,17 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// Fetch Event: Network-first for PHP/HTML/API, cache-first for static assets
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
 
-    // Skip non-GET requests entirely — let offline-sync.js handle mutations
     if (event.request.method !== 'GET') {
         return;
     }
 
-    // Skip API endpoints (both /api/ paths and *_api.php files)
     if (url.pathname.includes('/api/') || url.pathname.endsWith('_api.php')) {
         return;
     }
 
-    // Skip PHP pages — they require auth/sessions and should never be served from cache
     if (url.pathname.endsWith('.php')) {
         event.respondWith(
             fetch(event.request).catch(() => {
@@ -70,12 +104,10 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // Static assets: cache-first with network fallback
     event.respondWith(
         caches.match(event.request)
             .then(cachedResponse => {
                 if (cachedResponse) {
-                    // Serve from cache, update in background
                     fetch(event.request).then(response => {
                         if (response.ok && response.type === 'basic') {
                             caches.open(CACHE_NAME).then(cache => {
@@ -85,7 +117,6 @@ self.addEventListener('fetch', event => {
                     }).catch(() => {});
                     return cachedResponse;
                 }
-                // Not in cache — fetch from network, cache if successful
                 return fetch(event.request).then(response => {
                     if (response.ok && response.type === 'basic') {
                         const clone = response.clone();
@@ -95,9 +126,9 @@ self.addEventListener('fetch', event => {
                     }
                     return response;
                 }).catch(() => {
-                    // If network fails and no cache, return the offline fallback page
                     return caches.match('./offline.html');
                 });
             })
     );
 });
+*/
