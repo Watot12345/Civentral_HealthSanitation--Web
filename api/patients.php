@@ -33,13 +33,25 @@ try {
     if (!$patientId && isset($_GET['id']) && is_numeric($_GET['id'])) {
         $patientId = $_GET['id'];
     }
+    if (!$patientId && !empty($_GET['patient_id'])) {
+        $patientId = $_GET['patient_id'];
+    }
+    if (!$patientId && !empty($_GET['patient'])) {
+        $patientId = $_GET['patient'];
+    }
     
     $action = $_GET['action'] ?? '';
 
     switch ($method) {
         case 'GET':
             if ($patientId) {
-                $controller->show($patientId);
+                if ($action === 'history' || in_array('history', $parts, true)) {
+                    $controller->history((string)$patientId);
+                } else {
+                    $controller->show((string)$patientId);
+                }
+            } elseif ($action === 'history' && !empty($_GET['patient_id'])) {
+                $controller->history((string)$_GET['patient_id']);
             } elseif (isset($_GET['q'])) {
                 $controller->search();
             } else {

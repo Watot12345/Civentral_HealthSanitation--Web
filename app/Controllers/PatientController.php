@@ -58,6 +58,34 @@ class PatientController extends BaseController
             return ['success' => true, 'data' => $this->mapToFrontend($patient)];
         });
     }
+
+    public function history(string $id): void
+    {
+        $this->requireDepartment('health center services');
+        $this->requireCapability(Permissions::PATIENTS_VIEW);
+
+        $this->handle(function() use ($id) {
+            $patient = $this->patientModel->find($id);
+            if (!$patient && str_starts_with($id, 'P-')) {
+                $patient = $this->patientModel->findByPatientId($id);
+            }
+
+            if (!$patient) {
+                return ['success' => false, 'message' => 'Patient not found', 'code' => 404];
+            }
+
+            $history = $this->patientModel->getHistory($patient['id']);
+            if (isset($history['patient']) && is_array($history['patient'])) {
+                $history['patient'] = $this->mapToFrontend($history['patient']);
+            }
+
+            return [
+                'success' => true,
+                'data'    => $history,
+                'message' => 'Patient clinical history retrieved successfully'
+            ];
+        });
+    }
     
     public function store(): void
     {

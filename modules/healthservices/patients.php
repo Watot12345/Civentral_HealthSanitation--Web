@@ -468,6 +468,7 @@ $title = 'Patient Management';
     <td class="px-4 py-3">
         <div class="flex items-center justify-center gap-1">
             <button onclick="viewPatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye text-sm"></i></button>
+            <button onclick="viewPatientHistory(<?php echo $patient['id']; ?>)" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Clinical History & Timeline"><i class="fa-solid fa-clock-rotate-left text-sm"></i></button>
             <?php if ($canEditPatient): ?>
             <button onclick="editPatient(<?php echo $patient['id']; ?>)" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg transition" title="Edit Patient"><i class="fa-solid fa-pen-to-square text-sm"></i></button>
             <?php endif; ?>
@@ -487,7 +488,43 @@ $title = 'Patient Management';
 </div>
 
 <!-- VIEW PATIENT MODAL -->
-<div id="viewPatientModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl"><h3 class="font-bold text-slate-900">Patient Details</h3><button onclick="ModalSystem.close('viewPatientModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div><div id="patientDetailsContent" class="p-6"><div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading patient record...</div></div></div></div>
+<div id="viewPatientModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <!-- Modal Top Bar -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white rounded-t-2xl flex-shrink-0 z-10">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark flex-shrink-0 shadow-xs">
+                    <i class="fa-solid fa-hospital-user text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 text-base leading-tight" id="modalPatientDisplayName">Patient Record &amp; Clinical History</h3>
+                    <p class="text-xs text-slate-400 mt-0.5" id="modalPatientSubtitle">Comprehensive demographic profile, vital signs trends &amp; clinical timeline</p>
+                </div>
+            </div>
+            <button onclick="ModalSystem.close('viewPatientModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition" title="Close Modal">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Tab Switcher Bar -->
+        <div class="flex items-center px-6 border-b border-slate-200 bg-slate-50/80 gap-2 text-xs font-semibold flex-shrink-0">
+            <button type="button" id="tabBtnPatientProfile" onclick="switchPatientModalTab('profile')" class="px-4 py-3 border-b-2 border-brand-dark text-brand-dark flex items-center gap-2 transition cursor-pointer font-bold">
+                <i class="fa-solid fa-address-card text-brand-medium"></i> Patient Profile &amp; Demographics
+            </button>
+            <button type="button" id="tabBtnPatientHistory" onclick="switchPatientModalTab('history')" class="px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition cursor-pointer">
+                <i class="fa-solid fa-clock-rotate-left text-amber-500"></i> Clinical History &amp; Timeline
+                <span id="patientHistoryBadgeCount" class="px-2 py-0.5 rounded-full text-[10px] bg-brand-light text-brand-dark border border-brand-border font-bold">0</span>
+            </button>
+        </div>
+
+        <!-- Scrollable Modal Content -->
+        <div id="patientDetailsContent" class="p-6 overflow-y-auto flex-1 custom-scroll bg-white">
+            <div class="flex items-center justify-center py-12 text-slate-400 text-sm">
+                <i class="fa-solid fa-spinner fa-spin mr-2 text-brand-medium"></i> Loading patient record...
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- EDIT PATIENT MODAL -->
 <div id="editPatientModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 items-center justify-center p-4"><div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"><div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 sticky top-0 bg-white rounded-t-2xl"><h3 class="font-bold text-slate-900">Edit Patient</h3><button onclick="ModalSystem.close('editPatientModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition"><i class="fa-solid fa-xmark"></i></button></div>
@@ -903,6 +940,7 @@ td .text-slate-600.maskable.masked::after {
     <td class="px-4 py-3">
         <div class="flex items-center justify-center gap-1">
             <button onclick="viewPatient(${id})" class="p-1.5 text-brand-medium hover:bg-brand-light rounded-lg transition" title="View Details"><i class="fa-solid fa-eye text-sm"></i></button>
+            <button onclick="viewPatientHistory(${id})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition" title="Clinical History & Timeline"><i class="fa-solid fa-clock-rotate-left text-sm"></i></button>
             ${editBtn}
             <button onclick="scheduleAppointment(${id})" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Schedule Appointment"><i class="fa-solid fa-calendar-plus text-sm"></i></button>
             <button onclick="checkInPatient(${id})" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Check-in / Queue"><i class="fa-solid fa-receipt text-sm"></i></button>
@@ -1085,35 +1123,508 @@ td .text-slate-600.maskable.masked::after {
     }
 
     // ============================================================
-    // VIEW PATIENT
+    // PATIENT CLINICAL HISTORY & VIEW SYSTEM
     // ============================================================
-    function viewPatient(id) {
+    let currentViewingPatientId = null;
+    let currentModalActiveTab = 'profile';
+    let currentHistoryCategoryFilter = 'all';
+    const PATIENT_HISTORIES = {};
+
+    function viewPatient(id, targetTab = 'profile') {
+        const p = PATIENTS[id];
+        if (!p) {
+            ModalSystem.toast.error('Patient data not found');
+            return;
+        }
+
+        currentViewingPatientId = id;
+        currentModalActiveTab = targetTab;
+
+        // Update modal title and subtitle
+        const titleEl = document.getElementById('modalPatientDisplayName');
+        const subEl = document.getElementById('modalPatientSubtitle');
+        if (titleEl) {
+            titleEl.innerHTML = `<span class="maskable" data-real="${p.first_name} ${p.last_name}" data-masked="${maskPatientName(p.first_name)} ${maskPatientName(p.last_name)}">${maskPatientName(p.first_name)} ${maskPatientName(p.last_name)}</span> <span class="text-xs font-mono font-semibold text-brand-dark">(${maskPatientCode(p.patient_id)})</span>`;
+        }
+        if (subEl) {
+            subEl.textContent = `${p.gender} • ${p.age} years old • Brgy. ${p.barangay}`;
+        }
+
+        // Open modal
         ModalSystem.open('viewPatientModal');
+
+        // Apply active tab button styling
+        updateModalTabButtons(targetTab);
+
+        // Preload history in background to update badge counter immediately
+        fetchPatientHistory(id);
+
+        if (targetTab === 'history') {
+            renderPatientHistoryView(id);
+        } else {
+            renderPatientProfileView(id);
+        }
+    }
+
+    function viewPatientHistory(id) {
+        viewPatient(id, 'history');
+    }
+
+    function switchPatientModalTab(tab) {
+        if (!currentViewingPatientId) return;
+        currentModalActiveTab = tab;
+        updateModalTabButtons(tab);
+
+        if (tab === 'history') {
+            renderPatientHistoryView(currentViewingPatientId, currentHistoryCategoryFilter);
+        } else {
+            renderPatientProfileView(currentViewingPatientId);
+        }
+    }
+
+    function updateModalTabButtons(activeTab) {
+        const profileBtn = document.getElementById('tabBtnPatientProfile');
+        const historyBtn = document.getElementById('tabBtnPatientHistory');
+
+        if (profileBtn && historyBtn) {
+            if (activeTab === 'profile') {
+                profileBtn.className = 'px-4 py-3 border-b-2 border-brand-dark text-brand-dark flex items-center gap-2 transition cursor-pointer font-bold bg-white/60';
+                historyBtn.className = 'px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition cursor-pointer font-medium';
+            } else {
+                historyBtn.className = 'px-4 py-3 border-b-2 border-brand-dark text-brand-dark flex items-center gap-2 transition cursor-pointer font-bold bg-white/60';
+                profileBtn.className = 'px-4 py-3 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition cursor-pointer font-medium';
+            }
+        }
+    }
+
+    function renderPatientProfileView(id) {
+        const p = PATIENTS[id];
         const content = document.getElementById('patientDetailsContent');
-        content.innerHTML = '<div class="flex items-center justify-center py-10 text-slate-400 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading...</div>';
-        setTimeout(() => {
-            const p = PATIENTS[id];
-            if (!p) { content.innerHTML = '<p class="text-sm text-rose-500 text-center py-10">Patient not found.</p>'; return; }
-            const initials = (p.first_name[0] + p.last_name[0]).toUpperCase();
-            const statusBadge = p.status === 'active' ? '<span class="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold mt-1">Active</span>' : '<span class="inline-block px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs font-semibold mt-1">Inactive</span>';
-            content.innerHTML = `
-                <div class="space-y-6">
-                    <div class="flex items-center gap-4 pb-4 border-b border-slate-200"><div class="w-16 h-16 rounded-full bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-bold text-xl flex-shrink-0">${initials}</div><div><h4 class="text-lg font-bold text-slate-900 maskable" data-real="${p.first_name} ${p.last_name}" data-masked="${maskPatientName(p.first_name)} ${maskPatientName(p.last_name)}">${maskPatientName(p.first_name)} ${maskPatientName(p.last_name)}</h4><p class="text-sm text-slate-500 maskable" data-real="${p.patient_id}" data-masked="${maskPatientCode(p.patient_id)}">${maskPatientCode(p.patient_id)} &bull; ${p.gender} &bull; ${p.age} years old</p>${statusBadge}</div></div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><p class="text-xs text-slate-400 font-semibold uppercase">Contact</p><p class="text-sm text-slate-800 maskable" data-real="${p.contact}" data-masked="${maskPatientName(p.contact)}">${maskPatientName(p.contact)}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold uppercase">Email</p><p class="text-sm text-slate-800 maskable" data-real="${p.email}" data-masked="${maskPatientName(p.email)}">${maskPatientName(p.email)}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold uppercase">Blood Type</p><p class="text-sm text-slate-800 font-semibold text-rose-600">${p.blood_type}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold uppercase">Barangay</p><p class="text-sm text-slate-800 maskable" data-real="${p.barangay}" data-masked="${maskPatientName(p.barangay)}">${maskPatientName(p.barangay)}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold uppercase">Address</p><p class="text-sm text-slate-800 maskable" data-real="${p.address}" data-masked="${maskPatientName(p.address)}">${maskPatientName(p.address)}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold uppercase">Emergency Contact</p><p class="text-sm text-slate-800 maskable" data-real="${p.emergency_contact}" data-masked="${maskPatientName(p.emergency_contact)}">${maskPatientName(p.emergency_contact)}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold uppercase">Registration Date</p><p class="text-sm text-slate-800">${formatDate(p.registration_date)}</p></div>
-                        <div><p class="text-xs text-slate-400 font-semibold uppercase">Last Visit</p><p class="text-sm text-slate-800">${formatDate(p.last_visit)}</p></div>
+        if (!p || !content) return;
+
+        const initials = ((p.first_name[0] || 'P') + (p.last_name[0] || 'T')).toUpperCase();
+        const statusBadge = p.status === 'active' 
+            ? '<span class="inline-block px-2.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-semibold mt-1">Active Record</span>' 
+            : '<span class="inline-block px-2.5 py-0.5 bg-slate-100 text-slate-500 rounded-full text-xs font-semibold mt-1">Inactive</span>';
+
+        content.innerHTML = `
+            <div class="space-y-6 animate-in fade-in duration-200">
+                <!-- Patient Banner -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-5 border-b border-slate-200 gap-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-16 h-16 rounded-2xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark font-extrabold text-2xl flex-shrink-0 shadow-xs">
+                            ${initials}
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h4 class="text-xl font-bold text-slate-900 maskable" data-real="${p.first_name} ${p.last_name}" data-masked="${maskPatientName(p.first_name)} ${maskPatientName(p.last_name)}">
+                                    ${maskPatientName(p.first_name)} ${maskPatientName(p.last_name)}
+                                </h4>
+                                ${statusBadge}
+                            </div>
+                            <p class="text-xs font-mono text-slate-500 mt-1 maskable" data-real="${p.patient_id}" data-masked="${maskPatientCode(p.patient_id)}">
+                                ${maskPatientCode(p.patient_id)} &bull; ${p.gender} &bull; ${p.age} years old &bull; Blood Type: <span class="font-bold text-rose-600">${p.blood_type || 'N/A'}</span>
+                            </p>
+                        </div>
                     </div>
-                    <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border"><h5 class="text-sm font-bold text-slate-700 mb-2">Medical Information</h5><div class="grid grid-cols-1 md:grid-cols-2 gap-3"><div><p class="text-xs text-slate-400 font-semibold uppercase">Allergies</p><p class="text-sm text-slate-800">${p.allergies}</p></div><div><p class="text-xs text-slate-400 font-semibold uppercase">Conditions</p><p class="text-sm text-slate-800">${p.conditions}</p></div></div></div>
-                    <div class="flex justify-end gap-2 pt-2"><button onclick="ModalSystem.close('viewPatientModal'); editPatient(${p.id})" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-sm font-semibold"><i class="fa-solid fa-pen mr-1.5"></i> Edit Patient</button></div>
-                </div>`;
-            setTimeout(() => { if (typeof ModalSystem !== 'undefined' && ModalSystem.refreshMasking) ModalSystem.refreshMasking('viewPatientModal'); }, 100);
-        }, 400);
+                    
+                    <!-- Quick Clinical Switch Button -->
+                    <button type="button" onclick="switchPatientModalTab('history')" class="px-4 py-2.5 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition text-xs font-semibold flex items-center gap-2 shrink-0 shadow-xs">
+                        <i class="fa-solid fa-clock-rotate-left"></i> View Clinical Timeline
+                    </button>
+                </div>
+
+                <!-- Demographics Information Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Contact Number</p>
+                        <p class="text-sm font-semibold text-slate-800 maskable" data-real="${p.contact}" data-masked="${maskPatientName(p.contact)}">
+                            ${maskPatientName(p.contact) || 'None provided'}
+                        </p>
+                    </div>
+                    <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Email Address</p>
+                        <p class="text-sm font-semibold text-slate-800 maskable" data-real="${p.email}" data-masked="${maskPatientName(p.email)}">
+                            ${maskPatientName(p.email) || 'None provided'}
+                        </p>
+                    </div>
+                    <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Barangay Jurisdiction</p>
+                        <p class="text-sm font-semibold text-slate-800 maskable" data-real="${p.barangay}" data-masked="${maskPatientName(p.barangay)}">
+                            ${maskPatientName(p.barangay) || 'Unassigned'}
+                        </p>
+                    </div>
+                    <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 sm:col-span-2">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Residential Address</p>
+                        <p class="text-sm font-semibold text-slate-800 maskable" data-real="${p.address}" data-masked="${maskPatientName(p.address)}">
+                            ${maskPatientName(p.address) || 'No specific street address provided'}
+                        </p>
+                    </div>
+                    <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Emergency Contact</p>
+                        <p class="text-sm font-semibold text-slate-800 maskable" data-real="${p.emergency_contact}" data-masked="${maskPatientName(p.emergency_contact)}">
+                            ${maskPatientName(p.emergency_contact) || 'N/A'}
+                        </p>
+                    </div>
+                    <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Registration Date</p>
+                        <p class="text-sm font-semibold text-slate-800">${formatDate(p.registration_date)}</p>
+                    </div>
+                    <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Last Recorded Visit</p>
+                        <p class="text-sm font-semibold text-brand-dark">${formatDate(p.last_visit)}</p>
+                    </div>
+                    <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Birth Date</p>
+                        <p class="text-sm font-semibold text-slate-800">${p.birth_date ? formatDate(p.birth_date) : 'N/A'}</p>
+                    </div>
+                </div>
+
+                <!-- Medical Baseline Conditions Card -->
+                <div class="bg-brand-light/40 rounded-2xl p-5 border border-brand-border">
+                    <h5 class="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-notes-medical text-brand-medium"></i> Primary Medical Profile
+                    </h5>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-white p-3.5 rounded-xl border border-brand-border/60">
+                            <p class="text-[10px] text-rose-500 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                                <i class="fa-solid fa-triangle-exclamation"></i> Known Drug / Food Allergies
+                            </p>
+                            <p class="text-sm font-medium text-slate-800">${p.allergies || 'None reported'}</p>
+                        </div>
+                        <div class="bg-white p-3.5 rounded-xl border border-brand-border/60">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                                <i class="fa-solid fa-heart-circle-check text-brand-medium"></i> Chronic Conditions &amp; Medical History
+                            </p>
+                            <p class="text-sm font-medium text-slate-800">${p.conditions || 'No known chronic conditions'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Footer Controls -->
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
+                    <div class="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                        <button type="button" onclick="openMedicalRecord(${p.id})" class="px-3.5 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                            <i class="fa-solid fa-folder-open"></i> Full EHR Medical Archive
+                        </button>
+                        <button type="button" onclick="checkInPatient(${p.id})" class="px-3.5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                            <i class="fa-solid fa-receipt"></i> Check-in for Visit
+                        </button>
+                        <button type="button" onclick="scheduleAppointment(${p.id})" class="px-3.5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                            <i class="fa-solid fa-calendar-plus"></i> New Appointment
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        ${CAN_EDIT_PATIENT ? `<button type="button" onclick="ModalSystem.close('viewPatientModal'); editPatient(${p.id})" class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5 shadow-xs"><i class="fa-solid fa-pen-to-square"></i> Edit Patient</button>` : ''}
+                        <button type="button" onclick="ModalSystem.close('viewPatientModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+
+        setTimeout(() => {
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.refreshMasking) {
+                ModalSystem.refreshMasking('viewPatientModal');
+            }
+        }, 60);
+    }
+
+    async function fetchPatientHistory(id) {
+        if (PATIENT_HISTORIES[id]) {
+            return PATIENT_HISTORIES[id];
+        }
+
+        try {
+            const resp = await fetch(`${API_BASE}/patients.php?id=${id}&action=history`);
+            if (!resp.ok) {
+                throw new Error(`HTTP error ${resp.status}`);
+            }
+            const json = await resp.json();
+            if (json && json.success && json.data) {
+                PATIENT_HISTORIES[id] = json.data;
+                const badge = document.getElementById('patientHistoryBadgeCount');
+                if (badge) {
+                    badge.textContent = json.data.stats?.total_timeline || (json.data.timeline?.length || 0);
+                }
+                return json.data;
+            }
+        } catch (err) {
+            console.error('Error fetching patient clinical history:', err);
+        }
+
+        // Fallback default
+        return { stats: {}, timeline: [], consultations: [], triages: [], prescriptions: [], appointments: [], referrals: [] };
+    }
+
+    async function renderPatientHistoryView(id, filterCategory = 'all') {
+        currentHistoryCategoryFilter = filterCategory;
+        const content = document.getElementById('patientDetailsContent');
+        if (!content) return;
+
+        // If not loaded yet, show clean spinner
+        if (!PATIENT_HISTORIES[id]) {
+            content.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-20 text-center">
+                    <div class="w-12 h-12 rounded-2xl bg-brand-light border border-brand-border flex items-center justify-center text-brand-dark mb-3">
+                        <i class="fa-solid fa-spinner fa-spin text-xl"></i>
+                    </div>
+                    <p class="text-sm font-bold text-slate-800">Loading Clinical History &amp; Timeline</p>
+                    <p class="text-xs text-slate-400 mt-1">Aggregating consultations, vitals &amp; prescriptions from database...</p>
+                </div>
+            `;
+            await fetchPatientHistory(id);
+        }
+
+        const h = PATIENT_HISTORIES[id] || {};
+        const p = PATIENTS[id] || h.patient || {};
+        const stats = h.stats || {};
+        const timeline = h.timeline || [];
+        const consultations = h.consultations || [];
+        const triages = h.triages || [];
+        const prescriptions = h.prescriptions || [];
+        const appointments = h.appointments || [];
+        const referrals = h.referrals || [];
+        const vitals = stats.latest_vitals;
+
+        // Update badge count
+        const badge = document.getElementById('patientHistoryBadgeCount');
+        if (badge) badge.textContent = stats.total_timeline || timeline.length;
+
+        // Filter items
+        let filteredItems = timeline;
+        if (filterCategory !== 'all') {
+            filteredItems = timeline.filter(item => (item.category === filterCategory || item.type === filterCategory));
+        }
+
+        // Format timeline items HTML
+        let timelineCardsHtml = '';
+        if (filteredItems.length === 0) {
+            timelineCardsHtml = `
+                <div class="flex flex-col items-center justify-center py-16 px-4 bg-slate-50/70 rounded-2xl border border-dashed border-slate-200 text-center">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 text-lg mb-3">
+                        <i class="fa-solid fa-notes-medical"></i>
+                    </div>
+                    <p class="text-sm font-bold text-slate-700">No clinical entries recorded in this category</p>
+                    <p class="text-xs text-slate-400 mt-1 max-w-sm">Patient encounters, triage assessments, consultations, and prescribed medications will automatically build this chronological timeline.</p>
+                    <div class="flex gap-2 mt-4">
+                        <button type="button" onclick="checkInPatient(${id})" class="px-3.5 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition">
+                            <i class="fa-solid fa-receipt mr-1"></i> Check-in Patient
+                        </button>
+                        <button type="button" onclick="renderPatientHistoryView(${id}, 'all')" class="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-50 transition">
+                            View All Events
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            timelineCardsHtml = `
+                <div class="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
+                    ${filteredItems.map(item => {
+                        let detailsHtml = '';
+                        const dt = item.details || {};
+
+                        if (item.type === 'consultation') {
+                            detailsHtml = `
+                                <div class="mt-2.5 text-xs grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50/80 p-3 rounded-lg border border-slate-100">
+                                    <div><span class="text-slate-400 uppercase text-[10px] font-bold block">Diagnosis</span><span class="font-semibold text-slate-800">${dt.diagnosis || 'General Consultation'}</span></div>
+                                    <div><span class="text-slate-400 uppercase text-[10px] font-bold block">ICD-10 Code</span><span class="font-mono font-bold text-brand-dark">${dt.icd_code || 'None'}</span></div>
+                                    ${dt.symptoms ? `<div class="sm:col-span-2"><span class="text-slate-400 uppercase text-[10px] font-bold block">Chief Complaint</span><span class="text-slate-700">${dt.symptoms}</span></div>` : ''}
+                                    ${dt.treatment ? `<div class="sm:col-span-2"><span class="text-slate-400 uppercase text-[10px] font-bold block">Treatment &amp; Plan</span><span class="text-slate-700">${dt.treatment}</span></div>` : ''}
+                                    ${dt.notes ? `<div class="sm:col-span-2"><span class="text-slate-400 uppercase text-[10px] font-bold block">Doctor Notes</span><span class="text-slate-600 italic font-mono text-[11px]">${dt.notes}</span></div>` : ''}
+                                </div>
+                            `;
+                        } else if (item.type === 'triage') {
+                            detailsHtml = `
+                                <div class="mt-2.5 space-y-2">
+                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                        <div class="p-2 bg-slate-50 rounded-lg border border-slate-100 text-center"><span class="text-[10px] text-slate-400 font-bold block">BP</span><span class="font-bold text-slate-800">${dt.blood_pressure || 'N/A'}</span></div>
+                                        <div class="p-2 bg-slate-50 rounded-lg border border-slate-100 text-center"><span class="text-[10px] text-slate-400 font-bold block">Heart Rate</span><span class="font-bold text-slate-800">${dt.heart_rate || 'N/A'}</span></div>
+                                        <div class="p-2 bg-slate-50 rounded-lg border border-slate-100 text-center"><span class="text-[10px] text-slate-400 font-bold block">Temp</span><span class="font-bold text-slate-800">${dt.temperature || 'N/A'}</span></div>
+                                        <div class="p-2 bg-slate-50 rounded-lg border border-slate-100 text-center"><span class="text-[10px] text-slate-400 font-bold block">Oxygen Sat</span><span class="font-bold text-slate-800">${dt.spo2 || 'N/A'}</span></div>
+                                    </div>
+                                    ${dt.chief_complaint && dt.chief_complaint !== 'N/A' ? `<div class="text-xs bg-slate-50/80 p-2.5 rounded-lg border border-slate-100"><span class="text-[10px] text-slate-400 font-bold block uppercase">Symptoms / Complaint</span><span class="text-slate-700">${dt.chief_complaint}</span></div>` : ''}
+                                </div>
+                            `;
+                        } else if (item.type === 'prescription') {
+                            const meds = dt.medications || [];
+                            detailsHtml = `
+                                <div class="mt-2.5 text-xs bg-slate-50/80 p-3 rounded-lg border border-slate-100">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="font-bold text-slate-700">Prescribed Medications</span>
+                                        <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-teal-100 text-teal-800">${dt.status || 'Active'}</span>
+                                    </div>
+                                    ${Array.isArray(meds) && meds.length > 0 ? `
+                                        <div class="divide-y divide-slate-100">
+                                            ${meds.map(m => `
+                                                <div class="py-1.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                                    <div>
+                                                        <span class="font-semibold text-slate-900">${m.medicine || m.drug_name || m.name || 'Medication'}</span>
+                                                        <span class="text-slate-400 ml-1.5 text-[11px]">${m.dosage || ''} &bull; ${m.frequency || ''}</span>
+                                                    </div>
+                                                    <span class="text-[10px] text-slate-500 font-mono">${m.duration || ''}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    ` : '<p class="text-xs text-slate-400 italic">No itemized medications specified</p>'}
+                                </div>
+                            `;
+                        } else if (item.type === 'appointment') {
+                            detailsHtml = `
+                                <div class="mt-2 text-xs bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 flex items-center justify-between">
+                                    <div><span class="text-slate-400 text-[10px] uppercase font-bold block">Service Requested</span><span class="font-semibold text-slate-800">${dt.service_type || 'General Consultation'}</span></div>
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">${dt.status || 'Scheduled'}</span>
+                                </div>
+                            `;
+                        } else if (item.type === 'referral') {
+                            detailsHtml = `
+                                <div class="mt-2.5 text-xs bg-amber-50/50 p-3 rounded-lg border border-amber-100">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-bold text-amber-900">Referral Facility: ${dt.destination || 'Specialist Hospital'}</span>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900">${dt.urgency || 'Routine'}</span>
+                                    </div>
+                                    <p class="text-slate-600 mt-1 text-xs">${dt.reason ? 'Reason: ' + dt.reason : ''}</p>
+                                </div>
+                            `;
+                        }
+
+                        return `
+                            <div class="relative group">
+                                <!-- Marker Icon on the line -->
+                                <div class="absolute -left-[30px] top-1.5 w-6 h-6 rounded-full bg-white border-2 border-brand-medium flex items-center justify-center text-brand-dark text-[11px] shadow-xs">
+                                    <i class="fa-solid ${item.icon || 'fa-circle'}"></i>
+                                </div>
+
+                                <!-- Card Content -->
+                                <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-brand-border transition">
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold border ${item.badge || 'bg-slate-100 text-slate-700'}">
+                                                ${item.badge_label || item.type}
+                                            </span>
+                                            <h5 class="text-sm font-bold text-slate-900">${item.title}</h5>
+                                        </div>
+                                        <span class="text-xs font-mono text-slate-400 shrink-0">
+                                            <i class="fa-regular fa-clock mr-1"></i>${item.date_display || item.date}
+                                        </span>
+                                    </div>
+                                    
+                                    <p class="text-xs text-slate-500 mt-1">
+                                        Attending: <span class="font-semibold text-slate-700">${item.provider || 'Health Center Staff'}</span>
+                                        ${item.summary ? ` &bull; <span class="text-slate-600">${item.summary}</span>` : ''}
+                                    </p>
+
+                                    ${detailsHtml}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        content.innerHTML = `
+            <div class="space-y-6 animate-in fade-in duration-200">
+                <!-- Summary Snapshot Cards Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div class="p-3.5 bg-brand-light/50 rounded-2xl border border-brand-border flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-brand-dark text-white flex items-center justify-center text-sm flex-shrink-0 shadow-xs">
+                            <i class="fa-solid fa-hospital-user"></i>
+                        </div>
+                        <div>
+                            <p class="text-xl font-black text-brand-dark">${stats.total_visits || 0}</p>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Total Visits</p>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-200 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-sm flex-shrink-0 shadow-xs">
+                            <i class="fa-solid fa-stethoscope"></i>
+                        </div>
+                        <div>
+                            <p class="text-xl font-black text-emerald-900">${stats.total_consultations || 0}</p>
+                            <p class="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">Consultations</p>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 bg-teal-50/70 rounded-2xl border border-teal-200 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center text-sm flex-shrink-0 shadow-xs">
+                            <i class="fa-solid fa-pills"></i>
+                        </div>
+                        <div>
+                            <p class="text-xl font-black text-teal-900">${stats.total_prescriptions || 0}</p>
+                            <p class="text-[10px] font-bold text-teal-700 uppercase tracking-wide">Prescriptions</p>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 bg-purple-50/70 rounded-2xl border border-purple-200 flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center text-sm flex-shrink-0 shadow-xs">
+                            <i class="fa-solid fa-heart-pulse"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-black text-purple-900">${vitals ? vitals.blood_pressure : 'N/A'}</p>
+                            <p class="text-[10px] font-bold text-purple-700 uppercase tracking-wide">Latest Vitals BP</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Filtering Pill Navigation -->
+                <div class="flex items-center justify-between border-b border-slate-200 pb-3 gap-2 flex-wrap">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <button type="button" onclick="renderPatientHistoryView(${id}, 'all')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${filterCategory === 'all' ? 'bg-brand-dark text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                            All Events (${timeline.length})
+                        </button>
+                        <button type="button" onclick="renderPatientHistoryView(${id}, 'consultation')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${filterCategory === 'consultation' ? 'bg-emerald-700 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                            <i class="fa-solid fa-stethoscope mr-1"></i> Consultations (${consultations.length})
+                        </button>
+                        <button type="button" onclick="renderPatientHistoryView(${id}, 'triage')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${filterCategory === 'triage' ? 'bg-purple-700 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                            <i class="fa-solid fa-heart-pulse mr-1"></i> Vitals &amp; Triage (${triages.length})
+                        </button>
+                        <button type="button" onclick="renderPatientHistoryView(${id}, 'prescription')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${filterCategory === 'prescription' ? 'bg-teal-700 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                            <i class="fa-solid fa-pills mr-1"></i> Prescriptions (${prescriptions.length})
+                        </button>
+                        <button type="button" onclick="renderPatientHistoryView(${id}, 'appointment')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${filterCategory === 'appointment' ? 'bg-blue-700 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                            <i class="fa-solid fa-calendar-check mr-1"></i> Appointments (${appointments.length})
+                        </button>
+                        <button type="button" onclick="renderPatientHistoryView(${id}, 'referral')" class="px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${filterCategory === 'referral' ? 'bg-amber-700 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">
+                            <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> Referrals (${referrals.length})
+                        </button>
+                    </div>
+
+                    <a href="medical_records.php?patient_id=${id}" class="text-xs font-bold text-brand-medium hover:text-brand-dark flex items-center gap-1 transition">
+                        <span>Open Complete EHR</span> <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    </a>
+                </div>
+
+                <!-- Timeline List Container -->
+                <div class="pt-2">
+                    ${timelineCardsHtml}
+                </div>
+
+                <!-- Bottom Footer Controls -->
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
+                    <button type="button" onclick="switchPatientModalTab('profile')" class="text-xs font-semibold text-slate-500 hover:text-brand-dark flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-left text-[10px]"></i> Back to Patient Profile
+                    </button>
+
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="openMedicalRecord(${id})" class="px-3.5 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                            <i class="fa-solid fa-print"></i> Print / Full Medical Record
+                        </button>
+                        <button type="button" onclick="ModalSystem.close('viewPatientModal')" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition text-xs font-semibold">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        setTimeout(() => {
+            if (typeof ModalSystem !== 'undefined' && ModalSystem.refreshMasking) {
+                ModalSystem.refreshMasking('viewPatientModal');
+            }
+        }, 60);
     }
 
     // ============================================================
@@ -2109,8 +2620,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             if (matchedKey) {
+                const autoTab = (urlParams.get('tab') === 'history' || urlParams.get('history') === 'true') ? 'history' : 'profile';
                 setTimeout(() => {
-                    viewPatient(matchedKey);
+                    viewPatient(matchedKey, autoTab);
                 }, 450);
             }
         }
