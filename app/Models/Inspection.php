@@ -37,6 +37,21 @@ class Inspection
         }
     }
 
+    /**
+     * True when the permit already has an inspection in the 'scheduled' state.
+     * Used by InspectionPolicy::canSchedule() to prevent double-booking.
+     */
+    public function hasOpenForPermit(int $permitId): bool
+    {
+        try {
+            $rows = $this->db->select($this->table, ['permit_id' => $permitId, 'status' => 'scheduled']);
+            return !empty($rows);
+        } catch (Throwable $e) {
+            error_log('Inspection Model Error (hasOpenForPermit): ' . $e->getMessage());
+            return false;
+        }
+    }
+
     public function create(array $data): array
     {
         if (empty($data['inspection_id'])) {

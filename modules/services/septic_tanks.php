@@ -28,13 +28,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 require_once __DIR__ . '/../../app/Models/SepticTank.php';
+require_once __DIR__ . '/../../app/Policies/SepticTankPolicy.php';
 $septicTankModel = new SepticTank();
 
-// Fetch live Septic Tanks from Supabase
-$septicTanks = $septicTankModel->all();
+// Fetch live Septic Tanks from Supabase, then apply the maintenance policy
+// (derives next-due date and effective status from last_maintenance + frequency).
+$septicTanks = \App\Policies\SepticTankPolicy::applyMaintenancePolicy(
+    $septicTankModel->all(),
+    new DateTimeImmutable('now')
+);
 
-// Stats
-$counts = $septicTankModel->countByStatus();
+// Stats (computed from the effective status so cards match the table)
+$counts = \App\Policies\SepticTankPolicy::summarize($septicTanks);
 $totalTanks = $counts['total'];
 $goodStatus = $counts['good'];
 $needsMaintenance = $counts['needs_maintenance'];
@@ -55,7 +60,12 @@ $title = 'Septic Tank Registry';
             <h2 class="text-2xl font-black text-slate-900 tracking-tight">Septic Tank Registry</h2>
             <p class="text-sm text-slate-500 mt-0.5">Manage septic tank registrations, details & maintenance history</p>
         </div>
-        <div class="flex gap-3">
+        <div class="flex flex-wrap gap-2.5">
+            <button onclick="openSiphoningPolicyModal()"
+                    class="px-4 py-2 bg-gradient-to-r from-teal-700 to-emerald-700 hover:from-teal-800 hover:to-emerald-800 text-white rounded-lg transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm"
+                    title="Septic Tank Siphoning Policy, Schedules & Legal Requirements">
+                <i class="fa-solid fa-truck-droplet text-xs"></i> Siphoning Guidelines
+            </button>
             <button onclick="exportTanksCSV()"
                     class="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-semibold flex items-center gap-2"
                     title="Export to CSV" aria-label="Export septic tanks to CSV">
@@ -67,6 +77,7 @@ $title = 'Septic Tank Registry';
             </button>
         </div>
     </div>
+
 
     <!-- ============================================================ -->
     <!-- MODERN KPI CARDS - Updated to match design               -->
@@ -566,14 +577,26 @@ $title = 'Septic Tank Registry';
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Installation Year</label>
                 <input type="number" id="tank_year" min="2000" max="<?php echo date('Y'); ?>" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
             </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    Household Occupants / Policy Sizing
+                </label>
+                <select id="tank_occupants" onchange="applyOccupantSiphoningRecommendation(this.value, 'tank_frequency')" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
+                    <option value="">Select household size to auto-set policy schedule...</option>
+                    <option value="5">5+ people (Policy: Every 3 Years / 36 months)</option>
+                    <option value="3">2–4 people (Policy: Every 5 Years / 60 months)</option>
+                    <option value="1">1 person (Policy: Every 5 Years / 60 months)</option>
+                </select>
+            </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Maintenance Frequency (months)</label>
                     <select id="tank_frequency" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none">
-                        <option value="6">6 months</option>
-                        <option value="12" selected>12 months</option>
-                        <option value="18">18 months</option>
-                        <option value="24">24 months</option>
+                        <option value="6">6 months (High Commercial load)</option>
+                        <option value="12">12 months (Annual)</option>
+                        <option value="24">24 months (2 years)</option>
+                        <option value="36" selected>36 months (3 yrs - 5+ occupants)</option>
+                        <option value="60">60 months (5 yrs - 2-4 occupants / Free Maynilad/Manila Water)</option>
                     </select>
                 </div>
                 <div>
@@ -584,6 +607,10 @@ $title = 'Septic Tank Registry';
                         <option value="critical">Critical</option>
                     </select>
                 </div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-teal-50/70 border border-teal-200 text-[11px] text-teal-900 flex items-start gap-2">
+                <i class="fa-solid fa-circle-info text-teal-600 mt-0.5"></i>
+                <span><strong>Policy Standard:</strong> Siphon every 3 yrs for 5+ people; every 5 yrs for 2-4 people. In QC, free every 5 yrs via Maynilad (1626) / Manila Water (1627).</span>
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label>
@@ -656,7 +683,7 @@ $title = 'Septic Tank Registry';
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Capacity</label><select id="edit_tank_capacity" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option>500L</option><option>800L</option><option>1000L</option><option>1200L</option><option>1500L</option><option>2000L</option></select></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</label><select id="edit_tank_type" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option>Concrete</option><option>Plastic</option><option>Fiberglass</option></select></div>
                 <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Maintenance</label><input type="date" id="edit_tank_maintenance" required class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></div>
-                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Frequency (months)</label><select id="edit_tank_frequency" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="6">6 months</option><option value="12">12 months</option><option value="18">18 months</option><option value="24">24 months</option></select></div>
+                <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Frequency (months)</label><select id="edit_tank_frequency" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="6">6 months</option><option value="12">12 months</option><option value="24">24 months</option><option value="36">36 months (3 yrs - 5+ occupants)</option><option value="60">60 months (5 yrs - 2-4 occupants)</option></select></div>
             </div>
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</label><select id="edit_tank_status" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white"><option value="good">Good</option><option value="needs_maintenance">Needs Maintenance</option><option value="critical">Critical</option></select></div>
             <div><label class="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes</label><textarea id="edit_tank_notes" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"></textarea></div>
@@ -775,6 +802,12 @@ $title = 'Septic Tank Registry';
     </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- SIPHONING POLICY & STANDARDS VIEW COMPONENT                   -->
+<!-- Decoupled clean architecture component: SepticSiphoningPolicy -->
+<!-- ============================================================ -->
+<?php include __DIR__ . '/components/siphoning_policy_modal.php'; ?>
+
 <!-- Toast notification -->
 <div id="toast" class="hidden fixed bottom-6 right-6 z-[60] px-4 py-3 rounded-lg shadow-lg text-sm font-semibold text-white items-center gap-2">
     <i class="fa-solid fa-circle-check"></i>
@@ -787,6 +820,223 @@ $title = 'Septic Tank Registry';
 <script src="<?= site_url('assets/js/common.js'); ?>"></script>
 <script>
     let TANKS = <?php echo json_encode(array_column($septicTanks, null, 'id'), JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK); ?>;
+
+    function openSiphoningPolicyModal() {
+        openModal('siphoningPolicyModal');
+    }
+    window.openSiphoningPolicyModal = openSiphoningPolicyModal;
+
+    function runSiphoningCalculator() {
+        const occ = parseInt(document.getElementById('policyCalculatorOccupants')?.value || '5', 10);
+        const lastDateInput = document.getElementById('policyCalculatorLastDate')?.value || '';
+        const resultContainer = document.getElementById('calculatorResult');
+        if (!resultContainer) return;
+
+        const intervalMonths = occ >= 5 ? 36 : 60;
+        const intervalYears = occ >= 5 ? 3 : 5;
+        const householdLabel = occ >= 5 ? '5+ people in the house' : (occ === 1 ? '1 person' : '2–4 people in the house');
+
+        if (!lastDateInput) {
+            resultContainer.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center flex-shrink-0 font-bold text-sm">
+                        <i class="fa-solid fa-calculator"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-800 text-sm">Schedule: Every ${intervalYears} Years (${intervalMonths} months)</span>
+                            <span class="px-2 py-0.5 bg-teal-50 border border-teal-200 text-teal-800 rounded text-[10px] font-black">${householdLabel}</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-1">Please enter your <strong>Last Siphoned Date</strong> above to calculate your live status, countdown, and actionable steps.</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const lastDate = new Date(lastDateInput);
+        if (isNaN(lastDate.getTime())) return;
+
+        // CALCULATE: Next Due = Last + 3 years (if 5+ people) ELSE + 5 years
+        const nextDueDate = new Date(lastDate);
+        nextDueDate.setMonth(nextDueDate.getMonth() + intervalMonths);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        nextDueDate.setHours(0, 0, 0, 0);
+
+        // CHECK STATUS: Compare Next Due vs Today
+        const diffMs = nextDueDate.getTime() - today.getTime();
+        const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        const formattedNextDue = nextDueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+        if (daysLeft < 0) {
+            // -> IF past due = OVERDUE
+            // -> Action: Red URGENT alert, "Overdue!", show Private option P3.5k-6k
+            const daysOverdue = Math.abs(daysLeft);
+            resultContainer.innerHTML = `
+                <div class="space-y-3">
+                    <div class="flex items-start justify-between gap-3 p-3.5 rounded-xl bg-rose-50 border border-rose-300">
+                        <div class="flex items-start gap-2.5">
+                            <span class="w-7 h-7 rounded-lg bg-rose-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </span>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 bg-rose-600 text-white rounded text-[10px] font-black uppercase tracking-wider">Overdue!</span>
+                                    <span class="font-extrabold text-rose-900 text-sm">Past Due by ${daysOverdue} day${daysOverdue === 1 ? '' : 's'}</span>
+                                </div>
+                                <p class="text-xs text-rose-800 mt-0.5 font-medium">Next Due was: <strong>${formattedNextDue}</strong> (${intervalYears}-year cycle for ${householdLabel}).</p>
+                                <p class="text-[11px] text-rose-700 mt-1">
+                                    <strong>Red URGENT Alert:</strong> Tank is past scheduled capacity. Expedited service recommended.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Private Option Card (P3.5k - P6k) -->
+                    <div class="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div class="text-xs text-slate-700">
+                            <span class="font-bold text-slate-900 flex items-center gap-1.5">
+                                <i class="fa-solid fa-truck-droplet text-amber-600"></i> Expedited Private Siphoning (DENR-Accredited)
+                            </span>
+                            <span class="text-[11px] text-slate-500 block">Prevailing commercial rate: <strong>₱3,500 to ₱6,000 per truck</strong></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" onclick="openBookServiceAction('private')" class="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-xs">
+                                <i class="fa-solid fa-calendar-plus"></i> Book Siphoning Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- COMPLETE -> Update Last Siphoned Date -> Loop back to START -->
+                    <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                        <span>Already had it siphoned?</span>
+                        <button type="button" onclick="recordSiphoningCompletedToday()" class="text-teal-700 hover:text-teal-900 font-bold hover:underline flex items-center gap-1">
+                            <i class="fa-solid fa-circle-check"></i> Mark Service Completed Today (Loop back to START) &rarr;
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else if (daysLeft <= 90) {
+            // -> IF <=90 days left = DUE_SOON
+            // -> Action: Yellow alert, "Book Soon", show Maynilad 1626 / Manila Water 1627
+            resultContainer.innerHTML = `
+                <div class="space-y-3">
+                    <div class="flex items-start justify-between gap-3 p-3.5 rounded-xl bg-amber-50 border border-amber-300">
+                        <div class="flex items-start gap-2.5">
+                            <span class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">
+                                <i class="fa-solid fa-clock"></i>
+                            </span>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 bg-amber-500 text-white rounded text-[10px] font-black uppercase tracking-wider">Book Soon</span>
+                                    <span class="font-extrabold text-amber-900 text-sm">Due in ${daysLeft} day${daysLeft === 1 ? '' : 's'} (${formattedNextDue})</span>
+                                </div>
+                                <p class="text-xs text-amber-800 mt-0.5 font-medium">Within 90-day booking window for ${intervalYears}-year cycle (${householdLabel}).</p>
+                                <p class="text-[11px] text-amber-700 mt-1">
+                                    <strong>Yellow Alert:</strong> Book soon to schedule your free 5-year regular desludging via your water concessionaire.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Concessionaires Hotlines Card -->
+                    <div class="p-3.5 bg-teal-50/70 border border-teal-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div class="text-xs text-slate-700">
+                            <span class="font-bold text-teal-900 flex items-center gap-1.5">
+                                <i class="fa-solid fa-phone text-teal-600"></i> Free Concessionaire Desludging
+                            </span>
+                            <span class="text-[11px] text-slate-500 block">Call Maynilad (<strong>1626</strong>) or Manila Water (<strong>1627</strong>)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <a href="tel:1626" class="px-2.5 py-1.5 bg-white border border-teal-300 text-teal-900 rounded-lg text-xs font-bold hover:bg-teal-100 transition">Maynilad 1626</a>
+                            <a href="tel:1627" class="px-2.5 py-1.5 bg-white border border-teal-300 text-teal-900 rounded-lg text-xs font-bold hover:bg-teal-100 transition">Manila Water 1627</a>
+                            <button type="button" onclick="openBookServiceAction('concessionaire')" class="px-3 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-bold transition">Book Service</button>
+                        </div>
+                    </div>
+
+                    <!-- COMPLETE -> Update Last Siphoned Date -> Loop back to START -->
+                    <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                        <span>Already completed?</span>
+                        <button type="button" onclick="recordSiphoningCompletedToday()" class="text-teal-700 hover:text-teal-900 font-bold hover:underline flex items-center gap-1">
+                            <i class="fa-solid fa-circle-check"></i> Mark Service Completed Today (Loop back to START) &rarr;
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            // -> IF >90 days left = OK
+            // -> Action: Green badge, do nothing
+            resultContainer.innerHTML = `
+                <div class="space-y-3">
+                    <div class="flex items-start justify-between gap-3 p-3.5 rounded-xl bg-emerald-50 border border-emerald-300">
+                        <div class="flex items-start gap-2.5">
+                            <span class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 font-bold text-xs">
+                                <i class="fa-solid fa-check"></i>
+                            </span>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-black uppercase tracking-wider">OK</span>
+                                    <span class="font-extrabold text-emerald-900 text-sm">Compliant (${daysLeft} days remaining)</span>
+                                </div>
+                                <p class="text-xs text-emerald-800 mt-0.5 font-medium">Next Due: <strong>${formattedNextDue}</strong> (${intervalYears}-year cycle for ${householdLabel}).</p>
+                                <p class="text-[11px] text-emerald-700 mt-1">
+                                    <strong>Green Badge:</strong> Septic tank is in good condition. <strong>Do nothing at this time.</strong>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+    window.runSiphoningCalculator = runSiphoningCalculator;
+
+    function openBookServiceAction(type) {
+        if (type === 'concessionaire') {
+            window.location.href = 'tel:1626';
+        } else {
+            window.location.href = 'services_management.php?tab=requests&service=siphoning';
+        }
+    }
+    window.openBookServiceAction = openBookServiceAction;
+
+    function recordSiphoningCompletedToday() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const dateInput = document.getElementById('policyCalculatorLastDate');
+        if (dateInput) {
+            dateInput.value = todayStr;
+        }
+        showToast('Siphoning recorded as completed! Next due date recalculated and status reset to OK.', 'success');
+        runSiphoningCalculator();
+    }
+    window.recordSiphoningCompletedToday = recordSiphoningCompletedToday;
+
+    function evaluateWarningSignsTriage() {
+        const checkboxes = document.querySelectorAll('input[name="warning_sign_check"]:checked');
+        const alertBox = document.getElementById('diagnosticTriageAlert');
+        if (!alertBox) return;
+
+        if (checkboxes.length > 0) {
+            alertBox.classList.remove('hidden');
+        } else {
+            alertBox.classList.add('hidden');
+        }
+    }
+    window.evaluateWarningSignsTriage = evaluateWarningSignsTriage;
+
+    function applyOccupantSiphoningRecommendation(occupants, selectId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        const occ = parseInt(occupants, 10);
+        if (occ >= 5) {
+            select.value = '36';
+        } else if (occ > 0) {
+            select.value = '60';
+        }
+    }
+    window.applyOccupantSiphoningRecommendation = applyOccupantSiphoningRecommendation;
 
     // Modal functions, toast, sanitizeHTML provided by common.js
 
@@ -851,6 +1101,21 @@ $title = 'Septic Tank Registry';
                         <div><p class="text-xs text-slate-400 font-semibold">Location</p><p class="text-sm text-slate-800 font-mono text-xs">${t.latitude}, ${t.longitude}</p></div>
                     </div>
                     ${tNotes ? `<div class="bg-slate-50 rounded-xl p-4 border border-slate-200"><h5 class="text-sm font-bold text-slate-700 mb-2">Notes</h5><p class="text-sm text-slate-800">${tNotes}</p></div>` : ''}
+                    <div class="bg-emerald-50/70 rounded-xl p-4 border border-emerald-200">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <h5 class="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                                <i class="fa-solid fa-truck-droplet text-emerald-700"></i> Desludging & Siphoning Policy Guidance
+                            </h5>
+                            <button type="button" onclick="openSiphoningPolicyModal()" class="text-[11px] font-bold text-teal-800 hover:text-teal-950 underline">
+                                View Full Policy &rarr;
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-600 leading-relaxed">
+                            <strong>Standard Desludging:</strong> Every 3 yrs (5+ occupants) or 5 yrs (2–4 occupants). 
+                            In Quezon City, free every 5 yrs via <strong>Maynilad (1626)</strong> or <strong>Manila Water (1627)</strong>. 
+                            Must hire DENR-accredited haulers with vacuum tanker trucks. Siphon immediately if slow draining, foul odor, or water backflow occurs.
+                        </p>
+                    </div>
                     <div class="bg-brand-light/40 rounded-xl p-4 border border-brand-border">
                         <h5 class="text-sm font-bold text-slate-700 mb-2">🔄 Maintenance History</h5>
                         <div class="space-y-2">${historyHtml || '<p class="text-xs text-slate-400">No history available</p>'}</div>

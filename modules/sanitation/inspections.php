@@ -18,21 +18,14 @@ requireDepartmentAccess('sanitation permits');
 require_once __DIR__ . '/../../app/Models/Permit.php';
 require_once __DIR__ . '/../../app/Models/Employee.php';
 
+require_once __DIR__ . '/../../app/Policies/InspectionPolicy.php';
+
 $title = 'Inspections';
 $inspectionRoleText = strtolower(trim(($roleDescription ?? '') . ' ' . ($role ?? '') . ' ' . ($displayRole ?? '')));
-$canViewAllInspectionRows = empty($inspectionRoleText)
-    || str_contains($inspectionRoleText, 'admin')
-    || str_contains($inspectionRoleText, 'administrator')
-    || str_contains($inspectionRoleText, 'sanitation director')
-    || str_contains($inspectionRoleText, 'director')
-    || str_contains($inspectionRoleText, 'clerk')
-    || str_contains($inspectionRoleText, 'staff')
-    || str_contains($inspectionRoleText, 'officer')
-    || str_contains($inspectionRoleText, 'head')
-    || str_contains($inspectionRoleText, 'supervisor')
-    || str_contains($inspectionRoleText, 'manager')
-    || str_contains($inspectionRoleText, 'sanitation');
-$isInspectorOnly = !$canViewAllInspectionRows && str_contains($inspectionRoleText, 'inspector');
+$inspectionActor = ['role_text' => $inspectionRoleText];
+$canViewAllInspectionRows = \App\Policies\InspectionPolicy::canViewAll($inspectionActor);
+$canScheduleInspections = \App\Policies\InspectionPolicy::isManagement($inspectionActor);
+$isInspectorOnly = !$canViewAllInspectionRows && \App\Policies\InspectionPolicy::isInspector($inspectionActor);
 
 $permits = [];
 try {
@@ -76,7 +69,7 @@ try {
             <h2 class="text-2xl font-black text-slate-900 tracking-tight">Inspections</h2>
             <p class="text-sm text-slate-500 mt-0.5">Schedule, conduct, and manage inspections</p>
         </div>
-        <?php if (!$isInspectorOnly): ?>
+        <?php if ($canScheduleInspections): ?>
         <div class="flex gap-3">
             <button onclick="openModal('scheduleInspectionModal')"
                     class="px-4 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand-medium transition-colors text-sm font-semibold flex items-center gap-2 shadow-sm">
@@ -469,7 +462,7 @@ try {
                         <button type="button" onclick="markAllCriteria('compliant')" class="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
                             <i class="fa-solid fa-check-double text-[10px]"></i> Mark All Passed
                         </button>
-                        <button type="button" onclick="addCustomCriterionPrompt()" class="px-2.5 py-1.5 bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                        <button type="button" onclick="openAddCustomCriterionModal()" class="px-2.5 py-1.5 bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition text-xs font-semibold flex items-center gap-1.5 shadow-xs">
                             <i class="fa-solid fa-plus text-[10px]"></i> Add Custom Criterion
                         </button>
                     </div>
@@ -626,6 +619,123 @@ try {
                         </button>
                     </div>
                 </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ADD CUSTOM CRITERION MODAL                                   -->
+<!-- ============================================================ -->
+<div id="addCustomCriterionModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+                    <i class="fa-solid fa-list-check text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 leading-tight">Add Custom Criterion</h3>
+                    <p class="text-xs text-slate-500">Define an establishment-specific sanitation checklist item</p>
+                </div>
+            </div>
+            <button type="button" onclick="closeModal('addCustomCriterionModal')" class="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- Form Body -->
+        <form id="addCustomCriterionForm" class="p-6 space-y-4" onsubmit="saveCustomCriterionModal(event)">
+            <!-- Criterion Name -->
+            <div>
+                <label for="custom_criterion_name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Criterion Name <span class="text-rose-500">*</span>
+                </label>
+                <input type="text"
+                       id="custom_criterion_name"
+                       required
+                       placeholder="e.g. Swimming Pool Hygiene, Hazardous Chemical Storage"
+                       class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-slate-50/50 focus:bg-white transition">
+                
+                <!-- Quick Suggestions Pills -->
+                <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mr-1">Quick pick:</span>
+                    <button type="button" onclick="applyCriterionSuggestion('Swimming Pool Hygiene & Chlorination', 'Water clarity, active chlorine levels, daily log compliance, filtration system.')" class="px-2 py-0.5 rounded-full text-[11px] bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 transition">🏊 Swimming Pool</button>
+                    <button type="button" onclick="applyCriterionSuggestion('Hazardous Chemical & Solvent Storage', 'Proper labeling, SDS binders, secondary containment, and restricted staff access.')" class="px-2 py-0.5 rounded-full text-[11px] bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 transition">⚠️ Chemical Storage</button>
+                    <button type="button" onclick="applyCriterionSuggestion('Grease Trap & Siphon Maintenance', 'Functional baffle filter, no fats/oil overflow into municipal sewage.')" class="px-2 py-0.5 rounded-full text-[11px] bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 transition">🛢️ Grease Trap</button>
+                    <button type="button" onclick="applyCriterionSuggestion('Vector & Rodent Control Proofing', 'Screened windows, pest bait stations, absence of rodent droppings or burrows.')" class="px-2 py-0.5 rounded-full text-[11px] bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 transition">🐀 Vector Control</button>
+                </div>
+            </div>
+
+            <!-- Description / Standards -->
+            <div>
+                <label for="custom_criterion_description" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Description / Evaluation Standard <span class="text-xs font-normal text-slate-400">(Optional)</span>
+                </label>
+                <textarea id="custom_criterion_description"
+                          rows="2"
+                          placeholder="Specific sanitation guidelines, inspection checklist references, or observations required..."
+                          class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-slate-50/50 focus:bg-white transition"></textarea>
+            </div>
+
+            <!-- Initial Evaluation Status -->
+            <div>
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Initial Inspection Status
+                </label>
+                <div class="grid grid-cols-3 gap-2.5">
+                    <label class="cursor-pointer border border-slate-200 rounded-xl p-2.5 flex flex-col items-center gap-1 hover:border-emerald-300 hover:bg-emerald-50/30 transition has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50/80 has-[:checked]:ring-2 has-[:checked]:ring-emerald-500/20">
+                        <input type="radio" name="custom_criterion_status" value="compliant" checked class="hidden">
+                        <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
+                            <i class="fa-solid fa-check"></i>
+                        </span>
+                        <span class="text-xs font-bold text-slate-800">Pass</span>
+                        <span class="text-[10px] text-slate-400 text-center">Compliant</span>
+                    </label>
+
+                    <label class="cursor-pointer border border-slate-200 rounded-xl p-2.5 flex flex-col items-center gap-1 hover:border-amber-300 hover:bg-amber-50/30 transition has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50/80 has-[:checked]:ring-2 has-[:checked]:ring-amber-500/20">
+                        <input type="radio" name="custom_criterion_status" value="partially_compliant" class="hidden">
+                        <span class="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold">
+                            <i class="fa-solid fa-circle-exclamation"></i>
+                        </span>
+                        <span class="text-xs font-bold text-slate-800">Conditional</span>
+                        <span class="text-[10px] text-slate-400 text-center">Minor defect</span>
+                    </label>
+
+                    <label class="cursor-pointer border border-slate-200 rounded-xl p-2.5 flex flex-col items-center gap-1 hover:border-rose-300 hover:bg-rose-50/30 transition has-[:checked]:border-rose-600 has-[:checked]:bg-rose-50/80 has-[:checked]:ring-2 has-[:checked]:ring-rose-500/20">
+                        <input type="radio" name="custom_criterion_status" value="non_compliant" class="hidden">
+                        <span class="w-6 h-6 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center text-xs font-bold">
+                            <i class="fa-solid fa-xmark"></i>
+                        </span>
+                        <span class="text-xs font-bold text-slate-800">Fail</span>
+                        <span class="text-[10px] text-slate-400 text-center">Non-compliant</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Notes / Remarks -->
+            <div>
+                <label for="custom_criterion_notes" class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Inspector Notes / Remarks <span class="text-xs font-normal text-slate-400">(Optional)</span>
+                </label>
+                <input type="text"
+                       id="custom_criterion_notes"
+                       placeholder="Initial remarks, measurements, or inspector observations..."
+                       class="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-brand-medium/40 focus:border-brand-medium outline-none bg-slate-50/50 focus:bg-white transition">
+            </div>
+
+            <!-- Footer Buttons -->
+            <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button type="button"
+                        onclick="closeModal('addCustomCriterionModal')"
+                        class="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition text-xs font-semibold">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="px-5 py-2.5 bg-brand-dark text-white rounded-xl hover:bg-brand-medium transition text-xs font-bold flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-plus text-xs"></i> Add to Checklist
+                </button>
             </div>
         </form>
     </div>
@@ -1192,7 +1302,7 @@ function markAllCriteria(status) {
     showToast(`All criteria marked as ${status === 'compliant' ? 'Compliant' : status}`, 'info');
 }
 
-function addCriterion(category, description = '') {
+function addCriterion(category, description = '', status = 'compliant', notes = '') {
     if (!category.trim()) return;
     currentCriteria.push({
         id: 'custom_' + Date.now(),
@@ -1200,8 +1310,8 @@ function addCriterion(category, description = '') {
         icon: 'fa-plus-circle',
         color: 'text-indigo-600 bg-indigo-50',
         description: description.trim() || 'Establishment-specific criteria',
-        status: 'compliant',
-        notes: '',
+        status: status || 'compliant',
+        notes: notes || '',
         isCustom: true
     });
     renderCriteriaList();
@@ -1209,11 +1319,49 @@ function addCriterion(category, description = '') {
     autosaveInspectionDraft();
 }
 
-function addCustomCriterionPrompt() {
-    const name = prompt('Enter custom inspection criterion name (e.g. Swimming Pool Hygiene, Hazardous Chemical Storage):');
-    if (name && name.trim()) {
-        addCriterion(name);
+function openAddCustomCriterionModal() {
+    const form = document.getElementById('addCustomCriterionForm');
+    if (form) form.reset();
+    openModal('addCustomCriterionModal');
+    setTimeout(() => {
+        const nameInput = document.getElementById('custom_criterion_name');
+        if (nameInput) nameInput.focus();
+    }, 120);
+}
+
+function applyCriterionSuggestion(name, desc) {
+    const nameInput = document.getElementById('custom_criterion_name');
+    const descInput = document.getElementById('custom_criterion_description');
+    if (nameInput) nameInput.value = name;
+    if (descInput) descInput.value = desc;
+    if (nameInput) nameInput.focus();
+}
+
+function saveCustomCriterionModal(event) {
+    if (event) event.preventDefault();
+    const nameInput = document.getElementById('custom_criterion_name');
+    const descInput = document.getElementById('custom_criterion_description');
+    const statusRadio = document.querySelector('input[name="custom_criterion_status"]:checked');
+    const notesInput = document.getElementById('custom_criterion_notes');
+
+    const name = nameInput ? nameInput.value.trim() : '';
+    const desc = descInput ? descInput.value.trim() : '';
+    const status = statusRadio ? statusRadio.value : 'compliant';
+    const notes = notesInput ? notesInput.value.trim() : '';
+
+    if (!name) {
+        showToast('Please enter a criterion name', 'warning');
+        if (nameInput) nameInput.focus();
+        return;
     }
+
+    addCriterion(name, desc, status, notes);
+    closeModal('addCustomCriterionModal');
+    showToast(`Added custom criterion: "${name}"`, 'success');
+}
+
+function addCustomCriterionPrompt() {
+    openAddCustomCriterionModal();
 }
 
 function removeCriterion(index) {

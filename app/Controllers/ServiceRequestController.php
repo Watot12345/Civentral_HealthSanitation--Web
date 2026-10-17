@@ -4,8 +4,10 @@
 require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Models/ServiceRequest.php';
 require_once __DIR__ . '/../Constants/Permissions.php';
+require_once __DIR__ . '/../Policies/SepticTankPolicy.php';
 
 use App\Constants\Permissions;
+use App\Policies\SepticTankPolicy;
 
 class ServiceRequestController extends BaseController
 {
@@ -176,17 +178,14 @@ class ServiceRequestController extends BaseController
             if (empty($d['owner_name']))   return ['success' => false, 'message' => 'Owner name is required',   'code' => 422];
             if (empty($d['service_type'])) return ['success' => false, 'message' => 'Service type is required', 'code' => 422];
 
-            // ⚡ DUPLICATE REQUEST PREVENTION: Block double requests for the same tank while an active request is open
+            // Policy: no duplicate active request per tank, no requests for decommissioned tanks
             if (!empty($d['tank_id'])) {
+                require_once __DIR__ . '/../Models/SepticTank.php';
+                $tank = (new SepticTank())->findByTankId((string)$d['tank_id']);
                 $active = $this->model->findActiveByTankId($d['tank_id'], $d['preferred_date'] ?? null);
-                if ($active) {
-                    $existingDate = substr((string)($active['preferred_date'] ?? $active['created_at'] ?? ''), 0, 10);
-                    $existingReq = $active['request_id'] ?? 'Request';
-                    return [
-                        'success' => false,
-                        'message' => "Duplicate request: Tank {$d['tank_id']} already has an active service request ({$existingReq}) for {$existingDate}.",
-                        'code' => 409
-                    ];
+                $decision = SepticTankPolicy::canRequestService($tank, $active, $d['preferred_date'] ?? null);
+                if ($decision->denied()) {
+                    return $decision->toResponse();
                 }
             }
 

@@ -35,7 +35,9 @@ try {
 
     switch ($method) {
         case 'GET':
-            if (isset($_GET['stats']) && $_GET['stats'] === 'true') {
+            if (isset($_GET['guidelines']) || isset($_GET['policy']) || $action === 'guidelines') {
+                $controller->guidelines();
+            } elseif (isset($_GET['stats']) && $_GET['stats'] === 'true') {
                 $controller->stats();
             } elseif ($id) {
                 $controller->show($id);
@@ -47,7 +49,11 @@ try {
             break;
 
         case 'POST':
-            if ($action === 'update' && $id) {
+            if ($action === 'evaluate_siphoning') {
+                $controller->evaluateSiphoning();
+            } elseif ($action === 'complete_siphoning' && $id) {
+                $controller->completeSiphoning($id);
+            } elseif ($action === 'update' && $id) {
                 $controller->update($id);
             } elseif ($action === 'delete' && $id) {
                 $controller->destroy($id);

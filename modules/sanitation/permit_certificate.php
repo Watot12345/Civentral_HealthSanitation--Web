@@ -110,8 +110,8 @@ $logoUrl = site_url('assets/images/logo.png');
     <!-- Top Action Bar (Hidden on Print) -->
     <div class="no-print max-w-4xl mx-auto mb-6 flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm border border-[#B4D4FF]">
         <div class="flex items-center gap-3">
-            <a href="javascript:history.back()" class="p-2 text-slate-600 hover:text-[#176B87] hover:bg-[#EEF5FF] rounded-xl transition text-sm font-semibold flex items-center gap-1.5">
-                <i class="fa-solid fa-arrow-left"></i> Back
+            <a href="<?php echo htmlspecialchars(site_url('modules/sanitation/permit_records.php')); ?>" onclick="goBackToPermitRecords(event)" class="p-2 text-slate-600 hover:text-[#176B87] hover:bg-[#EEF5FF] rounded-xl transition text-sm font-semibold flex items-center gap-1.5" title="Go back to Permit Records">
+                <i class="fa-solid fa-arrow-left"></i> Back to Permit Records
             </a>
             <span class="text-slate-300">|</span>
             <div class="flex items-center gap-2">
@@ -255,6 +255,26 @@ $logoUrl = site_url('assets/images/logo.png');
     </div>
 
     <script>
+        function goBackToPermitRecords(event) {
+            if (event) event.preventDefault();
+            const targetUrl = <?php echo json_encode(site_url('modules/sanitation/permit_records.php')); ?>;
+            
+            // If opened from a parent window/tab that is still open, try to focus and close tab
+            if (window.opener && !window.opener.closed) {
+                try {
+                    window.opener.focus();
+                } catch (e) {}
+                try {
+                    window.close();
+                } catch (e) {}
+            }
+
+            // Smooth fallback for same-tab navigation or if window.close() is restricted by browser
+            setTimeout(() => {
+                window.location.href = targetUrl;
+            }, 60);
+        }
+
         async function downloadQRImage() {
             const qrImg = document.getElementById('qrPermitImg');
             try {

@@ -3,11 +3,13 @@
 
 require_once __DIR__ . '/../../Core/BaseController.php';
 require_once __DIR__ . '/../Constants/Permissions.php';
+require_once __DIR__ . '/../Policies/InspectionPolicy.php';
 require_once __DIR__ . '/../Models/Inspection.php';
 require_once __DIR__ . '/../Models/Permit.php';
 require_once __DIR__ . '/../Models/Employee.php';
 
 use App\Constants\Permissions;
+use App\Policies\InspectionPolicy;
 
 class InspectionController extends BaseController
 {
@@ -164,14 +166,6 @@ class InspectionController extends BaseController
         $data = $this->input();
 
         $this->handle(function() use ($data) {
-            if (!$this->canViewAllInspections()) {
-                return [
-                    'success' => false,
-                    'message' => 'Only administrators and sanitation directors can schedule inspections',
-                    'code' => 403
-                ];
-            }
-
             // Validate required fields
             $required = ['permit_id', 'inspector_id', 'scheduled_date', 'scheduled_time'];
             $missing = [];
@@ -188,22 +182,17 @@ class InspectionController extends BaseController
                 ];
             }
 
-            // Verify permit exists and is paid
+            // Policy: management only, permit exists and is paid, valid future date, no open duplicate
             $permit = $this->permitModel->find($data['permit_id']);
-            if (!$permit) {
-                return [
-                    'success' => false,
-                    'message' => 'Permit not found',
-                    'code' => 404
-                ];
-            }
-
-            if (empty($permit['paid'])) {
-                return [
-                    'success' => false,
-                    'message' => 'Permit fee must be paid before scheduling an inspection',
-                    'code' => 400
-                ];
+            $decision = InspectionPolicy::canSchedule(
+                $this->actor(),
+                $permit,
+                $permit ? $this->inspectionModel->hasOpenForPermit((int)$permit['id']) : false,
+                (string)$data['scheduled_date'],
+                date('Y-m-d')
+            );
+            if ($decision->denied()) {
+                return $decision->toResponse();
             }
 
             $dbData = $this->prepareDbData($data);
@@ -256,14 +245,6 @@ class InspectionController extends BaseController
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
-            if (!$this->canViewAllInspections()) {
-                return [
-                    'success' => false,
-                    'message' => 'Only administrators and sanitation directors can edit inspections',
-                    'code' => 403
-                ];
-            }
-
             $inspection = $this->inspectionModel->find($id);
             if (!$inspection) {
                 return [
@@ -273,12 +254,9 @@ class InspectionController extends BaseController
                 ];
             }
 
-            if (!$this->canAccessInspection($inspection)) {
-                return [
-                    'success' => false,
-                    'message' => 'You can only update inspections assigned to you',
-                    'code' => 403
-                ];
+            $decision = InspectionPolicy::canUpdate($this->actor(), $inspection);
+            if ($decision->denied()) {
+                return $decision->toResponse();
             }
 
             $dbData = $this->prepareDbData($data, true);
@@ -316,20 +294,14 @@ class InspectionController extends BaseController
                 ];
             }
 
-            if (!$this->canAccessInspection($inspection)) {
-                return [
-                    'success' => false,
-                    'message' => 'You can only conduct inspections assigned to you',
-                    'code' => 403
-                ];
+            $decision = InspectionPolicy::canConduct($this->actor(), $inspection);
+            if ($decision->denied()) {
+                return $decision->toResponse();
             }
 
-            if ($inspection['status'] !== 'scheduled') {
-                return [
-                    'success' => false,
-                    'message' => 'Only scheduled inspections can be conducted',
-                    'code' => 400
-                ];
+            $report = InspectionPolicy::validateReport($data, date('Y-m-d'));
+            if ($report->denied()) {
+                return $report->toResponse();
             }
 
             $updateData = [
@@ -344,12 +316,9 @@ class InspectionController extends BaseController
                 $updateData['findings'] = json_encode($data['findings']);
             }
 
-            // Set overall status
-            if (isset($data['overall_status'])) {
-                $validStatuses = ['compliant', 'partially_compliant', 'non_compliant'];
-                $overall = strtolower(trim($data['overall_status']));
-                $updateData['overall_status'] = in_array($overall, $validStatuses) ? $overall : 'partially_compliant';
-            }
+            // Outcome is guaranteed valid by InspectionPolicy::validateReport()
+            $overall = strtolower(trim($data['overall_status']));
+            $updateData['overall_status'] = $overall;
 
             if (isset($data['recommendations'])) {
                 $updateData['recommendations'] = trim($data['recommendations']);
@@ -378,12 +347,12 @@ class InspectionController extends BaseController
             if ($permitId > 0) {
                 try {
                     $permitUpdate = [
+                        'status' => InspectionPolicy::permitStatusFor($overall),
                         'updated_at' => date('Y-m-d H:i:sP'),
                         'inspection_date' => date('Y-m-d')
                     ];
 
-                    if ($overall === 'compliant') {
-                        $permitUpdate['status'] = 'approved';
+                    if ($overall === InspectionPolicy::OUTCOME_COMPLIANT) {
                         $permitUpdate['approved_date'] = date('Y-m-d');
                         $permitUpdate['rejection_reason'] = null;
 
@@ -399,13 +368,10 @@ class InspectionController extends BaseController
                         } catch (\Throwable $de) {
                             error_log('Permit document auto-generation error on inspection approval: ' . $de->getMessage());
                         }
-                    } elseif ($overall === 'non_compliant') {
-                        $permitUpdate['status'] = 'rejected';
+                    } elseif ($overall === InspectionPolicy::OUTCOME_NON_COMPLIANT) {
                         if (!empty($updateData['recommendations'])) {
                             $permitUpdate['rejection_reason'] = $updateData['recommendations'];
                         }
-                    } else { // partially_compliant
-                        $permitUpdate['status'] = 'under_review';
                     }
 
                     $this->permitModel->updateById($permitId, $permitUpdate);
@@ -456,14 +422,6 @@ class InspectionController extends BaseController
         $data = $this->input();
 
         $this->handle(function() use ($id, $data) {
-            if (!$this->canViewAllInspections()) {
-                return [
-                    'success' => false,
-                    'message' => 'Only administrators and sanitation directors can change inspection status',
-                    'code' => 403
-                ];
-            }
-
             $inspection = $this->inspectionModel->find($id);
             if (!$inspection) {
                 return [
@@ -474,13 +432,9 @@ class InspectionController extends BaseController
             }
 
             $status = strtolower(trim($data['status'] ?? ''));
-            $validStatuses = ['scheduled', 'completed', 'cancelled'];
-            if (!in_array($status, $validStatuses)) {
-                return [
-                    'success' => false,
-                    'message' => 'Invalid status value. Valid: ' . implode(', ', $validStatuses),
-                    'code' => 400
-                ];
+            $decision = InspectionPolicy::canChangeStatus($this->actor(), $inspection, $status);
+            if ($decision->denied()) {
+                return $decision->toResponse();
             }
 
             $updateData = [
@@ -515,14 +469,6 @@ class InspectionController extends BaseController
         $this->requireCapability(Permissions::INSPECTIONS_CONDUCT);
 
         $this->handle(function() use ($id) {
-            if (!$this->canViewAllInspections()) {
-                return [
-                    'success' => false,
-                    'message' => 'Only administrators and sanitation directors can delete inspections',
-                    'code' => 403
-                ];
-            }
-
             $inspection = $this->inspectionModel->find($id);
             if (!$inspection) {
                 return [
@@ -530,6 +476,11 @@ class InspectionController extends BaseController
                     'message' => 'Inspection not found',
                     'code' => 404
                 ];
+            }
+
+            $decision = InspectionPolicy::canDelete($this->actor(), $inspection);
+            if ($decision->denied()) {
+                return $decision->toResponse();
             }
 
             $success = $this->inspectionModel->deleteById($id);
@@ -792,56 +743,38 @@ class InspectionController extends BaseController
         return $userId;
     }
 
+    /** Session-derived identity handed to InspectionPolicy (the policy itself never reads $_SESSION). */
+    private function actor(): array
+    {
+        return [
+            'role_text'   => $this->currentRoleText(),
+            'user_id'     => $this->currentUserId(),
+            'employee_id' => $this->currentEmployeeId(),
+        ];
+    }
+
     private function visibleInspections(array $inspections): array
     {
-        if ($this->canViewAllInspections()) {
-            return $inspections;
-        }
+        $actor = $this->actor();
 
-        $currentUserId = $this->currentUserId();
-        $currentEmpId = $this->currentEmployeeId();
-
-        return array_values(array_filter($inspections, function ($inspection) use ($currentUserId, $currentEmpId) {
-            $inspId = (int)($inspection['inspector_id'] ?? 0);
-            return ($inspId === $currentUserId || $inspId === $currentEmpId)
-                && strtolower($inspection['status'] ?? '') === 'scheduled';
+        return array_values(array_filter($inspections, function ($inspection) use ($actor) {
+            return InspectionPolicy::canAccess($actor, $inspection);
         }));
     }
 
     private function canAccessInspection(array $inspection): bool
     {
-        if ($this->canViewAllInspections()) {
-            return true;
-        }
-
-        $inspId = (int)($inspection['inspector_id'] ?? 0);
-        return ($inspId === $this->currentUserId() || $inspId === $this->currentEmployeeId())
-            && strtolower($inspection['status'] ?? '') === 'scheduled';
+        return InspectionPolicy::canAccess($this->actor(), $inspection);
     }
 
     private function canViewAllInspections(): bool
     {
-        $roleText = $this->currentRoleText();
-        if (empty($roleText)) {
-            return true;
-        }
-
-        return str_contains($roleText, 'admin')
-            || str_contains($roleText, 'administrator')
-            || str_contains($roleText, 'sanitation director')
-            || str_contains($roleText, 'director')
-            || str_contains($roleText, 'clerk')
-            || str_contains($roleText, 'staff')
-            || str_contains($roleText, 'officer')
-            || str_contains($roleText, 'head')
-            || str_contains($roleText, 'supervisor')
-            || str_contains($roleText, 'manager')
-            || str_contains($roleText, 'sanitation');
+        return InspectionPolicy::canViewAll(['role_text' => $this->currentRoleText()]);
     }
 
     private function isInspectorUser(): bool
     {
-        return str_contains($this->currentRoleText(), 'inspector');
+        return InspectionPolicy::isInspector(['role_text' => $this->currentRoleText()]);
     }
 
     private function currentRoleText(): string
