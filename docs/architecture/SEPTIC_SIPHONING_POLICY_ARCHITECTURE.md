@@ -82,7 +82,36 @@ Located in [app/Policies/SepticSiphoningPolicy.php](file:///c:/Users/Huawei%20Ma
 
 ---
 
-## 4. Verification & Testing
+## 4. Finite State Machine & Lifecycle Flow
+
+The module implements an exact finite state machine governing septic desludging:
+
+```
+START -> User opens Septic Module
+  |
+  -> INPUT: Last Siphoned Date + Household Size
+  |
+  -> CALCULATE: Next Due = Last + 3 years (if 5+ people) ELSE +5 years
+  |
+  -> CHECK STATUS: Compare Next Due vs Today (days_left)
+
+  -> IF >90 days left = OK
+      -> Action: Green badge, do nothing
+
+  -> IF <=90 days left = DUE_SOON
+      -> Action: Yellow alert, "Book Soon", show Maynilad 1626 / Manila Water 1627
+
+  -> IF past due = OVERDUE
+      -> Action: Red URGENT alert, "Overdue!", show Private option P3.5k-6k
+
+  -> BOOKING -> User books service
+  |
+  -> COMPLETE -> Update Last Siphoned Date -> Loop back to START
+```
+
+---
+
+## 5. Verification & Testing
 
 The policy layer is verified via automated unit tests in [tests/policies_test.php](file:///c:/Users/Huawei%20Matebook%20D15/Downloads/xampp/htdocs/Civentral_HealthSanitation--Web/tests/policies_test.php).
 
@@ -90,4 +119,4 @@ Run automated suite:
 ```bash
 php tests/policies_test.php
 ```
-Result: **110 passing assertions, 0 failures**.
+Result: **121 passing assertions, 0 failures**.
