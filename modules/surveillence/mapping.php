@@ -6,8 +6,8 @@
 // Sources: surveillance_cases, consultations (Health Center), immunizations
 // ============================================================
 
-require_once '../../includes/header.php';
-require_once '../../includes/sidebar.php';
+require_once __DIR__ . '/../../includes/header.php';
+require_once __DIR__ . '/../../includes/sidebar.php';
 requireDepartmentAccess('health surveillance');
 
 require_once __DIR__ . '/../../app/services/SurveillanceService.php';
@@ -28,7 +28,7 @@ $clusters     = $service->detectClusters($cases);
 $summary      = $service->getSummary($cases);
 $timelineData = $service->getTimelineData($cases);
 
-// ── 3. Centroids & Barangay Dictionary (District 1 46 Barangays) ──
+// ── 3. Centroids & Barangay Dictionary (All 193 Barangays across 16 Zones) ──
 $allBarangays = $barangayModel->allForSurveillance();
 $barangayCentroids = [];
 $barangayCaseCounts = [];
@@ -40,6 +40,8 @@ foreach ($allBarangays as $b) {
         'lng'        => (float)$b['lng'],
         'name'       => $b['name'],
         'zone'       => $b['zone'],
+        'district'   => (int)($b['district'] ?? 1),
+        'region'     => $b['region'] ?? 'South Caloocan',
         'landmark'   => $b['landmark'] ?? '',
         'population' => (int)($b['population'] ?? 10000)
     ];
@@ -51,8 +53,8 @@ function jitteredPoint(float $lat, float $lng, string $seed): array
 {
     $hash = crc32($seed);
     mt_srand($hash);
-    $offsetLat = (mt_rand(-50, 50) / 100000.0);
-    $offsetLng = (mt_rand(-50, 50) / 100000.0);
+    $offsetLat = (mt_rand(-40, 40) / 100000.0);
+    $offsetLng = (mt_rand(-40, 40) / 100000.0);
     mt_srand(); // Restore randomness
     return [$lat + $offsetLat, $lng + $offsetLng];
 }
@@ -75,12 +77,6 @@ $diseaseColors = [
     'vpd risk'              => '#f59e0b'
 ];
 
-// Deterministic demo fallback resolver to map any out-of-district or name-only barangay to a valid District 1 centroid
-$demoFallbackCentroids = [
-    8  => 82, // Brgy 8 -> Zone 8 Morning Breeze (Brgy 82)
-    12 => 132, // Brgy 12 -> Zone 12 Bagong Barrio West (Brgy 132)
-];
-
 foreach ($cases as $case) {
     $rawBrgy = (string)($case['barangay'] ?? ($case['raw_barangay'] ?? ''));
     $bNum = is_numeric($rawBrgy) ? (int)$rawBrgy : (int)preg_replace('/\D/', '', $rawBrgy);
@@ -88,15 +84,24 @@ foreach ($cases as $case) {
     $centroid = null;
     if ($bNum && isset($barangayCentroids[$bNum])) {
         $centroid = $barangayCentroids[$bNum];
-    } elseif ($bNum && isset($demoFallbackCentroids[$bNum]) && isset($barangayCentroids[$demoFallbackCentroids[$bNum]])) {
-        $centroid = $barangayCentroids[$demoFallbackCentroids[$bNum]];
-        $bNum = $demoFallbackCentroids[$bNum];
     } else {
-        // Deterministic hash fallback to distribute remaining unmapped records across District 1 centroids
-        $allKeys = array_keys($barangayCentroids);
-        $hashedIndex = abs(crc32((string)($case['id'] ?? $rawBrgy))) % count($allKeys);
-        $bNum = $allKeys[$hashedIndex];
-        $centroid = $barangayCentroids[$bNum];
+        // Fallback string matching across all 193 barangay names and landmarks (e.g. Bagong Silang, Camarin, Maypajo)
+        $cleanRaw = strtolower(trim($rawBrgy));
+        if (!empty($cleanRaw)) {
+            foreach ($barangayCentroids as $bKey => $bMeta) {
+                if (str_contains(strtolower($bMeta['name']), $cleanRaw) || (!empty($bMeta['landmark']) && str_contains(strtolower($bMeta['landmark']), $cleanRaw))) {
+                    $centroid = $bMeta;
+                    $bNum = $bKey;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!$centroid) {
+        // Triage out-of-district / unmapped cases into dedicated drawer
+        $unmapped[] = $case;
+        continue;
     }
 
     $barangayCaseCounts[$bNum] = ($barangayCaseCounts[$bNum] ?? 0) + 1;
@@ -126,57 +131,124 @@ foreach ($cases as $case) {
     $heatmapData[] = [$pLat, $pLng, 1];
 }
 
-// ── 6. Build Barangay Risk Buffers (Choropleth Centroids) ─────
+// ── 6. Prepare Outbreak Cluster Overlays (Mathematically Centered on Actual Cases) ──
+$clusterOverlays = [];
+$activeClusterBarangayMap = [];
+
+foreach ($clusters as $c) {
+    $rawBrgy = (string)$c['barangay'];
+    $bNum = is_numeric($rawBrgy) ? (int)$rawBrgy : (int)preg_replace('/\D/', '', $rawBrgy);
+    if (!$bNum) {
+        $cleanRaw = strtolower(trim($rawBrgy));
+        foreach ($barangayCentroids as $bKey => $bMeta) {
+            if (str_contains(strtolower($bMeta['name']), $cleanRaw) || (!empty($bMeta['landmark']) && str_contains(strtolower($bMeta['landmark']), $cleanRaw))) {
+                $bNum = $bKey;
+                break;
+            }
+        }
+    }
+
+    // Match actual case points for this cluster
+    $matchedPoints = [];
+    $clusterDiseaseLower = strtolower(trim($c['disease']));
+
+    foreach ($mapPoints as $p) {
+        $pDiseaseLower = strtolower(trim($p['disease']));
+        $diseaseMatch = str_contains($pDiseaseLower, $clusterDiseaseLower) || str_contains($clusterDiseaseLower, $pDiseaseLower) || (str_contains($clusterDiseaseLower, 'dengue') && str_contains($pDiseaseLower, 'dengue'));
+        
+        $barangayMatch = false;
+        if ($bNum && (int)$p['barangay'] === $bNum) {
+            $barangayMatch = true;
+        } elseif (!$bNum && str_contains(strtolower($p['barangay_name']), strtolower($rawBrgy))) {
+            $barangayMatch = true;
+        }
+
+        if ($diseaseMatch && $barangayMatch) {
+            $matchedPoints[] = $p;
+        }
+    }
+
+    // Secondary fallback: if cluster is flagged for a barangay that has cases
+    if (empty($matchedPoints) && $bNum) {
+        foreach ($mapPoints as $p) {
+            if ((int)$p['barangay'] === $bNum) {
+                $matchedPoints[] = $p;
+            }
+        }
+    }
+
+    // Never render a ghost cluster with 0 cases inside District 1
+    if (empty($matchedPoints)) {
+        continue;
+    }
+
+    // True mathematical average of case coordinates (100% concentric alignment)
+    $avgLat = array_sum(array_column($matchedPoints, 'lat')) / count($matchedPoints);
+    $avgLng = array_sum(array_column($matchedPoints, 'lng')) / count($matchedPoints);
+
+    // Calculate maximum distance to member cases to ensure complete enclosure
+    $maxDistMeters = 0;
+    foreach ($matchedPoints as $p) {
+        $dLat = ($p['lat'] - $avgLat) * 111320;
+        $dLng = ($p['lng'] - $avgLng) * (111320 * cos(deg2rad($avgLat)));
+        $dist = sqrt($dLat * $dLat + $dLng * $dLng);
+        if ($dist > $maxDistMeters) $maxDistMeters = $dist;
+    }
+    $radiusMeters = max(110, round($maxDistMeters + 35));
+    $bResolved = (int)$matchedPoints[0]['barangay'];
+
+    $clusterOverlays[] = [
+        'lat'          => $avgLat,
+        'lng'          => $avgLng,
+        'radius_meters'=> $radiusMeters,
+        'barangay_no'  => $bResolved,
+        'barangay'     => $matchedPoints[0]['barangay_name'] ?? ('Brgy ' . $bResolved),
+        'disease'      => $c['disease'],
+        'case_count'   => count($matchedPoints),
+        'window_start' => $c['window_start'],
+        'window_end'   => $c['window_end'],
+        'risk_level'   => $c['risk_level']
+    ];
+
+    $activeClusterBarangayMap[$bResolved] = $c;
+}
+
+// ── 7. Build Harmonized Barangay Risk Buffers ─────────────────
 $barangayBuffers = [];
 foreach ($barangayCentroids as $bNum => $c) {
     $total = $barangayCaseCounts[$bNum] ?? 0;
     if ($total > 0) {
         $attackRate = $c['population'] > 0 ? round(($total / $c['population']) * 1000, 2) : 0;
-        $risk = $total >= 20 ? 'High' : ($total >= 10 ? 'Moderate' : 'Low');
-        $color = $risk === 'High' ? '#ef4444' : ($risk === 'Moderate' ? '#f59e0b' : '#3b82f6');
+        $hasActiveCluster = isset($activeClusterBarangayMap[$bNum]);
+
+        // Center buffer precisely on the cases of this barangay
+        $brgyCases = array_filter($mapPoints, fn($p) => (int)$p['barangay'] === $bNum);
+        $bLat = !empty($brgyCases) ? (array_sum(array_column($brgyCases, 'lat')) / count($brgyCases)) : $c['lat'];
+        $bLng = !empty($brgyCases) ? (array_sum(array_column($brgyCases, 'lng')) / count($brgyCases)) : $c['lng'];
+
+        if ($hasActiveCluster || $total >= 20) {
+            $risk = 'High Outbreak';
+            $color = '#ef4444'; // Red (harmonized with outbreak alert)
+        } elseif ($total >= 10) {
+            $risk = 'Moderate';
+            $color = '#f59e0b'; // Amber
+        } else {
+            $risk = 'Low';
+            $color = '#3b82f6'; // Blue
+        }
+
         $barangayBuffers[] = [
             'barangay_no' => $bNum,
             'name'        => $c['name'],
-            'lat'         => $c['lat'],
-            'lng'         => $c['lng'],
+            'lat'         => $bLat,
+            'lng'         => $bLng,
             'total'       => $total,
             'attack_rate' => $attackRate,
             'population'  => $c['population'],
             'risk'        => $risk,
             'color'       => $color,
+            'has_outbreak'=> $hasActiveCluster,
             'landmark'    => $c['landmark']
-        ];
-    }
-}
-
-// ── 7. Prepare Cluster Overlay Coordinates ────────────────────
-$clusterOverlays = [];
-foreach ($clusters as $c) {
-    $rawBrgy = (string)$c['barangay'];
-    $bNum = is_numeric($rawBrgy) ? (int)$rawBrgy : (int)preg_replace('/\D/', '', $rawBrgy);
-
-    $cent = null;
-    if ($bNum && isset($barangayCentroids[$bNum])) {
-        $cent = $barangayCentroids[$bNum];
-    } elseif ($bNum && isset($demoFallbackCentroids[$bNum]) && isset($barangayCentroids[$demoFallbackCentroids[$bNum]])) {
-        $cent = $barangayCentroids[$demoFallbackCentroids[$bNum]];
-    } else {
-        // Fallback to first zone centroid (Barangay 1) or hash
-        $allKeys = array_keys($barangayCentroids);
-        $hashedIndex = abs(crc32($c['disease'] . $rawBrgy)) % count($allKeys);
-        $cent = $barangayCentroids[$allKeys[$hashedIndex]];
-    }
-
-    if ($cent) {
-        $clusterOverlays[] = [
-            'lat'          => $cent['lat'],
-            'lng'          => $cent['lng'],
-            'barangay'     => $cent['name'],
-            'disease'      => $c['disease'],
-            'case_count'   => $c['case_count'],
-            'window_start' => $c['window_start'],
-            'window_end'   => $c['window_end'],
-            'risk_level'   => $c['risk_level']
         ];
     }
 }
@@ -278,13 +350,13 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
                     <i class="fa-solid fa-circle-nodes text-lg"></i>
                 </div>
                 <div>
-                    <p class="text-2xl font-black <?= count($clusters) > 0 ? 'text-red-600' : 'text-slate-900'; ?>"><?= count($clusters); ?></p>
+                    <p class="text-2xl font-black <?= count($clusterOverlays) > 0 ? 'text-red-600' : 'text-slate-900'; ?>"><?= count($clusterOverlays); ?></p>
                     <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">14-Day Clusters</p>
                 </div>
             </div>
             <div class="mt-3 flex items-center gap-2">
-                <span class="px-2 py-0.5 <?= count($clusters) > 0 ? 'bg-red-100 text-red-800' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'; ?> rounded-full text-[10px] font-bold">
-                    <?= count($clusters) > 0 ? '🚨 Active Outbreak Threshold' : '✅ Baseline Clear'; ?>
+                <span class="px-2 py-0.5 <?= count($clusterOverlays) > 0 ? 'bg-red-100 text-red-800' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'; ?> rounded-full text-[10px] font-bold">
+                    <?= count($clusterOverlays) > 0 ? '🚨 Active Outbreak Threshold' : '✅ Baseline Clear'; ?>
                 </span>
             </div>
         </div>
@@ -316,10 +388,26 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
     <!-- ============================================================ -->
     <div class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden mb-6">
         <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
-            <div class="flex items-center gap-2">
-                <i class="fa-solid fa-map text-brand-medium"></i>
-                <h3 class="font-bold text-slate-800 text-sm">District 1 Spatial Epidemiology Map</h3>
-                <span class="text-xs text-slate-400 font-normal">(46 Monitored Barangays)</span>
+            <div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-map text-brand-medium"></i>
+                    <h3 class="font-bold text-slate-800 text-sm">Caloocan Spatial Epidemiology GIS</h3>
+                    <span class="text-xs text-brand-dark font-bold bg-brand-light/70 px-2 py-0.5 rounded-full border border-brand-medium/20">193 Barangays &bull; 16 Zones</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-0.5">Dual Enclaves: South (13.63 km² | 7×6 km) &bull; North (39.71 km² | 10×8 km) &bull; Total Area: 53.33 km²</p>
+            </div>
+
+            <!-- Region & Territory Switcher -->
+            <div class="flex items-center gap-1.5 bg-slate-200/60 p-1 rounded-xl border border-slate-200">
+                <button type="button" id="btnRegion_whole" onclick="switchCaloocanRegion('whole')" class="px-2.5 py-1 font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 transition text-[11px]">
+                    <i class="fa-solid fa-earth-asia text-[10px] mr-1"></i> Whole City
+                </button>
+                <button type="button" id="btnRegion_south" onclick="switchCaloocanRegion('south')" class="px-2.5 py-1 font-bold rounded-lg bg-brand-dark text-white shadow-2xs transition text-[11px]">
+                    <i class="fa-solid fa-city text-[10px] mr-1"></i> South (13.63 km²)
+                </button>
+                <button type="button" id="btnRegion_north" onclick="switchCaloocanRegion('north')" class="px-2.5 py-1 font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 transition text-[11px]">
+                    <i class="fa-solid fa-mountain-sun text-[10px] mr-1"></i> North (39.71 km²)
+                </button>
             </div>
 
             <!-- Layer & Timeline Controls -->
@@ -340,8 +428,16 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
                 </label>
 
                 <label class="flex items-center gap-1.5 text-slate-600 font-semibold cursor-pointer select-none">
+                    <input type="checkbox" id="toggleClusters" checked onchange="toggleLayer('clusters')" class="rounded text-brand-dark focus:ring-brand-medium">
+                    <span class="flex items-center gap-1 text-red-600 font-bold">
+                        <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                        Outbreak Clusters
+                    </span>
+                </label>
+
+                <label class="flex items-center gap-1.5 text-slate-600 font-semibold cursor-pointer select-none">
                     <input type="checkbox" id="toggleBuffers" checked onchange="toggleLayer('buffers')" class="rounded text-brand-dark focus:ring-brand-medium">
-                    Barangay Attack Rate
+                    Attack Rate
                 </label>
 
                 <label class="flex items-center gap-1.5 text-slate-600 font-semibold cursor-pointer select-none">
@@ -367,6 +463,32 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
 
         <div class="p-4 relative">
             <div id="surveillance-map" style="height: 540px; border-radius: 12px; z-index: 1;"></div>
+
+            <!-- Floating Geospatial Surveillance Map Legend -->
+            <div class="absolute bottom-7 left-7 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl border border-slate-200/90 shadow-lg text-[11px] z-10 pointer-events-auto">
+                <div class="font-black text-slate-800 text-[10px] uppercase tracking-wider border-b border-slate-100 pb-1 mb-2 flex items-center justify-between gap-4">
+                    <span>GIS Map Legend</span>
+                    <span class="text-[9px] text-slate-400 font-normal">District 1</span>
+                </div>
+                <div class="space-y-1.5 text-slate-600">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3.5 h-3.5 rounded-full border-2 border-red-500 bg-red-500/20 inline-block shrink-0"></span>
+                        <span><strong>Red Circle:</strong> Active 14-Day Outbreak Cluster</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3.5 h-3.5 rounded-full border border-blue-500 bg-blue-500/20 inline-block shrink-0"></span>
+                        <span><strong>Blue Circle:</strong> Low-Risk Attack Rate (&lt;10 cases)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3.5 h-3.5 rounded-full border border-amber-500 bg-amber-500/20 inline-block shrink-0"></span>
+                        <span><strong>Amber Circle:</strong> Moderate Risk (10–19 cases)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-500 border border-white inline-block shrink-0"></span>
+                        <span><strong>Dots:</strong> Individual Onset Cases (Color by Disease)</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -409,7 +531,11 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
         sort($tableDiseases);
         $tableSources = array_unique(array_filter(array_column($cases, 'source')));
         sort($tableSources);
-        $tableZones = ['Zone 1', 'Zone 7', 'Zone 8', 'Zone 12', 'Zone 13', 'Zone 14', 'Zone 15'];
+        $tableZones = [
+            'Zone 1', 'Zone 2', 'Zone 3', 'Zone 4', 'Zone 5', 'Zone 6',
+            'Zone 7', 'Zone 8', 'Zone 9', 'Zone 10', 'Zone 11', 'Zone 12',
+            'Zone 13', 'Zone 14', 'Zone 15', 'Zone 16'
+        ];
     ?>
     <div class="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
         <div class="px-5 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/50">
@@ -418,14 +544,14 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
                     <i class="fa-solid fa-list-check text-brand-medium"></i>
                     Unified Primary Surveillance Feed
                 </h3>
-                <p class="text-xs text-slate-400 mt-0.5">Aggregated cases from Epidemiological Reports, Consultations & Immunizations</p>
+                <p class="text-xs text-slate-400 mt-0.5">Aggregated cases from Epidemiological Reports, Consultations & Immunizations across Caloocan City</p>
             </div>
             
             <!-- Quick Filters & Search Bar -->
             <div class="flex flex-wrap items-center gap-2">
                 <!-- Zone Filter -->
                 <select id="tableFilterZone" onchange="handleZoneChange()" class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-1 focus:ring-brand-dark outline-none cursor-pointer">
-                    <option value="">All 7 Zones</option>
+                    <option value="">All 16 Zones</option>
                     <?php foreach ($tableZones as $tz): ?>
                         <option value="<?= htmlspecialchars($tz); ?>"><?= htmlspecialchars($tz); ?></option>
                     <?php endforeach; ?>
@@ -433,9 +559,9 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
 
                 <!-- Barangay Filter (Cascading based on Zone) -->
                 <select id="tableFilterBarangay" onchange="changeTableFilter()" class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:ring-1 focus:ring-brand-dark outline-none cursor-pointer">
-                    <option value="">All 46 Barangays</option>
+                    <option value="">All 193 Barangays</option>
                     <?php foreach ($allBarangays as $b): ?>
-                        <option value="<?= $b['barangay_no']; ?>" data-zone="<?= htmlspecialchars($b['zone']); ?>">Brgy <?= $b['barangay_no']; ?> (<?= $b['zone']; ?>)</option>
+                        <option value="<?= $b['barangay_no']; ?>" data-zone="<?= htmlspecialchars($b['zone']); ?>"><?= htmlspecialchars($b['name']); ?> (<?= $b['zone']; ?>)</option>
                     <?php endforeach; ?>
                 </select>
 
@@ -618,46 +744,96 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
         ]
     };
 
-    // South Caloocan District 1 Geographical Boundary (Zones 1, 7, 8, 12, 13, 14, 15)
-    const DISTRICT1_BOUNDS = [
-        [120.9600, 14.6470], // Southwest Coordinates (Dagat-Dagatan / Sangandaan edge)
-        [121.0120, 14.6860]  // Northeast Coordinates (Santa Quiteria / Tullahan River edge)
+    // Caloocan City Geographical Bounds (Encompassing Both Non-Contiguous South & North Enclaves)
+    const CALOOCAN_WHOLE_BOUNDS = [
+        [120.9400, 14.6250], // Southwest Coordinates (Maypajo / Kaunlaran Waterfront edge)
+        [121.1150, 14.8100]  // Northeast Coordinates (Tala North / Pangarap edge)
     ];
 
-    const DISTRICT1_POLYGON = {
+    // South Caloocan (Urban Center - 13.63 km² - 7km E-W × 6km N-S)
+    const SOUTH_CALOOCAN_POLYGON = {
         type: 'Feature',
         geometry: {
             type: 'Polygon',
             coordinates: [[
-                [120.9680, 14.6540], // Zone 1 West
+                [120.9620, 14.6380], // Maypajo West
+                [120.9670, 14.6540], // Dagat-Dagatan / Zone 1
                 [120.9710, 14.6610],
                 [120.9740, 14.6655], // Zone 8 North
-                [120.9850, 14.6670], // EDSA Corridor
+                [120.9850, 14.6670], // EDSA
                 [120.9920, 14.6710], // Zone 14 Baesa
-                [120.9960, 14.6775], // Zone 15 Santa Quiteria North
-                [121.0040, 14.6740], // Zone 15 East
-                [121.0005, 14.6670], // Zone 13 East
-                [120.9960, 14.6620], // Zone 12 East
-                [120.9890, 14.6590], // Balintawak / Cloverleaf edge
-                [120.9790, 14.6550], // Zone 7 South
-                [120.9720, 14.6535], // Zone 1 South
-                [120.9680, 14.6540]  // Loop back
+                [120.9960, 14.6775], // Zone 15 Santa Quiteria
+                [121.0040, 14.6740], // East edge
+                [121.0005, 14.6670],
+                [120.9960, 14.6620], // Bagong Barrio East
+                [120.9890, 14.6500], // Grace Park East
+                [120.9820, 14.6360], // Manila border (R. Papa / 2nd Ave)
+                [120.9700, 14.6380], // Maypajo South
+                [120.9620, 14.6380]  // Loop
             ]]
         },
-        properties: { name: 'Caloocan City' }
+        properties: { name: 'South Caloocan (Urban Center - 13.63 km²)' }
+    };
+
+    // North Caloocan (Residential Subdivisions & Rolling Hills - 39.71 km² - 10km E-W × 8km N-S)
+    const NORTH_CALOOCAN_POLYGON = {
+        type: 'Feature',
+        geometry: {
+            type: 'Polygon',
+            coordinates: [[
+                [121.0050, 14.7180], // Bagbaguin West
+                [121.0180, 14.7300], // Kaybiga
+                [121.0220, 14.7450], // Llano
+                [121.0260, 14.7580], // Bagumbong North
+                [121.0380, 14.7750], // Bagong Silang West
+                [121.0500, 14.7880], // Bagong Silang North (San Jose Del Monte border)
+                [121.0700, 14.7850], // Santo Niño North
+                [121.0880, 14.7780], // Pangarap Village North
+                [121.0850, 14.7550], // Quirino Highway / Amparo
+                [121.0650, 14.7450], // Bankers Village
+                [121.0480, 14.7380], // Urduja / Zabarte
+                [121.0250, 14.7250], // Deparo South
+                [121.0050, 14.7180]  // Loop
+            ]]
+        },
+        properties: { name: 'North Caloocan (Subdivisions - 39.71 km²)' }
+    };
+
+    const REGION_PRESETS = {
+        whole: {
+            center: [121.0150, 14.7100],
+            zoom: 11.4,
+            pitch: 20,
+            bearing: 0,
+            label: 'Whole Caloocan (193 Barangays)'
+        },
+        south: {
+            center: [120.9845, 14.6560],
+            zoom: 13.5,
+            pitch: 28,
+            bearing: -6,
+            label: 'South Caloocan (Zones 1–15 | 13.63 km²)'
+        },
+        north: {
+            center: [121.0450, 14.7580],
+            zoom: 12.8,
+            pitch: 24,
+            bearing: -4,
+            label: 'North Caloocan (Zone 16 | 39.71 km²)'
+        }
     };
 
     function initMap() {
-        const centerCoords = [120.9845, 14.6625]; // Exact South Caloocan District 1 centroid
+        const centerCoords = [120.9845, 14.6560]; // South Caloocan default centroid
 
         map = new maplibregl.Map({
             container: 'surveillance-map',
             style: COMBINED_STYLE,
             center: centerCoords,
-            zoom: 13.8,
-            minZoom: 13.0, // Strictly locked to District 1
+            zoom: 13.5,
+            minZoom: 10.5, // Allows zooming out to view both non-contiguous areas
             maxZoom: 18.5,
-            maxBounds: DISTRICT1_BOUNDS, // Prevents camera from panning outside District 1
+            maxBounds: CALOOCAN_WHOLE_BOUNDS, // Restricts camera strictly to Caloocan City borders
             pitch: 28,
             bearing: -6,
             antialias: true
@@ -682,21 +858,39 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
 
         map.on('load', () => {
             setupMapSourcesAndLayers();
-            announceGisMapState('GIS Surveillance Map loaded with 3D buildings, barangay boundaries, and disease clusters.');
+            announceGisMapState('GIS Surveillance Map loaded with Caloocan South and North boundaries, barangays, and disease clusters.');
         });
     }
 
+    function switchCaloocanRegion(reg) {
+        if (!map || !REGION_PRESETS[reg]) return;
+        const p = REGION_PRESETS[reg];
+        map.flyTo({ center: p.center, zoom: p.zoom, pitch: p.pitch, bearing: p.bearing, speed: 1.2 });
+
+        ['whole', 'south', 'north'].forEach(k => {
+            const btn = document.getElementById('btnRegion_' + k);
+            if (btn) {
+                if (k === reg) {
+                    btn.className = 'px-2.5 py-1 font-bold rounded-lg bg-brand-dark text-white shadow-2xs transition text-[11px]';
+                } else {
+                    btn.className = 'px-2.5 py-1 font-semibold rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-slate-900 transition text-[11px]';
+                }
+            }
+        });
+        announceGisMapState('Camera transitioned to ' + p.label);
+    }
+
     function setupMapSourcesAndLayers() {
-        // District 1 Boundary Source & Visual Enclosure
-        map.addSource('district1-boundary-src', {
+        // South Caloocan Boundary Source & Enclosure
+        map.addSource('caloocan-south-src', {
             type: 'geojson',
-            data: DISTRICT1_POLYGON
+            data: SOUTH_CALOOCAN_POLYGON
         });
 
         map.addLayer({
-            id: 'district1-boundary-fill',
+            id: 'caloocan-south-fill',
             type: 'fill',
-            source: 'district1-boundary-src',
+            source: 'caloocan-south-src',
             paint: {
                 'fill-color': '#0B4F4A',
                 'fill-opacity': 0.04
@@ -704,14 +898,42 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
         });
 
         map.addLayer({
-            id: 'district1-boundary-line',
+            id: 'caloocan-south-line',
             type: 'line',
-            source: 'district1-boundary-src',
+            source: 'caloocan-south-src',
             paint: {
                 'line-color': '#0B4F4A',
                 'line-width': 2.5,
                 'line-dasharray': [3, 2],
-                'line-opacity': 0.75
+                'line-opacity': 0.8
+            }
+        });
+
+        // North Caloocan Boundary Source & Enclosure
+        map.addSource('caloocan-north-src', {
+            type: 'geojson',
+            data: NORTH_CALOOCAN_POLYGON
+        });
+
+        map.addLayer({
+            id: 'caloocan-north-fill',
+            type: 'fill',
+            source: 'caloocan-north-src',
+            paint: {
+                'fill-color': '#0B4F4A',
+                'fill-opacity': 0.04
+            }
+        });
+
+        map.addLayer({
+            id: 'caloocan-north-line',
+            type: 'line',
+            source: 'caloocan-north-src',
+            paint: {
+                'line-color': '#0B4F4A',
+                'line-width': 2.5,
+                'line-dasharray': [3, 2],
+                'line-opacity': 0.8
             }
         });
 
@@ -759,18 +981,24 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
 
         // --- ADD LAYERS ---
 
-        // Layer: Barangay Risk Buffers
+        // Layer: Barangay Risk Buffers (Case Attack Rate)
         map.addLayer({
             id: 'layer-buffers',
             type: 'circle',
             source: 'barangay-buffers-src',
             paint: {
-                'circle-radius': ['get', 'pixelRadius'],
+                'circle-radius': [
+                    'interpolate', ['exponential', 2], ['zoom'],
+                    12, 9,
+                    14, 24,
+                    16, 58,
+                    18, 140
+                ],
                 'circle-color': ['get', 'color'],
-                'circle-opacity': 0.18,
+                'circle-opacity': 0.16,
                 'circle-stroke-width': 1.5,
                 'circle-stroke-color': ['get', 'color'],
-                'circle-stroke-opacity': 0.6
+                'circle-stroke-opacity': 0.65
             }
         });
 
@@ -798,18 +1026,37 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
             }
         });
 
-        // Layer: Cluster Halo
+        // Layer: Outbreak Cluster Halo (Red Circle - Centered on Case Cluster)
         map.addLayer({
             id: 'layer-clusters-halo',
             type: 'circle',
             source: 'clusters-src',
             paint: {
-                'circle-radius': 34,
+                'circle-radius': [
+                    'interpolate', ['exponential', 2], ['zoom'],
+                    12, 14,
+                    14, 38,
+                    16, 95,
+                    18, 220
+                ],
                 'circle-color': '#ef4444',
-                'circle-opacity': 0.15,
-                'circle-stroke-width': 2,
+                'circle-opacity': 0.18,
+                'circle-stroke-width': 2.5,
                 'circle-stroke-color': '#ef4444',
-                'circle-stroke-opacity': 0.8
+                'circle-stroke-opacity': 0.9
+            }
+        });
+
+        // Layer: Cluster Core Anchor Dot
+        map.addLayer({
+            id: 'layer-clusters-pulse',
+            type: 'circle',
+            source: 'clusters-src',
+            paint: {
+                'circle-radius': 4.5,
+                'circle-color': '#ef4444',
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ffffff'
             }
         });
 
@@ -821,15 +1068,67 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
             paint: {
                 'circle-radius': 6.5,
                 'circle-color': ['get', 'color'],
-                'circle-opacity': 0.92,
-                'circle-stroke-width': 1.5,
+                'circle-opacity': 0.95,
+                'circle-stroke-width': 1.8,
                 'circle-stroke-color': '#ffffff'
             }
         });
 
         // Setup Interactive Tooltips
-        const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '280px' });
+        const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '290px' });
 
+        // Tooltip for Outbreak Clusters
+        map.on('mouseenter', 'layer-clusters-halo', (e) => {
+            map.getCanvas().style.cursor = 'pointer';
+            const c = e.features[0].properties;
+            popup.setLngLat(e.features[0].geometry.coordinates).setHTML(`
+                <div class="p-3 bg-white space-y-1.5 border-l-4 border-red-500">
+                    <div class="font-black text-red-600 text-xs flex items-center justify-between">
+                        <span>🚨 ${escapeHtml(c.disease)} Outbreak</span>
+                        <span class="text-[10px] bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-bold">${escapeHtml(c.risk_level || 'High')}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-700 font-semibold">
+                        ${escapeHtml(c.barangay)} &bull; Spatial Cluster
+                    </div>
+                    <div class="border-t border-slate-100 pt-1 text-[10px] space-y-0.5 text-slate-500">
+                        <div><strong>Cluster Cases:</strong> <span class="font-bold text-red-600">${c.case_count} cases</span> centered on cluster</div>
+                        <div><strong>Containment Window:</strong> ${escapeHtml(c.window_start || '')} to ${escapeHtml(c.window_end || '')}</div>
+                    </div>
+                </div>
+            `).addTo(map);
+        });
+
+        map.on('mouseleave', 'layer-clusters-halo', () => {
+            map.getCanvas().style.cursor = '';
+        });
+
+        // Tooltip for Attack Rate Buffers
+        map.on('mouseenter', 'layer-buffers', (e) => {
+            map.getCanvas().style.cursor = 'pointer';
+            const b = e.features[0].properties;
+            popup.setLngLat(e.features[0].geometry.coordinates).setHTML(`
+                <div class="p-3 bg-white space-y-1.5 border-l-4" style="border-color: ${b.color};">
+                    <div class="font-black text-slate-900 text-xs flex items-center justify-between">
+                        <span>${escapeHtml(b.name)}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded font-bold" style="background-color: ${b.color}20; color: ${b.color};">${escapeHtml(b.risk)}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-600 font-medium">
+                        ${b.landmark ? escapeHtml(b.landmark) : 'District 1 Monitored Area'}
+                    </div>
+                    <div class="border-t border-slate-100 pt-1 text-[10px] space-y-0.5 text-slate-500">
+                        <div><strong>Active Cases:</strong> <span class="font-bold text-slate-800">${b.total}</span></div>
+                        <div><strong>Attack Rate:</strong> ${b.attack_rate} per 1,000 population</div>
+                        <div><strong>Population:</strong> ${Number(b.population).toLocaleString()}</div>
+                    </div>
+                </div>
+            `).addTo(map);
+        });
+
+        map.on('mouseleave', 'layer-buffers', () => {
+            map.getCanvas().style.cursor = '';
+        });
+
+        // Tooltip for Individual Cases
         map.on('mouseenter', 'layer-points', (e) => {
             map.getCanvas().style.cursor = 'pointer';
             const p = e.features[0].properties;
@@ -894,8 +1193,9 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
             if (map.getLayer('layer-heatmap')) map.setLayoutProperty('layer-heatmap', 'visibility', vis);
         } else if (layerName === 'clusters') {
             const el = document.getElementById('toggleClusters');
-            const vis = (!el || el.checked) ? 'visible' : 'none';
+            const vis = (el && el.checked) ? 'visible' : 'none';
             if (map.getLayer('layer-clusters-halo')) map.setLayoutProperty('layer-clusters-halo', 'visibility', vis);
+            if (map.getLayer('layer-clusters-pulse')) map.setLayoutProperty('layer-clusters-pulse', 'visibility', vis);
         }
     }
 
@@ -1133,4 +1433,4 @@ $title = 'Geospatial Disease Surveillance & Outbreak Clustering';
     });
 </script>
 
-<?php require_once '../../includes/footer.php'; ?>
+<?php require_once __DIR__ . '/../../includes/footer.php'; ?>

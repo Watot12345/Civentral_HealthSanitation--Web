@@ -128,7 +128,7 @@ $trendsJson = json_encode($trendData);
             </div>
             <div class="mt-3 flex items-center gap-2">
                 <span class="px-2 py-0.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-full text-[10px] font-bold">
-                    District 1 Central Registry
+                    South & North Caloocan Registry
                 </span>
             </div>
         </div>
@@ -141,13 +141,13 @@ $trendsJson = json_encode($trendData);
                     <i class="fa-solid fa-map-location-dot text-lg"></i>
                 </div>
                 <div>
-                    <p class="text-2xl font-black text-slate-900">7 Zones</p>
+                    <p class="text-2xl font-black text-slate-900">16 Zones</p>
                     <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Surveillance Zones</p>
                 </div>
             </div>
             <div class="mt-3 flex items-center gap-2">
                 <span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full text-[10px] font-bold">
-                    46 Monitored Barangays
+                    193 Monitored Barangays
                 </span>
             </div>
         </div>

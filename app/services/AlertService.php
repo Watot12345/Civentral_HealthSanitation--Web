@@ -29,6 +29,26 @@ class AlertService
         'Diabetes Mellitus'
     ];
 
+    public static array $caloocanZones = [
+        'Zone 1'  => ['start' => 1, 'end' => 4, 'region' => 'South Caloocan'],
+        'Zone 2'  => ['start' => 5, 'end' => 24, 'region' => 'South Caloocan'],
+        'Zone 3'  => ['start' => 25, 'end' => 35, 'region' => 'South Caloocan'],
+        'Zone 4'  => ['start' => 36, 'end' => 48, 'region' => 'South Caloocan'],
+        'Zone 5'  => ['start' => 49, 'end' => 58, 'region' => 'South Caloocan'],
+        'Zone 6'  => ['start' => 59, 'end' => 76, 'region' => 'South Caloocan'],
+        'Zone 7'  => ['start' => 77, 'end' => 81, 'region' => 'South Caloocan'],
+        'Zone 8'  => ['start' => 82, 'end' => 85, 'region' => 'South Caloocan'],
+        'Zone 9'  => ['start' => 86, 'end' => 98, 'region' => 'South Caloocan'],
+        'Zone 10' => ['start' => 99, 'end' => 116, 'region' => 'South Caloocan'],
+        'Zone 11' => ['start' => 117, 'end' => 131, 'region' => 'South Caloocan'],
+        'Zone 12' => ['start' => 132, 'end' => 140, 'region' => 'South Caloocan'],
+        'Zone 13' => ['start' => 141, 'end' => 150, 'region' => 'South Caloocan'],
+        'Zone 14' => ['start' => 151, 'end' => 160, 'region' => 'South Caloocan'],
+        'Zone 15' => ['start' => 161, 'end' => 164, 'region' => 'South Caloocan'],
+        'Zone 16' => ['start' => 165, 'end' => 193, 'region' => 'North Caloocan']
+    ];
+
+    // Backwards compatibility alias
     public static array $district1Zones = [
         'Zone 1'  => ['start' => 1, 'end' => 4],
         'Zone 7'  => ['start' => 77, 'end' => 81],
@@ -265,15 +285,32 @@ class AlertService
         if (preg_match('/\b(\d{1,3})\b/', $barangayName, $m)) {
             $bNum = (int)$m[1];
             if ($bNum >= 1 && $bNum <= 4) return 'Zone 1';
+            if ($bNum >= 5 && $bNum <= 24) return 'Zone 2';
+            if ($bNum >= 25 && $bNum <= 35) return 'Zone 3';
+            if ($bNum >= 36 && $bNum <= 48) return 'Zone 4';
+            if ($bNum >= 49 && $bNum <= 58) return 'Zone 5';
+            if ($bNum >= 59 && $bNum <= 76) return 'Zone 6';
             if ($bNum >= 77 && $bNum <= 81) return 'Zone 7';
             if ($bNum >= 82 && $bNum <= 85) return 'Zone 8';
+            if ($bNum >= 86 && $bNum <= 98) return 'Zone 9';
+            if ($bNum >= 99 && $bNum <= 116) return 'Zone 10';
+            if ($bNum >= 117 && $bNum <= 131) return 'Zone 11';
             if ($bNum >= 132 && $bNum <= 140) return 'Zone 12';
             if ($bNum >= 141 && $bNum <= 150) return 'Zone 13';
             if ($bNum >= 151 && $bNum <= 160) return 'Zone 14';
             if ($bNum >= 161 && $bNum <= 164) return 'Zone 15';
+            if ($bNum >= 165 && $bNum <= 193) return 'Zone 16';
         }
 
-        return 'Zone 7';
+        // Named North Caloocan Subdivisions and Landmarks
+        $northKeywords = ['Bagong Silang', 'Camarin', 'Tala', 'Deparo', 'Llano', 'Kaybiga', 'Bagbaguin', 'Amparo', 'Urduja', 'Bankers', 'Pangarap', 'Malaria', 'Barracks'];
+        foreach ($northKeywords as $kw) {
+            if (stripos($barangayName, $kw) !== false) {
+                return 'Zone 16';
+            }
+        }
+
+        return 'Zone 1';
     }
 
     /**
